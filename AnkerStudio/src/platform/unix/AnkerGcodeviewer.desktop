@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Anker GCode viewer
+Exec=ankermake_alpha --gcodeviewer %F
+Icon=AnkerStudio-gcodeviewer
+Terminal=false
+Type=Application
+MimeType=text/x.gcode;
+Categories=Graphics;3DGraphics;
+Keywords=3D;Printing;Slicer;
