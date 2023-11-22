@@ -253,6 +253,14 @@ void Control::SetSelectionSpan(const int lower_val, const int higher_val)
     ProcessWindowEvent(e);
 }
 
+void Control::SetMinValue(const int min_value)
+{
+    m_min_value = min_value;
+    Refresh();
+    Update();
+}
+
+
 void Control::SetMaxValue(const int max_value)
 {
     m_max_value = max_value;
@@ -1686,7 +1694,7 @@ void Control::append_change_extruder_menu_item(wxMenu* menu, bool switch_current
 
         append_submenu(menu, change_extruder_menu, wxID_ANY, change_extruder_menu_name, _L("Use another extruder"),
             active_extruders[1] > 0 ? "edit_uni" : "change_extruder",
-            [this]() {return m_mode == MultiAsSingle && !GUI::wxGetApp().obj_list()->has_paint_on_segmentation(); }, GUI::wxGetApp().plater());
+            [this]() {return m_mode == MultiAsSingle /*&& !GUI::wxGetApp().obj_list()->has_paint_on_segmentation()*/; }, GUI::wxGetApp().plater());
     }
 }
 

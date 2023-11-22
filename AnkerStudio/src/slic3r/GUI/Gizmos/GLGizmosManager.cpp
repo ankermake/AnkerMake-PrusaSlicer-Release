@@ -38,6 +38,7 @@ const float GLGizmosManager::Default_Icons_Size = 64;
 GLGizmosManager::GLGizmosManager(GLCanvas3D& parent)
     : m_parent(parent)
     , m_enabled(false)
+    , m_UIRendered(true)
     , m_icons_texture_dirty(true)
     , m_current(Undefined)
     , m_hover(Undefined)
@@ -457,7 +458,7 @@ bool GLGizmosManager::on_mouse(const wxMouseEvent &mouse_event)
     if (!m_enabled) return false;
 
     // tool bar wants to use event?
-    if (gizmos_toolbar_on_mouse(mouse_event)) return true;
+    if (m_UIRendered && gizmos_toolbar_on_mouse(mouse_event)) return true;
 
     // current gizmo wants to use event?
     if (m_current != Undefined &&
@@ -935,6 +936,7 @@ bool GLGizmosManager::activate_gizmo(EType type)
         // clean up previous gizmo
         GLGizmoBase &old_gizmo = *m_gizmos[m_current];
         old_gizmo.set_state(GLGizmoBase::Off);
+        Slic3r::GUI::wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event("", false);
         if (old_gizmo.get_state() != GLGizmoBase::Off)
             return false; // gizmo refused to be turned off, do nothing.
 

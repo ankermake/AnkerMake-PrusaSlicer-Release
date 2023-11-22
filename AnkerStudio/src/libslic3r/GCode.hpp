@@ -131,7 +131,7 @@ struct LayerResult {
 
 class GCode {
 public:        
-    GCode() : 
+    GCode() :
     	m_origin(Vec2d::Zero()),
         m_enable_loop_clipping(true), 
         m_enable_cooling_markers(false), 
@@ -151,8 +151,12 @@ public:
         m_brim_done(false),
         m_second_layer_things_done(false),
         m_silent_time_estimator_enabled(false),
+        m_creat_aifile_enabled(false),
+        m_current_z(0.),
         m_last_obj_copy(nullptr, Point(std::numeric_limits<coord_t>::max(), std::numeric_limits<coord_t>::max()))
-        {}
+        {
+            memset(m_axis_jerk, 0, sizeof(m_axis_jerk));
+        }
     ~GCode() = default;
 
     // throws std::runtime_exception on error,
@@ -185,6 +189,8 @@ public:
     void            set_layer_count(unsigned int value) { m_layer_count = value; }
     void            apply_print_config(const PrintConfig &print_config);
 
+    //friva 
+    void            set_ai_creat_file(bool val) {  m_creat_aifile_enabled = val; }
     // append full config to the given string
     static void append_full_config(const Print& print, std::string& str);
 
@@ -271,8 +277,8 @@ private:
     void process_layers(
         const Print                             &print,
         const ToolOrdering                      &tool_ordering,
-        ObjectsLayerToPrint                      layers_to_print,
-        const size_t                             single_object_idx,
+        ObjectsLayerToPrint                     layers_to_print,
+        const size_t                            single_object_idx,
         GCodeOutputStream                       &output_stream);
 
     void            set_last_pos(const Point &pos) { m_last_pos = pos; m_last_pos_defined = true; }
@@ -329,6 +335,11 @@ private:
     std::string     retract(bool toolchange = false);
     std::string     unretract() { return m_writer.unlift() + m_writer.unretract(); }
     std::string     set_extruder(unsigned int extruder_id, double print_z);
+    std::string     write_jerk(ExtrusionRole role);
+    std::string     write_jerk_xyze(Axis axis, double jerk);
+
+    // Cache Write Jerk,aviod repeat write
+    double                              m_axis_jerk[Axis::NUM_AXES];
 
     // Cache for custom seam enforcers/blockers for each layer.
     SeamPlacer                          m_seam_placer;
@@ -430,9 +441,13 @@ private:
     std::pair<const PrintObject*, Point> m_last_obj_copy;
 
     bool                                m_silent_time_estimator_enabled;
-
+    //friva creat ai file
+    bool                                m_creat_aifile_enabled;
     // Processor
     GCodeProcessor                      m_processor;
+
+    bool m_change_layer_lift_z = false;
+    coordf_t m_current_z;
 
     std::string                         _extrude(const ExtrusionPath &path, const std::string_view description, double speed = -1);
     void                                print_machine_envelope(GCodeOutputStream &file, Print &print);

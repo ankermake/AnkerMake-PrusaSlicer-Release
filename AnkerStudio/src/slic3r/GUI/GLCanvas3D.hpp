@@ -11,6 +11,7 @@
 #include "Selection.hpp"
 #include "Gizmos/GLGizmosManager.hpp"
 #include "GUI_ObjectLayers.hpp"
+#include "AnkerObjectLayers.hpp"
 #include "GLSelectionRectangle.hpp"
 #include "MeshUtils.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
@@ -37,6 +38,9 @@ class wxGLContext;
 // Support for Retina OpenGL on Mac OS.
 // wxGTK3 seems to simulate OSX behavior in regard to HiDPI scaling support, enable it as well.
 #define ENABLE_RETINA_GL (__APPLE__ || __WXGTK3__)
+namespace post_gcode {
+    struct picData;
+}
 
 namespace Slic3r {
 
@@ -180,6 +184,7 @@ wxDECLARE_EVENT(EVT_GLCANVAS_RELOAD_FROM_DISK, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLCANVAS_RENDER_TIMER, wxTimerEvent/*RenderTimerEvent*/);
 wxDECLARE_EVENT(EVT_GLCANVAS_TOOLBAR_HIGHLIGHTER_TIMER, wxTimerEvent);
 wxDECLARE_EVENT(EVT_GLCANVAS_GIZMO_HIGHLIGHTER_TIMER, wxTimerEvent);
+wxDECLARE_EVENT(EVT_GLCANVAS_INITIALIZED, SimpleEvent);
 
 class GLCanvas3D
 {
@@ -776,6 +781,8 @@ public:
     // parts_only == false -> render also sla support and pad
     void render_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, Camera::EType camera_type);
     void render_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, const GLVolumeCollection& volumes, Camera::EType camera_type);
+    //render pic for m5
+    void render_akpic(post_gcode::picData& akpic_single, unsigned int w, unsigned int h,double offset_y,double offset_z, const std::array<unsigned int, 2>& layers_z_range);
 
     void select_all();
     void deselect_all();
@@ -795,6 +802,11 @@ public:
     void set_toolpaths_z_range(const std::array<unsigned int, 2>& range);
     std::vector<CustomGCode::Item>& get_custom_gcode_per_print_z() { return m_gcode_viewer.get_custom_gcode_per_print_z(); }
     size_t get_gcode_extruders_count() { return m_gcode_viewer.get_extruders_count(); }
+    bool is_gCodeExtrusionRole_visible(GCodeExtrusionRole role) { return m_gcode_viewer.is_visible(role); }
+    void set_gCodeExtrusionRole_visible(GCodeExtrusionRole role, bool visible) { m_gcode_viewer.set_role_visible(role, visible);}
+
+    void set_gcode_window_visibility(bool visible);
+    bool get_gcode_window_visibility();
 
     std::vector<int> load_object(const ModelObject& model_object, int obj_idx, std::vector<int> instance_idxs);
     std::vector<int> load_object(const Model& model, int obj_idx);
@@ -843,9 +855,11 @@ public:
 
     void update_gizmos_on_off_state();
     void reset_all_gizmos() { m_gizmos.reset_all_states(); }
+    bool can_gizmos();
 
     void handle_sidebar_focus_event(const std::string& opt_key, bool focus_on);
     void handle_layers_data_focus_event(const t_layer_height_range range, const EditorType type);
+    void handle_layers_data_focus_event(const t_layer_height_range range, const AnkerEditorType type);
 
     void update_ui_from_settings();
 
@@ -892,6 +906,9 @@ public:
     int get_main_toolbar_item_id(const std::string& name) const { return m_main_toolbar.get_item_id(name); }
     void force_main_toolbar_left_action(int item_id) { m_main_toolbar.force_left_action(item_id, *this); }
     void force_main_toolbar_right_action(int item_id) { m_main_toolbar.force_right_action(item_id, *this); }
+    void select_main_toolbar_item(const std::string& name) { m_main_toolbar.select_item(name); }
+    void reset_main_toolbar_toggled_state() { m_main_toolbar.reset_all_toggled_state(*this); }
+    void update_main_toolbar_state() { m_main_toolbar.update_items_state(); }
     void update_tooltip_for_settings_item_in_main_toolbar();
 
     bool has_toolpaths_to_export() const;
@@ -954,6 +971,8 @@ public:
 
     std::pair<SlicingParameters, const std::vector<double>> get_layers_height_data(int object_id);
 
+    inline void set_force_on_screen(bool force) { m_force_on_screen = force; };
+    bool m_force_on_screen = false;
 private:
     bool _is_shown_on_screen() const;
 
@@ -1011,6 +1030,14 @@ private:
     void _render_thumbnail_framebuffer_ext(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, const GLVolumeCollection& volumes, Camera::EType camera_type);
     // render thumbnail using the default framebuffer
     void _render_thumbnail_legacy(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, const GLVolumeCollection& volumes, Camera::EType camera_type);
+    
+    void _render_akpic_internal(double offset_y, double offset_z, const std::array<unsigned int, 2>& layers_z_range);
+    void _render_akpic_framebuffer(post_gcode::picData& akpic_single, unsigned int w, unsigned int h, double offset_y, double offset_z, const std::array<unsigned int, 2>& layers_z_range);
+    // render akpic using an off-screen framebuffer when GLEW_EXT_framebuffer_object is supported
+    void _render_akpic_framebuffer_ext(post_gcode::picData& akpic_single, unsigned int w, unsigned int h, double offset_y, double offset_z, const std::array<unsigned int, 2>& layers_z_range);
+    // render akpic using the default framebuffer
+    void _render_akpic_legacy(post_gcode::picData& akpic_single, unsigned int w, unsigned int h, double offset_y, double offset_z, const std::array<unsigned int, 2>& layers_z_range);
+
 
     void _update_volumes_hover_state();
 

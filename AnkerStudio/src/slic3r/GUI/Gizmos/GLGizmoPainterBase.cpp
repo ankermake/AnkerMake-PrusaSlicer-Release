@@ -674,13 +674,13 @@ bool GLGizmoPainterBase::on_mouse(const wxMouseEvent &mouse_event)
 
     const Selection &selection = m_parent.get_selection();
     int selected_object_idx = selection.get_object_idx();
-    if (mouse_event.LeftDown()) {
+    if (get_left_button_enable() && mouse_event.LeftDown()) {
         if ((!control_down || grabber_contains_mouse) &&            
             gizmo_event(SLAGizmoEventType::LeftDown, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), false))
             // the gizmo got the event and took some action, there is no need
             // to do anything more
             return true;
-    } else if (mouse_event.RightDown()){
+    } else if (get_right_button_enable() && mouse_event.RightDown()){
         if (!control_down && selected_object_idx != -1 &&
             gizmo_event(SLAGizmoEventType::RightDown, mouse_pos, false, false, false)) 
             // event was taken care of
@@ -697,7 +697,7 @@ bool GLGizmoPainterBase::on_mouse(const wxMouseEvent &mouse_event)
             m_parent.set_as_dirty();
             return true;
         }
-        if(control_down && (mouse_event.LeftIsDown() || mouse_event.RightIsDown()))
+        if(control_down && (get_left_button_enable() && mouse_event.LeftIsDown() || (get_right_button_enable() && mouse_event.RightIsDown())))
         {
             // CTRL has been pressed while already dragging -> stop current action
             if (mouse_event.LeftIsDown())
@@ -706,7 +706,7 @@ bool GLGizmoPainterBase::on_mouse(const wxMouseEvent &mouse_event)
                 gizmo_event(SLAGizmoEventType::RightUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), true);
             return false;
         }
-    } else if (mouse_event.LeftUp()) {
+    } else if (get_left_button_enable() && mouse_event.LeftUp()) {
         if (!m_parent.is_mouse_dragging()) {
             // in case SLA/FDM gizmo is selected, we just pass the LeftUp
             // event and stop processing - neither object moving or selecting
@@ -714,7 +714,7 @@ bool GLGizmoPainterBase::on_mouse(const wxMouseEvent &mouse_event)
             gizmo_event(SLAGizmoEventType::LeftUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), control_down);
             return true;
         }
-    } else if (mouse_event.RightUp()) {
+    } else if (get_right_button_enable() && mouse_event.RightUp()) {
         if (!m_parent.is_mouse_dragging()) {
             gizmo_event(SLAGizmoEventType::RightUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), control_down);
             return true;

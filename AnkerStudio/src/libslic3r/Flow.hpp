@@ -96,7 +96,7 @@ public:
 
     static Flow bridging_flow(float dmr, float nozzle_diameter) { return Flow { dmr, dmr, bridge_extrusion_spacing(dmr), nozzle_diameter, true }; }
 
-    static Flow new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent &width, float nozzle_diameter, float height);
+    static Flow new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent &width, float nozzle_diameter, float height, ConfigOptionFloat flow_ratio = ConfigOptionFloat(1.0));
 
     // Spacing of extrusions with rounded extrusion model.
     static float rounded_rectangle_extrusion_spacing(float width, float height);
@@ -116,8 +116,8 @@ public:
 	static double extrusion_width(const std::string &opt_key, const ConfigOptionResolver &config, const unsigned int first_printing_extruder = 0);
 
 private:
-    Flow(float width, float height, float spacing, float nozzle_diameter, bool bridge) : 
-        m_width(width), m_height(height), m_spacing(spacing), m_nozzle_diameter(nozzle_diameter), m_bridge(bridge) 
+    Flow(float width, float height, float spacing, float nozzle_diameter, bool bridge, float flow_ratio = 1.0) : 
+        m_width(width), m_height(height), m_spacing(spacing), m_nozzle_diameter(nozzle_diameter), m_bridge(bridge), m_flow_ratio(flow_ratio)
         { 
             // Gap fill violates this condition.
             //assert(width >= height); 
@@ -128,6 +128,7 @@ private:
     float       m_spacing { 0 };
     float       m_nozzle_diameter { 0 };
     bool        m_bridge { false };
+    float       m_flow_ratio{ 1 };
 };
 
 extern Flow support_material_flow(const PrintObject *object, float layer_height = 0.f);

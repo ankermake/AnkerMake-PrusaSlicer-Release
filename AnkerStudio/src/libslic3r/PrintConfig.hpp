@@ -529,6 +529,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt,                 support_material_enforce_layers))
     ((ConfigOptionInt,                 support_material_extruder))
     ((ConfigOptionFloatOrPercent,      support_material_extrusion_width))
+    ((ConfigOptionFloat,               support_material_flow_ratio))
     ((ConfigOptionBool,                support_material_interface_contact_loops))
     ((ConfigOptionInt,                 support_material_interface_extruder))
     ((ConfigOptionInt,                 support_material_interface_layers))
@@ -574,6 +575,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionEnum<InfillPattern>,  top_fill_pattern))
     ((ConfigOptionEnum<InfillPattern>,  bottom_fill_pattern))
     ((ConfigOptionFloatOrPercent,       external_perimeter_extrusion_width))
+    ((ConfigOptionFloat,                external_perimeter_flow_ratio))
     ((ConfigOptionFloatOrPercent,       external_perimeter_speed))
     ((ConfigOptionBool,                 enable_dynamic_overhang_speeds))
     ((ConfigOptionFloatOrPercent,       overhang_speed_0))
@@ -595,6 +597,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       infill_anchor_max))
     ((ConfigOptionInt,                  infill_extruder))
     ((ConfigOptionFloatOrPercent,       infill_extrusion_width))
+    ((ConfigOptionFloat,                infill_flow_ratio))
     ((ConfigOptionInt,                  infill_every_layers))
     ((ConfigOptionFloatOrPercent,       infill_overlap))
     ((ConfigOptionFloat,                infill_speed))
@@ -608,6 +611,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                 overhangs))
     ((ConfigOptionInt,                  perimeter_extruder))
     ((ConfigOptionFloatOrPercent,       perimeter_extrusion_width))
+    ((ConfigOptionFloat,                perimeter_flow_ratio))
     ((ConfigOptionFloat,                perimeter_speed))
     // Total number of perimeters.
     ((ConfigOptionInt,                  perimeters))
@@ -615,11 +619,13 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                solid_infill_below_area))
     ((ConfigOptionInt,                  solid_infill_extruder))
     ((ConfigOptionFloatOrPercent,       solid_infill_extrusion_width))
+    ((ConfigOptionFloat,                solid_infill_flow_ratio))
     ((ConfigOptionInt,                  solid_infill_every_layers))
     ((ConfigOptionFloatOrPercent,       solid_infill_speed))
     // Detect thin walls.
     ((ConfigOptionBool,                 thin_walls))
     ((ConfigOptionFloatOrPercent,       top_infill_extrusion_width))
+    ((ConfigOptionFloat,                top_infill_flow_ratio))
     ((ConfigOptionInt,                  top_solid_layers))
     ((ConfigOptionFloat,                top_solid_min_thickness))
     ((ConfigOptionFloatOrPercent,       top_solid_infill_speed))
@@ -718,6 +724,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                wipe_tower_no_sparse_layers))
     ((ConfigOptionString,              toolchange_gcode))
     ((ConfigOptionFloat,               travel_speed))
+    ((ConfigOptionFloat,               first_layer_travel_speed))
     ((ConfigOptionFloat,               travel_speed_z))
     ((ConfigOptionBool,                use_firmware_retraction))
     ((ConfigOptionBool,                use_relative_e_distances))
@@ -745,7 +752,9 @@ static inline std::string get_extrusion_axis(const GCodeConfig &cfg)
 PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     PrintConfig, 
     (MachineEnvelopeConfig, GCodeConfig),
-
+    // add by allen for add anker_filament_id and anker_colour_id
+    ((ConfigOptionStrings,            anker_filament_id))
+    ((ConfigOptionStrings,            anker_colour_id))
     ((ConfigOptionBool,               avoid_crossing_curled_overhangs))
     ((ConfigOptionBool,               avoid_crossing_perimeters))
     ((ConfigOptionFloatOrPercent,     avoid_crossing_perimeters_max_detour))
@@ -777,6 +786,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              first_layer_acceleration))
     ((ConfigOptionInts,               first_layer_bed_temperature))
     ((ConfigOptionFloatOrPercent,     first_layer_extrusion_width))
+    ((ConfigOptionFloat,              first_layer_flow_ratio))
     ((ConfigOptionFloatOrPercent,     first_layer_height))
     ((ConfigOptionFloatOrPercent,     first_layer_speed))
     ((ConfigOptionInts,               first_layer_temperature))
@@ -798,6 +808,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionString,             output_filename_format))
     ((ConfigOptionFloat,              perimeter_acceleration))
     ((ConfigOptionStrings,            post_process))
+    ((ConfigOptionString,             print_settings_id))
     ((ConfigOptionString,             printer_model))
     ((ConfigOptionString,             printer_notes))
     ((ConfigOptionFloat,              resolution))
@@ -831,6 +842,24 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloats,             wiping_volumes_matrix))
     ((ConfigOptionFloats,             wiping_volumes_extruders))
     ((ConfigOptionFloat,              z_offset))
+    //Jerk Control(X&Y)
+    ((ConfigOptionBool,               jerk_enable))
+    ((ConfigOptionFloat,              jerk_travel))
+    ((ConfigOptionFloat,              jerk_print))
+    ((ConfigOptionFloat,              jerk_infill))
+    ((ConfigOptionFloat,              jerk_outer_wall))
+    ((ConfigOptionFloat,              jerk_inner_wall))
+    ((ConfigOptionFloat,              jerk_top_bottom))
+    ((ConfigOptionFloat,              jerk_skirt_brim))
+     //Jerk Control(e)
+    ((ConfigOptionBool,               jerk_e_enable))
+    ((ConfigOptionFloat,              jerk_e_print))
+    ((ConfigOptionFloat,              jerk_e_infill))
+    ((ConfigOptionFloat,              jerk_e_outer_wall))
+    ((ConfigOptionFloat,              jerk_e_inner_wall))
+    ((ConfigOptionFloat,              jerk_e_skin))
+    ((ConfigOptionFloat,              jerk_e_support))
+    ((ConfigOptionFloat,              jerk_e_skirt_brim))
 )
 
 PRINT_CONFIG_CLASS_DERIVED_DEFINE0(
@@ -1264,6 +1293,7 @@ public:
     // The following implicit conversion breaks the Cereal serialization.
 //    operator const DynamicPrintConfig&() const throw() { return this->get(); }
     const DynamicPrintConfig&   get() const throw() { return m_data; }
+    DynamicPrintConfig&   getPrintCfg() { return m_data; }
     bool                        empty() const throw() { return m_data.empty(); }
     size_t                      size() const throw() { return m_data.size(); }
     auto                        cbegin() const { return m_data.cbegin(); }

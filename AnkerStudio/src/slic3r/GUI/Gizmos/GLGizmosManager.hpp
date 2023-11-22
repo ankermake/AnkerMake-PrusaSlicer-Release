@@ -101,6 +101,7 @@ private:
 
     GLCanvas3D& m_parent;
     bool m_enabled;
+    bool m_UIRendered; // Anker
     std::vector<std::unique_ptr<GLGizmoBase>> m_gizmos;
     GLTexture m_icons_texture;
     bool m_icons_texture_dirty;
@@ -172,6 +173,10 @@ public:
 
     bool is_enabled() const { return m_enabled; }
     void set_enabled(bool enable) { m_enabled = enable; }
+
+    // Anker
+    bool is_rendered() const { return m_UIRendered; }
+    void set_UI_rendered(bool rendered) { m_UIRendered = rendered; }
 
     void set_overlay_icon_size(float size);
     void set_overlay_scale(float scale);

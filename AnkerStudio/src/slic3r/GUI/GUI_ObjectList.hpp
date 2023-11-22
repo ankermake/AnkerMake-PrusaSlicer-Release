@@ -19,6 +19,7 @@ class wxBoxSizer;
 class wxBitmapComboBox;
 class wxMenuItem;
 class MenuWithSeparators;
+class AnkerObjectBarView;
 
 namespace Slic3r {
 class ConfigOptionsGroup;
@@ -159,6 +160,8 @@ private:
 
     std::vector<wxBitmap*>      m_bmp_vector;
 
+    AnkerObjectBarView* m_pObjectBar;
+
     int			m_selected_object_id = -1;
     bool		m_prevent_list_events = false;		// We use this flag to avoid circular event handling Select() 
                                                     // happens to fire a wxEVT_LIST_ITEM_SELECTED on OSX, whose event handler 
@@ -197,6 +200,7 @@ public:
 
     void set_min_height();
     void update_min_height();
+    int get_item_count();
 
     ObjectDataViewModel*        GetModel() const    { return m_objects_model; }
     ModelConfig*                config() const      { return m_config; }
@@ -215,6 +219,8 @@ public:
     void                update_name_in_model(const wxDataViewItem& item) const;
     void                update_name_in_list(int obj_idx, int vol_idx) const;
     void                update_extruder_values_for_items(const size_t max_extruder);
+    // Anker
+    void                set_ui_bar(AnkerObjectBarView* bar) { m_pObjectBar = bar; }
 
     // Get obj_idx and vol_idx values for the selected (by default) or an adjusted item
     void                get_selected_item_indexes(int& obj_idx, int& vol_idx, const wxDataViewItem& item = wxDataViewItem(0));

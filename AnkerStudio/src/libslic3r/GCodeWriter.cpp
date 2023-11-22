@@ -257,14 +257,29 @@ std::string GCodeWriter::set_speed(double F, const std::string &comment, const s
     return w.string();
 }
 
+std::string GCodeWriter::set_speed_withE(double F, const std::string& comment, const std::string& cooling_marker) const
+{
+    assert(F > 0.);
+    assert(F < 100000.);
+
+    GCodeG1Formatter w;
+    w.emit_e(m_extrusion_axis, m_extruder->extrude(0.0).second);
+    w.emit_f(F);
+    w.emit_comment(this->config.gcode_comments, comment);
+    w.emit_string(cooling_marker);
+    return w.string();
+}
+
 std::string GCodeWriter::travel_to_xy(const Vec2d &point, const std::string &comment)
 {
+    auto first_layer_travel_speed = this->config.option<ConfigOptionFloat>("first_layer_travel_speed");
+
     m_pos.x() = point.x();
     m_pos.y() = point.y();
     
     GCodeG1Formatter w;
     w.emit_xy(point);
-    w.emit_f(this->config.travel_speed.value * 60.0);
+    w.emit_f((this->m_is_first_layer ? first_layer_travel_speed->value : this->config.travel_speed.value) * 60.0);
     w.emit_comment(this->config.gcode_comments, comment);
     return w.string();
 }
@@ -274,7 +289,7 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
     // FIXME: This function was not being used when travel_speed_z was separated (bd6badf).
     // Calculation of feedrate was not updated accordingly. If you want to use
     // this function, fix it first.
-    std::terminate();
+    //std::terminate();
 
     /*  If target Z is lower than current Z but higher than nominal Z we
         don't perform the Z move but we only move in the XY plane and
@@ -294,10 +309,11 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
         the lift. */
     m_lifted = 0;
     m_pos = point;
-    
+    auto first_layer_travel_speed = this->config.option<ConfigOptionFloat>("first_layer_travel_speed");
+
     GCodeG1Formatter w;
     w.emit_xyz(point);
-    w.emit_f(this->config.travel_speed.value * 60.0);
+    w.emit_f((this->m_is_first_layer ? first_layer_travel_speed->value : this->config.travel_speed.value) * 60.0);
     w.emit_comment(this->config.gcode_comments, comment);
     return w.string();
 }
@@ -324,10 +340,11 @@ std::string GCodeWriter::travel_to_z(double z, const std::string &comment)
 std::string GCodeWriter::_travel_to_z(double z, const std::string &comment)
 {
     m_pos.z() = z;
+    auto first_layer_travel_speed = this->config.option<ConfigOptionFloat>("first_layer_travel_speed");   
 
     double speed = this->config.travel_speed_z.value;
     if (speed == 0.)
-        speed = this->config.travel_speed.value;
+        speed = this->m_is_first_layer ? first_layer_travel_speed->value : this->config.travel_speed.value;
     
     GCodeG1Formatter w;
     w.emit_z(z);

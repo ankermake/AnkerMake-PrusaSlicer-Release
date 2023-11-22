@@ -459,30 +459,36 @@ std::ostream& operator<<(std::ostream &stm, const Vec2d &pointf);
 // Type safe conversions to and from scaled and unscaled coordinates
 // /////////////////////////////////////////////////////////////////////////////
 
+template<class Tout = double>
+inline constexpr Tout scaled(double v) noexcept
+{
+    return Tout(v / (SCALING_FACTOR));
+}
+
 // Semantics are the following:
 // Upscaling (scaled()): only from floating point types (or Vec) to either
 //                       floating point or integer 'scaled coord' coordinates.
 // Downscaling (unscaled()): from arithmetic (or Vec) to floating point only
 
 // Conversion definition from unscaled to floating point scaled
-template<class Tout,
-         class Tin,
-         class = FloatingOnly<Tin>>
-inline constexpr FloatingOnly<Tout> scaled(const Tin &v) noexcept
-{
-    return Tout(v / Tin(SCALING_FACTOR));
-}
+//template<class Tout,
+//         class Tin,
+//         class = FloatingOnly<Tin>>
+//inline constexpr FloatingOnly<Tout> scaled(const Tin &v) noexcept
+//{
+//    return Tout(v / Tin(SCALING_FACTOR));
+//}
 
 // Conversion definition from unscaled to integer 'scaled coord'.
 // TODO: is the rounding necessary? Here it is commented  out to show that
 // it can be different for integers but it does not have to be. Using
 // std::round means loosing noexcept and constexpr modifiers
-template<class Tout = coord_t, class Tin, class = FloatingOnly<Tin>>
-inline constexpr ScaledCoordOnly<Tout> scaled(const Tin &v) noexcept
-{
-    //return static_cast<Tout>(std::round(v / SCALING_FACTOR));
-    return Tout(v / Tin(SCALING_FACTOR));
-}
+//template<class Tout = coord_t, class Tin, class = FloatingOnly<Tin>>
+//inline constexpr ScaledCoordOnly<Tout> scaled(const Tin &v) noexcept
+//{
+//    //return static_cast<Tout>(std::round(v / SCALING_FACTOR));
+//    return Tout(v / Tin(SCALING_FACTOR));
+//}
 
 // Conversion for Eigen vectors (N dimensional points)
 template<class Tout = coord_t,

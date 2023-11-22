@@ -202,16 +202,16 @@ void CreateObjectJob::finalize(bool canceled, std::exception_ptr &eptr)
 
     GUI_App    &app      = wxGetApp();
     Plater     *plater   = app.plater();
-    ObjectList *obj_list = app.obj_list();
+    //ObjectList *obj_list = app.obj_list();
     GLCanvas3D *canvas   = plater->canvas3D();
 
     plater->take_snapshot(_L("Add Emboss text object"));
 
     // Create new object and change selection
     bool center = false;
-    obj_list->load_mesh_object(std::move(m_result), m_input.volume_name,
-                                center, &m_input.text_configuration,
-                                &m_transformation);
+    //obj_list->load_mesh_object(std::move(m_result), m_input.volume_name,
+    //                            center, &m_input.text_configuration,
+    //                            &m_transformation);
 
     // When add new object selection is empty.
     // When cursor move and no one object is selected than
@@ -484,12 +484,12 @@ TriangleMesh priv::create_default_mesh()
 }
 
 namespace{
-void update_volume_name(const ModelVolume &volume, const ObjectList *obj_list)
+void update_volume_name(const ModelVolume &volume, const AnkerObjectBar *objectBar)
 {
-    if (obj_list == nullptr)
+    if (objectBar == nullptr)
         return;
 
-    const std::vector<ModelObject *>* objects = obj_list->objects();
+    const std::vector<ModelObject *>* objects = objectBar->objects();
     if (objects == nullptr)
         return;
 
@@ -515,7 +515,7 @@ void update_volume_name(const ModelVolume &volume, const ObjectList *obj_list)
         if (volume_idx > 0)
             break;
     }
-    obj_list->update_name_in_list(object_idx, volume_idx);
+    objectBar->update_name_in_list(object_idx, volume_idx);
 }
 }
 
@@ -547,7 +547,7 @@ void UpdateJob::update_volume(ModelVolume             *volume,
     // update volume name in right panel( volume / object name)
     if (volume->name != volume_name) {
         volume->name = volume_name;
-        update_volume_name(*volume, app.obj_list());
+        //update_volume_name(*volume, app.obj_list());
     }
 
     // When text is object.
@@ -606,7 +606,7 @@ void priv::create_volume(
 {
     GUI_App         &app      = wxGetApp();
     Plater          *plater   = app.plater();
-    ObjectList      *obj_list = app.obj_list();
+    //ObjectList      *obj_list = app.obj_list();
     GLCanvas3D      *canvas   = plater->canvas3D();
     ModelObjectPtrs &objects  = plater->model().objects;
 
@@ -666,10 +666,10 @@ void priv::create_volume(
     // select only actual volume
     // when new volume is created change selection to this volume
     auto                add_to_selection = [volume](const ModelVolume *vol) { return vol == volume; };
-    wxDataViewItemArray sel = obj_list->reorder_volumes_and_get_selection(object_idx, add_to_selection);
-    if (!sel.IsEmpty()) obj_list->select_item(sel.front());
+    //wxDataViewItemArray sel = obj_list->reorder_volumes_and_get_selection(object_idx, add_to_selection);
+    //if (!sel.IsEmpty()) obj_list->select_item(sel.front());
 
-    obj_list->selection_changed();
+    //obj_list->selection_changed();
 
     // Now is valid text volume selected open emboss gizmo
     GLGizmosManager &manager = canvas->get_gizmos_manager();

@@ -206,7 +206,7 @@ public:
     }
     PrinterTechnology   printer_technology() const { return Preset::printer_technology(this->config); }
     // This call returns a reference, it may add a new entry into the DynamicPrintConfig.
-    PrinterTechnology&  printer_technology_ref() { return this->config.option<ConfigOptionEnum<PrinterTechnology>>("printer_technology", true)->value; }
+    void printer_technology_set(PrinterTechnology o) { this->config.option<ConfigOptionEnum<PrinterTechnology>>("printer_technology", true)->value = o; } //  change @2023-06-19 by ChunLian
 
     // Set is_visible according to application config
     void                set_visible_from_appconfig(const AppConfig &app_config);

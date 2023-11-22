@@ -541,6 +541,7 @@ public:
     bool                is_step_done(PrintObjectStep step) const;
     // Returns true if the last step was finished with success.
     bool                finished() const override { return this->is_step_done(psGCodeExport); }
+    void                clearGCodeSliceState() { Inherited::clear_step_done(psGCodeExport); }
 
     bool                has_infinite_skirt() const;
     bool                has_skirt() const;
@@ -610,7 +611,7 @@ public:
     const ToolOrdering&         get_tool_ordering() const { return m_wipe_tower_data.tool_ordering; }
 
     static bool sequential_print_horizontal_clearance_valid(const Print& print, Polygons* polygons = nullptr);
-
+    void setCreatAiFile(bool val) { isCreatAiFile = val; }
 protected:
     // Invalidates the step, and its depending steps in Print.
     bool                invalidate_step(PrintStep step);
@@ -657,6 +658,9 @@ private:
 
     // Estimated print time, filament consumed.
     PrintStatistics                         m_print_statistics;
+
+    //friva change for acode export
+    bool isCreatAiFile = false;
 
     // To allow GCode to set the Print's GCodeExport step status.
     friend class GCode;

@@ -1538,7 +1538,7 @@ public:
     bool deserialize(const std::string &str, bool append = false) override
     {
         UNUSED(append);
-        return from_string(str, this->value);
+        return from_string(str);
     }
 
     static bool has(T value) 
@@ -1561,6 +1561,15 @@ public:
         if (it == enum_keys_map.end())
             return false;
         value = static_cast<T>(it->second);
+        return true;
+    }
+    bool from_string(const std::string& str)
+    {
+        const t_config_enum_values& enum_keys_map = ConfigOptionEnum<T>::get_enum_values();
+        auto it = enum_keys_map.find(str);
+        if (it == enum_keys_map.end())
+            return false;
+        this->value = static_cast<T>(it->second);
         return true;
     }
 };
@@ -2324,7 +2333,7 @@ class DynamicConfig : public virtual ConfigBase
 public:
     DynamicConfig() = default;
     DynamicConfig(const DynamicConfig &rhs) { *this = rhs; }
-    DynamicConfig(DynamicConfig &&rhs) noexcept : options(std::move(rhs.options)) { rhs.options.clear(); }
+    DynamicConfig(DynamicConfig &&rhs) noexcept : options(std::move(rhs.options)) { opttopo_reset(); rhs.options.clear(); }
 	explicit DynamicConfig(const ConfigBase &rhs, const t_config_option_keys &keys);
 	explicit DynamicConfig(const ConfigBase& rhs) : DynamicConfig(rhs, rhs.keys()) {}
 	virtual ~DynamicConfig() override = default;
@@ -2337,6 +2346,7 @@ public:
         this->clear();
         for (const auto &kvp : rhs.options)
             this->options[kvp.first].reset(kvp.second->clone());
+        opttopo_reset();
         return *this;
     }
 
@@ -2348,6 +2358,7 @@ public:
         this->clear();
         this->options = std::move(rhs.options);
         rhs.options.clear();
+        opttopo_reset();
         return *this;
     }
 
@@ -2368,6 +2379,7 @@ public:
                     it->second.reset(kvp.second->clone());
             }
         }
+        opttopo_reset();
         return *this;
     }
 
@@ -2386,6 +2398,7 @@ public:
             }
         }
         rhs.options.clear();
+        opttopo_reset();
         return *this;
     }
 
@@ -2395,11 +2408,13 @@ public:
     void swap(DynamicConfig &other) 
     { 
         std::swap(this->options, other.options);
+        opttopo_reset();
     }
 
     void clear()
     { 
         this->options.clear(); 
+        opttopo_reset();
     }
 
     bool erase(const t_config_option_key &opt_key)
@@ -2428,17 +2443,7 @@ public:
     // Set a value for an opt_key. Returns true if the value did not exist yet.
     // This DynamicConfig will take ownership of opt.
     // Be careful, as this method does not test the existence of opt_key in this->def().
-    bool                    set_key_value(const std::string &opt_key, ConfigOption *opt)
-    {
-        auto it = this->options.find(opt_key);
-        if (it == this->options.end()) {
-            this->options[opt_key].reset(opt);
-            return true;
-        } else {
-            it->second.reset(opt);
-            return false;
-        }
-    }
+    bool                    set_key_value(const std::string& opt_key, ConfigOption* opt);
 
     // Are the two configs equal? Ignoring options not present in both configs.
     bool equals(const DynamicConfig &other) const;
@@ -2453,6 +2458,15 @@ public:
     std::map<t_config_option_key, std::unique_ptr<ConfigOption>>::const_iterator cbegin() const { return options.cbegin(); }
     std::map<t_config_option_key, std::unique_ptr<ConfigOption>>::const_iterator cend()   const { return options.cend(); }
     size_t                        												 size()   const { return options.size(); }
+
+protected:  //  add @2023-06-26 by ChunLian
+    std::map< const ConfigOption * const, t_config_option_key>   opttopo;
+    void opttopo_add(const ConfigOption * const opt, t_config_option_key key);
+    void opttopo_del(const ConfigOption * const opt);
+    void opttopo_clear();
+    void opttopo_reset();
+    void opttopo_filter(const ConfigOption* const opt);
+    void (*opttopo_change)(const t_config_option_key&, const ConfigOption * const) = nullptr;
 
 private:
     std::map<t_config_option_key, std::unique_ptr<ConfigOption>> options;

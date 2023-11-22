@@ -2,8 +2,8 @@
 #define _libslic3r_h_
 
 #include "libslic3r_version.h"
-#define GCODEVIEWER_APP_NAME "AnkerMake_alpha G-code Viewer"
-#define GCODEVIEWER_APP_KEY  "AnkerMake_alphaGcodeViewer"
+#define GCODEVIEWER_APP_NAME "AnkerMake Studio G-code Viewer"
+#define GCODEVIEWER_APP_KEY  "AnkerMake StudioGcodeViewer"
 
 // this needs to be included early for MSVC (listing it in Build.PL is not enough)
 #include <memory>

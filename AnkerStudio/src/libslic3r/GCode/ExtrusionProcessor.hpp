@@ -158,8 +158,8 @@ std::vector<ExtendedPoint> estimate_points_properties(const std::vector<P>      
             const ExtendedPoint &curr = points[point_idx];
             const ExtendedPoint &next = points[point_idx + 1];
 
-            if ((curr.distance > 0 && curr.distance < boundary_offset + 2.0f) ||
-                (next.distance > 0 && next.distance < boundary_offset + 2.0f)) {
+            if ((curr.distance > EPSILON && curr.distance < boundary_offset + 2.0f) ||
+                (next.distance > EPSILON && next.distance < boundary_offset + 2.0f)) {
                 double line_len = (next.position - curr.position).norm();
                 if (line_len > 4.0f) {
                     double a0 = std::clamp((curr.distance + 2 * boundary_offset) / line_len, 0.0, 1.0);

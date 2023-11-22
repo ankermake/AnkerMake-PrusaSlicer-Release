@@ -12,6 +12,7 @@ public:
 		wxWindowID winid = wxID_ANY,
 		const wxString& name = wxString(""),
 		const wxString& urlLink = wxString(""),
+		const wxColour& backgroudColor = wxColour("#1F2022"),
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 

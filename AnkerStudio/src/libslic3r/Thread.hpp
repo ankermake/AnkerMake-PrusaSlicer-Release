@@ -1,4 +1,4 @@
-#ifndef GUI_THREAD_HPP
+﻿#ifndef GUI_THREAD_HPP
 #define GUI_THREAD_HPP
 
 #include <utility>

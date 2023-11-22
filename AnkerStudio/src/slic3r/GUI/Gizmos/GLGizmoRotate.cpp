@@ -218,6 +218,65 @@ void GLGizmoRotate3D::on_render_input_window(float x, float y, float bottom_limi
     RotoptimzeWindow popup{m_imgui, m_rotoptimizewin_state, {x, y, bottom_limit}};
 }
 
+void GLGizmoRotate3D::set_input_window_state(bool on)
+{
+    if (wxGetApp().plater() == nullptr)
+        return;
+
+    ANKER_LOG_INFO << "GLGizmoRotate3D: " << on;
+
+    std::string panelFlag = get_name(true, false);
+    if (on)
+    {
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+
+        if (m_pInputWindowSizer == nullptr)
+        {
+            m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+            wxGetApp().aobj_manipul()->Show(true);
+            m_pInputWindowSizer->Add(wxGetApp().aobj_manipul(), 1, wxEXPAND, 0);
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+
+                event.Skip();
+                });
+        }
+        
+        auto returnFunc = [this]() {
+            wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+        };
+        wxGetApp().aobj_manipul()->setReturnFunc(returnFunc);
+
+        wxGetApp().aobj_manipul()->set_dirty();
+        wxGetApp().aobj_manipul()->update_if_dirty();
+
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+    else
+    {
+        if (m_panelVisibleFlag)
+        {
+            m_panelVisibleFlag = false;     
+            wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+
+			wxGetApp().aobj_manipul()->Show(false);
+			wxGetApp().aobj_manipul()->setReturnFunc(nullptr);
+        }
+    }
+}
+
 void GLGizmoRotate3D::load_rotoptimize_state()
 {
     std::string accuracy_str =
@@ -508,6 +567,8 @@ GLGizmoRotate3D::GLGizmoRotate3D(GLCanvas3D& parent, const std::string& icon_fil
         GLGizmoRotate(parent, GLGizmoRotate::X), 
         GLGizmoRotate(parent, GLGizmoRotate::Y),
         GLGizmoRotate(parent, GLGizmoRotate::Z) })
+    , m_panelVisibleFlag(false)
+    , m_pInputWindowSizer(nullptr)
 {
     load_rotoptimize_state();
 }
@@ -520,7 +581,7 @@ bool GLGizmoRotate3D::on_mouse(const wxMouseEvent &mouse_event)
         if (m_parent.get_selection().is_wipe_tower())
             transformation_type = TransformationType::World_Relative_Joint;
         else {
-            switch (wxGetApp().obj_manipul()->get_coordinates_type())
+            switch (wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type())
             {
             default:
             case ECoordinatesType::World:    { transformation_type = TransformationType::World_Relative_Joint; break; }
@@ -560,9 +621,9 @@ bool GLGizmoRotate3D::on_init()
     return true;
 }
 
-std::string GLGizmoRotate3D::on_get_name() const
+std::string GLGizmoRotate3D::on_get_name(bool i18n) const
 {
-    return _u8L("Rotate");
+    return i18n ? _u8L("Rotate") : "Rotate";
 }
 
 bool GLGizmoRotate3D::on_is_activable() const

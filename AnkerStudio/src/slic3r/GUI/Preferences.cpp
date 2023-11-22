@@ -144,7 +144,8 @@ static void activate_options_tab(std::shared_ptr<ConfigOptionsGroup> optgroup)
 	sizer->Add(optgroup->sizer, 0, wxEXPAND | wxALL, 10);
 
 	// apply sercher
-	wxGetApp().sidebar().get_searcher().append_preferences_options(optgroup->get_lines());
+	//wxGetApp().sidebar().get_searcher().append_preferences_options(optgroup->get_lines());
+	//wxGetApp().sidebarnew().get_searcher().append_preferences_options(optgroup->get_lines());
 }
 
 static void append_bool_option( std::shared_ptr<ConfigOptionsGroup> optgroup,
@@ -163,7 +164,8 @@ static void append_bool_option( std::shared_ptr<ConfigOptionsGroup> optgroup,
 	optgroup->append_single_option_line(option);
 
 	// fill data to the Search Dialog
-	wxGetApp().sidebar().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+	//wxGetApp().sidebar().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+	//wxGetApp().sidebarnew().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
 }
 
 template<typename EnumType>
@@ -186,7 +188,8 @@ static void append_enum_option( std::shared_ptr<ConfigOptionsGroup> optgroup,
 	optgroup->append_single_option_line(option);
 
 	// fill data to the Search Dialog
-	wxGetApp().sidebar().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+	//wxGetApp().sidebar().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+	//wxGetApp().sidebarnew().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
 }
 
 static void append_preferences_option_to_searcher(std::shared_ptr<ConfigOptionsGroup> optgroup,
@@ -194,9 +197,11 @@ static void append_preferences_option_to_searcher(std::shared_ptr<ConfigOptionsG
 												const wxString& label)
 {
 	// fill data to the Search Dialog
-	wxGetApp().sidebar().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+	//wxGetApp().sidebar().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
+	//wxGetApp().sidebarnew().get_searcher().add_key(opt_key, Preset::TYPE_PREFERENCES, optgroup->config_category(), L("Preferences"));
 	// apply sercher
-	wxGetApp().sidebar().get_searcher().append_preferences_option(Line(opt_key, label, ""));
+	//wxGetApp().sidebar().get_searcher().append_preferences_option(Line(opt_key, label, ""));
+	//wxGetApp().sidebarnew().get_searcher().append_preferences_option(Line(opt_key, label, ""));
 }
 
 void PreferencesDialog::build()
@@ -271,13 +276,13 @@ void PreferencesDialog::build()
 #ifdef _WIN32
 		// Please keep in sync with ConfigWizard
 		append_bool_option(m_optgroup_general, "associate_3mf",
-			L("Associate .3mf files to AnkerMake_alpha"),
-			L("If enabled, sets AnkerMake_alpha as default application to open .3mf files."),
+			L("Associate .3mf files to AnkerMake Studio"),
+			L("If enabled, sets AnkerMake Studio as default application to open .3mf files."),
 			app_config->get_bool("associate_3mf"));
 
 		append_bool_option(m_optgroup_general, "associate_stl",
-			L("Associate .stl files to AnkerMake_alpha"),
-			L("If enabled, sets AnkerMake_alpha as default application to open .stl files."),
+			L("Associate .stl files to AnkerMake Studio"),
+			L("If enabled, sets AnkerMake Studio as default application to open .stl files."),
 			app_config->get_bool("associate_stl"));
 #endif // _WIN32
 
@@ -316,12 +321,12 @@ void PreferencesDialog::build()
 
 		append_bool_option(m_optgroup_general, "single_instance",
 #if __APPLE__
-			L("Allow just a single AnkerSAnkerMake_alphatudio instance"),
+			L("Allow just a single AnkerMake Studio instance"),
 			L("On OSX there is always only one instance of app running by default. However it is allowed to run multiple instances "
 			  "of same app from the command line. In such case this settings will allow only one instance."),
 #else
-			L("Allow just a single AnkerMake_alpha instance"),
-			L("If this is enabled, when starting AnkerMake_alpha and another instance of the same AnkerMake_alpha is already running, that instance will be reactivated instead."),
+			L("Allow just a single AnkerMake Studio instance"),
+			L("If this is enabled, when starting AnkerMake Studio and another instance of the same AnkerMake Studio is already running, that instance will be reactivated instead."),
 #endif
 		app_config->has("single_instance") ? app_config->get_bool("single_instance") : false );
 
@@ -330,7 +335,7 @@ void PreferencesDialog::build()
 		append_bool_option(m_optgroup_general, "default_action_on_dirty_project",
 			L("Ask for unsaved changes in project"),
 			L("Always ask for unsaved changes in project, when: \n"
-						"- Closing AnkerMake_alpha,\n"
+						"- Closing AnkerMake Studio,\n"
 						"- Loading or creating a new project"),
 			app_config->get("default_action_on_dirty_project").empty());
 
@@ -339,7 +344,7 @@ void PreferencesDialog::build()
 		append_bool_option(m_optgroup_general, "default_action_on_close_application",
 			L("Ask to save unsaved changes in presets when closing the application or when loading a new project"),
 			L("Always ask for unsaved changes in presets, when: \n"
-						"- Closing AnkerMake_alpha while some presets are modified,\n"
+						"- Closing AnkerMake Studio while some presets are modified,\n"
 						"- Loading a new project while some presets are modified"),
 			app_config->get("default_action_on_close_application") == "none");
 
@@ -356,8 +361,8 @@ void PreferencesDialog::build()
 #ifdef _WIN32
 	else {
 		append_bool_option(m_optgroup_general, "associate_gcode",
-			L("Associate .gcode files to AnkerMake_alpha G-code Viewer"),
-			L("If enabled, sets AnkerMake_alpha G-code Viewer as default application to open .gcode files."),
+			L("Associate .gcode files to AnkerMake Studio G-code Viewer"),
+			L("If enabled, sets AnkerMake Studio G-code Viewer as default application to open .gcode files."),
 			app_config->get_bool("associate_gcode"));
 	}
 #endif // _WIN32
@@ -380,7 +385,7 @@ void PreferencesDialog::build()
 
 	append_bool_option(m_optgroup_general, "restore_win_position",
 		L("Restore window position on start"),
-		L("If enabled, AnkerMake_alpha will be open at the position it was closed"),
+		L("If enabled, AnkerMake Studio will be open at the position it was closed"),
 		app_config->get_bool("restore_win_position"));
 
     // Clear Undo / Redo stack on new project
@@ -479,7 +484,7 @@ void PreferencesDialog::build()
 /*
 		append_bool_option(m_optgroup_gui, "suppress_hyperlinks",
 			L("Suppress to open hyperlink in browser"),
-			L("If enabled, AnkerMake_alpha will not open a hyperlinks in your browser."),
+			L("If enabled, AnkerMake Studio will not open a hyperlinks in your browser."),
 			//L("If enabled, the descriptions of configuration parameters in settings tabs wouldn't work as hyperlinks. "
 			//  "If disabled, the descriptions of configuration parameters in settings tabs will work as hyperlinks."),
 			app_config->get_bool("suppress_hyperlinks"));
@@ -568,14 +573,14 @@ void PreferencesDialog::build()
 
 		append_bool_option(m_optgroup_other, "suppress_hyperlinks",
 			L("Suppress to open hyperlink in browser"),
-			L("If enabled, AnkerMake_alpha will not open a hyperlinks in your browser."),
+			L("If enabled, AnkerMake Studio will not open a hyperlinks in your browser."),
 			//L("If enabled, the descriptions of configuration parameters in settings tabs wouldn't work as hyperlinks. "
 			//  "If disabled, the descriptions of configuration parameters in settings tabs will work as hyperlinks."),
 			app_config->get_bool("suppress_hyperlinks"));
 		
 		append_bool_option(m_optgroup_other, "downloader_url_registered",
 			L("Allow downloads from Printables.com"),
-			L("If enabled, AnkerMake_alpha will be allowed to download from Printables.com"),
+			L("If enabled, AnkerMake Studio will be allowed to download from Printables.com"),
 			app_config->get_bool("downloader_url_registered"));
 
 		activate_options_tab(m_optgroup_other);
@@ -765,8 +770,8 @@ void PreferencesDialog::accept(wxEvent&)
 	wxGetApp().update_ui_from_settings();
 	clear_cache();
 
-	if (update_filament_sidebar)
-		wxGetApp().plater()->sidebar().update_presets(Preset::Type::TYPE_FILAMENT);
+	//if (update_filament_sidebar)
+	//	wxGetApp().plater()->sidebar().update_presets(Preset::Type::TYPE_FILAMENT);
 }
 
 void PreferencesDialog::revert(wxEvent&)

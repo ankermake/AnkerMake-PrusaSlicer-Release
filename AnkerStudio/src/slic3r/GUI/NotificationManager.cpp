@@ -930,13 +930,13 @@ void NotificationManager::ProgressBarNotification::render_text(ImGuiWrapper& img
 }
 void NotificationManager::ProgressBarNotification::render_bar(ImGuiWrapper& imgui, const float win_size_x, const float win_size_y, const float win_pos_x, const float win_pos_y)
 {
-	ImVec4 orange_color			= ImVec4(.99f, .313f, .0f, 1.0f);
+	ImVec4 green_color			= ImVec4(.38f, .83f, .38f, 1.0f);
 	ImVec4 gray_color			= ImVec4(.34f, .34f, .34f, 1.0f);
 	ImVec2 lineEnd				= ImVec2(win_pos_x - m_window_width_offset, win_pos_y + win_size_y / 2 + (m_multiline ? m_line_height / 2 : 0));
 	ImVec2 lineStart			= ImVec2(win_pos_x - win_size_x + m_left_indentation, win_pos_y + win_size_y / 2 + (m_multiline ? m_line_height / 2 : 0));
 	ImVec2 midPoint				= ImVec2(lineStart.x + (lineEnd.x - lineStart.x) * m_percentage, lineStart.y);
 	ImGui::GetWindowDrawList()->AddLine(lineStart, lineEnd, IM_COL32((int)(gray_color.x * 255), (int)(gray_color.y * 255), (int)(gray_color.z * 255), (m_current_fade_opacity * 255.f)), m_line_height * 0.2f);
-	ImGui::GetWindowDrawList()->AddLine(lineStart, midPoint, IM_COL32((int)(orange_color.x * 255), (int)(orange_color.y * 255), (int)(orange_color.z * 255), (m_current_fade_opacity * 255.f)), m_line_height * 0.2f);
+	ImGui::GetWindowDrawList()->AddLine(lineStart, midPoint, IM_COL32((int)(green_color.x * 255), (int)(green_color.y * 255), (int)(green_color.z * 255), (m_current_fade_opacity * 255.f)), m_line_height * 0.2f);
 	if (m_render_percentage) {
 		std::string text;
 		std::stringstream stream;
@@ -2687,26 +2687,27 @@ int  NotificationManager::progress_indicator_get_range() const
 
 void NotificationManager::push_hint_notification(bool open_next)
 {
-	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::DidYouKnowHint) {
-			(dynamic_cast<HintNotification*>(notification.get()))->open_next();
-			return;
-		}
-	}
-	
-	NotificationData data{ NotificationType::DidYouKnowHint, NotificationLevel::HintNotificationLevel, 300, "" };
-	// from user - open now
-	if (!open_next) {
-		push_notification_data(std::make_unique<NotificationManager::HintNotification>(data, m_id_provider, m_evt_handler, open_next), 0);
-		stop_delayed_notifications_of_type(NotificationType::DidYouKnowHint);
-	// at startup - delay for half a second to let other notification pop up, than try every 30 seconds
-	// show only if no notifications are shown
-	} else { 
-		auto condition = [&self = std::as_const(*this)]() {
-			return self.get_notification_count() == 0;
-		};
-		push_delayed_notification_data(std::make_unique<NotificationManager::HintNotification>(data, m_id_provider, m_evt_handler, open_next), condition, 500, 30000);
-	}
+	// do not show the hint notification
+	//for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+	//	if (notification->get_type() == NotificationType::DidYouKnowHint) {
+	//		(dynamic_cast<HintNotification*>(notification.get()))->open_next();
+	//		return;
+	//	}
+	//}
+	//
+	//NotificationData data{ NotificationType::DidYouKnowHint, NotificationLevel::HintNotificationLevel, 300, "" };
+	//// from user - open now
+	//if (!open_next) {
+	//	push_notification_data(std::make_unique<NotificationManager::HintNotification>(data, m_id_provider, m_evt_handler, open_next), 0);
+	//	stop_delayed_notifications_of_type(NotificationType::DidYouKnowHint);
+	//// at startup - delay for half a second to let other notification pop up, than try every 30 seconds
+	//// show only if no notifications are shown
+	//} else { 
+	//	auto condition = [&self = std::as_const(*this)]() {
+	//		return self.get_notification_count() == 0;
+	//	};
+	//	push_delayed_notification_data(std::make_unique<NotificationManager::HintNotification>(data, m_id_provider, m_evt_handler, open_next), condition, 500, 30000);
+	//}
 }
 
 bool NotificationManager::is_hint_notification_open()

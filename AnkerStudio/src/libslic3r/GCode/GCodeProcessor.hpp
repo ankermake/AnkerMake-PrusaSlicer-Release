@@ -94,7 +94,39 @@ namespace Slic3r {
     };
 
     struct GCodeProcessorResult
-    {
+    { 
+        struct v6InfoStat {
+            std::array<std::vector<size_t>, 6> toolChangePos;//T0-T6 Pos
+            std::array<std::vector<size_t>, 6> toolChangeTemps;//T0-T6 temps
+            std::array<std::vector<Vec3f>,  6> nextPos;
+            //std::vector<size_t> g1LinePos;
+            void reset() {
+                for (auto& vec : toolChangePos) {
+                    vec.clear(); //
+                    vec.shrink_to_fit();
+                }
+                for (auto& vec : toolChangeTemps) {
+                    vec.clear(); //
+                    vec.shrink_to_fit();
+                }
+                for (auto& vec : nextPos) {
+                    vec.clear(); //
+                    vec.shrink_to_fit();
+                }
+            }
+        };
+
+        struct picPosInfo
+        {
+            unsigned int layer_id{0};
+            unsigned int line_id{0};
+            double X{0.0};
+            double Y{0.0};
+            double Z{0.0};
+            double E{0.0};
+            float F{0.0};
+        };
+
         struct SettingsIds
         {
             std::string print;
@@ -125,7 +157,8 @@ namespace Slic3r {
             float temperature{ 0.0f }; // Celsius degrees
             float time{ 0.0f }; // s
             bool internal_only{ false };
-
+            unsigned int g1_line_id{ 0 };
+            float move_time{0.0};
             float volumetric_rate() const { return feedrate * mm3_per_mm; }
         };
 
@@ -137,6 +170,8 @@ namespace Slic3r {
         Pointfs bed_shape;
         float max_print_height;
         SettingsIds settings_ids;
+        v6InfoStat m_v6_info;
+        std::vector<picPosInfo> m_pic_infos;
         size_t extruders_count;
 #if ENABLE_GCODE_POSTPROCESS_BACKTRACE
         bool backtrace_enabled;
@@ -271,7 +306,7 @@ namespace Slic3r {
             float time() const;
         };
 
-    private:
+  
         struct TimeMachine
         {
             struct State
@@ -325,6 +360,7 @@ namespace Slic3r {
             CustomGCodeTime gcode_time;
             std::vector<TimeBlock> blocks;
             std::vector<G1LinesCacheItem> g1_times_cache;
+            std::unordered_map<unsigned int,float> g1_times_cache_map;
             std::array<float, static_cast<size_t>(EMoveType::Count)> moves_time;
             std::array<float, static_cast<size_t>(GCodeExtrusionRole::Count)> roles_time;
             std::vector<float> layers_time;
@@ -335,7 +371,7 @@ namespace Slic3r {
             void simulate_st_synchronize(float additional_time = 0.0f);
             void calculate_time(size_t keep_last_n_blocks = 0, float additional_time = 0.0f);
         };
-
+  private:
         struct TimeProcessor
         {
             struct Planner
@@ -567,6 +603,7 @@ namespace Slic3r {
         float m_extruded_last_z;
         float m_first_layer_height; // mm
         unsigned int m_g1_line_id;
+        std::vector<unsigned int> m_g1_line_pos;//for v6
         unsigned int m_layer_id;
         CpColor m_cp_color;
         bool m_use_volumetric_e;
@@ -630,6 +667,8 @@ namespace Slic3r {
         // throws CanceledException through print->throw_if_canceled() (sent by the caller as callback).
         void process_file(const std::string& filename, std::function<void()> cancel_callback = nullptr);
 
+        bool isRecognizedProducer() const;
+
         void process_file_thumbnail_only(const std::string& filename, const Vec2d& encode_sizes, std::string& format_str, std::string &out_base64_string,std::function<void()> cancel_callback = nullptr);
         //get info from paser gcode file to print on machine; 
         void process_file_ext(const std::string& filename, GCodeProcessorResultExt& out);
@@ -648,7 +687,8 @@ namespace Slic3r {
         std::vector<std::pair<EMoveType, float>> get_moves_time(PrintEstimatedStatistics::ETimeMode mode) const;
         std::vector<std::pair<GCodeExtrusionRole, float>> get_roles_time(PrintEstimatedStatistics::ETimeMode mode) const;
         std::vector<float> get_layers_time(PrintEstimatedStatistics::ETimeMode mode) const;
-
+        const std::vector<unsigned int>& get_g1_line_pos() const { return m_g1_line_pos; };
+        void get_g1_line_cache();
     private:
         void apply_config(const DynamicPrintConfig& config);
         void apply_config_simplify3d(const std::string& filename);

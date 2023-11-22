@@ -768,11 +768,16 @@ void PhysicalPrinterDialog::OnOK(wxEvent& event)
         // select first preset for this printer
         printers.select_printer(m_printer);
         // refresh preset list on Printer Settings Tab
+#if SHOW_OLD_SETTING_DIALOG
         wxGetApp().get_tab(Preset::TYPE_PRINTER)->select_preset(printers.get_selected_printer_preset_name());
+#endif
+        wxGetApp().getAnkerTab(Preset::TYPE_PRINTER)->select_preset(printers.get_selected_printer_preset_name());
     }
     else
+#if SHOW_OLD_SETTING_DIALOG
         wxGetApp().get_tab(Preset::TYPE_PRINTER)->update_preset_choice();
-
+#endif
+        wxGetApp().getAnkerTab(Preset::TYPE_PRINTER)->update_preset_choice();
     event.Skip();
 }
 

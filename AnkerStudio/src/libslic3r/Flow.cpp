@@ -112,7 +112,7 @@ double Flow::extrusion_width(const std::string& opt_key, const ConfigOptionResol
 
 // This constructor builds a Flow object from an extrusion width config setting
 // and other context properties.
-Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent &width, float nozzle_diameter, float height)
+Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent &width, float nozzle_diameter, float height, ConfigOptionFloat flow_ratio)
 {
     if (height <= 0)
         throw Slic3r::InvalidArgument("Invalid flow height supplied to new_from_config_width()");
@@ -126,7 +126,7 @@ Flow Flow::new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent
         w = float(width.get_abs_value(height));
     }
     
-    return Flow(w, height, rounded_rectangle_extrusion_spacing(w, height), nozzle_diameter, false);
+    return Flow(w, height, rounded_rectangle_extrusion_spacing(w, height), nozzle_diameter, false, flow_ratio);
 }
 
 // Adjust extrusion flow for new extrusion line spacing, maintaining the old spacing between extrusions.
@@ -208,7 +208,7 @@ double Flow::mm3_per_mm() const
         // Area of a circle with dmr of this->width.
         float((m_width * m_width) * 0.25 * PI) :
         // Rectangle with semicircles at the ends. ~ h (w - 0.215 h)
-        float(m_height * (m_width - m_height * (1. - 0.25 * PI)));
+        float(m_height * (m_width - m_height * (1. - 0.25 * PI)) * m_flow_ratio);
     //assert(res > 0.);
 	if (res <= 0.)
 		throw FlowErrorNegativeFlow();
@@ -223,7 +223,8 @@ Flow support_material_flow(const PrintObject *object, float layer_height)
         (object->config().support_material_extrusion_width.value > 0) ? object->config().support_material_extrusion_width : object->config().extrusion_width,
         // if object->config().support_material_extruder == 0 (which means to not trigger tool change, but use the current extruder instead), get_at will return the 0th component.
         float(object->print()->config().nozzle_diameter.get_at(object->config().support_material_extruder-1)),
-        (layer_height > 0.f) ? layer_height : float(object->config().layer_height.value));
+        (layer_height > 0.f) ? layer_height : float(object->config().layer_height.value),
+        object->config().support_material_flow_ratio);
 }
 
 Flow support_material_1st_layer_flow(const PrintObject *object, float layer_height)
@@ -235,7 +236,8 @@ Flow support_material_1st_layer_flow(const PrintObject *object, float layer_heig
         // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
         (width.value > 0) ? width : object->config().extrusion_width,
         float(print_config.nozzle_diameter.get_at(object->config().support_material_extruder-1)),
-        (layer_height > 0.f) ? layer_height : float(print_config.first_layer_height.get_abs_value(object->config().layer_height.value)));
+        (layer_height > 0.f) ? layer_height : float(print_config.first_layer_height.get_abs_value(object->config().layer_height.value)),
+        print_config.first_layer_flow_ratio);
 }
 
 Flow support_material_interface_flow(const PrintObject *object, float layer_height)

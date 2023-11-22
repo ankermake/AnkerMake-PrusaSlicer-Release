@@ -88,7 +88,7 @@ SLAPrint::Steps::Steps(SLAPrint *print)
     , objcount{m_print->m_objects.size()}
     , ilhd{m_print->m_material_config.initial_layer_height.getFloat()}
     , ilh{float(ilhd)}
-    , ilhs{scaled(ilhd)}
+    , ilhs{scaled<coord_t>(ilhd)}
     , objectstep_scale{(max_objstatus - min_objstatus) / (objcount * 100.0)}
 {}
 
@@ -521,7 +521,7 @@ void SLAPrint::Steps::slice_model(SLAPrintObject &po)
     po.m_model_slices.clear();
     MeshSlicingParamsEx params;
     params.closing_radius = float(po.config().slice_closing_radius.value);
-    switch (po.config().slicing_mode.value) {
+    switch (SlicingMode(po.config().slicing_mode.value)) {
     case SlicingMode::Regular:    params.mode = MeshSlicingParams::SlicingMode::Regular; break;
     case SlicingMode::EvenOdd:    params.mode = MeshSlicingParams::SlicingMode::EvenOdd; break;
     case SlicingMode::CloseHoles: params.mode = MeshSlicingParams::SlicingMode::Positive; break;

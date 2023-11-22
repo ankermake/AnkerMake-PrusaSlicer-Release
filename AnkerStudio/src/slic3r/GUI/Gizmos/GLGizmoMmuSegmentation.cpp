@@ -10,12 +10,20 @@
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/OpenGLManager.hpp"
+#include "slic3r/GUI/Common/AnkerTitledPanel.hpp"
+#include "slic3r/GUI/Common/AnkerGUIConfig.hpp"
+#include "slic3r/GUI/Common/AnkerSplitCtrl.hpp"
+#include "slic3r/GUI/Common/AnkerSliderCtrl.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Model.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 
-
+#include <wx/valnum.h>
 #include <GL/glew.h>
+
+#define BTN_PRESSED "pressed"
+#define BTN_NORMAL "normal"
+
 
 namespace Slic3r::GUI {
 
@@ -33,17 +41,22 @@ void GLGizmoMmuSegmentation::on_opening()
 {
     if (wxGetApp().extruders_edited_cnt() > int(GLGizmoMmuSegmentation::EXTRUDERS_LIMIT))
         show_notification_extruders_limit_exceeded();
+
+    set_input_window_state(true);
 }
 
 void GLGizmoMmuSegmentation::on_shutdown()
 {
     m_parent.use_slope(false);
     m_parent.toggle_model_objects_visibility(true);
+
+    set_input_window_state(false);
 }
 
-std::string GLGizmoMmuSegmentation::on_get_name() const
+std::string GLGizmoMmuSegmentation::on_get_name(bool i18n) const
 {
-    return _u8L("Multimaterial painting");
+    //return i18n ? _u8L("Multimaterial painting") : "Multimaterial painting";
+    return i18n ? _u8L("Drawing") : "Drawing";
 }
 
 bool GLGizmoMmuSegmentation::on_is_selectable() const
@@ -59,7 +72,8 @@ bool GLGizmoMmuSegmentation::on_is_activable() const
 
 static std::vector<ColorRGBA> get_extruders_colors()
 {
-    std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    //std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_filament_colors_from_plater_config();
     std::vector<ColorRGBA> ret;
     decode_colors(colors, ret);
     return ret;
@@ -510,13 +524,16 @@ void GLGizmoMmuSegmentation::update_model_object() const
 
     if (updated) {
         const ModelObjectPtrs &mos = wxGetApp().model().objects;
-        wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
+        //wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
     }
 }
 
 void GLGizmoMmuSegmentation::init_model_triangle_selectors()
 {
+    if (m_c->selection_info() == nullptr)
+        return;
+
     const ModelObject *mo = m_c->selection_info()->model_object();
     m_triangle_selectors.clear();
 
@@ -544,11 +561,11 @@ void GLGizmoMmuSegmentation::update_from_model_object()
 {
     wxBusyCursor wait;
 
-    // Extruder colors need to be reloaded before calling init_model_triangle_selectors to render painted triangles
-    // using colors from loaded 3MF and not from printer profile in Slicer.
-    if (int prev_extruders_count = int(m_original_extruders_colors.size());
-        prev_extruders_count != wxGetApp().extruders_edited_cnt() || get_extruders_colors() != m_original_extruders_colors)
-        this->init_extruders_data();
+    //// Extruder colors need to be reloaded before calling init_model_triangle_selectors to render painted triangles
+    //// using colors from loaded 3MF andsea not from printer profile in Slicer.
+    //if (int prev_extruders_count = int(m_original_extruders_colors.size());
+    //    prev_extruders_count != wxGetApp().extruders_edited_cnt() || get_extruders_colors() != m_original_extruders_colors)
+    this->init_extruders_data();
 
     this->init_model_triangle_selectors();
 }
@@ -560,7 +577,7 @@ PainterGizmoType GLGizmoMmuSegmentation::get_painter_type() const
 
 ColorRGBA GLGizmoMmuSegmentation::get_cursor_sphere_left_button_color() const
 {
-    ColorRGBA color = m_modified_extruders_colors[m_first_selected_extruder_idx];
+    ColorRGBA color = m_modified_extruders_colors[/*m_first_selected_extruder_idx*/m_current_extruder_idx];
     color.a(0.25f);
     return color;
 }
@@ -751,6 +768,385 @@ void GLMmSegmentationGizmo3DScene::finalize_triangle_indices()
             glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
             this->triangle_indices[buffer_idx].clear();
         }
+}
+
+void GLGizmoMmuSegmentation::set_input_window_state(bool on)
+{
+    if (wxGetApp().plater() == nullptr)
+        return;
+
+    ANKER_LOG_INFO << "GLGizmoMmuSegmentation: " << on;
+
+    std::string panelFlag = get_name(true, false);
+    if (on)
+    {
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+
+		if (m_pInputWindowSizer == nullptr)
+		{
+			int smartFillAngleInit = 30;
+			int smartFillAngleMin = 0;
+			int smartFillAngleMax = 90;
+			m_smart_fill_angle = smartFillAngleInit;
+			double brushSizeInit = 2.0;
+			double brushSizeMin = 0.1;
+			double brushSizeMax = 8.0;
+			double sliderMultiple = 10;
+            m_tool_type = ToolType::BRUSH;
+			m_cursor_radius = brushSizeInit;
+			m_cursor_type = Slic3r::TriangleSelector::CursorType::CIRCLE;
+			m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+			container->setTitle(/*wxString::FromUTF8(get_name(true, false))*/_("common_slice_tooltips_draw"));
+			container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
+			int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
+			int clearBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("reset.png")), false);
+			m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
+
+			wxPanel* mmuPanel = new wxPanel(container);
+			wxBoxSizer* mmuPanelSizer = new wxBoxSizer(wxVERTICAL);
+			mmuPanel->SetSizer(mmuPanelSizer);
+			container->setContentPanel(mmuPanel);
+
+			wxBoxSizer* modeSizer = new wxBoxSizer(wxHORIZONTAL);
+			mmuPanelSizer->Add(modeSizer, 0, wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+
+			wxImage smartFillImage = wxImage(wxString::FromUTF8(Slic3r::var("mmu_smart_fill.png")), wxBITMAP_TYPE_PNG);
+			smartFillImage.Rescale(46, 46);
+			wxImage smartFillImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("mmu_smart_fill_pressed.png")), wxBITMAP_TYPE_PNG);
+            smartFillImagePressed.Rescale(46, 46);
+			wxButton* smartFillButton = new wxButton(mmuPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			smartFillButton->SetBitmap(smartFillImage);
+			smartFillButton->SetBitmapHover(smartFillImagePressed);
+			smartFillButton->SetMinSize(smartFillImage.GetSize());
+			smartFillButton->SetMaxSize(smartFillImage.GetSize());
+			smartFillButton->SetSize(smartFillImage.GetSize());
+			smartFillButton->SetName(BTN_NORMAL);
+			smartFillButton->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			modeSizer->Add(smartFillButton, 0, wxALIGN_LEFT | wxTOP, 16);
+
+			wxImage blockerImage = wxImage(wxString::FromUTF8(Slic3r::var("mmu_brush.png")), wxBITMAP_TYPE_PNG);
+			blockerImage.Rescale(46, 46);
+			wxImage blockerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("mmu_brush_pressed.png")), wxBITMAP_TYPE_PNG);
+			blockerImagePressed.Rescale(46, 46);
+			wxButton* brushButton = new wxButton(mmuPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			brushButton->SetBitmap(blockerImagePressed);
+			brushButton->SetBitmapHover(blockerImagePressed);
+			brushButton->SetMinSize(blockerImage.GetSize());
+			brushButton->SetMaxSize(blockerImage.GetSize());
+			brushButton->SetSize(blockerImage.GetSize());
+			brushButton->SetName(BTN_PRESSED);
+			brushButton->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			modeSizer->Add(brushButton, 0, wxALIGN_LEFT | wxTOP | wxLEFT, 16);
+
+			modeSizer->AddStretchSpacer(1);
+
+
+			AnkerSplitCtrl* splitCtrl = new AnkerSplitCtrl(mmuPanel);
+			mmuPanelSizer->Add(splitCtrl, 0, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 20);
+
+
+			wxStaticText* paramTitleText = new wxStaticText(mmuPanel, wxID_ANY, /*L"Brush Size"*/_("common_slice_toolpanneldraw_title2"), wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+            paramTitleText->SetFont(ANKER_FONT_NO_1);
+			paramTitleText->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			paramTitleText->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+			mmuPanelSizer->Add(paramTitleText, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT, 20);
+
+
+			wxBoxSizer* smartFillValueSizer = new wxBoxSizer(wxHORIZONTAL);
+			mmuPanelSizer->Add(smartFillValueSizer, 0, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT, 18);
+
+			//wxSlider* smartFillValueSlider = new wxSlider(mmuPanel, wxID_ANY, smartFillAngleInit, smartFillAngleMin, smartFillAngleMax, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			//smartFillValueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			//smartFillValueSlider->SetForegroundColour(wxColour(ANKER_RGB_INT));
+
+            AnkerSlider* smartFillValueSlider = new AnkerSlider(mmuPanel);
+            smartFillValueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+            smartFillValueSlider->SetMinSize(AnkerSize(40, 20));
+            smartFillValueSlider->SetMaxSize(AnkerSize(1000, 20));
+            smartFillValueSlider->setRange(smartFillAngleMin, smartFillAngleMax, 0.01);
+            smartFillValueSlider->setCurrentValue(smartFillAngleInit);
+            smartFillValueSlider->setTooltipVisible(false);
+
+			smartFillValueSizer->Add(smartFillValueSlider, 1, wxEXPAND | wxALIGN_LEFT | wxTOP, 8);
+
+            smartFillValueSizer->AddSpacer(10);
+
+			char text[10];
+			sprintf(text, "%d", smartFillAngleInit);
+			wxTextCtrl* smartFillValueTextCtrl = new wxTextCtrl(mmuPanel, wxID_ANY, text, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+            smartFillValueTextCtrl->SetFont(ANKER_FONT_NO_1);
+			smartFillValueTextCtrl->SetMinSize(AnkerSize(40, 20));
+			smartFillValueTextCtrl->SetMaxSize(AnkerSize(40, 20));
+			smartFillValueTextCtrl->SetSize(AnkerSize(40, 20));
+			smartFillValueTextCtrl->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			smartFillValueTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+
+            wxIntegerValidator<int> intValidator;
+            intValidator.SetMin(SmartFillAngleMin);
+            intValidator.SetMax(SmartFillAngleMax);
+            smartFillValueTextCtrl->SetValidator(intValidator);
+
+			smartFillValueSizer->Add(smartFillValueTextCtrl, 0, wxALIGN_RIGHT | wxTOP, 8);
+
+            smartFillValueSizer->Show(false);
+
+			wxBoxSizer* brushValueSizer = new wxBoxSizer(wxHORIZONTAL);
+			mmuPanelSizer->Add(brushValueSizer, 0, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT, 18);
+
+			//wxSlider* brushValueSlider = new wxSlider(mmuPanel, wxID_ANY, brushSizeInit * sliderMultiple, brushSizeMin * sliderMultiple, brushSizeMax * sliderMultiple, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			//brushValueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			//brushValueSlider->SetForegroundColour(wxColour(ANKER_RGB_INT));
+
+            AnkerSlider* brushValueSlider = new AnkerSlider(mmuPanel);
+            brushValueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+            brushValueSlider->SetMinSize(AnkerSize(40, 20));
+            brushValueSlider->SetMaxSize(AnkerSize(1000, 20));
+            brushValueSlider->setRange(brushSizeMin, brushSizeMax, 0.01);
+            brushValueSlider->setCurrentValue(brushSizeInit);
+            brushValueSlider->setTooltipVisible(false);
+
+			brushValueSizer->Add(brushValueSlider, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL | wxALIGN_LEFT | wxTOP, 8);
+
+            brushValueSizer->AddSpacer(10);
+
+			sprintf(text, "%.2f", brushSizeInit);
+			wxTextCtrl* brushValueTextCtrl = new wxTextCtrl(mmuPanel, wxID_ANY, text, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+            brushValueTextCtrl->SetFont(ANKER_FONT_NO_1);
+			brushValueTextCtrl->SetMinSize(AnkerSize(40, 20));
+			brushValueTextCtrl->SetMaxSize(AnkerSize(40, 20));
+			brushValueTextCtrl->SetSize(AnkerSize(40, 20));
+			brushValueTextCtrl->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			brushValueTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+
+            wxFloatingPointValidator<double> doubleValidator;
+            doubleValidator.SetMin(brushSizeMin);
+            doubleValidator.SetMax(brushSizeMax);
+            brushValueTextCtrl->SetValidator(doubleValidator);
+            
+            brushValueSizer->Add(brushValueTextCtrl, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT | wxTOP, 8);
+
+			brushValueSizer->Show(true);
+
+
+			mmuPanelSizer->AddStretchSpacer(1);
+
+
+			container->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, returnBtnID, clearBtnID](wxCommandEvent& event) {
+				int btnID = event.GetInt();
+				if (btnID == returnBtnID)
+				{
+					wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+				}
+				else if (btnID == clearBtnID)
+				{
+					Plater::TakeSnapshot snapshot(wxGetApp().plater(), _L("Reset selection"),
+						UndoRedo::SnapshotType::GizmoAction);
+					ModelObject* mo = m_c->selection_info()->model_object();
+					int                  idx = -1;
+					for (ModelVolume* mv : mo->volumes)
+						if (mv->is_model_part()) {
+							++idx;
+							m_triangle_selectors[idx]->reset();
+							m_triangle_selectors[idx]->request_update_render_data();
+						}
+
+					update_model_object();
+					m_parent.set_as_dirty();
+				}
+				});
+
+			smartFillButton->Bind(wxEVT_BUTTON, [this, smartFillButton, brushButton, paramTitleText, smartFillValueSizer, brushValueSizer, container](wxCommandEvent& event) {
+                if (smartFillButton->GetName() == BTN_PRESSED)
+                    return;
+                
+                m_tool_type = ToolType::SMART_FILL;
+
+				paramTitleText->SetLabelText(/*L"Smart Fill Angle"*/_("common_slice_toolpanneldraw_title2"));
+				smartFillValueSizer->Show(true);
+				brushValueSizer->Show(false);
+
+				wxImage enforcerImage = wxImage(wxString::FromUTF8(Slic3r::var("mmu_smart_fill.png")), wxBITMAP_TYPE_PNG);
+				enforcerImage.Rescale(46, 46);
+				wxImage enforcerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("mmu_smart_fill_pressed.png")), wxBITMAP_TYPE_PNG);
+				enforcerImagePressed.Rescale(46, 46);
+				smartFillButton->SetBitmap(smartFillButton->GetName() == BTN_PRESSED ? enforcerImage : enforcerImagePressed);
+				smartFillButton->SetBitmapHover(enforcerImagePressed);
+				smartFillButton->SetName(smartFillButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+				wxImage blockerImage = wxImage(wxString::FromUTF8(Slic3r::var("mmu_brush.png")), wxBITMAP_TYPE_PNG);
+				blockerImage.Rescale(46, 46);
+				wxImage blockerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("mmu_brush_pressed.png")), wxBITMAP_TYPE_PNG);
+				blockerImagePressed.Rescale(46, 46);
+				brushButton->SetBitmap(smartFillButton->GetName() == BTN_PRESSED ? blockerImage : blockerImagePressed);
+				brushButton->SetBitmapHover(blockerImagePressed);
+				brushButton->SetName(smartFillButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+                smartFillButton->SetCursor(wxCURSOR_HAND);
+
+				container->Layout();
+				container->Refresh();
+				});
+            //smartFillButton->Bind(wxEVT_ENTER_WINDOW, [smartFillButton](wxMouseEvent& event) {smartFillButton->SetCursor(wxCursor(wxCURSOR_HAND)); });
+            //smartFillButton->Bind(wxEVT_LEAVE_WINDOW, [smartFillButton](wxMouseEvent& event) {smartFillButton->SetCursor(wxCursor(wxCURSOR_NONE)); });
+
+			brushButton->Bind(wxEVT_BUTTON, [this, smartFillButton, brushButton, paramTitleText, smartFillValueSizer, brushValueSizer, container](wxCommandEvent& event) {
+                if (brushButton->GetName() == BTN_PRESSED)
+                    return;
+                
+                m_tool_type = ToolType::BRUSH;
+
+				paramTitleText->SetLabelText(L"Brush Size");
+				smartFillValueSizer->Show(false);
+				brushValueSizer->Show(true);
+
+				wxImage enforcerImage = wxImage(wxString::FromUTF8(Slic3r::var("mmu_smart_fill.png")), wxBITMAP_TYPE_PNG);
+				enforcerImage.Rescale(46, 46);
+				wxImage enforcerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("mmu_smart_fill_pressed.png")), wxBITMAP_TYPE_PNG);
+				enforcerImagePressed.Rescale(46, 46);
+				smartFillButton->SetBitmap(smartFillButton->GetName() == BTN_PRESSED ? enforcerImage : enforcerImagePressed);
+				smartFillButton->SetBitmapHover(enforcerImagePressed);
+				smartFillButton->SetName(smartFillButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+				wxImage blockerImage = wxImage(wxString::FromUTF8(Slic3r::var("mmu_brush.png")), wxBITMAP_TYPE_PNG);
+				blockerImage.Rescale(46, 46);
+				wxImage blockerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("mmu_brush_pressed.png")), wxBITMAP_TYPE_PNG);
+				blockerImagePressed.Rescale(46, 46);
+				brushButton->SetBitmap(smartFillButton->GetName() == BTN_PRESSED ? blockerImage : blockerImagePressed);
+				brushButton->SetBitmapHover(blockerImagePressed);
+				brushButton->SetName(smartFillButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+                brushButton->SetCursor(wxCURSOR_HAND);
+
+				container->Layout();
+				container->Refresh();
+				});
+            //brushButton->Bind(wxEVT_ENTER_WINDOW, [brushButton](wxMouseEvent& event) {brushButton->SetCursor(wxCursor(wxCURSOR_HAND)); });
+            //brushButton->Bind(wxEVT_LEAVE_WINDOW, [brushButton](wxMouseEvent& event) {brushButton->SetCursor(wxCursor(wxCURSOR_NONE)); });
+
+			smartFillValueSlider->Bind(wxANKEREVT_SLIDER_VALUE_CHANGED, [this, smartFillValueTextCtrl, smartFillValueSlider, container](wxCommandEvent& event) {
+                if (m_isEditing)
+                    return;
+
+                m_isEditing = true;
+                
+                int currentValue = smartFillValueSlider->getCurrentValue();
+
+				m_smart_fill_angle = currentValue;
+
+				char text[10];
+				sprintf(text, "%d", currentValue);
+				smartFillValueTextCtrl->SetLabelText(text);
+
+				container->Refresh();
+
+                m_isEditing = false;
+				});
+			smartFillValueTextCtrl->Bind(wxEVT_TEXT, [this, smartFillValueTextCtrl, smartFillValueSlider, smartFillAngleInit, container](wxCommandEvent& event) {
+                if (m_isEditing)
+                    return;
+
+                m_isEditing = true;
+                
+                int newValue = smartFillAngleInit;
+				wxString newValueStr = smartFillValueTextCtrl->GetLineText(0);
+				bool success = newValueStr.ToInt(&newValue);
+				if (success)
+				{
+					m_cursor_radius = newValue;
+					smartFillValueSlider->setCurrentValue(newValue);
+					container->Refresh();
+				}
+
+                m_isEditing = false;
+				});
+
+			brushValueSlider->Bind(wxANKEREVT_SLIDER_VALUE_CHANGED, [this, brushValueTextCtrl, brushValueSlider, sliderMultiple, container](wxCommandEvent& event) {
+                if (m_isEditing)
+                    return;
+
+                m_isEditing = true;
+                
+                double currentValue = brushValueSlider->getCurrentValue();
+
+				m_cursor_radius = currentValue;
+
+				char text[10];
+				sprintf(text, "%.2f", currentValue);
+				brushValueTextCtrl->SetLabelText(text);
+
+				container->Refresh();
+
+                m_isEditing = false;
+				});
+			brushValueTextCtrl->Bind(wxEVT_TEXT, [this, brushValueSlider, brushValueTextCtrl, brushSizeInit, sliderMultiple, container](wxCommandEvent& event) {
+                if (m_isEditing)
+                    return;
+
+                m_isEditing = true;
+                
+                double newValue = brushSizeInit;
+				wxString newValueStr = brushValueTextCtrl->GetLineText(0);
+				bool success = newValueStr.ToDouble(&newValue);
+				if (success)
+				{
+					m_cursor_radius = newValue;
+					brushValueSlider->setCurrentValue(newValue);
+					container->Refresh();
+				}
+
+                m_isEditing = false;
+				});
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_CLICK_FILAMENT_BTN, [this](wxCommandEvent& event) {
+                wxVariant* pData = (wxVariant*)event.GetClientData();
+                if (pData) 
+                {
+                    // TODO
+                    wxVariantList list = pData->GetList();
+                    wxString wxStrFilamentColor = list[0]->GetString();
+                    int strFilamentIndex = list[1]->GetInteger();
+                    wxColour filamentColor = wxColour(wxStrFilamentColor);
+                    m_currentColor = ColorRGBA(filamentColor.Red(), filamentColor.Green(), filamentColor.Blue(), filamentColor.Alpha());
+                    m_currentColor.a(0.25);
+                    m_current_extruder_idx = strFilamentIndex - 1;
+
+                    //this->init_extruders_data();
+                    //this->init_model_triangle_selectors();
+                    update_from_model_object();
+                }
+                }); 
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                event.Skip();
+
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+        }
+
+        wxGetApp().plater()->SetCursor(m_tool_type == ToolType::BRUSH ? wxCURSOR_PAINT_BRUSH : wxCURSOR_PENCIL);
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+    else
+    {
+        m_panelVisibleFlag = false;
+        if (wxGetApp().plater()->sidebarnew().getSizerFlags() == panelFlag)
+        {
+            wxGetApp().plater()->SetCursor(wxCURSOR_NONE);
+            wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+        }
+    }
 }
 
 } // namespace Slic3r

@@ -2,6 +2,9 @@
 #include "wx/univ/theme.h"
 #include "wx/artprov.h"
 #include "libslic3r/Utils.hpp"
+#include "GUI_App.hpp"
+#include "Common/AnkerGUIConfig.hpp"
+#include "I18N.hpp"
 
 
 wxDEFINE_EVENT(wxCUSTOMEVT_LOGIN_CLCIKED, wxCommandEvent);
@@ -25,7 +28,7 @@ void AnkerEmptyDevice::initUi()
 	wxBoxSizer* pLeftVSizer = new wxBoxSizer(wxVERTICAL);
 	wxBoxSizer* pRightVSizer = new wxBoxSizer(wxVERTICAL);
 
-	wxStaticText* pTitle = new wxStaticText(this, wxID_ANY, L"How to Add a device");
+	wxStaticText* pTitle = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_nodevicetitle"));
 	wxFont font = pTitle->GetFont();
 	font.SetWeight(wxFONTWEIGHT_BOLD);
 	pTitle->SetFont(font);
@@ -42,13 +45,13 @@ void AnkerEmptyDevice::initUi()
 		wxStaticBitmap* pLeftImg = new wxStaticBitmap(this, wxID_ANY, scaledBitmap);
 		pLeftImg->SetMinSize(scaledBitmap.GetSize());
 
-		wxStaticText* pLeftText = new wxStaticText(this, wxID_ANY, L"Download and install the AnkerMake app, then sign up for an account.");
+		wxStaticText* pLeftText = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_nodevicecontent1"));
 		pLeftText->SetWindowStyleFlag(wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
 		pLeftText->SetForegroundColour(wxColour(153, 153, 153));
 		pLeftText->Wrap(280);
 		wxClientDC dc(this);
 		dc.SetFont(pLeftText->GetFont());
-		wxSize size = dc.GetTextExtent(L"Download and install the AnkerMake app, then sign up for an account.");
+		wxSize size = dc.GetTextExtent(_L("common_print_statusnotice_nodevicecontent1"));
 		int textHeight = (size.GetWidth()/280 + 2) * size.GetHeight();
 
 		pLeftText->SetMinSize(wxSize(280, textHeight));
@@ -68,13 +71,13 @@ void AnkerEmptyDevice::initUi()
 		wxStaticBitmap* pRightImg = new wxStaticBitmap(this, wxID_ANY, scaledBitmap);
 		pRightImg->SetMinSize(scaledBitmap.GetSize());
 
-		wxStaticText* pRightText = new wxStaticText(this, wxID_ANY, L"Follow on-screen instructions to add the printer to your device list and connect it to Wi-Fi.");
+		wxStaticText* pRightText = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_nodevicecontent2"));
 		pRightText->SetForegroundColour(wxColour(153, 153, 153));
 		pRightText->Wrap(280);
 
 		wxClientDC dc(this);
 		dc.SetFont(pRightText->GetFont());
-		wxSize size = dc.GetTextExtent(L"Follow on-screen instructions to add the printer to your device list and connect it to Wi-Fi.");
+		wxSize size = dc.GetTextExtent(_L("common_print_statusnotice_nodevicecontent2"));
 		int textHeight = (size.GetWidth() / 280 + 2) * size.GetHeight();
 
 		pRightText->SetMinSize(wxSize(280, textHeight));
@@ -121,12 +124,12 @@ void AnkerOfflineDevice::initUi()
 
 	wxStaticBitmap* pLogoImg = new wxStaticBitmap(this, wxID_ANY, scaledBitmap);
 
-	wxStaticText* pTipsText = new wxStaticText(this, wxID_ANY, L"Device is disconnected, ");
+	wxStaticText* pTipsText = new wxStaticText(this, wxID_ANY, _L("Device is disconnected, "));
 	pTipsText->SetForegroundColour(wxColour(153, 153, 153));
 
-	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, L"please click to see more help >>", "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue");
-	link->SetMinSize(wxSize(210, 25));
-	link->SetSize(wxSize(230, 25));
+	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("please click to see more help >>"), "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue");
+	link->SetMinSize(AnkerSize(210, 25));
+	link->SetSize(AnkerSize(230, 25));
 
 	wxBoxSizer* pLinkSizer = new wxBoxSizer(wxVERTICAL);
 	pLinkSizer->Add(pTipsText, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
@@ -149,7 +152,8 @@ AnkerUnLoginPanel::AnkerUnLoginPanel(wxWindow* parent)
 	, m_loginBtn(nullptr)
 	, m_tipsText(nullptr)
 {
-	this->SetBackgroundColour(wxColour("#1F2022"));
+	//this->SetBackgroundColour(wxColour("#1F2022"));
+	this->SetBackgroundColour(wxColour("#1B1C1F"));
 
 	initUi();
 }
@@ -169,7 +173,8 @@ void AnkerUnLoginPanel::initUi()
 	m_logoBitmap = new wxStaticBitmap(this, wxID_ANY, scaledBitmap);
 	m_logoBitmap->SetSize(scaledBitmap.GetSize());
 
-	m_loginText = new wxStaticText(this, wxID_ANY, L"Please Log In to view your printers");
+	m_loginText = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_dislogin"));
+	m_loginText->SetFont(ANKER_FONT_NO_1);
 	wxFont font = m_loginText->GetFont();
 	font.SetWeight(wxFONTWEIGHT_BOLD);
 	m_loginText->SetFont(font);
@@ -177,7 +182,8 @@ void AnkerUnLoginPanel::initUi()
 
 	m_loginBtn = new AnkerBtn(this,
 		wxID_ANY);
-	m_loginBtn->SetText(L"Log in");
+	m_loginBtn->SetText(_L("common_print_statusnotice_login"));
+	m_loginBtn->SetFont(ANKER_FONT_NO_1);	
 
 	m_loginBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
 		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_LOGIN_CLCIKED);
@@ -185,15 +191,21 @@ void AnkerUnLoginPanel::initUi()
 		});
 
 	m_loginBtn->SetBackgroundColour(wxColor("#62D361"));
-	m_loginBtn->SetMinSize(wxSize(336, 48));
+	m_loginBtn->SetMinSize(AnkerSize(336, 48));
 	m_loginBtn->SetRadius(5);
 	m_loginBtn->SetTextColor(wxColor("#FFFFFF"));
 
-	m_tipsText = new wxStaticText(this, wxID_ANY, L"No Account? ");
+	m_tipsText = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_createaccount") + " ");
+	m_tipsText->SetFont(ANKER_FONT_NO_1);
 	m_tipsText->SetForegroundColour(wxColour(153, 153, 153));
 
-	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, L"Create one", "https://mulpass.ankermake.com/?app=ankermake&tab=register");
-	link->SetMinSize(wxSize(78, 20));
+	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("common_print_statusnotice_createaccount2"), "https://mulpass.ankermake.com/?app=ankermake&tab=register");
+	
+	wxClientDC dc(this);
+	dc.SetFont(ANKER_FONT_NO_1);
+	wxSize linkSize = dc.GetTextExtent(_L("common_print_statusnotice_createaccount2"));
+	
+	link->SetMinSize(linkSize);
 	wxBoxSizer* pLinkSizer = new wxBoxSizer(wxHORIZONTAL);
 	pLinkSizer->Add(m_tipsText);
 	pLinkSizer->Add(link);

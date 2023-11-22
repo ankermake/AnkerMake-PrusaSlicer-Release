@@ -3,6 +3,8 @@
 #include "wx/univ/theme.h"
 #include "wx/artprov.h"
 #include "libslic3r/Utils.hpp"
+#include "Common/AnkerGUIConfig.hpp"
+#include "GUI_App.hpp"
 
 
 BEGIN_EVENT_TABLE(AnkerAdjustItemWidget, wxControl)
@@ -22,7 +24,9 @@ AnkerAdjustItemWidget::AnkerAdjustItemWidget(wxWindow* parent,
 	const wxSize& size /*= wxDefaultSize*/)
 	: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 {
-	SetBackgroundColour(wxColour("#343538"));
+	SetBackgroundColour(wxColour("#343538"));	
+	//m_arrowStatusImg = "arrow_right.png";
+	m_arrowStatusImg = "arrow_right.disable.png";
 }
 
 
@@ -46,12 +50,14 @@ void AnkerAdjustItemWidget::setLogo(const std::string& logo)
 void AnkerAdjustItemWidget::setTitle(const std::string& title)
 {
 	m_title = title;
+	Refresh();
 }
 
 
 void AnkerAdjustItemWidget::setContent(const std::string& content)
 {
 	m_content = content;
+	Refresh();
 }
 
 
@@ -59,9 +65,15 @@ void AnkerAdjustItemWidget::setStatus(bool isDisabel)
 {
 	m_status = isDisabel;
 	if (m_status)
+	{
+		m_arrowStatusImg = "arrow_right.png";
 		SetBackgroundColour(wxColour("#343538"));
+	}
 	else
-		SetBackgroundColour(wxColour("#2C2D30"));	
+	{
+		m_arrowStatusImg = "arrow_right.disable.png";
+		SetBackgroundColour(wxColour("#2C2D30"));
+	}
 	Refresh();
 }
 
@@ -86,6 +98,7 @@ void AnkerAdjustItemWidget::OnPressed(wxMouseEvent& event)
 	if (m_status)
 	{
 		m_status = false;
+		m_arrowStatusImg = "arrow_right.disable.png";
 		wxCommandEvent evt = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED);
 		ProcessEvent(evt);		
 		Refresh();
@@ -98,6 +111,7 @@ void AnkerAdjustItemWidget::OnClick(wxMouseEvent& event)
 	if (m_status)
 	{
 		m_status = false;
+		m_arrowStatusImg = "arrow_right.disable.png";
 		wxCommandEvent evt = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED);
 		ProcessEvent(evt);		
 		Refresh();
@@ -138,9 +152,8 @@ void AnkerAdjustItemWidget::OnPaint(wxPaintEvent& event)
 	}
 	wxSize size;
 	{
-		dc.Clear();
-		wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
-		dc.SetFont(font);
+		dc.Clear();		
+		dc.SetFont(ANKER_BOLD_FONT_NO_1);
 		size = dc.GetTextExtent(m_title);
 		wxBrush brush(titleColor);
 		wxPen pen(titleColor);
@@ -150,21 +163,17 @@ void AnkerAdjustItemWidget::OnPaint(wxPaintEvent& event)
 	}
 
 	{
-#ifdef _WIN32
-		wxFont font(10, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
-#else
-		wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
-#endif
-		dc.SetFont(font);
+		dc.SetFont(ANKER_FONT_NO_2);
 		wxBrush brush(contentColor);
 		wxPen pen(contentColor);
 		dc.SetTextForeground(contentColor);
-		wxPoint textPoint = wxPoint(9, 20 + size.GetHeight());
+		
+		wxPoint textPoint = wxPoint(9, 1.3* Slic3r::GUI::wxGetApp().em_unit() + size.GetHeight());
 		dc.DrawText(m_content, textPoint);
 	}
 
 	{
-		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("arrow_right.png")), wxBITMAP_TYPE_PNG);
+		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var(m_arrowStatusImg.ToStdString())), wxBITMAP_TYPE_PNG);
 		image.Rescale(16, 16);
 		wxBitmap scaledBitmap(image);
 

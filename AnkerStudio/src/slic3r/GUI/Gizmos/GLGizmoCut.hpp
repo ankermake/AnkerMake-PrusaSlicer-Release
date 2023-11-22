@@ -5,6 +5,7 @@
 #include "slic3r/GUI/GLSelectionRectangle.hpp"
 #include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/I18N.hpp"
+#include "slic3r/GUI/Common/AnkerLineEditUnit.hpp"
 #include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/Model.hpp"
 #include "imgui/imgui.h"
@@ -139,6 +140,12 @@ class GLGizmoCut3D : public GLGizmoBase
     bool                                        m_show_shortcuts{ false };
     std::vector<std::pair<wxString, wxString>>  m_shortcuts;
 
+    // Anker
+    bool m_zHeightEditing;
+    bool m_panelVisibleFlag;
+    wxBoxSizer* m_pInputWindowSizer;
+    AnkerLineEditUnit* m_pZHeightTextCtrl;
+
     enum class CutMode {
         cutPlanar
         , cutGrig
@@ -203,7 +210,7 @@ protected:
     bool               on_init() override;
     void               on_load(cereal::BinaryInputArchive&ar) override;
     void               on_save(cereal::BinaryOutputArchive&ar) const override;
-    std::string        on_get_name() const override;
+    std::string        on_get_name(bool i18n = true) const override;
     void               on_set_state() override;
     CommonGizmosDataID on_get_requirements() const override;
     void               on_set_hover_id() override;
@@ -296,6 +303,10 @@ private:
     void update_connector_shape();
     void validate_connector_settings();
     bool process_cut_line(SLAGizmoEventType action, const Vec2d& mouse_position);
+
+    // Anker
+    void set_input_window_state(bool on);
+    void update_input_window();
 };
 
 } // namespace GUI

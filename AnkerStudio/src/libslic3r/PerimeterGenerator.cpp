@@ -616,12 +616,13 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator::P
             } else {
                 // Because we are processing one ExtrusionLine all ExtrusionPaths should form one connected path.
                 // But there is possibility that due to numerical issue there is poss
-                assert([&paths = std::as_const(paths)]() -> bool {
+                //update by alves, cover right parameters data to the config if fff_print then process
+                [&paths = std::as_const(paths)]() -> bool {
                     for (auto it = std::next(paths.begin()); it != paths.end(); ++it)
                         if (std::prev(it)->polyline.last_point() != it->polyline.first_point())
                             return false;
                     return true;
-                }());
+                }();
                 ExtrusionMultiPath multi_path;
                 multi_path.paths.emplace_back(std::move(paths.front()));
 
@@ -1382,6 +1383,7 @@ void PerimeterGenerator::process_classic(
             if (i == 0) {
                 // the minimum thickness of a single loop is:
                 // ext_width/2 + ext_spacing/2 + spacing/2 + width/2
+#if 0
                 offsets = params.config.thin_walls ? 
                     offset2_ex(
                         last,
@@ -1401,6 +1403,50 @@ void PerimeterGenerator::process_classic(
                     for (ExPolygon &ex : expp)
                         ex.medial_axis(min_width, ext_perimeter_width + ext_perimeter_spacing2, &thin_walls);
                 }
+#else
+                if (!params.config.thin_walls || !offset_ex(last, -0.8 * ext_perimeter_width).empty()){
+                    offsets = offset_ex(last, -float(ext_perimeter_width / 2.));
+                }
+
+                if (params.config.thin_walls) {
+                    // the following offset2 ensures almost nothing in @thin_walls is narrower than $min_width
+                    // (actually, something larger than that still may exist due to mitering or other causes)
+                    coord_t min_width = coord_t(scale_(params.ext_perimeter_flow.nozzle_diameter() / 3));
+                    ExPolygons expp = opening_ex(
+                        // medial axis requires non-overlapping geometry
+                        diff_ex(last, offset(offsets, float(ext_perimeter_width / 2.) + ClipperSafetyOffset)),
+                        float(min_width / 2.));
+                    // the maximum thickness of our thin wall area is equal to the minimum thickness of a single loop
+                    if (!expp.empty()){
+                        Polygons   expp_p = to_polygons(expp);
+                        Arachne::WallToolPaths wallToolPaths(expp_p, ext_perimeter_spacing, perimeter_spacing, coord_t(1), 0, params.layer_height, params.object_config, params.print_config);
+                        std::vector<Arachne::VariableWidthLines> perimeters = wallToolPaths.getToolPaths();
+                        for (Arachne::VariableWidthLines VWlines : perimeters)
+                        {
+                            for (Arachne::ExtrusionLine line : VWlines)
+                            {
+                                ThickPolyline TPline;
+                                coordf_t last_w;
+                                for (Arachne::ExtrusionJunction pt : line.junctions)
+                                {    
+                                    TPline.points.push_back(pt.p);
+                                    if (TPline.points.size() > 2){
+                                        TPline.width.push_back(last_w);
+                                    }
+                                    TPline.width.push_back(pt.w);
+                                    last_w = pt.w;
+                                }
+                                TPline.endpoints = std::make_pair(true, true);
+                                if (TPline.first_point() == TPline.last_point()) {
+                                    TPline.endpoints.first = false;
+                                    TPline.endpoints.second = false;
+                                }
+                                thin_walls.push_back(TPline);
+                            }
+                        }
+                    }
+                }
+#endif
                 if (params.spiral_vase && offsets.size() > 1) {
                 	// Remove all but the largest area polygon.
                 	keep_largest_contour_only(offsets);

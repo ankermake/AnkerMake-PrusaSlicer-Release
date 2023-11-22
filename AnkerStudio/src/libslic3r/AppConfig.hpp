@@ -32,6 +32,9 @@ public:
 	// Override missing or keys with their defaults.
 	void 			   	set_defaults();
 
+	// Set Default Printer List info to config
+	void initDefaultPrinterList();
+	
 	// Load the slic3r.ini from a user profile directory (or a datadir, if configured).
 	// return error string or empty strinf
 	std::string         load();
@@ -103,6 +106,7 @@ public:
 		{ auto it = m_storage.find(section); assert(it != m_storage.end()); return it->second; }
 	bool 				set_section(const std::string &section, std::map<std::string, std::string> data);
 	bool 				clear_section(const std::string &section);
+	bool 				delete_section(const std::string& section);
 
 	typedef std::map<std::string, std::map<std::string, std::set<std::string>>> VendorMap;
 	bool                get_variant(const std::string &vendor, const std::string &model, const std::string &variant) const;

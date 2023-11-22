@@ -37,7 +37,7 @@ std::pair<double, double> Extruder::extrude(double dE)
    value supplied will overwrite the previous one if any. */
 std::pair<double, double> Extruder::retract(double retract_length, double restart_extra)
 {
-    assert(restart_extra >= 0);
+    //  assert(restart_extra >= 0);  delete @2023-07-19 by ChunLian
     // in case of relative E distances we always reset to 0 before any output
     if (m_config->use_relative_e_distances)
         m_E = 0.;

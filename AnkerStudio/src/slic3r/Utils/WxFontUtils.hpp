@@ -61,6 +61,8 @@ public:
     /// <returns>New created font fileon success otherwise nullptr</returns>
     static std::unique_ptr<Slic3r::Emboss::FontFile> set_bold(wxFont &font, const Slic3r::Emboss::FontFile &font_file);
 
+    static void setText_wrap(wxStaticText* context, int width, const wxString& text, int language);
+
     // convert wxFont types to string and vice versa
     static const boost::bimap<wxFontFamily, std::string_view> type_to_family;
     static const boost::bimap<wxFontStyle, std::string_view> type_to_style;

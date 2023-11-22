@@ -215,8 +215,16 @@ void Tab::create_preset_tab()
 
     const float scale_factor = em_unit(this)*0.1;// GetContentScaleFactor();
     m_hsizer = new wxBoxSizer(wxHORIZONTAL);
-    sizer->Add(m_hsizer, 0, wxEXPAND | wxBOTTOM, 3);
-    m_hsizer->Add(m_presets_choice, 0, wxLEFT | wxRIGHT | wxTOP | wxALIGN_CENTER_VERTICAL, 3);
+   
+    // adjust print tab combox sizer border because the logic in funciton OnActivate is not working
+    if (Preset::TYPE_PRINT == m_type) {
+        sizer->Add(m_hsizer, 0, wxEXPAND, 0);
+        m_hsizer->Add(m_presets_choice, 0, wxLEFT | wxRIGHT | wxALIGN_CENTER_VERTICAL, 3);
+    }
+    else {
+        sizer->Add(m_hsizer, 0, wxEXPAND | wxBOTTOM, 3);
+        m_hsizer->Add(m_presets_choice, 0, wxLEFT | wxRIGHT | wxTOP | wxALIGN_CENTER_VERTICAL, 3);
+    }
     m_hsizer->AddSpacer(int(4*scale_factor));
 
     m_h_buttons_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -1124,11 +1132,11 @@ void Tab::update_wiping_button_visibility() {
     bool multiple_extruders = dynamic_cast<ConfigOptionFloats*>((m_preset_bundle->printers.get_edited_preset().config).option("nozzle_diameter"))->values.size() > 1;
     bool single_extruder_multi_material = dynamic_cast<ConfigOptionBool*>((m_preset_bundle->printers.get_edited_preset().config).option("single_extruder_multi_material"))->value;
 
-    auto wiping_dialog_button = wxGetApp().sidebar().get_wiping_dialog_button();
-    if (wiping_dialog_button) {
-        wiping_dialog_button->Show(wipe_tower_enabled && multiple_extruders && single_extruder_multi_material);
-        wiping_dialog_button->GetParent()->Layout();
-    }
+    //auto wiping_dialog_button = wxGetApp().sidebar().get_wiping_dialog_button();
+    //if (wiping_dialog_button) {
+    //    wiping_dialog_button->Show(wipe_tower_enabled && multiple_extruders && single_extruder_multi_material);
+    //    wiping_dialog_button->GetParent()->Layout();
+    //}
 }
 
 void Tab::activate_option(const std::string& opt_key, const wxString& category)
@@ -1217,7 +1225,12 @@ void Tab::on_presets_changed()
         return;
 
     // Instead of PostEvent (EVT_TAB_PRESETS_CHANGED) just call update_presets
+#if USE_SIDEBAR_NEW
+    wxGetApp().plater()->sidebarnew().updatePresets(m_type);
+#else
     wxGetApp().plater()->sidebar().update_presets(m_type);
+#endif
+    
 
     // Printer selected at the Printer tab, update "compatible" marks at the print and filament selectors.
     for (auto t: m_dependent_tabs)
@@ -1368,7 +1381,7 @@ void Tab::update_preset_description_line()
 
 void Tab::update_frequently_changed_parameters()
 {
-    const bool is_fff = supports_printer_technology(ptFFF);
+   /* const bool is_fff = supports_printer_technology(ptFFF);
     auto og_freq_chng_params = wxGetApp().sidebar().og_freq_chng_params(is_fff);
     if (!og_freq_chng_params) return;
 
@@ -1385,7 +1398,7 @@ void Tab::update_frequently_changed_parameters()
     {
         og_freq_chng_params->set_value("brim", bool(m_config->opt_float("brim_width") > 0.0));
         update_wiping_button_visibility();
-    }
+    }*/
 }
 
 void TabPrint::build()
@@ -1780,8 +1793,8 @@ void TabPrint::update()
 
         // update() could be called during undo/redo execution
         // Update of objectList can cause a crash in this case (because m_objects doesn't match ObjectList) 
-        if (!wxGetApp().plater()->inside_snapshot_capture())
-            wxGetApp().obj_list()->update_and_show_object_settings_item();
+        //if (!wxGetApp().plater()->inside_snapshot_capture())
+        //    wxGetApp().obj_list()->update_and_show_object_settings_item();
 
         wxGetApp().mainframe->on_config_changed(m_config);
     }
@@ -1937,7 +1950,8 @@ void TabFilament::build()
 
     auto page = add_options_page(L("Filament"), "spool");
         auto optgroup = page->new_optgroup(L("Filament"));
-        optgroup->append_single_option_line("filament_colour");
+        // mod by allen at 20230627 Shielding consumables color setting in the consumables parameter panel
+        /*optgroup->append_single_option_line("filament_colour");*/
         optgroup->append_single_option_line("filament_diameter");
         optgroup->append_single_option_line("extrusion_multiplier");
         optgroup->append_single_option_line("filament_density");
@@ -1949,8 +1963,8 @@ void TabFilament::build()
             update_dirty();
             if (opt_key == "filament_spool_weight") {
                 // Change of this option influences for an update of "Sliced Info"
-                wxGetApp().sidebar().update_sliced_info_sizer();
-                wxGetApp().sidebar().Layout();
+               // wxGetApp().sidebar().update_sliced_info_sizer();
+               // wxGetApp().sidebar().Layout();
             }
             else
                 on_value_change(opt_key, value);
@@ -2251,7 +2265,7 @@ void TabPrinter::build_print_host_upload_group(Page* page)
         "A new Physical Printer profile is created by clicking on the \"cog\" icon right of the Printer profiles combo box, "
         "by selecting the \"Add physical printer\" item in the Printer combo box. The Physical Printer profile editor opens "
         "also when clicking on the \"cog\" icon in the Printer settings tab. The Physical Printer profiles are being stored "
-        "into AnkerMake_alpha/physical_printer directory.");
+        "into AnkerMake Studio/physical_printer directory.");
 
     Line line = { "", "" };
     line.full_width = 1;
@@ -2278,7 +2292,7 @@ void TabPrinter::build_fff()
 
     auto   *nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(m_config->option("nozzle_diameter"));
     m_initial_extruders_count = m_extruders_count = nozzle_diameter->values.size();
-    wxGetApp().sidebar().update_objects_list_extruder_column(m_initial_extruders_count);
+    wxGetApp().objectbar()->update_objects_list_extruder_column(m_initial_extruders_count);
 
     const Preset* parent_preset = m_printer_technology == ptSLA ? nullptr // just for first build, if SLA printer preset is selected 
                                   : m_presets->get_selected_preset_parent();
@@ -2639,7 +2653,7 @@ void TabPrinter::extruders_count_changed(size_t extruders_count)
 
     if (is_count_changed) {
         on_value_change("extruders_count", extruders_count);
-        wxGetApp().sidebar().update_objects_list_extruder_column(extruders_count);
+        wxGetApp().objectbar()->update_objects_list_extruder_column(extruders_count);
     }
 }
 
@@ -3043,7 +3057,7 @@ void TabPrinter::update_pages()
         else
             m_pages.swap(m_pages_fff);
 
-         wxGetApp().sidebar().update_objects_list_extruder_column(m_extruders_count);
+         wxGetApp().objectbar()->update_objects_list_extruder_column(m_extruders_count);
     }
     else
         m_pages_sla.empty() ? build_sla() : m_pages.swap(m_pages_sla);
@@ -3233,7 +3247,7 @@ void Tab::load_current_preset()
         if (preset.printer_technology() == ptFFF)
             on_preset_loaded();
         else
-            wxGetApp().sidebar().update_objects_list_extruder_column(1);
+            wxGetApp().objectbar()->update_objects_list_extruder_column(1);
     }
     // Reload preset pages with the new configuration values.
     reload_config();
@@ -4518,10 +4532,10 @@ wxSizer* TabPrinter::create_bed_shape_widget(wxWindow* parent)
     // may be it is not a best place, but 
     // add information about Category/Grope for "bed_custom_texture" and "bed_custom_model" as a copy from "bed_shape" option
     {
-        Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();
-        const Search::GroupAndCategory& gc = searcher.get_group_and_category("bed_shape");
-        searcher.add_key("bed_custom_texture", m_type, gc.group, gc.category);
-        searcher.add_key("bed_custom_model", m_type, gc.group, gc.category);
+       // Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();
+        //const Search::GroupAndCategory& gc = searcher.get_group_and_category("bed_shape");
+       // searcher.add_key("bed_custom_texture", m_type, gc.group, gc.category);
+      //  searcher.add_key("bed_custom_model", m_type, gc.group, gc.category);
     }
 
     return sizer;
@@ -4867,8 +4881,8 @@ void TabSLAMaterial::build()
         update_dirty();
 
         // Change of any from those options influences for an update of "Sliced Info"
-        wxGetApp().sidebar().update_sliced_info_sizer();
-        wxGetApp().sidebar().Layout();
+       // wxGetApp().sidebar().update_sliced_info_sizer();
+       // wxGetApp().sidebar().Layout();
     };
 
     optgroup = page->new_optgroup(L("Layers"));
@@ -5123,8 +5137,8 @@ void TabSLAPrint::update()
 
         // update() could be called during undo/redo execution
         // Update of objectList can cause a crash in this case (because m_objects doesn't match ObjectList) 
-        if (!wxGetApp().plater()->inside_snapshot_capture())
-            wxGetApp().obj_list()->update_and_show_object_settings_item();
+        //if (!wxGetApp().plater()->inside_snapshot_capture())
+        //    wxGetApp().obj_list()->update_and_show_object_settings_item();
 
         wxGetApp().mainframe->on_config_changed(m_config);
     }

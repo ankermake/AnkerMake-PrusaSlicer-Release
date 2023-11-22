@@ -1,11 +1,11 @@
 #ifndef _ANKER_LINE_EDIT_HPP_
 #define _ANKER_LINE_EDIT_HPP_
 
-#include <wx/textctrl.h>
+#include <wx/richtext/richtextctrl.h>
 
 wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_FINISHED, wxCommandEvent);
-
-class AnkerLineEdit :public wxTextCtrl
+wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_ENTER, wxCommandEvent);
+class AnkerLineEdit :public wxRichTextCtrl
 {
 public:
 	AnkerLineEdit(wxWindow* parent, wxWindowID id, const wxString& value = wxEmptyString,
@@ -13,9 +13,19 @@ public:
 		long style = 0, const wxValidator& validator = wxDefaultValidator,
 		const wxString& name = wxTextCtrlNameStr);
 	~AnkerLineEdit();
+
+	void SetTextColor(wxColour color);
+	void SetForegroundColour(wxColour color);
+	void SetBackgroundColour(wxColour color);
+	wxString GetValue()const;
 protected:
 	void OnKillFocus(wxFocusEvent& event);
+	void OnSetFocus(wxFocusEvent& event);
+	void OnKeyDown(wxKeyEvent& event);
+	void OnPaint(wxPaintEvent& event);
 private:
+	wxColour m_background_color;
+	wxColour m_text_color;
 };
 
 

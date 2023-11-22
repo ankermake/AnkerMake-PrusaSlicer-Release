@@ -5,6 +5,7 @@
 #include "AnkerTextLabel.hpp"
 #include "AnkerCustomEvent.hpp"
 #include <wx/scrolwin.h>
+#include "Common/AnkerLoadingLabel.hpp"
 
 enum ANKER_BTN_STATUS
 {
@@ -25,13 +26,15 @@ class AnkerTabBtn :public wxControl
 public:
 	AnkerTabBtn();
 	AnkerTabBtn(wxWindow* parent,
-		wxWindowID winid = wxID_ANY,
+		const wxString& snId,
+		wxWindowID winid = wxID_ANY,		
 		const wxString& btnName = wxString(""),
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 
 	~AnkerTabBtn() {}
-
+	wxString getSnId();
+	void setIcon(const wxString& strIcon);
 	virtual void OnClick(wxMouseEvent& event);
 	virtual void OnEnter(wxMouseEvent& event);
 	virtual void OnLeave(wxMouseEvent& event);
@@ -41,16 +44,23 @@ public:
 	void setTabBtnName(const std::string& btnName);
 
 	void setBtnStatus(ANKER_BTN_STATUS status);
+	void setOnlineStatus(bool isOnline);
 protected:
 	void OnPaint(wxPaintEvent& event);	
 	void OnLabelClicked(AnkerCustomEvent& event);
+	//TODO: by Samuel,to refresh the printers status
+	void GetPrinterStatus();
 
 private:
 
 	wxString  m_tabName;
 	wxBitmap  m_icon;
+	wxBitmap  m_offlineIcon;
+	wxBitmap  m_statusIcon;//the icon to represent printer status
 
+	bool	  m_isOnline = true;
 	ANKER_BTN_STATUS m_status;
+	wxString  m_snid;
 
 };
 
@@ -65,6 +75,7 @@ public:
 
 	void clearExpiredTab(const std::string& sn);
 	bool checkTabExist(const std::string& sn);
+	void switchTabFromSn(const std::string& sn);
 	void clearList();
 	int  getCount();
 	void SetCurrentTab(const int& index);
@@ -73,6 +84,7 @@ public:
 		const std::string& snID,
 		bool isSelect = false);
 	void RemoveTab(const size_t& index);
+	void setTabOnlineStatus(bool isOnline, const wxString& snId);
 protected:
 	void initUi();
 private:
@@ -91,22 +103,23 @@ public:
 		const wxSize& size = wxDefaultSize);
 	~AnkerNavBar();
 
-	void updateRefresh(bool isRefreh);
+	void stopLoading();
+	
 	bool checkTabExist(const std::string& sn);
+	void switchTabFromSn(const std::string& sn);
 	void clearExpiredTab(const std::string& sn);
 	int getCount()const;
 	void addItem(const std::string& ItemName, const std::string& snId);
 	void clearItem();
 	void showEmptyPanel(bool isShow);
+	void setTabOnlineStatus(bool isOnline, const wxString& snId);
 protected:
-	void InitUi();
-	void OnTimer(wxTimerEvent& event);
+	void InitUi();	
 private:
-	wxButton* m_reloadBtn;
-	bool	  m_isRefresh = false;
+	AnkerLoadingLabel* m_reloadBtn;
+	//bool	  m_isRefresh = false;
 	AnkerBtnList* m_navBarList;
 	wxPanel* m_emptyPanel;
-	wxTimer* m_reloadTimer;
 };
 
 

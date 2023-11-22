@@ -29,6 +29,7 @@
 #include <wx/debug.h>
 #include <wx/busyinfo.h>
 #include <wx/stdpaths.h>
+#include <wx/tarstrm.h>
 #ifdef _WIN32
 #include <wx/richtooltip.h>
 #include <wx/custombgwin.h>
@@ -63,7 +64,7 @@
 #include "GUI_App.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_ObjectManipulation.hpp"
-#include "GUI_ObjectLayers.hpp"
+//#include "GUI_ObjectLayers.hpp"
 #include "GUI_Utils.hpp"
 #include "GUI_Geometry.hpp"
 #include "GUI_Factories.hpp"
@@ -105,6 +106,9 @@
 #include "Gizmos/GLGizmoSimplify.hpp" // create suggestion notification
 #include "Gizmos/GLGizmoCut.hpp"
 #include "FileArchiveDialog.hpp"
+#include "Common/AnkerGUIConfig.hpp"
+#include "Common/AnkerNumberEnterDialog.hpp"
+#include "Common/AnkerMsgDialog.hpp"
 
 #ifdef __APPLE__
 #include "Gizmos/GLGizmosManager.hpp"
@@ -119,7 +123,11 @@
 #include "../Utils/DataManger.hpp"
 #include <boost/bind.hpp>
 #include <boost/signals2/connection.hpp>
+#include <boost/filesystem.hpp>
 #include "libslic3r/Utils.hpp"
+
+#include "AnkerGcodePreviewSideBar.hpp"
+#include <slic3r/GUI/AnkerHint.h>
 
 using boost::optional;
 namespace fs = boost::filesystem;
@@ -127,10 +135,6 @@ using Slic3r::_3DScene;
 using Slic3r::Preset;
 using Slic3r::PrintHostJob;
 using Slic3r::GUI::format_wxstr;
-
-int g_progressValue = 0;
-std::mutex g_progressValue_mutex;
-wxTimer *g_timer = nullptr;
 
 static const std::pair<unsigned int, unsigned int> THUMBNAIL_SIZE_3MF = { 256, 256 };
 
@@ -147,7 +151,7 @@ namespace Slic3r {
         wxDEFINE_EVENT(EVT_PROCESS_COMPLETED, SlicingProcessCompletedEvent);
         wxDEFINE_EVENT(EVT_EXPORT_BEGAN, wxCommandEvent);
 
-      
+
 
         bool Plater::has_illegal_filename_characters(const wxString& wxs_name)
         {
@@ -505,22 +509,24 @@ namespace Slic3r {
                 m_wiping_dialog_button->Bind(wxEVT_BUTTON, ([parent](wxCommandEvent& e)
                     {
                         auto& project_config = wxGetApp().preset_bundle->project_config;
-                const std::vector<double>& init_matrix = (project_config.option<ConfigOptionFloats>("wiping_volumes_matrix"))->values;
-                const std::vector<double>& init_extruders = (project_config.option<ConfigOptionFloats>("wiping_volumes_extruders"))->values;
+                        const std::vector<double>& init_matrix = (project_config.option<ConfigOptionFloats>("wiping_volumes_matrix"))->values;
+                        const std::vector<double>& init_extruders = (project_config.option<ConfigOptionFloats>("wiping_volumes_extruders"))->values;
 
-                const std::vector<std::string> extruder_colours = wxGetApp().plater()->get_extruder_colors_from_plater_config();
+                        // add by allen for fixing use filament_colour instead of extruder_colour
+                        //const std::vector<std::string> extruder_colours = wxGetApp().plater()->get_extruder_colors_from_plater_config();
+                        const std::vector<std::string> extruder_colours = wxGetApp().plater()->get_filament_colors_from_plater_config();
 
-                WipingDialog dlg(parent, cast<float>(init_matrix), cast<float>(init_extruders), extruder_colours);
+                        WipingDialog dlg(parent, cast<float>(init_matrix), cast<float>(init_extruders), extruder_colours);
 
-                if (dlg.ShowModal() == wxID_OK) {
-                    std::vector<float> matrix = dlg.get_matrix();
-                    std::vector<float> extruders = dlg.get_extruders();
-                    (project_config.option<ConfigOptionFloats>("wiping_volumes_matrix"))->values = std::vector<double>(matrix.begin(), matrix.end());
-                    (project_config.option<ConfigOptionFloats>("wiping_volumes_extruders"))->values = std::vector<double>(extruders.begin(), extruders.end());
-                    // Update Project dirty state, update application title bar.
-                    wxGetApp().plater()->update_project_dirty_from_presets();
-                    wxPostEvent(parent, SimpleEvent(EVT_SCHEDULE_BACKGROUND_PROCESS, parent));
-                }
+                        if (dlg.ShowModal() == wxID_OK) {
+                            std::vector<float> matrix = dlg.get_matrix();
+                            std::vector<float> extruders = dlg.get_extruders();
+                            (project_config.option<ConfigOptionFloats>("wiping_volumes_matrix"))->values = std::vector<double>(matrix.begin(), matrix.end());
+                            (project_config.option<ConfigOptionFloats>("wiping_volumes_extruders"))->values = std::vector<double>(extruders.begin(), extruders.end());
+                            // Update Project dirty state, update application title bar.
+                            wxGetApp().plater()->update_project_dirty_from_presets();
+                            wxPostEvent(parent, SimpleEvent(EVT_SCHEDULE_BACKGROUND_PROCESS, parent));
+                        }
                     }));
 
                 auto btn = new ScalableButton(parent, wxID_ANY, "mirroring_transparent", wxEmptyString,
@@ -676,7 +682,7 @@ namespace Slic3r {
 
             wxBoxSizer* sizer_params;
             FreqChangedParams* frequently_changed_parameters{ nullptr };
-            ObjectList* object_list{ nullptr };
+            //ObjectList* object_list{ nullptr };
             ObjectManipulation* object_manipulation{ nullptr };
             ObjectSettings* object_settings{ nullptr };
             ObjectLayers* object_layers{ nullptr };
@@ -722,10 +728,10 @@ namespace Slic3r {
             for (size_t i = 0; i < 4; ++i)
                 sizer_presets->Show(i, !showSLA);
 
-            for (size_t i = 4; i < 8; ++i)
+            for (size_t i = 4; i < 10; ++i)
                 sizer_presets->Show(i, showSLA);
 
-            frequently_changed_parameters->Show(!showSLA);
+            //frequently_changed_parameters->Show(!showSLA);
 
             scrolled->GetParent()->Layout();
             scrolled->Refresh();
@@ -776,7 +782,7 @@ namespace Slic3r {
         // Sidebar / public
 
         Sidebar::Sidebar(Plater* parent)
-            : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(42 * wxGetApp().em_unit(), -1)), p(new priv(parent))
+            : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(27.4 * wxGetApp().em_unit(), -1)), p(new priv(parent))
         {
             p->scrolled = new wxScrolledWindow(this);
             //    p->scrolled->SetScrollbars(0, 100, 1, 2); // ys_DELETE_after_testing. pixelsPerUnitY = 100 from https://github.com/prusa3d/PrusaSlicer/commit/8f019e5fa992eac2c9a1e84311c990a943f80b01, 
@@ -800,7 +806,7 @@ namespace Slic3r {
             p->scrolled->SetSizer(scrolled_sizer);
 
             // Sizer with buttons for mode changing
-            p->mode_sizer = new ModeSizer(p->scrolled, int(0.5 * wxGetApp().em_unit()));
+            //p->mode_sizer = new ModeSizer(p->scrolled, int(0.5 * wxGetApp().em_unit()));
 
             // The preset chooser
             p->sizer_presets = new wxFlexGridSizer(10, 1, 1, 2);
@@ -825,33 +831,35 @@ namespace Slic3r {
             const int margin_5 = int(0.5 * wxGetApp().em_unit());// 5;
 
             auto init_combo = [this, margin_5](PlaterPresetComboBox** combo, wxString label, Preset::Type preset_type, bool filament) {
-                auto* text = new wxStaticText(p->presets_panel, wxID_ANY, label + " :");
+                auto text_and_btn_sizer = new wxBoxSizer(wxHORIZONTAL);
+
+                auto* text = new wxStaticText(p->presets_panel, wxID_ANY, label);
                 text->SetFont(wxGetApp().small_font());
+                text_and_btn_sizer->Add(text, 1, wxEXPAND);
+
                 *combo = new PlaterPresetComboBox(p->presets_panel, preset_type);
 
-                auto combo_and_btn_sizer = new wxBoxSizer(wxHORIZONTAL);
-                combo_and_btn_sizer->Add(*combo, 1, wxEXPAND);
                 if ((*combo)->edit_btn)
-                    combo_and_btn_sizer->Add((*combo)->edit_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT,
+                    text_and_btn_sizer->Add((*combo)->edit_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT,
                         int(0.3 * wxGetApp().em_unit()));
 
                 auto* sizer_presets = this->p->sizer_presets;
                 auto* sizer_filaments = this->p->sizer_filaments;
                 // Hide controls, which will be shown/hidden in respect to the printer technology
                 text->Show(preset_type == Preset::TYPE_PRINTER);
-                sizer_presets->Add(text, 0, wxALIGN_LEFT | wxEXPAND | wxRIGHT, 4);
                 if (!filament) {
-                    combo_and_btn_sizer->ShowItems(preset_type == Preset::TYPE_PRINTER);
-                    sizer_presets->Add(combo_and_btn_sizer, 0, wxEXPAND |
+                    text_and_btn_sizer->ShowItems(preset_type == Preset::TYPE_PRINTER);
+                    sizer_presets->Add(text_and_btn_sizer, 0, wxEXPAND |
 #ifdef __WXGTK3__
                         wxRIGHT, margin_5);
 #else
                         wxBOTTOM, 1);
                     (void)margin_5; // supress unused capture warning
 #endif // __WXGTK3__
+                    sizer_presets->Add(*combo, 0, wxALIGN_LEFT | wxEXPAND | wxRIGHT, 4);
                 }
                 else {
-                    sizer_filaments->Add(combo_and_btn_sizer, 0, wxEXPAND |
+                    sizer_filaments->Add(text_and_btn_sizer, 0, wxEXPAND |
 #ifdef __WXGTK3__
                         wxRIGHT, margin_5);
 #else
@@ -860,15 +868,19 @@ namespace Slic3r {
                     (*combo)->set_extruder_idx(0);
                     sizer_filaments->ShowItems(false);
                     sizer_presets->Add(sizer_filaments, 1, wxEXPAND);
+                    sizer_presets->Add(*combo, 0, wxALIGN_LEFT | wxEXPAND | wxRIGHT, 4);
                 }
             };
 
             p->combos_filament.push_back(nullptr);
-            init_combo(&p->combo_print, _L("Print settings"), Preset::TYPE_PRINT, false);
+
+#if !USE_SIDEBAR_NEW
+            init_combo(&p->combo_printer, _L("Printer"), Preset::TYPE_PRINTER, false);
             init_combo(&p->combos_filament[0], _L("Filament"), Preset::TYPE_FILAMENT, true);
+            init_combo(&p->combo_print, _L("Print settings"), Preset::TYPE_PRINT, false);
             init_combo(&p->combo_sla_print, _L("SLA print settings"), Preset::TYPE_SLA_PRINT, false);
             init_combo(&p->combo_sla_material, _L("SLA material"), Preset::TYPE_SLA_MATERIAL, false);
-            init_combo(&p->combo_printer, _L("Printer"), Preset::TYPE_PRINTER, false);
+#endif
 
             p->sizer_params = new wxBoxSizer(wxVERTICAL);
 
@@ -880,9 +892,9 @@ namespace Slic3r {
 #endif // __WXGTK3__
                 , wxOSX ? 1 : margin_5);
 
-            // Object List
-            p->object_list = new ObjectList(p->scrolled);
-            p->sizer_params->Add(p->object_list->get_sizer(), 1, wxEXPAND);
+            //// Object List
+            //p->object_list = new ObjectList(p->scrolled);
+            //p->sizer_params->Add(p->object_list->get_sizer(), 1, wxEXPAND);
 
             // Object Manipulations
             p->object_manipulation = new ObjectManipulation(p->scrolled);
@@ -895,30 +907,33 @@ namespace Slic3r {
             p->sizer_params->Add(p->object_settings->get_sizer(), 0, wxEXPAND | wxTOP, margin_5);
 
             // Object Layers
-            p->object_layers = new ObjectLayers(p->scrolled);
-            p->object_layers->Hide();
-            p->sizer_params->Add(p->object_layers->get_sizer(), 0, wxEXPAND | wxTOP, margin_5);
+            //p->object_layers = new ObjectLayers(p->scrolled);
+            //p->object_layers->Hide();
+            //p->sizer_params->Add(p->object_layers->get_sizer(), 0, wxEXPAND | wxTOP, margin_5);
 
             // Info boxes
             p->object_info = new ObjectInfo(p->scrolled);
             p->sliced_info = new SlicedInfo(p->scrolled);
 
             // Sizer in the scrolled area
-            if (p->mode_sizer)
-                scrolled_sizer->Add(p->mode_sizer, 0, wxALIGN_CENTER_HORIZONTAL);
+            /*if (p->mode_sizer)
+                scrolled_sizer->Add(p->mode_sizer, 0, wxALIGN_CENTER_HORIZONTAL);*/
 
             int size_margin = wxGTK3 ? wxLEFT | wxRIGHT : wxLEFT;
 
             is_msw ?
                 scrolled_sizer->Add(p->presets_panel, 0, wxEXPAND | size_margin, margin_5) :
                 scrolled_sizer->Add(p->sizer_presets, 0, wxEXPAND | size_margin, margin_5);
-            scrolled_sizer->Add(p->sizer_params, 1, wxEXPAND | size_margin, margin_5);
-            scrolled_sizer->Add(p->object_info, 0, wxEXPAND | wxTOP | size_margin, margin_5);
-            scrolled_sizer->Add(p->sliced_info, 0, wxEXPAND | wxTOP | size_margin, margin_5);
+            if (p->sizer_params) {
+                p->sizer_params->Show(false);
+            }
+            /* scrolled_sizer->Add(p->sizer_params, 1, wxEXPAND | size_margin, margin_5);
+             scrolled_sizer->Add(p->object_info, 0, wxEXPAND | wxTOP | size_margin, margin_5);
+             scrolled_sizer->Add(p->sliced_info, 0, wxEXPAND | wxTOP | size_margin, margin_5);*/
 
-            // Buttons underneath the scrolled area
+             // Buttons underneath the scrolled area
 
-            // rescalable bitmap buttons "Send to printer" and "Remove device" 
+             // rescalable bitmap buttons "Send to printer" and "Remove device" 
 
             auto init_scalable_btn = [this](ScalableButton** btn, const std::string& icon_name, wxString tooltip = wxEmptyString)
             {
@@ -933,11 +948,11 @@ namespace Slic3r {
 #ifdef _WIN32
                 (*btn)->Bind(wxEVT_ENTER_WINDOW, [tooltip, btn, this](wxMouseEvent& event) {
                     p->show_rich_tip(tooltip, *btn);
-                event.Skip();
+                    event.Skip();
                     });
                 (*btn)->Bind(wxEVT_LEAVE_WINDOW, [btn, this](wxMouseEvent& event) {
                     p->hide_rich_tip(*btn);
-                event.Skip();
+                    event.Skip();
                     });
 #else
                 (*btn)->SetToolTip(tooltip);
@@ -964,10 +979,29 @@ namespace Slic3r {
                 wxGetApp().UpdateDarkUI((*btn), true);
             };
 
-
+#ifdef __APPLE__
             init_btn(&p->btn_export_gcode, _L("Export G-code") + dots, scaled_height);
             init_btn(&p->btn_reslice, _L("Slice now"), scaled_height);
-            init_btn(&p->btn_print, _L("Print Now"), scaled_height);
+            init_btn(&p->btn_print, _L("Go Print"), scaled_height);
+#elif _WIN32
+            p->btn_export_gcode = new wxButton(nullptr, wxID_ANY, _L("Export G-code"), wxDefaultPosition,
+                wxSize(-1, scaled_height), wxBU_EXACTFIT);
+            p->btn_export_gcode->Hide();
+            p->btn_export_gcode->Disable();
+            p->btn_reslice = new wxButton(nullptr, wxID_ANY, _L("Slice now"), wxDefaultPosition,
+                wxSize(-1, scaled_height), wxBU_EXACTFIT);
+            p->btn_reslice->Hide();
+            p->btn_reslice->Disable();
+            p->btn_print = new wxButton(nullptr, wxID_ANY, _L("Go Print"), wxDefaultPosition,
+                wxSize(-1, scaled_height), wxBU_EXACTFIT);
+            p->btn_print->Hide();
+            p->btn_print->Disable();
+#endif // __APPLE__
+
+
+
+            //init_btn(&p->btn_export_gcode, _L("Export") + dots, scaled_height);
+            //init_btn(&p->btn_print, _L("Print Now"), scaled_height);
             p->m_transferFileProgress = new wxGauge(
                 this, (wxWindowID)wxID_ANY, 100,
                 wxPoint(), wxSize(-1, scaled_height));
@@ -980,41 +1014,34 @@ namespace Slic3r {
             auto* btns_sizer = new wxBoxSizer(wxVERTICAL);
 
             auto* complect_btns_sizer = new wxBoxSizer(wxHORIZONTAL);
-            complect_btns_sizer->Add(p->btn_export_gcode, 1, wxEXPAND);
+            //complect_btns_sizer->Add(p->btn_export_gcode, 1, wxEXPAND);
             complect_btns_sizer->AddSpacer(10);
-            complect_btns_sizer->Add(p->btn_print, 1, wxEXPAND);
-            complect_btns_sizer->Add(p->m_transferFileProgress, 1, wxEXPAND);
+            //complect_btns_sizer->Add(p->btn_print, 1, wxEXPAND);
+            //complect_btns_sizer->Add(p->m_transferFileProgress, 1, wxEXPAND);
             btns_sizer->Add(p->btn_reslice, 0, wxEXPAND | wxTOP, margin_5);
             btns_sizer->Add(complect_btns_sizer, 0, wxEXPAND | wxTOP, margin_5);
 
             auto* sizer = new wxBoxSizer(wxVERTICAL);
             sizer->Add(p->scrolled, 1, wxEXPAND);
             sizer->Add(btns_sizer, 0, wxEXPAND | wxLEFT, margin_5);
-            SetSizer(sizer);
+            //SetSizer(sizer);
             Datamanger::GetInstance().setPlaterPtr(p->plater);
-            
-           
 
-#ifdef __APPLE__
-            g_timer = new wxTimer(this, wxID_ANY);
-            Bind(wxEVT_TIMER, &Plater::onProgressTimer, p->plater);
-            //chooseDeviceFrame->setTimer(g_timer);
-#endif
             // Events
-            p->btn_export_gcode->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { p->plater->export_gcode(false); });
-            p->btn_print->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { 
-                p->plater->a_key_print_clicked(); });
+            /*p->btn_export_gcode->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { p->plater->export_gcode(false); });
+            p->btn_print->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+                p->plater->a_key_print_clicked(); });*/
             p->btn_reslice->Bind(wxEVT_BUTTON, [this](wxCommandEvent&)
                 {
                     if (p->plater->canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
-                    return;
+                        return;
 
-            const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
-            if (export_gcode_after_slicing)
-                p->plater->export_gcode(true);
-            else
-                p->plater->reslice();
-            p->plater->select_view_3D("Preview");
+                    const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
+                    if (export_gcode_after_slicing)
+                        p->plater->export_gcode(true);
+                    else
+                        p->plater->reslice();
+                    p->plater->select_view_3D(VIEW_MODE_PREVIEW);
                 });
 
 #ifdef _WIN32
@@ -1180,16 +1207,16 @@ namespace Slic3r {
                 combo->msw_rescale();
 
             p->frequently_changed_parameters->msw_rescale();
-            p->object_list->msw_rescale();
+            //p->object_list->msw_rescale();
             p->object_manipulation->msw_rescale();
-            p->object_layers->msw_rescale();
+            //p->object_layers->msw_rescale();
 
 #ifdef _WIN32
             const int scaled_height = p->btn_export_gcode_removable->GetBitmapHeight();
 #else
             const int scaled_height = p->btn_export_gcode_removable->GetBitmapHeight() + 4;
 #endif
-            p->btn_export_gcode->SetMinSize(wxSize(-1, scaled_height));
+            //p->btn_export_gcode->SetMinSize(wxSize(-1, scaled_height));
             p->btn_reslice->SetMinSize(wxSize(-1, scaled_height));
 
             p->scrolled->Layout();
@@ -1223,9 +1250,9 @@ namespace Slic3r {
             for (PlaterPresetComboBox* combo : p->combos_filament)
                 combo->sys_color_changed();
 
-            p->object_list->sys_color_changed();
+            //p->object_list->sys_color_changed();
             p->object_manipulation->sys_color_changed();
-            p->object_layers->sys_color_changed();
+            //p->object_layers->sys_color_changed();
 
             // btn...->msw_rescale() updates icon on button, so use it
             p->btn_send_gcode->sys_color_changed();
@@ -1269,10 +1296,10 @@ namespace Slic3r {
             return p->object_manipulation;
         }
 
-        ObjectList* Sidebar::obj_list()
-        {
-            return p->object_list;
-        }
+        //ObjectList* Sidebar::obj_list()
+        //{
+        //    return p->object_list;
+        //}
 
         ObjectSettings* Sidebar::obj_settings()
         {
@@ -1304,10 +1331,10 @@ namespace Slic3r {
             return p->frequently_changed_parameters->get_wiping_dialog_button();
         }
 
-        void Sidebar::update_objects_list_extruder_column(size_t extruders_count)
-        {
-            p->object_list->update_objects_list_extruder_column(extruders_count);
-        }
+        //void Sidebar::update_objects_list_extruder_column(size_t extruders_count)
+        //{
+        //    p->object_list->update_objects_list_extruder_column(extruders_count);
+        //}
 
         void Sidebar::show_info_sizer()
         {
@@ -1335,7 +1362,7 @@ namespace Slic3r {
             Transform3d t;
             if (selection.is_single_volume()) {
                 std::vector<int> obj_idxs, vol_idxs;
-                wxGetApp().obj_list()->get_selection_indexes(obj_idxs, vol_idxs);
+                //wxGetApp().obj_list()->get_selection_indexes(obj_idxs, vol_idxs);
                 if (vol_idxs.size() != 1)
                     // Case when this fuction is called between update selection in ObjectList and on Canvas
                     // Like after try to delete last solid part in object, the object is selected in ObjectLIst when just a part is still selected on Canvas
@@ -1348,6 +1375,11 @@ namespace Slic3r {
             Vec3d size = vol ? vol->mesh().transformed_bounding_box(t).size() : model_object->instance_bounding_box(inst_idx).size();
             p->object_info->info_size->SetLabel(wxString::Format("%.2f x %.2f x %.2f", size(0) * koef, size(1) * koef, size(2) * koef));
             //    p->object_info->info_materials->SetLabel(wxString::Format("%d", static_cast<int>(model_object->materials_count())));
+            auto plater = wxGetApp().plater();
+            if (plater) {
+                //plater->setModelObjectSizeText(wxString::Format("%.2f x %.2f x %.2f mm", size(0) * koef, size(1) * koef, size(2) * koef));
+                plater->setModelObjectSizeText(wxString::Format("%.2f X %.2f X %.2f mm", size(0) * koef, size(1) * koef, size(2) * koef));
+            }
 
             const TriangleMeshStats& stats = vol ? vol->mesh().stats() : model_object->get_object_stl_stats();
 
@@ -1359,13 +1391,13 @@ namespace Slic3r {
             p->object_info->info_facets->SetLabel(format_wxstr(_L_PLURAL("%1% (%2$d shell)", "%1% (%2$d shells)", stats.number_of_parts),
                 static_cast<int>(model_object->facets_count()), stats.number_of_parts));
 
-            wxString info_manifold_label;
-            auto mesh_errors = obj_list()->get_mesh_errors_info(&info_manifold_label);
-            wxString tooltip = mesh_errors.tooltip;
-            p->object_info->update_warning_icon(mesh_errors.warning_icon_name);
-            p->object_info->info_manifold->SetLabel(info_manifold_label);
-            p->object_info->info_manifold->SetToolTip(tooltip);
-            p->object_info->manifold_warning_icon->SetToolTip(tooltip);
+            //wxString info_manifold_label;
+            //auto mesh_errors = obj_list()->get_mesh_errors_info(&info_manifold_label);
+            //wxString tooltip = mesh_errors.tooltip;
+            //p->object_info->update_warning_icon(mesh_errors.warning_icon_name);
+            //p->object_info->info_manifold->SetLabel(info_manifold_label);
+            //p->object_info->info_manifold->SetToolTip(tooltip);
+            //p->object_info->manifold_warning_icon->SetToolTip(tooltip);
 
             p->object_info->show_sizer(true);
             if (vol || model_object->volumes.size() == 1)
@@ -1537,22 +1569,22 @@ namespace Slic3r {
         void Sidebar::enable_buttons(bool enable)
         {
             p->btn_reslice->Enable(enable);
-            p->btn_export_gcode->Enable(enable);
+            //p->btn_export_gcode->Enable(enable);
             p->btn_send_gcode->Enable(enable);
             //    p->btn_eject_device->Enable(enable);
             p->btn_export_gcode_removable->Enable(enable);
-            p->btn_print->Enable(enable);
+            // p->btn_print->Enable(enable);
         }
 
         bool Sidebar::show_reslice(bool show)          const { return p->btn_reslice->Show(show); }
-        bool Sidebar::show_export(bool show)           const { return p->btn_export_gcode->Show(show); }
+        bool Sidebar::show_export(bool show)           const { return false/*p->btn_export_gcode->Show(show)*/; }
         bool Sidebar::show_send(bool show)             const { return p->btn_send_gcode->Show(show); }
         bool Sidebar::show_export_removable(bool show) const { return p->btn_export_gcode_removable->Show(show); }
         //bool Sidebar::show_eject(bool show)            const { return p->btn_eject_device->Show(show); }
         //bool Sidebar::get_eject_shown()                const { return p->btn_eject_device->IsShown(); }
-        bool Sidebar::show_print_btn(bool show)             const { return p->btn_print->Show(show); }
-        void Sidebar::updateFileTransferProgressValue(int value) { p->m_transferFileProgress->SetValue(value); }
-        bool Sidebar::show_send_progress(bool show)    const { show_print_btn(!show); return  p->m_transferFileProgress->Show(show); }
+        bool Sidebar::show_print_btn(bool show)             const { return false/*p->btn_print->Show(show)*/; }
+        void Sidebar::updateFileTransferProgressValue(int value) { /*p->m_transferFileProgress->SetValue(value);*/ }
+        bool Sidebar::show_send_progress(bool show)    const { show_print_btn(!show); return false;/* p->m_transferFileProgress->Show(show);*/ }
         void Sidebar::OnUpdateProgressEvent(wxThreadEvent& event) {
             std::thread::id tid = std::this_thread::get_id();
             std::hash<std::thread::id> hasher;
@@ -1591,12 +1623,14 @@ namespace Slic3r {
             wxWindowUpdateLocker noUpdates(this);
 
             if (m_mode == comSimple)
+            {
                 p->object_manipulation->set_coordinates_type(ECoordinatesType::World);
+            }
 
-            p->object_list->get_sizer()->Show(m_mode > comSimple);
+            //p->object_list->get_sizer()->Show(m_mode > comSimple);
 
-            p->object_list->unselect_objects();
-            p->object_list->update_selections();
+            //p->object_list->unselect_objects();
+            //p->object_list->update_selections();
 
             Layout();
         }
@@ -1618,20 +1652,22 @@ namespace Slic3r {
 #ifdef _MSW_DARK_MODE
         void Sidebar::show_mode_sizer(bool show)
         {
-            p->mode_sizer->Show(show);
+            if (p->mode_sizer) {
+                p->mode_sizer->Show(show);
+            }
         }
 #endif
 
         void Sidebar::update_ui_from_settings()
         {
-            p->object_manipulation->update_ui_from_settings();
+            //p->object_manipulation->update_ui_from_settings();
             show_info_sizer();
             update_sliced_info_sizer();
             // update Cut gizmo, if it's open
             p->plater->canvas3D()->update_gizmos_on_off_state();
             p->plater->set_current_canvas_as_dirty();
             p->plater->get_current_canvas3D()->request_extra_frame();
-            p->object_list->apply_volumes_order();
+            //p->object_list->apply_volumes_order();
         }
 
         std::vector<PlaterPresetComboBox*>& Sidebar::combos_filament()
@@ -1677,6 +1713,8 @@ namespace Slic3r {
 
         bool PlaterDropTarget::OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& filenames)
         {
+            //drag file to device panel is not allow
+            if (!wxGetApp().plater()->IsShown()) return false;
 #ifdef WIN32
             // hides the system icon
             this->MSWUpdateDragImageOnLeave();
@@ -1684,10 +1722,12 @@ namespace Slic3r {
 
             m_mainframe.Raise();
             m_mainframe.select_tab(size_t(0));
+            
             if (wxGetApp().is_editor())
-                m_plater.select_view_3D("3D");
+                m_plater.select_view_3D(VIEW_MODE_3D);
             bool res = m_plater.load_files(filenames);
             m_mainframe.update_title();
+            
             return res;
         }
 
@@ -1738,7 +1778,16 @@ namespace Slic3r {
             wxSizer* panel_sizer{ nullptr };
             wxPanel* current_panel{ nullptr };
             std::vector<wxPanel*> panels;
-            Sidebar* sidebar;
+            Sidebar* sidebar{ nullptr };
+            AnkerSidebarNew* sidebarnew{ nullptr };
+            AnkerObjectBar* objectbar;
+            AnkerObjectManipulator* aobjectmanipulator;
+            AnkerFloatingList* floatinglist;
+
+            AnkerObjectLayers* object_layers{ nullptr };
+
+            AnkerHint* m_machineTypeMatchHint{ nullptr };
+
             Bed3D bed;
             Camera camera;
 #if ENABLE_ENVIRONMENT_MAP
@@ -1749,6 +1798,8 @@ namespace Slic3r {
             GLToolbar view_toolbar;
             GLToolbar collapse_toolbar;
             Preview* preview;
+            AnkerGcodePreviewSideBar* previewRightSidePanel{ nullptr };
+            wxBoxSizer* previewRightSidePanelSizer{ nullptr };
             std::unique_ptr<NotificationManager> notification_manager;
 
             ProjectDirtyStateManager dirty_state;
@@ -1766,6 +1817,8 @@ namespace Slic3r {
             PlaterWorker<BoostThreadWorker> m_worker;
             SLAImportDialog* m_sla_import_dlg;
 
+            ViewMode               current_view_mode;
+
             bool                        delayed_scene_refresh;
             std::string                 delayed_error_message;
 
@@ -1778,6 +1831,9 @@ namespace Slic3r {
 
             bool                        show_render_statistic_dialog{ false };
 
+            progressChangeCallbackFunction export_progress_change_cb = nullptr;
+            bool cancel_export{ false };
+            bool create_AI_file = false;
             static const std::regex pattern_bundle;
             static const std::regex pattern_3mf;
             static const std::regex pattern_zip_amf;
@@ -1813,13 +1869,13 @@ namespace Slic3r {
                                 if (dialog.IsCheckBoxChecked()) {
                                     wxString preferences_item = _L("Ask for unsaved changes in project");
                                     wxString msg =
-                                        _L("AnkerMake_alpha will remember your choice.") + "\n\n" +
+                                        _L("AnkerMake Studio will remember your choice.") + "\n\n" +
                                         _L("You will not be asked about it again, when: \n"
-                                            "- Closing AnkerMake_alpha,\n"
+                                            "- Closing AnkerMake Studio,\n"
                                             "- Loading or creating a new project") + "\n\n" +
                                         format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto changes your choice."), preferences_item);
 
-                                    MessageDialog msg_dlg(mainframe, msg, _L("AnkerMake_alpha: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
+                                    MessageDialog msg_dlg(mainframe, msg, _L("AnkerMake Studio: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
                                     if (msg_dlg.ShowModal() == wxID_CANCEL)
                                         return wxID_CANCEL;
 
@@ -1853,9 +1909,12 @@ namespace Slic3r {
             };
             void update(unsigned int flags = 0);
             void select_view(const std::string& direction);
-            void select_view_3D(const std::string& name);
+            void select_view_3D(ViewMode mode);
             void select_next_view_3D();
 
+            wxBoxSizer* CreatePreViewRightSideBar();
+            void updatePreViewRightSideBar(bool SlicingProcessCompletedSuss);
+            void UpdateCurrentViewType(GCodeViewer::EViewType type);
             bool is_preview_shown() const { return current_panel == preview; }
             bool is_preview_loaded() const { return preview->is_loaded(); }
             bool is_view3D_shown() const { return current_panel == view3D; }
@@ -1865,6 +1924,8 @@ namespace Slic3r {
 
             bool is_legend_shown() const { return (current_panel == preview) && preview->get_canvas3d()->is_legend_shown(); }
             void show_legend(bool show) { if (current_panel == preview) preview->get_canvas3d()->show_legend(show); }
+            wxWindow* get_preview_toolbar() { return (preview ? preview->GetGcodeLayerToolbar() : nullptr); }
+            void enable_moves_slider(bool enable) { if (preview) { preview->enable_moves_slider(enable); } }
 
             bool is_sidebar_collapsed() const { return sidebar->is_collapsed(); }
             void collapse_sidebar(bool collapse);
@@ -1890,6 +1951,8 @@ namespace Slic3r {
             void update_main_toolbar_tooltips();
             //   std::shared_ptr<ProgressStatusBar> statusbar();
             bool get_config_bool(const std::string& key) const;
+
+            void HintForMachine();
 
             std::vector<size_t> load_files(const std::vector<fs::path>& input_files, bool load_model, bool load_config, bool used_inches = false);
             std::vector<size_t> load_model_objects(const ModelObjectPtrs& model_objects, bool allow_negative_z = false, bool call_selection_changed = true);
@@ -1970,6 +2033,15 @@ namespace Slic3r {
                 }
             }
             void export_gcode(fs::path output_path, bool output_path_on_removable_media, PrintHostJob upload_job);
+            void set_export_progress_change_callback(progressChangeCallbackFunction cb) { export_progress_change_cb = cb; }
+            void cancel_exporting_Gcode() { cancel_export = true; }
+            void set_create_AI_file(bool value) {
+                create_AI_file = value;
+                wxString str = wxString::Format("%d", static_cast<int>(create_AI_file));
+                Slic3r::GUI::wxGetApp().app_config->set("create_AI_file", str.ToStdString());
+                background_process.update_temp_output_path(create_AI_file);
+            }
+            bool get_create_AI_file() { return create_AI_file; };
             void reload_from_disk();
             bool replace_volume_with_stl(int object_idx, int volume_idx, const fs::path& new_path, const wxString& snapshot = "");
             void replace_with_stl();
@@ -1977,6 +2049,7 @@ namespace Slic3r {
             void set_current_panel(wxPanel* panel);
 
             void on_select_preset(wxCommandEvent&);
+            void on_select_preset_sidebarnew(wxCommandEvent&);
             void on_slicing_update(SlicingStatusEvent&);
             void on_slicing_completed(wxCommandEvent&);
             void on_process_completed(SlicingProcessCompletedEvent&);
@@ -2090,7 +2163,8 @@ namespace Slic3r {
             : q(q)
             , main_frame(main_frame)
             , config(Slic3r::DynamicPrintConfig::new_from_defaults_keys({
-                "bed_shape", "bed_custom_texture", "bed_custom_model", "complete_objects", "duplicate_distance", "extruder_clearance_radius", "skirts", "skirt_distance",
+            // add by allen for add anker_filament_id and anker_colour_id
+                "anker_filament_id", "anker_colour_id", "bed_shape", "bed_custom_texture", "bed_custom_model", "complete_objects", "duplicate_distance", "extruder_clearance_radius", "skirts", "skirt_distance",
                 "brim_width", "brim_separation", "brim_type", "variable_layer_height", "nozzle_diameter", "single_extruder_multi_material",
                 "wipe_tower", "wipe_tower_x", "wipe_tower_y", "wipe_tower_width", "wipe_tower_rotation_angle", "wipe_tower_brim_width", "wipe_tower_cone_angle", "wipe_tower_extra_spacing",
                 "extruder_colour", "filament_colour", "material_colour", "max_print_height", "printer_model", "printer_technology",
@@ -2100,7 +2174,12 @@ namespace Slic3r {
                 "support_material", "support_material_extruder", "support_material_interface_extruder",
                 "support_material_contact_distance", "support_material_bottom_contact_distance", "raft_layers"
                 }))
+            , sidebarnew(new AnkerSidebarNew(q))
             , sidebar(new Sidebar(q))
+            , objectbar(nullptr)
+            , aobjectmanipulator(new AnkerObjectManipulator(sidebarnew))
+            , floatinglist(new AnkerFloatingList(q))
+            , object_layers(new AnkerObjectLayers(sidebarnew))
             , notification_manager(std::make_unique<NotificationManager>(q))
             , m_worker{ q, std::make_unique<NotificationProgressIndicator>(notification_manager.get()), "ui_worker" }
             , m_sla_import_dlg{ new SLAImportDialog{q} }
@@ -2108,8 +2187,60 @@ namespace Slic3r {
             , view_toolbar(GLToolbar::Radio, "View")
             , collapse_toolbar(GLToolbar::Normal, "Collapse")
             , m_project_filename(wxEmptyString)
+            , current_view_mode(VIEW_MODE_3D)
         {
+            if (objectbar == nullptr)
+            {
+                objectbar = new AnkerObjectBar(q);
+                objectbar->getObjectBarView()->Hide();
+            }
+
             this->q->SetFont(Slic3r::GUI::wxGetApp().normal_font());
+            aobjectmanipulator->Hide();
+            floatinglist->Hide();
+            main_frame->Bind(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, [this](wxCommandEvent& event) {
+                if(sidebarnew)
+                    sidebarnew->hidePopupWidget();
+             });
+            main_frame->Bind(wxCUSTOMEVT_ANKER_RELOAD_DATA, [this](wxCommandEvent& event) {
+                if (sidebarnew)
+                    sidebarnew->reloadParameterData();
+                });
+            if (sidebarnew)
+            {
+
+                sidebarnew->Bind(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED, [this, q](wxCommandEvent& event)
+                    {
+                        if (q->canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
+                            return;
+
+                        const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
+                        if (export_gcode_after_slicing)
+                            q->export_gcode(true);
+                        else
+                            q->reslice();
+                        q->select_view_3D(VIEW_MODE_PREVIEW);
+                        
+                    });
+
+                sidebarnew->Bind(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED, [this, q](wxCommandEvent& event)
+                    {
+                        wxString filePath = get_project_filename(".3mf");
+                        if (q)
+                        {
+                            q->export_3mf(Slic3r::GUI::into_path(filePath));
+                            wxGetApp().update_saved_preset_from_current_preset();
+                            reset_project_dirty_after_save();
+                        }
+                    });
+
+                sidebarnew->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, [this, q](wxCommandEvent& event)
+                    {
+                        //todo right parameterpanel value changed and update flags process_completed_with_error
+                        //schedule_background_process();
+                    });
+
+            }
 
             background_process.set_fff_print(&fff_print);
             background_process.set_sla_print(&sla_print);
@@ -2144,7 +2275,7 @@ namespace Slic3r {
             this->q->Bind(wxEVT_TIMER, [this](wxTimerEvent& evt)
                 {
                     if (!this->suppressed_backround_processing_update)
-                    this->update_restart_background_process(false, false);
+                        this->update_restart_background_process(false, false);
                 });
 
             update();
@@ -2154,7 +2285,14 @@ namespace Slic3r {
             panel_sizer->Add(view3D, 1, wxEXPAND | wxALL, 0);
             panel_sizer->Add(preview, 1, wxEXPAND | wxALL, 0);
             hsizer->Add(panel_sizer, 1, wxEXPAND | wxALL, 0);
+#if USE_SIDEBAR_NEW
+            hsizer->Add(sidebarnew, 0, wxEXPAND |/* wxLEFT | */wxRIGHT, 12);
+            sidebar->Show(false);
+#else
             hsizer->Add(sidebar, 0, wxEXPAND | wxLEFT | wxRIGHT, 0);
+#endif
+
+
             q->SetSizer(hsizer);
 
             menus.init(q);
@@ -2162,12 +2300,24 @@ namespace Slic3r {
             // Events:
 
             if (wxGetApp().is_editor()) {
+#if USE_SIDEBAR_NEW
+                // Preset change event
+                sidebarnew->Bind(wxEVT_COMBOBOX, &priv::on_select_preset_sidebarnew, this);
+                //sidebar->Bind(EVT_OBJ_LIST_OBJECT_SELECT, [this](wxEvent&) { priv::selection_changed(); });
+                //sidebar->Bind(EVT_SCHEDULE_BACKGROUND_PROCESS, [this](SimpleEvent&) { this->schedule_background_process(); });
+
+                 // add by allen for ankerCfgDlg search
+                // jump to found option from SearchDialog
+                q->Bind(wxCUSTOMEVT_JUMP_TO_OPTION, [this](wxCommandEvent& evt) { sidebarnew->jump_to_option(evt.GetInt()); });
+#else
                 // Preset change event
                 sidebar->Bind(wxEVT_COMBOBOX, &priv::on_select_preset, this);
                 sidebar->Bind(EVT_OBJ_LIST_OBJECT_SELECT, [this](wxEvent&) { priv::selection_changed(); });
                 sidebar->Bind(EVT_SCHEDULE_BACKGROUND_PROCESS, [this](SimpleEvent&) { this->schedule_background_process(); });
                 // jump to found option from SearchDialog
                 q->Bind(wxCUSTOMEVT_JUMP_TO_OPTION, [this](wxCommandEvent& evt) { sidebar->jump_to_option(evt.GetInt()); });
+#endif
+
             }
 
             wxGLCanvas* view3D_canvas = view3D->get_wxglcanvas();
@@ -2190,7 +2340,8 @@ namespace Slic3r {
                 view3D_canvas->Bind(EVT_GLCANVAS_INSTANCE_ROTATED, [this](SimpleEvent&) { update(); });
                 view3D_canvas->Bind(EVT_GLCANVAS_RESET_SKEW, [this](SimpleEvent&) { update(); });
                 view3D_canvas->Bind(EVT_GLCANVAS_INSTANCE_SCALED, [this](SimpleEvent&) { update(); });
-                view3D_canvas->Bind(EVT_GLCANVAS_ENABLE_ACTION_BUTTONS, [this](Event<bool>& evt) { this->sidebar->enable_buttons(evt.data); });
+                view3D_canvas->Bind(EVT_GLCANVAS_ENABLE_ACTION_BUTTONS, [this](Event<bool>& evt) { /*this->sidebar->enable_buttons(evt.data);*/
+                                                                                                   sidebarnew->enableSliceBtn(false, evt.data); });
                 view3D_canvas->Bind(EVT_GLCANVAS_UPDATE_GEOMETRY, &priv::on_update_geometry, this);
                 view3D_canvas->Bind(EVT_GLCANVAS_MOUSE_DRAGGING_STARTED, &priv::on_3dcanvas_mouse_dragging_started, this);
                 view3D_canvas->Bind(EVT_GLCANVAS_MOUSE_DRAGGING_FINISHED, &priv::on_3dcanvas_mouse_dragging_finished, this);
@@ -2217,6 +2368,7 @@ namespace Slic3r {
                 view3D_canvas->Bind(EVT_GLTOOLBAR_SPLIT_OBJECTS, &priv::on_action_split_objects, this);
                 view3D_canvas->Bind(EVT_GLTOOLBAR_SPLIT_VOLUMES, &priv::on_action_split_volumes, this);
                 view3D_canvas->Bind(EVT_GLTOOLBAR_LAYERSEDITING, &priv::on_action_layersediting, this);
+                view3D_canvas->Bind(EVT_GLCANVAS_INITIALIZED, [this](SimpleEvent&) {objectbar->getViewer()->Show(); });
             }
             view3D_canvas->Bind(EVT_GLCANVAS_UPDATE_BED_SHAPE, [q](SimpleEvent&) { q->set_bed_shape(); });
 
@@ -2227,10 +2379,12 @@ namespace Slic3r {
                 preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_TAB, [this](SimpleEvent&) { select_next_view_3D(); });
                 preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_COLLAPSE_SIDEBAR, [this](SimpleEvent&) { this->q->collapse_sidebar(!this->q->is_sidebar_collapsed());  });
             }
-            preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_JUMP_TO, [this](wxKeyEvent& evt) { preview->jump_layers_slider(evt); });
+
+           // preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_JUMP_TO, [this](wxKeyEvent& evt) { preview->jump_layers_slider(evt); });
             preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_MOVE_SLIDERS, [this](wxKeyEvent& evt) {
-                preview->move_layers_slider(evt);
-            preview->move_moves_slider(evt);
+                //preview->move_layers_slider(evt);
+                //preview->move_moves_slider(evt);
+                preview->move_sliders(evt);
                 });
             preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_EDIT_COLOR_CHANGE, [this](wxKeyEvent& evt) { preview->edit_layers_slider(evt); });
             if (wxGetApp().is_gcode_viewer())
@@ -2240,8 +2394,8 @@ namespace Slic3r {
                 q->Bind(EVT_SLICING_COMPLETED, &priv::on_slicing_completed, this);
                 q->Bind(EVT_PROCESS_COMPLETED, &priv::on_process_completed, this);
                 q->Bind(EVT_EXPORT_BEGAN, &priv::on_export_began, this);
-                q->Bind(EVT_GLVIEWTOOLBAR_3D, [q](SimpleEvent&) { q->select_view_3D("3D"); });
-                q->Bind(EVT_GLVIEWTOOLBAR_PREVIEW, [q](SimpleEvent&) { q->select_view_3D("Preview"); });
+                q->Bind(EVT_GLVIEWTOOLBAR_3D, [q](SimpleEvent&) { q->select_view_3D(VIEW_MODE_3D); });
+                q->Bind(EVT_GLVIEWTOOLBAR_PREVIEW, [q](SimpleEvent&) { q->select_view_3D(VIEW_MODE_PREVIEW); });
             }
 
             // Drop target:
@@ -2298,8 +2452,8 @@ namespace Slic3r {
                     });
                 this->q->Bind(EVT_REMOVABLE_DRIVES_CHANGED, [this, q](RemovableDrivesChangedEvent&) {
                     q->show_action_buttons();
-                // Close notification ExportingFinished but only if last export was to removable
-                notification_manager->device_ejected();
+                    // Close notification ExportingFinished but only if last export was to removable
+                    notification_manager->device_ejected();
                     });
                 // Start the background thread and register this window as a target for update events.
                 wxGetApp().removable_drive_manager()->init(this->q);
@@ -2318,20 +2472,20 @@ namespace Slic3r {
 
             this->q->Bind(EVT_LOAD_MODEL_OTHER_INSTANCE, [this](LoadFromOtherInstanceEvent& evt) {
                 BOOST_LOG_TRIVIAL(trace) << "Received load from other instance event.";
-            wxArrayString input_files;
-            for (size_t i = 0; i < evt.data.size(); ++i) {
-                input_files.push_back(from_u8(evt.data[i].string()));
-            }
-            wxGetApp().mainframe->Raise();
-            this->q->load_files(input_files);
+                wxArrayString input_files;
+                for (size_t i = 0; i < evt.data.size(); ++i) {
+                    input_files.push_back(from_u8(evt.data[i].string()));
+                }
+                wxGetApp().mainframe->Raise();
+                this->q->load_files(input_files);
                 });
 
             this->q->Bind(EVT_START_DOWNLOAD_OTHER_INSTANCE, [](StartDownloadOtherInstanceEvent& evt) {
                 BOOST_LOG_TRIVIAL(trace) << "Received url from other instance event.";
-            wxGetApp().mainframe->Raise();
-            for (size_t i = 0; i < evt.data.size(); ++i) {
-                wxGetApp().start_download(evt.data[i]);
-            }
+                wxGetApp().mainframe->Raise();
+                for (size_t i = 0; i < evt.data.size(); ++i) {
+                    wxGetApp().start_download(evt.data[i]);
+                }
 
                 });
 
@@ -2341,9 +2495,17 @@ namespace Slic3r {
             wxGetApp().other_instance_message_handler()->init(this->q);
 
             // collapse sidebar according to saved value
-            if (wxGetApp().is_editor()) {
+        /*    if (wxGetApp().is_editor()) {
                 bool is_collapsed = get_config_bool("collapsed_sidebar");
                 sidebar->collapse(is_collapsed);
+            }*/
+
+            // CreatePreViewRightSideBar();
+
+            create_AI_file = false;
+            if (wxGetApp().app_config->has("create_AI_file")) {
+                bool val = wxGetApp().app_config->get_bool("create_AI_file");
+                set_create_AI_file(val);
             }
         }
 
@@ -2370,13 +2532,51 @@ namespace Slic3r {
                 update_status = this->update_background_process(false, flags & (unsigned int)UpdateParams::POSTPONE_VALIDATION_ERROR_MESSAGE);
             this->view3D->reload_scene(false, flags & (unsigned int)UpdateParams::FORCE_FULL_SCREEN_REFRESH);
             this->preview->reload_print();
+
             if (force_background_processing_restart)
                 this->restart_background_process(update_status);
             else
                 this->schedule_background_process();
 
-            if (get_config_bool("autocenter") && this->sidebar->obj_manipul()->IsShown())
-                this->sidebar->obj_manipul()->UpdateAndShow(true);
+            //if (get_config_bool("autocenter") && this->sidebar->obj_manipul()->IsShown())
+            //    this->sidebar->obj_manipul()->UpdateAndShow(true);
+            if (aobjectmanipulator->IsShown())
+            {
+                aobjectmanipulator->set_dirty();
+                aobjectmanipulator->update_if_dirty();
+            }
+        }
+
+        wxBoxSizer* Plater::priv::CreatePreViewRightSideBar()
+        {
+            if (previewRightSidePanelSizer == nullptr) {
+                previewRightSidePanelSizer = new wxBoxSizer(wxHORIZONTAL);
+                previewRightSidePanel = new AnkerGcodePreviewSideBar(sidebarnew);
+                previewRightSidePanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
+                // previewRightSidePanel = new AnkerGcodePreviewSideBar(preview);
+                previewRightSidePanel->SetBackgroundColour(wxColour("#18191b"));
+                previewRightSidePanelSizer->Add(previewRightSidePanel, 1, wxEXPAND | wxALL, 0);
+            }
+
+            return previewRightSidePanelSizer;
+        }
+
+        void Plater::priv::updatePreViewRightSideBar(bool SlicingProcessCompletedSuss)
+        {
+            if (previewRightSidePanel)
+            {
+                previewRightSidePanel->UpdateGcodePreviewSideBar(SlicingProcessCompletedSuss);
+                previewRightSidePanel->Refresh();
+            }
+        }
+
+        void Plater::priv::UpdateCurrentViewType(GCodeViewer::EViewType type)
+        {
+            if (previewRightSidePanel)
+            {
+                previewRightSidePanel->UpdateCurrentViewType(type);
+                previewRightSidePanel->Refresh();
+            }
         }
 
         void Plater::priv::select_view(const std::string& direction)
@@ -2394,14 +2594,50 @@ namespace Slic3r {
                 camera.recover_from_free_camera();
         }
 
-        void Plater::priv::select_view_3D(const std::string& name)
+        void Plater::priv::select_view_3D(ViewMode mode)
         {
-            if (name == "3D")
+            bool showGcodeLayerToolbar = false;
+            current_view_mode = mode;
+            q->updateMatchHint();
+            if (mode == VIEW_MODE_3D) {
                 set_current_panel(view3D);
-            else if (name == "Preview")
+
+                if (wxGetApp().is_editor())
+                {
+                    objectbar->getObjectBarView()->Show(wxGetApp().plater()->IsShown() && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE);
+                }
+
+                if (sidebarnew) {
+                    sidebarnew->setMainSizer(nullptr, false);
+                }
+            }
+            else if (mode == VIEW_MODE_PREVIEW) {
                 set_current_panel(preview);
 
-            apply_free_camera_correction(false);
+                if (wxGetApp().is_editor())
+                {
+                    objectbar->getObjectBarView()->Show(false);
+                    floatinglist->Show(false);
+                }
+
+                if (sidebarnew) {
+                    // fix the problem of flickering when switching gcode preview interface.
+                    sidebarnew->Show(false);
+                    sidebarnew->setMainSizer(CreatePreViewRightSideBar());
+                    previewRightSidePanel->UpdateGcodePreviewSideBar(wxGetApp().plater()->is_preview_loaded());
+                    sidebarnew->Show(true);
+                }
+
+                if (is_preview_loaded() && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE)
+                {
+                    showGcodeLayerToolbar = true;
+                }
+            }
+            if (q->IsShown()) {
+                preview->showGcodeLayerToolbar(showGcodeLayerToolbar);
+            }
+
+            apply_free_camera_correction(false);            
         }
 
         void Plater::priv::select_next_view_3D()
@@ -2414,7 +2650,7 @@ namespace Slic3r {
 
         void Plater::priv::collapse_sidebar(bool collapse)
         {
-            sidebar->collapse(collapse);
+            //sidebar->collapse(collapse);
 
             // Now update the tooltip in the toolbar.
             std::string new_tooltip = collapse
@@ -2442,7 +2678,9 @@ namespace Slic3r {
             view3D->get_canvas3d()->update_ui_from_settings();
             preview->get_canvas3d()->update_ui_from_settings();
 
-            sidebar->update_ui_from_settings();
+            //sidebar->update_ui_from_settings();
+            objectbar->update_ui_from_settings();
+            aobjectmanipulator->update_ui_from_settings();
         }
 
         // Called after the print technology was changed.
@@ -2461,6 +2699,28 @@ namespace Slic3r {
         bool Plater::priv::get_config_bool(const std::string& key) const
         {
             return wxGetApp().app_config->get_bool(key);
+        }
+
+        void Plater::priv::HintForMachine()
+        {
+            auto appConfig = Slic3r::GUI::wxGetApp().app_config;
+            if (appConfig && appConfig->get_bool("Print Check", "machine_type_nohint")) {
+                ANKER_LOG_INFO << "machine type nohint for user set.";
+                return;
+            }
+
+            if (m_machineTypeMatchHint == nullptr) {
+                m_machineTypeMatchHint = new AnkerHint(_L("common_popup_guide_printerchoose"), q);
+                m_machineTypeMatchHint->SetCallBack([this, appConfig](bool isChecked) {
+                    m_machineTypeMatchHint = nullptr;
+                    if (appConfig) {
+                        appConfig->set("Print Check", "machine_type_nohint", isChecked ? "1" : "0");
+                    }
+                });
+                wxSize uiSize = AnkerSize(268, 189);
+                m_machineTypeMatchHint->InitUI(uiSize.GetWidth(), uiSize.GetHeight());
+                q->updateMatchHint();
+            }
         }
 
         // After loading of the presets from project, check if they are visible.
@@ -2500,8 +2760,8 @@ namespace Slic3r {
 
             // show notification about temporarily installed presets
             if (!names.empty()) {
-                std::string notif_text = into_u8(_L_PLURAL("The preset below was temporarily installed on the active instance of AnkerMake_alpha",
-                    "The presets below were temporarily installed on the active instance of AnkerMake_alpha", names.size())) + ":";
+                std::string notif_text = into_u8(_L_PLURAL("The preset below was temporarily installed on the active instance of AnkerMake Studio",
+                    "The presets below were temporarily installed on the active instance of AnkerMake Studio", names.size())) + ":";
                 for (std::string& name : names)
                     notif_text += "\n - " + name;
                 get_notification_manager()->push_notification(NotificationType::CustomNotification,
@@ -2514,6 +2774,10 @@ namespace Slic3r {
             if (input_files.empty()) { return std::vector<size_t>(); }
 
             auto* nozzle_dmrs = config->opt<ConfigOptionFloats>("nozzle_diameter");
+
+            if (model.objects.empty()) {
+                HintForMachine();
+            }
 
             PlaterAfterLoadAutoArrange plater_after_load_auto_arrange;
 
@@ -2697,9 +2961,9 @@ namespace Slic3r {
                             if (answer_convert_from_meters == wxOK_DEFAULT) {
                                 RichMessageDialog dlg(q, format_wxstr(_L_PLURAL(
                                     "The dimensions of the object from file %s seem to be defined in meters.\n"
-                                    "The internal unit of AnkerMake_alpha is a millimeter. Do you want to recalculate the dimensions of the object?",
+                                    "The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of the object?",
                                     "The dimensions of some objects from file %s seem to be defined in meters.\n"
-                                    "The internal unit of AnkerMake_alpha is a millimeter. Do you want to recalculate the dimensions of these objects?", model.objects.size()), from_path(filename)) + "\n",
+                                    "The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of these objects?", model.objects.size()), from_path(filename)) + "\n",
                                     _L("The object is too small"), wxICON_QUESTION | wxYES_NO);
                                 dlg.ShowCheckBox(_L("Apply to all the remaining small objects being loaded."));
                                 int answer = dlg.ShowModal();
@@ -2719,9 +2983,9 @@ namespace Slic3r {
                             if (answer_convert_from_imperial_units == wxOK_DEFAULT) {
                                 RichMessageDialog dlg(q, format_wxstr(_L_PLURAL(
                                     "The dimensions of the object from file %s seem to be defined in inches.\n"
-                                    "The internal unit of AnkerMake_alpha is a millimeter. Do you want to recalculate the dimensions of the object?",
+                                    "The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of the object?",
                                     "The dimensions of some objects from file %s seem to be defined in inches.\n"
-                                    "The internal unit of AnkerMake_alpha is a millimeter. Do you want to recalculate the dimensions of these objects?", model.objects.size()), from_path(filename)) + "\n",
+                                    "The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of these objects?", model.objects.size()), from_path(filename)) + "\n",
                                     _L("The object is too small"), wxICON_QUESTION | wxYES_NO);
                                 dlg.ShowCheckBox(_L("Apply to all the remaining small objects being loaded."));
                                 int answer = dlg.ShowModal();
@@ -2913,15 +3177,16 @@ namespace Slic3r {
 
             notification_manager->close_notification_of_type(NotificationType::UpdatedItemsInfo);
             for (const size_t idx : obj_idxs) {
-                wxGetApp().obj_list()->add_object_to_list(idx, call_selection_changed);
+                //wxGetApp().obj_list()->add_object_to_list(idx, call_selection_changed);
+                wxGetApp().objectbar()->add_object_to_list(idx, call_selection_changed);
             }
 
             if (call_selection_changed) {
                 update();
                 // Update InfoItems in ObjectList after update() to use of a correct value of the GLCanvas3D::is_sinking(),
                 // which is updated after a view3D->reload_scene(false, flags & (unsigned int)UpdateParams::FORCE_FULL_SCREEN_REFRESH) call
-                for (const size_t idx : obj_idxs)
-                    wxGetApp().obj_list()->update_info_items(idx);
+                //for (const size_t idx : obj_idxs)
+                //    wxGetApp().obj_list()->update_info_items(idx);
 
                 object_list_changed();
             }
@@ -2972,6 +3237,7 @@ namespace Slic3r {
             case FT_AMF:
             case FT_3MF:
             case FT_GCODE:
+            case FT_ACODE:
             case FT_OBJ:
             case FT_OBJECT:
                 wildcard = file_wildcards(file_type);
@@ -3066,6 +3332,12 @@ namespace Slic3r {
                 on_action_layersediting(evt);
             }
 
+            if (aobjectmanipulator)
+            {
+                aobjectmanipulator->set_dirty();
+                aobjectmanipulator->update_if_dirty();
+            }
+
             // forces a frame render to update the view (to avoid a missed update if, for example, the context menu appears)
             view3D->render();
         }
@@ -3076,13 +3348,16 @@ namespace Slic3r {
             // XXX: is this right?
             const bool model_fits = view3D->get_canvas3d()->check_volumes_outside_state() == ModelInstancePVS_Inside;
 
-            sidebar->enable_buttons(!model.objects.empty() && !export_in_progress && model_fits);
+            sidebarnew->enableSliceBtn(false, !model.objects.empty() && !export_in_progress && model_fits);
+            //sidebar->enable_buttons(!model.objects.empty() && !export_in_progress && model_fits);
+
+            objectbar->object_list_changed();
         }
 
         void Plater::priv::select_all()
         {
             view3D->select_all();
-            this->sidebar->obj_list()->update_selections();
+            //this->objectbar->getObjectList()->update_selections();
         }
 
         void Plater::priv::deselect_all()
@@ -3096,11 +3371,13 @@ namespace Slic3r {
                 view3D->enable_layers_editing(false);
 
             m_worker.cancel_all();
+            // Delete object from Sidebar list. Do it after update, so that the GLScene selection is updated with the modified model.
+            //objectbar->getObjectList()->delete_object_from_list(obj_idx);
+            objectbar->delete_object_from_list(obj_idx);
+            object_list_changed();
+
             model.delete_object(obj_idx);
             update();
-            // Delete object from Sidebar list. Do it after update, so that the GLScene selection is updated with the modified model.
-            sidebar->obj_list()->delete_object_from_list(obj_idx);
-            object_list_changed();
         }
 
 
@@ -3113,7 +3390,7 @@ namespace Slic3r {
                 InfoDialog dialog(q, _L("Delete object which is a part of cut object"),
                     _L("You try to delete an object which is a part of a cut object.") + "\n" +
                     _L("This action will break a cut information.\n"
-                        "After that AnkerMake_alpha can't guarantee model consistency"),
+                        "After that AnkerMake Studio can't guarantee model consistency"),
                     false, wxYES | wxCANCEL | wxCANCEL_DEFAULT | wxICON_WARNING);
                 dialog.SetButtonLabel(wxID_YES, _L("Delete object"));
                 if (dialog.ShowModal() == wxID_CANCEL)
@@ -3127,7 +3404,9 @@ namespace Slic3r {
             m_worker.cancel_all();
 
             if (obj->is_cut())
-                sidebar->obj_list()->invalidate_cut_info_for_object(obj_idx);
+            {
+                //objectbar->getObjectList()->invalidate_cut_info_for_object(obj_idx);
+            }
 
             model.delete_object(obj_idx);
             update();
@@ -3155,11 +3434,14 @@ namespace Slic3r {
             model.clear_objects();
             update();
             // Delete object from Sidebar list. Do it after update, so that the GLScene selection is updated with the modified model.
-            sidebar->obj_list()->delete_all_objects_from_list();
+            //objectbar->getObjectList()->delete_all_objects_from_list();
+            objectbar->delete_all_objects_from_list();
             object_list_changed();
 
             // The hiding of the slicing results, if shown, is not taken care by the background process, so we do it here
-            sidebar->show_sliced_info_sizer(false);
+            //sidebar->show_sliced_info_sizer(false);
+            updatePreViewRightSideBar(false);
+
 
             model.custom_gcode_per_print_z.gcodes.clear();
         }
@@ -3187,11 +3469,12 @@ namespace Slic3r {
             model.clear_objects();
             update();
             // Delete object from Sidebar list. Do it after update, so that the GLScene selection is updated with the modified model.
-            sidebar->obj_list()->delete_all_objects_from_list();
+            //objectbar->getObjectList()->delete_all_objects_from_list();
+            objectbar->delete_all_objects_from_list();
             object_list_changed();
 
             // The hiding of the slicing results, if shown, is not taken care by the background process, so we do it here
-            this->sidebar->show_sliced_info_sizer(false);
+            //this->sidebar->show_sliced_info_sizer(false);
 
             model.custom_gcode_per_print_z.gcodes.clear();
         }
@@ -3252,7 +3535,8 @@ namespace Slic3r {
 
         void Plater::priv::split_volume()
         {
-            wxGetApp().obj_list()->split();
+            //wxGetApp().obj_list()->split();
+            wxGetApp().objectbar()->split();
         }
 
         void Plater::priv::scale_selection_to_fit_print_volume()
@@ -3288,7 +3572,10 @@ namespace Slic3r {
                         "because supports are disabled.") + "\n";
                     hypertext = _u8L("Enable supports for enforcers only");
                     action_fn = [](wxEvtHandler*) {
+#if SHOW_OLD_SETTING_DIALOG
                         Tab* print_tab = wxGetApp().get_tab(Preset::TYPE_PRINT);
+#endif
+                        AnkerTab* print_tab = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
                         assert(print_tab);
                         DynamicPrintConfig& config = wxGetApp().preset_bundle->prints.get_edited_preset().config;
                         config.set_key_value("support_material", new ConfigOptionBool(true));
@@ -3322,7 +3609,14 @@ namespace Slic3r {
             update_print_volume_state();
             // Apply new config to the possibly running background task.
             bool               was_running = background_process.running();
-            Print::ApplyStatus invalidated = background_process.apply(q->model(), wxGetApp().preset_bundle->full_config());
+            //update by alves, cover right parameters data to the config if fff_print then process
+            Print::ApplyStatus invalidated;
+            DynamicPrintConfig currentPresetConfig = wxGetApp().preset_bundle->full_config();
+            if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF)
+            {
+                sidebarnew->updatePreset(currentPresetConfig);
+            }
+            invalidated = background_process.apply(q->model(), currentPresetConfig);
 
             // Just redraw the 3D canvas without reloading the scene to consume the update of the layer height profile.
             if (view3D->is_layers_editing_enabled())
@@ -3334,7 +3628,12 @@ namespace Slic3r {
             if (invalidated == Print::APPLY_STATUS_INVALIDATED) {
                 // Some previously calculated data on the Print was invalidated.
                 // Hide the slicing results, as the current slicing status is no more valid.
-                sidebar->show_sliced_info_sizer(false);
+                //sidebar->show_sliced_info_sizer(false);
+                if (sidebarnew) {
+                    std::string tmpGcodePaht = "";
+                    wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(tmpGcodePaht);
+                    updatePreViewRightSideBar(false);
+                }
                 // Reset preview canvases. If the print has been invalidated, the preview canvases will be cleared.
                 // Otherwise they will be just refreshed.
                 if (preview != nullptr) {
@@ -3423,7 +3722,7 @@ namespace Slic3r {
                 // Validation of the background data failed.
                 const wxString invalid_str = _L("Invalid data");
                 for (auto btn : { ActionButtonType::abReslice, ActionButtonType::abSendGCode, ActionButtonType::abExport })
-                    sidebar->set_btn_label(btn, invalid_str);
+                    //sidebar->set_btn_label(btn, invalid_str);
                 process_completed_with_error = true;
             }
             else
@@ -3436,13 +3735,13 @@ namespace Slic3r {
                     (return_state & UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE) != 0)
                     notification_manager->set_slicing_progress_hidden();
 
-                sidebar->set_btn_label(ActionButtonType::abExport, _(label_btn_export));
-                sidebar->set_btn_label(ActionButtonType::abSendGCode, _(label_btn_send));
+                //sidebar->set_btn_label(ActionButtonType::abExport, _(label_btn_export));
+                //sidebar->set_btn_label(ActionButtonType::abSendGCode, _(label_btn_send));
                 dirty_state.update_from_preview();
 
                 const wxString slice_string = background_process.running() && wxGetApp().get_mode() == comSimple ?
                     _L("Slicing") + dots : _L("Slice now");
-                sidebar->set_btn_label(ActionButtonType::abReslice, slice_string);
+                //sidebar->set_btn_label(ActionButtonType::abReslice, slice_string);
 
                 if (background_process.finished())
                     show_action_buttons(false);
@@ -3464,7 +3763,8 @@ namespace Slic3r {
                 // Avoid a race condition
                 return false;
             }
-
+            PrintLog("background_process.empty(): " + std::to_string(this->background_process.empty()) + ", "
+                + "background_process.finished(): " + std::to_string(this->background_process.finished()));
             if (!this->background_process.empty() &&
                 (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) == 0 &&
                 (((state & UPDATE_BACKGROUND_PROCESS_FORCE_RESTART) != 0 && !this->background_process.finished()) ||
@@ -3487,7 +3787,6 @@ namespace Slic3r {
         void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_removable_media, PrintHostJob upload_job)
         {
             wxCHECK_RET(!(output_path.empty() && upload_job.empty()), "export_gcode: output_path and upload_job empty");
-
             if (model.objects.empty())
                 return;
 
@@ -3495,7 +3794,6 @@ namespace Slic3r {
                 GUI::show_error(q, _L("Another export job is currently running."));
                 return;
             }
-
             // bitmask of UpdateBackgroundProcessReturnState
             unsigned int state = update_background_process(true);
             if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
@@ -3516,6 +3814,124 @@ namespace Slic3r {
             // If the SLA processing of just a single object's supports is running, restart slicing for the whole object.
             this->background_process.set_task(PrintBase::TaskParams());
             this->restart_background_process(priv::UPDATE_BACKGROUND_PROCESS_FORCE_EXPORT);
+
+            if (create_AI_file)
+            {
+                // std::cout << "=====export gcode job start===" << std::endl;
+                auto generateTempOutputPath = []() {
+                    boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+                    temp_path /= boost::format("aiGcode.akpic").str();
+                    return temp_path.string();
+                };
+                auto generateTempGcodePath = []() {
+                    boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+                    temp_path /= boost::format("aiGcode.gcode").str();
+                    return temp_path.string();
+                };
+                auto createTar = [](const wxString& tarFile, const wxString& file1, const wxString& file2) {
+                    wxFileOutputStream output(tarFile);
+                    wxTarOutputStream tar(output, wxTAR_USTAR);
+                    wxFFileInputStream inputFile1(file1);
+                    wxFileName fileName1(file1);
+                    tar.PutNextEntry(fileName1.GetFullName());
+                    tar << inputFile1;
+                    tar.CloseEntry();
+
+                    wxFFileInputStream inputFile2(file2);
+                    wxFileName fileName2(file2);
+                    tar.PutNextEntry(fileName2.GetFullName());
+                    tar << inputFile2;
+                    tar.CloseEntry();
+
+                    tar.Close();
+                };
+
+
+                std::string akpicName = generateTempOutputPath();
+                boost::nowide::remove(akpicName.c_str());
+                auto picInfo = gcode_result.m_pic_infos;
+                {
+                    cancel_export = false;
+                    std::string cstring = "aiGcode.gcode";
+                    std::vector<double> anker_param_ai_height_array = { 70, 80, 90, 100, 110, 120 };
+                    int totalLayer = picInfo.size() > 5 ? picInfo.size() + (5 * anker_param_ai_height_array.size()) : picInfo.size() + (picInfo.size() * anker_param_ai_height_array.size()) ;
+                    post_gcode::processAiPicture  picWrite(cstring, akpicName, picInfo.size(), totalLayer);
+                    auto floatToString = [](float num) {
+                        std::ostringstream oss;
+                        if (num == static_cast<int>(num)) {
+                            oss << static_cast<int>(num);  // Display as integer
+                        }
+                        else {
+                            oss << std::fixed << std::setprecision(2) << num;  // Display with 2 decimal places
+                        }
+                        return oss.str();
+                        };
+                    auto write_single_image = [&picWrite,this, &floatToString](const GCodeProcessorResult::picPosInfo& pi,float curPercentage, float picSize,float extraHeight) {
+                        post_gcode::picData tmp_pic_data;
+                        preview->get_canvas3d()->render_akpic(tmp_pic_data, 2048, 1196, pi.Y, pi.Z + extraHeight, { 0,pi.layer_id });
+                        auto compressed = GCodeThumbnails::compress_akpic(tmp_pic_data);
+                        post_gcode::imgInfo tImgInfo;
+                        tImgInfo.data = static_cast<char*>(compressed->data);
+                        tImgInfo.size = compressed->size;
+                        post_gcode::imageHead iHead;
+                        iHead.percentage = curPercentage / picSize;
+                        iHead.layer_num = (unsigned int)(curPercentage);
+                        //std::copy(roi_info.begin(), roi_info.end(), iHead.roi_info);
+                        iHead.file_size = tImgInfo.size;
+
+                        std::string  saveName = "mesh_layer" + floatToString(curPercentage+1) + ".jpg";
+                        std::copy(saveName.begin(), saveName.end(), iHead.name);
+                        picWrite.writeImage(iHead, tImgInfo);
+                        return iHead.percentage;
+                        };
+
+                    unsigned int i = 0;
+                    for (const auto pi : picInfo) {
+                        if (cancel_export)
+                            break;
+                        float percentage = 0.0;
+                        if (pi.layer_id <= 5) {
+                            for (int h = 0;  h< anker_param_ai_height_array.size();h++) {
+                                percentage = write_single_image(pi, i+(h+1)*0.01, picInfo.size(), anker_param_ai_height_array[h]);
+                            }
+                        }
+                        percentage = write_single_image(pi, i, picInfo.size(), 0.0);
+                        i++;
+                        // notify UI to update progress
+                        if (i % 10 == 0) {
+                            if (export_progress_change_cb)
+                                export_progress_change_cb(percentage);
+                            // to give up cpu for UI updating
+                            wxYield();
+                        }
+                    }
+                }
+
+                if (!cancel_export) {
+                    // export complete suss
+                    if (!output_path.empty()) {
+                        std::string export_path = output_path.string();
+                        boost::filesystem::path filePath(export_path);
+                        //fixme: error check
+                        boost::filesystem::path newPath = generateTempGcodePath();
+                        fs::rename(filePath, newPath);
+                        filePath.replace_extension("acode");
+                        createTar(wxString::FromUTF8(filePath.string()), wxString::FromUTF8(newPath.string()), wxString::FromUTF8(akpicName));
+                        boost::nowide::remove(newPath.string().c_str());
+                        boost::nowide::remove(akpicName.c_str());
+                    }
+
+                    if (export_progress_change_cb)
+                        export_progress_change_cb(1.0f);
+                }
+                else {
+                    // export was interupt, to clean the gcode m_outFile
+                    boost::nowide::remove(akpicName.c_str());
+                    boost::nowide::remove(output_path.string().c_str());
+                }
+
+                // std::cout << "=====export gcode job done===" << std::endl;
+            }
         }
 
         unsigned int Plater::priv::update_restart_background_process(bool force_update_scene, bool force_update_preview)
@@ -3533,6 +3949,7 @@ namespace Slic3r {
 
         void Plater::priv::update_fff_scene()
         {
+
             if (this->preview != nullptr)
                 this->preview->reload_print();
             // In case this was MM print, wipe tower bounding box on 3D tab might need redrawing with exact depth:
@@ -3638,7 +4055,8 @@ namespace Slic3r {
                 old_model_object->name = old_model_object->volumes.front()->name;
 
             // update new name in ObjectList
-            sidebar->obj_list()->update_name_in_list(object_idx, volume_idx);
+            //objectbar->getObjectList()->update_name_in_list(object_idx, volume_idx);
+            objectbar->update_name_in_list(object_idx, volume_idx);
 
             sla::reproject_points_and_holes(old_model_object);
 
@@ -3655,6 +4073,13 @@ namespace Slic3r {
             if (selection.is_wipe_tower() || get_selection().get_volume_idxs().size() != 1)
                 return;
 
+            // Anker
+            //std::string notifyContent = "Are you sure you want to replace with stl, whick will cause the deletion of seam/support/mmu info ?";
+            //std::string notifyTitle = "Replace with stl";
+            //AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, notifyContent, notifyTitle, true, "Yes", "No");
+            //if (result != AnkerMsgDialog::MSG_OK)
+            //    return;
+
             const GLVolume* v = selection.get_first_volume();
             int object_idx = v->object_idx();
             int volume_idx = v->volume_idx();
@@ -3662,7 +4087,13 @@ namespace Slic3r {
             // collects paths of files to load
 
             const ModelObject* object = model.objects[object_idx];
-            const ModelVolume* volume = object->volumes[volume_idx];
+            ModelVolume* volume = object->volumes[volume_idx];
+
+            // clear old seam/support/mmu info
+            q->canvas3D()->reset_main_toolbar_toggled_state();
+            volume->supported_facets.reset();
+            volume->seam_facets.reset();
+            volume->mmu_segmentation_facets.reset();
 
             fs::path input_path;
             if (!volume->source.input_file.empty() && fs::exists(volume->source.input_file))
@@ -3683,6 +4114,8 @@ namespace Slic3r {
 
             if (!replace_volume_with_stl(object_idx, volume_idx, out_path, _L("Replace with STL")))
                 return;
+
+            wxGetApp().objectbar()->update_volumes(object_idx);
 
             // update 3D scene
             update();
@@ -3723,12 +4156,31 @@ namespace Slic3r {
             if (selected_volumes.empty())
                 return;
 
+            // Anker
+            //std::string notifyContent = "Are you sure you want to reload from disk, whick will cause the deletion of seam/support/mmu info ?";
+            //std::string notifyTitle = "Reload from disk";
+            //AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, notifyContent, notifyTitle, true, "Yes", "No");
+            //if (result != AnkerMsgDialog::MSG_OK)
+            //    return;
+
             std::sort(selected_volumes.begin(), selected_volumes.end(), [](const std::pair<int, int>& v1, const std::pair<int, int>& v2) {
                 return (v1.first < v2.first) || (v1.first == v2.first && v1.second < v2.second);
                 });
 
             selected_volumes.erase(std::unique(selected_volumes.begin(), selected_volumes.end(), [](const std::pair<int, int>& v1, const std::pair<int, int>& v2) {
                 return (v1.first == v2.first) && (v1.second == v2.second); }), selected_volumes.end());
+
+            // clear old seam/support/mmu info
+			q->canvas3D()->reset_main_toolbar_toggled_state();
+            for (int i = 0; i < selected_volumes.size(); i++)
+            {
+                const ModelObject* object = model.objects[selected_volumes[i].first];
+                ModelVolume* volume = object->volumes[selected_volumes[i].second];
+
+                volume->supported_facets.reset();
+                volume->seam_facets.reset();
+                volume->mmu_segmentation_facets.reset();
+            }
 
             // collects paths of files to load
             std::vector<fs::path> input_paths;
@@ -3814,6 +4266,7 @@ namespace Slic3r {
             Plater::TakeSnapshot snapshot(q, _L("Reload from disk"));
 
             std::vector<wxString> fail_list;
+            std::set<int> updated_obj_list;
 
             Busy busy(_L("Reload from:"), q->get_current_canvas3D()->get_wxglcanvas());
 
@@ -3920,8 +4373,10 @@ namespace Slic3r {
 
                         sla::reproject_points_and_holes(old_model_object);
 
+                        updated_obj_list.insert(obj_idx);
+
                         // Fix warning icon in object list
-                        wxGetApp().obj_list()->update_item_error_icon(obj_idx, vol_idx);
+                        //wxGetApp().obj_list()->update_item_error_icon(obj_idx, vol_idx);
                     }
                 }
             }
@@ -3931,7 +4386,11 @@ namespace Slic3r {
             for (auto [src, dest] : replace_paths) {
                 for (auto [obj_idx, vol_idx] : selected_volumes) {
                     if (boost::algorithm::iequals(model.objects[obj_idx]->volumes[vol_idx]->source.input_file, src.string()))
+                    {
                         replace_volume_with_stl(obj_idx, vol_idx, dest, "");
+
+                        updated_obj_list.insert(obj_idx);
+                    }
                 }
             }
 
@@ -3943,6 +4402,11 @@ namespace Slic3r {
                 //wxMessageDialog dlg(q, message, _L("Error during reload"), wxOK | wxOK_DEFAULT | wxICON_WARNING);
                 MessageDialog dlg(q, message, _L("Error during reload"), wxOK | wxOK_DEFAULT | wxICON_WARNING);
                 dlg.ShowModal();
+            }
+
+            for (auto itr = updated_obj_list.begin(); itr != updated_obj_list.end(); itr++)
+            {
+                wxGetApp().objectbar()->update_volumes(*itr);
             }
 
             // update 3D scene
@@ -3976,6 +4440,7 @@ namespace Slic3r {
 
         void Plater::priv::set_current_panel(wxPanel* panel)
         {
+           
             if (std::find(panels.begin(), panels.end(), panel) == panels.end())
                 return;
 
@@ -3988,6 +4453,8 @@ namespace Slic3r {
 
             wxPanel* old_panel = current_panel;
             current_panel = panel;
+
+            sidebar->Hide();
             // to reduce flickering when changing view, first set as visible the new current panel
             for (wxPanel* p : panels) {
                 if (p == current_panel) {
@@ -4002,18 +4469,42 @@ namespace Slic3r {
 #endif // __WXMAC__
                     p->Show();
                 }
+                else
+                {
+                    p->Show(false);
+                }
             }
             // then set to invisible the other
+     /*       wxWindowUpdateLocker noUpdates(q);
             for (wxPanel* p : panels) {
                 if (p != current_panel)
                     p->Hide();
-            }
+            }*/
 
             panel_sizer->Layout();
 
             if (current_panel == view3D) {
-                if (old_panel == preview)
+                if (old_panel == preview) {
+                    if (preview->is_GcodeImported()) {
+                        ANKER_LOG_INFO << "reset_last_loaded_gcode.";
+                        q->reset_last_loaded_gcode();
+                        ANKER_LOG_INFO << "reset_gcode_toolpaths.";
+                        this->reset_gcode_toolpaths();
+                        ANKER_LOG_INFO << "gcode_result.reset.";
+                        this->gcode_result.reset();
+                        ANKER_LOG_INFO << "clearGCodeSliceState.";
+                        this->background_process.clearGCodeSliceState();
+                       
+                        // Because dragging GCode changes the current platform, the default platform is restored when you switch back to slicing.
+                        GUI::wxGetApp().load_current_presets();
+                        GUI::wxGetApp().plater()->set_bed_shape();
+
+                        preview->setLoadStatus(false);
+                        preview->setGCodeImportType(false);
+                        wxGetApp().set_app_mode();
+                    }
                     preview->get_canvas3d()->unbind_event_handlers();
+                }
 
                 view3D->get_canvas3d()->bind_event_handlers();
 
@@ -4047,6 +4538,11 @@ namespace Slic3r {
                     // FIXME: it may be better to have a single function making this check and let it be called wherever needed
                     bool export_in_progress = this->background_process.is_export_scheduled();
                     bool model_fits = view3D->get_canvas3d()->check_volumes_outside_state() != ModelInstancePVS_Partly_Outside;
+                    // 					if (view3D->get_canvas3d()->check_volumes_outside_state() == ModelInstancePVS_Fully_Outside ||
+                    // 						view3D->get_canvas3d()->check_volumes_outside_state() == ModelInstancePVS_Partly_Outside)
+                    // 						sidebarnew->enableSliceBtn(false, false);
+                    // 					else
+                    // 						sidebarnew->enableSliceBtn(false, true);
                     if (!model.objects.empty() && !export_in_progress && model_fits) {
                         preview->get_canvas3d()->init_gcode_viewer();
                         q->reslice();
@@ -4097,18 +4593,27 @@ namespace Slic3r {
 
             bool select_preset = !combo->selection_is_changed_according_to_physical_printers();
             // TODO: ?
-            if (preset_type == Preset::TYPE_FILAMENT && sidebar->is_multifilament()) {
+            if (preset_type == Preset::TYPE_FILAMENT /*&& sidebar->is_multifilament()*/) {
                 // Only update the plater UI for the 2nd and other filaments.
                 combo->update();
             }
             else if (select_preset) {
                 wxWindowUpdateLocker noUpdates(sidebar->presets_panel());
+#if SHOW_OLD_SETTING_DIALOG
                 wxGetApp().get_tab(preset_type)->select_preset(preset_name, false, last_selected_ph_printer_name);
+#endif
+                wxGetApp().getAnkerTab(preset_type)->select_preset(preset_name, false, last_selected_ph_printer_name);
             }
 
+            //update by alves
             if (preset_type != Preset::TYPE_PRINTER || select_preset) {
-                // update plater with new config
-                q->on_config_change(wxGetApp().preset_bundle->full_config());
+                //update by alves, cover right parameters data to the config if fff_print then process
+                DynamicPrintConfig currentPresetConfig = wxGetApp().preset_bundle->full_config();
+                if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF)
+                {
+                    sidebarnew->updatePreset(currentPresetConfig);
+                }
+                q->on_config_change(currentPresetConfig);
             }
             if (preset_type == Preset::TYPE_PRINTER) {
                 /* Settings list can be changed after printer preset changing, so
@@ -4116,7 +4621,84 @@ namespace Slic3r {
                  * Furthermore, Layers editing is implemented only for FFF printers
                  * and for SLA presets they should be deleted
                  */
-                wxGetApp().obj_list()->update_object_list_by_printer_technology();
+                 //wxGetApp().obj_list()->update_object_list_by_printer_technology();
+            }
+
+#ifdef __WXMSW__
+            // From the Win 2004 preset combobox lose a focus after change the preset selection
+            // and that is why the up/down arrow doesn't work properly
+            // (see https://github.com/prusa3d/PrusaSlicer/issues/5531 ).
+            // So, set the focus to the combobox explicitly
+            combo->SetFocus();
+#endif
+        }
+
+        void Plater::priv::on_select_preset_sidebarnew(wxCommandEvent& evt) {
+            // add by allen for ankerCfgDlg
+            //PlaterPresetComboBox* combo = static_cast<PlaterPresetComboBox*>(evt.GetEventObject());
+            AnkerPlaterPresetComboBox* combo = static_cast<AnkerPlaterPresetComboBox*>(evt.GetEventObject());
+
+            Preset::Type preset_type = combo->get_type();
+            if (-1 == preset_type)
+                return;
+            // see https://github.com/prusa3d/PrusaSlicer/issues/3889
+            // Under OSX: in case of use of a same names written in different case (like "ENDER" and "Ender"),
+            // m_presets_choice->GetSelection() will return first item, because search in PopupListCtrl is case-insensitive.
+            // So, use GetSelection() from event parameter 
+            int selection = evt.GetSelection();
+
+            auto idx = combo->get_extruder_idx();
+
+            //! Because of The MSW and GTK version of wxBitmapComboBox derived from wxComboBox,
+            //! but the OSX version derived from wxOwnerDrawnCombo.
+            //! So, to get selected string we do
+            //!     combo->GetString(combo->GetSelection())
+            //! instead of
+            //!     combo->GetStringSelection().ToUTF8().data());
+
+            std::string preset_name = wxGetApp().preset_bundle->get_preset_name_by_alias(preset_type,
+                Preset::remove_suffix_modified(combo->GetString(selection).ToUTF8().data()));
+
+            if (preset_type == Preset::TYPE_FILAMENT) {
+                wxGetApp().preset_bundle->set_filament_preset(idx, preset_name);
+            }
+
+            std::string last_selected_ph_printer_name = combo->get_selected_ph_printer_name();
+
+            bool select_preset = !combo->selection_is_changed_according_to_physical_printers();
+            // TODO: ?
+            if (preset_type == Preset::TYPE_FILAMENT && sidebarnew->isMultiFilament()) {
+                // Only update the plater UI for the 2nd and other filaments.
+                combo->update();
+            }
+            else if (select_preset) {
+                /*wxWindowUpdateLocker noUpdates(sidebar->presets_panel());*/
+                // add by allen for ankerCfgDlg
+#if SHOW_OLD_SETTING_DIALOG
+                wxGetApp().get_tab(preset_type)->select_preset(preset_name, false, last_selected_ph_printer_name);
+#endif
+                wxGetApp().getAnkerTab(preset_type)->select_preset(preset_name, false, last_selected_ph_printer_name);
+            }
+            //update by alves
+            if (preset_type != Preset::TYPE_PRINTER || select_preset) {
+                //update by alves, cover right parameters data to the config if fff_print then process
+                DynamicPrintConfig currentPresetConfig = wxGetApp().preset_bundle->full_config();
+                if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF)
+                {
+                    sidebarnew->updatePreset(currentPresetConfig);
+                }
+                q->on_config_change(currentPresetConfig);
+
+            }
+            if (preset_type == Preset::TYPE_PRINTER) {
+                /* Settings list can be changed after printer preset changing, so
+                 * update all settings items for all item had it.
+                 * Furthermore, Layers editing is implemented only for FFF printers
+                 * and for SLA presets they should be deleted
+                 */
+                 //wxGetApp().obj_list()->update_object_list_by_printer_technology();
+                 // update extruder
+                 //sidebarnew->onExtrudersChange();
             }
 
 #ifdef __WXMSW__
@@ -4318,8 +4900,8 @@ namespace Slic3r {
                 if (evt.invalidate_plater())
                 {
                     const wxString invalid_str = _L("Invalid data");
-                    for (auto btn : { ActionButtonType::abReslice, ActionButtonType::abSendGCode, ActionButtonType::abExport })
-                        sidebar->set_btn_label(btn, invalid_str);
+                /*    for (auto btn : { ActionButtonType::abReslice, ActionButtonType::abSendGCode, ActionButtonType::abExport })
+                        sidebar->set_btn_label(btn, invalid_str);*/
                     process_completed_with_error = true;
                 }
                 has_error = true;
@@ -4328,8 +4910,6 @@ namespace Slic3r {
                 //        this->statusbar()->set_status_text(_L("Cancelled"));
                 this->notification_manager->set_slicing_progress_canceled(_u8L("Slicing Cancelled."));
             }
-
-            this->sidebar->show_sliced_info_sizer(evt.success());
 
             // This updates the "Slice now", "Export G-code", "Arrange" buttons status.
             // Namely, it refreshes the "Out of print bed" property of all the ModelObjects, and it enables
@@ -4346,9 +4926,14 @@ namespace Slic3r {
                     this->update_sla_scene();
             }
 
+       //    this->sidebar->show_sliced_info_sizer(evt.success());
+            if (this->sidebarnew) {
+                updatePreViewRightSideBar(evt.success());
+            }
+
             if (evt.cancelled()) {
-                if (wxGetApp().get_mode() == comSimple)
-                    sidebar->set_btn_label(ActionButtonType::abReslice, "Slice now");
+              /*  if (wxGetApp().get_mode() == comSimple)
+                    sidebar->set_btn_label(ActionButtonType::abReslice, "Slice now");*/
                 show_action_buttons(true);
             }
             else {
@@ -4406,7 +4991,8 @@ namespace Slic3r {
 
         void Plater::priv::on_object_select(SimpleEvent& evt)
         {
-            wxGetApp().obj_list()->update_selections();
+            //wxGetApp().obj_list()->update_selections();
+            wxGetApp().objectbar()->scene_selection_changed();
             selection_changed();
         }
 
@@ -4432,7 +5018,7 @@ namespace Slic3r {
 
                 // Each context menu respects to the selected item in ObjectList, 
                 // so this selection should be updated before menu creation
-                wxGetApp().obj_list()->update_selections();
+                //wxGetApp().obj_list()->update_selections();
 
                 //        if (printer_technology == ptSLA)
                 //            menu = menus.sla_object_menu();
@@ -4461,11 +5047,15 @@ namespace Slic3r {
                 // specified (even though the position is sane).
                 position = wxDefaultPosition;
 #endif
+                if(sidebarnew)
+                    sidebarnew->Freeze();
                 GLCanvas3D& canvas = *q->canvas3D();
                 canvas.apply_retina_scale(mouse_position);
                 canvas.set_popup_menu_position(mouse_position);
                 q->PopupMenu(menu, position);
                 canvas.clear_popup_menu_position();
+                if (sidebarnew) 
+                    sidebarnew->Thaw();
             }
         }
 
@@ -4474,7 +5064,10 @@ namespace Slic3r {
             DynamicPrintConfig cfg;
             cfg.opt<ConfigOptionFloat>("wipe_tower_x", true)->value = evt.data(0);
             cfg.opt<ConfigOptionFloat>("wipe_tower_y", true)->value = evt.data(1);
+#if SHOW_OLD_SETTING_DIALOG
             wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(cfg);
+#endif
+            wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->load_config(cfg);
         }
 
         void Plater::priv::on_wipetower_rotated(Vec3dEvent& evt)
@@ -4483,7 +5076,10 @@ namespace Slic3r {
             cfg.opt<ConfigOptionFloat>("wipe_tower_x", true)->value = evt.data(0);
             cfg.opt<ConfigOptionFloat>("wipe_tower_y", true)->value = evt.data(1);
             cfg.opt<ConfigOptionFloat>("wipe_tower_rotation_angle", true)->value = Geometry::rad2deg(evt.data(2));
+#if SHOW_OLD_SETTING_DIALOG
             wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(cfg);
+#endif
+            wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->load_config(cfg);
         }
 
         void Plater::priv::on_update_geometry(Vec3dsEvent<2>&)
@@ -4613,7 +5209,9 @@ namespace Slic3r {
                 // already initialized
                 return true;
 
-            BackgroundTexture::Metadata background_data;
+            // mod by allen at 20230627
+            // Make the background color of the view_toolbar button group consistent with the background color of the main window
+            /*BackgroundTexture::Metadata background_data;
             background_data.filename = "toolbar_background.png";
             background_data.left = 16;
             background_data.top = 16;
@@ -4621,7 +5219,7 @@ namespace Slic3r {
             background_data.bottom = 16;
 
             if (!view_toolbar.init(background_data))
-                return false;
+                return false;*/
 
             view_toolbar.set_horizontal_orientation(GLToolbar::Layout::HO_Left);
             view_toolbar.set_vertical_orientation(GLToolbar::Layout::VO_Bottom);
@@ -4632,7 +5230,7 @@ namespace Slic3r {
 
             item.name = "3D";
             item.icon_filename = "editor.svg";
-            item.tooltip = _u8L("3D editor view") + " [" + GUI::shortkey_ctrl_prefix() + "5]";
+            //item.tooltip = _u8L("3D editor view") + " [" + GUI::shortkey_ctrl_prefix() + "5]";
             item.sprite_id = 0;
             item.left.action_callback = [this]() { if (this->q != nullptr) wxPostEvent(this->q, SimpleEvent(EVT_GLVIEWTOOLBAR_3D)); };
             if (!view_toolbar.add_item(item))
@@ -4640,7 +5238,7 @@ namespace Slic3r {
 
             item.name = "Preview";
             item.icon_filename = "preview.svg";
-            item.tooltip = _u8L("Preview") + " [" + GUI::shortkey_ctrl_prefix() + "6]";
+            //item.tooltip = _u8L("Preview") + " [" + GUI::shortkey_ctrl_prefix() + "6]";
             item.sprite_id = 1;
             item.left.action_callback = [this]() { if (this->q != nullptr) wxPostEvent(this->q, SimpleEvent(EVT_GLVIEWTOOLBAR_PREVIEW)); };
             if (!view_toolbar.add_item(item))
@@ -4719,13 +5317,14 @@ namespace Slic3r {
 
         bool Plater::priv::can_split(bool to_objects) const
         {
-            return sidebar->obj_list()->is_splittable(to_objects);
+            //return objectbar->getObjectList()->is_splittable(to_objects);
+            return objectbar->is_splittable(to_objects);
         }
 
         bool Plater::priv::can_scale_to_print_volume() const
         {
             const BuildVolume::Type type = this->bed.build_volume().type();
-            return  !sidebar->obj_list()->has_selected_cut_object() &&
+            return  /*!objectbar->getObjectList()->has_selected_cut_object()*/!objectbar->has_selected_cut_object() &&
                 !view3D->get_canvas3d()->get_selection().is_empty() && (type == BuildVolume::Type::Rectangle || type == BuildVolume::Type::Circle);
         }
 
@@ -4741,18 +5340,20 @@ namespace Slic3r {
 
         bool Plater::priv::can_mirror() const
         {
-            return !sidebar->obj_list()->has_selected_cut_object();
+            //return !objectbar->getObjectList()->has_selected_cut_object();
+            return !objectbar->has_selected_cut_object();
         }
 
 
         bool Plater::priv::can_replace_with_stl() const
         {
-            return !sidebar->obj_list()->has_selected_cut_object() && get_selection().get_volume_idxs().size() == 1;
+            return /*!objectbar->getObjectList()->has_selected_cut_object()*/!objectbar->has_selected_cut_object() && get_selection().get_volume_idxs().size() == 1;
         }
 
         bool Plater::priv::can_reload_from_disk() const
         {
-            if (sidebar->obj_list()->has_selected_cut_object())
+            //if (objectbar->getObjectList()->has_selected_cut_object())
+            if (objectbar->has_selected_cut_object())
                 return false;
 
             // collect selected reloadable ModelVolumes
@@ -4790,18 +5391,19 @@ namespace Slic3r {
 
         bool Plater::priv::can_delete() const
         {
-            return !get_selection().is_empty() && !get_selection().is_wipe_tower() && !sidebar->obj_list()->is_editing();
+            return !get_selection().is_empty() && !get_selection().is_wipe_tower() && /*!objectbar->getObjectList()->is_editing()*/!objectbar->is_editing();
         }
 
         bool Plater::priv::can_delete_all() const
         {
-            return !model.objects.empty() && !sidebar->obj_list()->is_editing();
+            return !model.objects.empty() && /*!objectbar->getObjectList()->is_editing()*/!objectbar->is_editing();
         }
 
         bool Plater::priv::can_fix_through_netfabb() const
         {
             std::vector<int> obj_idxs, vol_idxs;
-            sidebar->obj_list()->get_selection_indexes(obj_idxs, vol_idxs);
+            //objectbar->getObjectList()->get_selection_indexes(obj_idxs, vol_idxs);
+            objectbar->get_selection_indexes(obj_idxs, vol_idxs);
 
 #if FIX_THROUGH_NETFABB_ALWAYS
             // Fixing always.
@@ -4849,7 +5451,7 @@ namespace Slic3r {
             if (q->canvas3D()->get_gizmos_manager().get_current_type() == GLGizmosManager::Emboss) return false;
 
             const auto obj_idxs = get_selection().get_object_idxs();
-            return !obj_idxs.empty() && !get_selection().is_wipe_tower() && !sidebar->obj_list()->has_selected_cut_object();
+            return !obj_idxs.empty() && !get_selection().is_wipe_tower() && /*!sidebar->obj_list()->has_selected_cut_object()*/!objectbar->has_selected_cut_object();
         }
 
         bool Plater::priv::can_decrease_instances(int obj_idx /*= -1*/) const
@@ -4871,7 +5473,8 @@ namespace Slic3r {
 
             return  obj_idx < (int)model.objects.size() &&
                 (model.objects[obj_idx]->instances.size() > 1) &&
-                !sidebar->obj_list()->has_selected_cut_object();
+                //!objectbar->getObjectList()->has_selected_cut_object();
+                !objectbar->has_selected_cut_object();
         }
 
         bool Plater::priv::can_split_to_objects() const
@@ -4900,37 +5503,37 @@ namespace Slic3r {
             // Cache this value, so that the callbacks from the RemovableDriveManager may repeat that value when calling show_action_buttons().
             this->ready_to_slice = ready_to_slice_;
 
-            wxWindowUpdateLocker noUpdater(sidebar);
+            //wxWindowUpdateLocker noUpdater(sidebar);
 
             DynamicPrintConfig* selected_printer_config = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
             const auto print_host_opt = selected_printer_config ? selected_printer_config->option<ConfigOptionString>("print_host") : nullptr;
             const bool send_gcode_shown = false;//print_host_opt != nullptr && !print_host_opt->value.empty();   // Hide send_gcode_btn by aden update.
 
             // when a background processing is ON, export_btn and/or send_btn are showing
-            if (get_config_bool("background_processing"))
-            {
-                RemovableDriveManager::RemovableDrivesStatus removable_media_status = wxGetApp().removable_drive_manager()->status();
-                if (sidebar->show_reslice(false) |
-                    sidebar->show_export(true) |
-                    sidebar->show_print_btn(true) |
-                    sidebar->show_send(send_gcode_shown) |
-                    sidebar->show_export_removable(removable_media_status.has_removable_drives))
-                    //			sidebar->show_eject(removable_media_status.has_eject))
-                    sidebar->Layout();
-            }
-            else
-            {
-                RemovableDriveManager::RemovableDrivesStatus removable_media_status;
-                if (!ready_to_slice)
-                    removable_media_status = wxGetApp().removable_drive_manager()->status();
-                if (sidebar->show_reslice(ready_to_slice) |
-                    sidebar->show_export(!ready_to_slice) |
-                    sidebar->show_print_btn(!ready_to_slice) |
-                    sidebar->show_send(send_gcode_shown && !ready_to_slice) |
-                    sidebar->show_export_removable(!ready_to_slice && removable_media_status.has_removable_drives))
-                    //            sidebar->show_eject(!ready_to_slice && removable_media_status.has_eject))
-                    sidebar->Layout();
-            }
+            //if (get_config_bool("background_processing"))
+            //{
+            //    RemovableDriveManager::RemovableDrivesStatus removable_media_status = wxGetApp().removable_drive_manager()->status();
+            //    if (sidebar->show_reslice(false) |
+            //        sidebar->show_export(true) |
+            //        sidebar->show_print_btn(true) |
+            //        sidebar->show_send(send_gcode_shown) |
+            //        sidebar->show_export_removable(removable_media_status.has_removable_drives))
+            //        //			sidebar->show_eject(removable_media_status.has_eject))
+            //        sidebar->Layout();
+            //}
+            //else
+            //{
+            //    RemovableDriveManager::RemovableDrivesStatus removable_media_status;
+            //    if (!ready_to_slice)
+            //        removable_media_status = wxGetApp().removable_drive_manager()->status();
+            //    if (sidebar->show_reslice(ready_to_slice) |
+            //        sidebar->show_export(!ready_to_slice) |
+            //        sidebar->show_print_btn(!ready_to_slice) |
+            //        sidebar->show_send(send_gcode_shown && !ready_to_slice) |
+            //        sidebar->show_export_removable(!ready_to_slice && removable_media_status.has_removable_drives))
+            //        //            sidebar->show_eject(!ready_to_slice && removable_media_status.has_eject))
+            //        sidebar->Layout();
+            //}
         }
 
         void Plater::priv::enter_gizmos_stack()
@@ -4973,16 +5576,16 @@ namespace Slic3r {
             snapshot_data.printer_technology = this->printer_technology;
             if (this->view3D->is_layers_editing_enabled())
                 snapshot_data.flags |= UndoRedo::SnapshotData::VARIABLE_LAYER_EDITING_ACTIVE;
-            if (this->sidebar->obj_list()->is_selected(itSettings)) {
-                snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_SETTINGS_ON_SIDEBAR;
-                snapshot_data.layer_range_idx = this->sidebar->obj_list()->get_selected_layers_range_idx();
-            }
-            else if (this->sidebar->obj_list()->is_selected(itLayer)) {
-                snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYER_ON_SIDEBAR;
-                snapshot_data.layer_range_idx = this->sidebar->obj_list()->get_selected_layers_range_idx();
-            }
-            else if (this->sidebar->obj_list()->is_selected(itLayerRoot))
-                snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYERROOT_ON_SIDEBAR;
+            //if (this->objectbar->getObjectList()->is_selected(itSettings)) {
+            //    snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_SETTINGS_ON_SIDEBAR;
+            //    snapshot_data.layer_range_idx = this->objectbar->getObjectList()->get_selected_layers_range_idx();
+            //}
+            //else if (this->objectbar->getObjectList()->is_selected(itLayer)) {
+            //    snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYER_ON_SIDEBAR;
+            //    snapshot_data.layer_range_idx = this->objectbar->getObjectList()->get_selected_layers_range_idx();
+            //}
+            //else if (this->objectbar->getObjectList()->is_selected(itLayerRoot))
+            //    snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYERROOT_ON_SIDEBAR;
 
             // If SLA gizmo is active, ask it if it wants to trigger support generation
             // on loading this snapshot.
@@ -5028,6 +5631,10 @@ namespace Slic3r {
             auto it_current = std::lower_bound(snapshots.begin(), snapshots.end(), UndoRedo::Snapshot(this->undo_redo_stack().active_snapshot_time()));
             if (--it_current != snapshots.begin())
                 this->undo_redo_to(it_current);
+            if(wxGetApp().plater()->model().objects.empty())
+                sidebarnew->enableSliceBtn(false, false);
+            else
+                sidebarnew->enableSliceBtn(false, true);
         }
 
         void Plater::priv::redo()
@@ -5036,6 +5643,11 @@ namespace Slic3r {
             auto it_current = std::lower_bound(snapshots.begin(), snapshots.end(), UndoRedo::Snapshot(this->undo_redo_stack().active_snapshot_time()));
             if (++it_current != snapshots.end())
                 this->undo_redo_to(it_current);
+
+            if (wxGetApp().plater()->model().objects.empty())
+                sidebarnew->enableSliceBtn(false, false);
+            else
+                sidebarnew->enableSliceBtn(false, true);
         }
 
         void Plater::priv::undo_redo_to(size_t time_to_load)
@@ -5080,16 +5692,16 @@ namespace Slic3r {
             top_snapshot_data.printer_technology = this->printer_technology;
             if (this->view3D->is_layers_editing_enabled())
                 top_snapshot_data.flags |= UndoRedo::SnapshotData::VARIABLE_LAYER_EDITING_ACTIVE;
-            if (this->sidebar->obj_list()->is_selected(itSettings)) {
-                top_snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_SETTINGS_ON_SIDEBAR;
-                top_snapshot_data.layer_range_idx = this->sidebar->obj_list()->get_selected_layers_range_idx();
-            }
-            else if (this->sidebar->obj_list()->is_selected(itLayer)) {
-                top_snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYER_ON_SIDEBAR;
-                top_snapshot_data.layer_range_idx = this->sidebar->obj_list()->get_selected_layers_range_idx();
-            }
-            else if (this->sidebar->obj_list()->is_selected(itLayerRoot))
-                top_snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYERROOT_ON_SIDEBAR;
+            //if (this->objectbar->getObjectList()->is_selected(itSettings)) {
+            //    top_snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_SETTINGS_ON_SIDEBAR;
+            //    top_snapshot_data.layer_range_idx = this->objectbar->getObjectList()->get_selected_layers_range_idx();
+            //}
+            //else if (this->objectbar->getObjectList()->is_selected(itLayer)) {
+            //    top_snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYER_ON_SIDEBAR;
+            //    top_snapshot_data.layer_range_idx = this->objectbar->getObjectList()->get_selected_layers_range_idx();
+            //}
+            //else if (this->objectbar->getObjectList()->is_selected(itLayerRoot))
+            //    top_snapshot_data.flags |= UndoRedo::SnapshotData::SELECTED_LAYERROOT_ON_SIDEBAR;
             bool   		 new_variable_layer_editing_active = (new_flags & UndoRedo::SnapshotData::VARIABLE_LAYER_EDITING_ACTIVE) != 0;
             bool         new_selected_settings_on_sidebar = (new_flags & UndoRedo::SnapshotData::SELECTED_SETTINGS_ON_SIDEBAR) != 0;
             bool         new_selected_layer_on_sidebar = (new_flags & UndoRedo::SnapshotData::SELECTED_LAYER_ON_SIDEBAR) != 0;
@@ -5117,7 +5729,8 @@ namespace Slic3r {
                     wxGetApp().preset_bundle->load_presets(*app_config, ForwardCompatibilitySubstitutionRule::EnableSilent);
                     // load_current_presets() calls Tab::load_current_preset() -> TabPrint::update() -> Object_list::update_and_show_object_settings_item(),
                     // but the Object list still keeps pointer to the old Model. Avoid a crash by removing selection first.
-                    this->sidebar->obj_list()->unselect_objects();
+                    //this->objectbar->getObjectList()->unselect_objects();
+                    this->objectbar->unselect_objects();
                     // Load the currently selected preset into the GUI, update the preset selection box.
                     // This also switches the printer technology based on the printer technology of the active printer profile.
                     wxGetApp().load_current_presets();
@@ -5133,18 +5746,21 @@ namespace Slic3r {
                         new_config.set_key_value("wipe_tower_x", new ConfigOptionFloat(model.wipe_tower.position.x()));
                         new_config.set_key_value("wipe_tower_y", new ConfigOptionFloat(model.wipe_tower.position.y()));
                         new_config.set_key_value("wipe_tower_rotation_angle", new ConfigOptionFloat(model.wipe_tower.rotation));
+#if SHOW_OLD_SETTING_DIALOG
                         Tab* tab_print = wxGetApp().get_tab(Preset::TYPE_PRINT);
+#endif
+                        AnkerTab* tab_print = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
                         tab_print->load_config(new_config);
                         tab_print->update_dirty();
                     }
                 }
-                // set selection mode for ObjectList on sidebar
-                this->sidebar->obj_list()->set_selection_mode(new_selected_settings_on_sidebar ? ObjectList::SELECTION_MODE::smSettings :
-                    new_selected_layer_on_sidebar ? ObjectList::SELECTION_MODE::smLayer :
-                    new_selected_layerroot_on_sidebar ? ObjectList::SELECTION_MODE::smLayerRoot :
-                    ObjectList::SELECTION_MODE::smUndef);
-                if (new_selected_settings_on_sidebar || new_selected_layer_on_sidebar)
-                    this->sidebar->obj_list()->set_selected_layers_range_idx(layer_range_idx);
+                //// set selection mode for ObjectList on sidebar
+                //this->objectbar->getObjectList()->set_selection_mode(new_selected_settings_on_sidebar ? ObjectList::SELECTION_MODE::smSettings :
+                //    new_selected_layer_on_sidebar ? ObjectList::SELECTION_MODE::smLayer :
+                //    new_selected_layerroot_on_sidebar ? ObjectList::SELECTION_MODE::smLayerRoot :
+                //    ObjectList::SELECTION_MODE::smUndef);
+                //if (new_selected_settings_on_sidebar || new_selected_layer_on_sidebar)
+                //    this->objectbar->getObjectList()->set_selected_layers_range_idx(layer_range_idx);
 
                 this->update_after_undo_redo(snapshot_copy, temp_snapshot_was_taken);
                 // Enable layer editing after the Undo / Redo jump.
@@ -5169,7 +5785,8 @@ namespace Slic3r {
             this->view3D->get_canvas3d()->get_selection().set_deserialized(GUI::Selection::EMode(this->undo_redo_stack().selection_deserialized().mode), this->undo_redo_stack().selection_deserialized().volumes_and_instances);
             this->view3D->get_canvas3d()->get_gizmos_manager().update_after_undo_redo(snapshot);
 
-            wxGetApp().obj_list()->update_after_undo_redo();
+            //wxGetApp().obj_list()->update_after_undo_redo();
+            wxGetApp().objectbar()->update_after_undo_redo();
 
             if (wxGetApp().get_mode() == comSimple && model_has_advanced_features(this->model)) {
                 // If the user jumped to a snapshot that require user interface with advanced features, switch to the advanced mode without asking.
@@ -5235,9 +5852,15 @@ namespace Slic3r {
         {
             // Initialization performed in the private c-tor
             Bind(wxCUSTOMEVT_SHOW_DEVICELIST_DIALOG, [this](wxCommandEvent& event) {
-                
                 wxGetApp().plater_->showDeviceList();
                 });
+
+            Bind(wxEVT_SHOW, &Plater::on_show, this);
+        }
+
+        Plater::~Plater()
+        {
+            Unbind(wxEVT_SHOW, &Plater::on_show, this);
         }
 
         bool Plater::is_project_dirty() const { return p->is_project_dirty(); }
@@ -5251,6 +5874,11 @@ namespace Slic3r {
 #endif // ENABLE_PROJECT_DIRTY_STATE_DEBUG_WINDOW
 
         Sidebar& Plater::sidebar() { return *p->sidebar; }
+        AnkerSidebarNew& Plater::sidebarnew() { return *p->sidebarnew; }
+        AnkerObjectBar* Plater::objectbar() { return p->objectbar; }
+        AnkerObjectManipulator* Plater::aobject_manipulator() { return p->aobjectmanipulator; }
+        AnkerFloatingList* Plater::floatinglist() { return p->floatinglist; }
+        AnkerObjectLayers* Plater::object_layers() { return p->object_layers; }
         const Model& Plater::model() const { return p->model; }
         Model& Plater::model() { return p->model; }
         const Print& Plater::fff_print() const { return p->fff_print; }
@@ -5279,7 +5907,7 @@ namespace Slic3r {
                     return;
             }
 
-            p->select_view_3D("3D");
+            p->select_view_3D(VIEW_MODE_3D);
             take_snapshot(_L("New Project"), UndoRedo::SnapshotType::ProjectSeparator);
             Plater::SuppressSnapshots suppress(this);
             reset();
@@ -5355,7 +5983,9 @@ namespace Slic3r {
 
             Plater::TakeSnapshot snapshot(this, snapshot_label);
             if (!load_files(paths, true, false, imperial_units).empty())
+            {
                 wxGetApp().mainframe->update_title();
+            }
         }
 
         void Plater::import_zip_archive()
@@ -5431,7 +6061,15 @@ namespace Slic3r {
                 show_error(this, ex.what());
                 return;
             }
+
             p->gcode_result = std::move(processor.extract_result());
+
+            if (!processor.isRecognizedProducer() && p->gcode_result.bed_shape.empty()) {
+                p->gcode_result.bed_shape.push_back(Slic3r::Vec2d(0, 0));
+                p->gcode_result.bed_shape.push_back(Slic3r::Vec2d(235, 0));
+                p->gcode_result.bed_shape.push_back(Slic3r::Vec2d(235, 235));
+                p->gcode_result.bed_shape.push_back(Slic3r::Vec2d(0, 235));
+            }
 
             // show results
             try
@@ -5460,8 +6098,6 @@ namespace Slic3r {
                     wxString(GCODEVIEWER_APP_NAME) + " - " + _L("Error while loading .gcode file"), wxOK | wxICON_WARNING | wxCENTRE).ShowModal();
                 set_project_filename(wxEmptyString);
             }
-            else
-                set_project_filename(filename);
         }
 
         void Plater::reload_gcode_from_disk()
@@ -5476,7 +6112,30 @@ namespace Slic3r {
             p->preview->refresh_print();
         }
 
-        std::vector<size_t> Plater::load_files(const std::vector<fs::path>& input_files, bool load_model, bool load_config, bool imperial_units /*= false*/) { return p->load_files(input_files, load_model, load_config, imperial_units); }
+        std::vector<size_t> Plater::load_files(const std::vector<fs::path>& input_files, bool load_model, bool load_config, bool imperial_units /*= false*/) 
+        { 
+            // notify sidebarnew to show the filament colour saved in project file
+            if (p->sidebarnew) {
+                size_t input_files_size = input_files.size();
+                for (size_t i = 0; i < input_files_size; ++i) {
+                    auto path = input_files[i];
+                    std::string filePath = path.string();
+                    if (filePath.find(".3mf") != std::string::npos) {
+                        p->sidebarnew->setLoadProjectFileFlag(true);
+                        break;
+                    }
+                }
+            }
+
+            std::vector<size_t> partSize = p->load_files(input_files, load_model, load_config, imperial_units);
+
+            if (partSize.size() > 0)
+                p->sidebarnew->enableSliceBtn(false, true);
+            // 			if (!canvas3D()->get_gizmos_manager().is_in_editing_mode(false) &&is_project_dirty())
+            //                 p->sidebarnew->enableSliceBtn(true,  true);
+
+            return partSize;
+        }
 
         // To be called when providing a list of files to the GUI slic3r on command line.
         std::vector<size_t> Plater::load_files(const std::vector<std::string>& input_files, bool load_model, bool load_config, bool imperial_units /*= false*/)
@@ -5564,23 +6223,23 @@ namespace Slic3r {
             btn->SetValue(id == m_action);
             btn->Bind(wxEVT_RADIOBUTTON, [this, id, contains_projects](wxCommandEvent&) {
                 m_action = id;
-            if (contains_projects) {
-                m_combo_project->Enable(false);
-                m_combo_config->Enable(false);
-            }
+                if (contains_projects) {
+                    m_combo_project->Enable(false);
+                    m_combo_config->Enable(false);
+                }
                 });
             stb_sizer->Add(btn, 0, wxEXPAND | wxTOP, 5);
             id++;
             // all new window
             if (instances_allowed) {
-                btn = new wxRadioButton(this, wxID_ANY, _L("Start new AnkerMake_alpha instance"), wxDefaultPosition, wxDefaultSize, id == 0 ? wxRB_GROUP : 0);
+                btn = new wxRadioButton(this, wxID_ANY, _L("Start new AnkerMake Studio instance"), wxDefaultPosition, wxDefaultSize, id == 0 ? wxRB_GROUP : 0);
                 btn->SetValue(id == m_action);
                 btn->Bind(wxEVT_RADIOBUTTON, [this, id, contains_projects](wxCommandEvent&) {
                     m_action = id;
-                if (contains_projects) {
-                    m_combo_project->Enable(false);
-                    m_combo_config->Enable(false);
-                }
+                    if (contains_projects) {
+                        m_combo_project->Enable(false);
+                        m_combo_config->Enable(false);
+                    }
                     });
                 stb_sizer->Add(btn, 0, wxEXPAND | wxTOP, 5);
             }
@@ -5591,8 +6250,8 @@ namespace Slic3r {
                 btn->SetValue(false);
                 btn->Bind(wxEVT_RADIOBUTTON, [this, id](wxCommandEvent&) {
                     m_action = id;
-                m_combo_project->Enable(true);
-                m_combo_config->Enable(false);
+                    m_combo_project->Enable(true);
+                    m_combo_config->Enable(false);
                     });
                 stb_sizer->Add(btn, 0, wxEXPAND | wxTOP, 5);
                 stb_sizer->Add(m_combo_project, 0, wxEXPAND | wxTOP, 5);
@@ -5602,9 +6261,9 @@ namespace Slic3r {
                 btn->SetValue(id == m_action);
                 btn->Bind(wxEVT_RADIOBUTTON, [this, id, instances_allowed](wxCommandEvent&) {
                     m_action = id;
-                if (instances_allowed)
-                    m_combo_project->Enable(false);
-                m_combo_config->Enable(true);
+                    if (instances_allowed)
+                        m_combo_project->Enable(false);
+                    m_combo_config->Enable(true);
                     });
                 stb_sizer->Add(btn, 0, wxEXPAND | wxTOP, 5);
                 stb_sizer->Add(m_combo_config, 0, wxEXPAND | wxTOP, 5);
@@ -5927,7 +6586,7 @@ namespace Slic3r {
             choices.Add(_L("Import geometry only"));
             choices.Add(_L("Import config only"));
             if (!single_instance_only)
-                choices.Add(_L("Start new AnkerMake_alpha instance"));
+                choices.Add(_L("Start new AnkerMake Studio instance"));
 
             main_sizer->Add(new wxStaticText(this, wxID_ANY,
                 get_wraped_wxString(_L("Select an action to apply to the file") + ": " + from_u8(filename))), 0, wxEXPAND | wxALL, 10);
@@ -5975,6 +6634,14 @@ namespace Slic3r {
             Refresh();
         }
 
+        bool Plater::isImportGCode() const
+        {
+            if (p->preview) {
+                return p->preview->is_GcodeImported();
+            }
+            return false;
+        }
+
         bool Plater::load_files(const wxArrayString& filenames, bool delete_after_load/*=false*/)
         {
             const std::regex pattern_drop(".*[.](stl|obj|amf|3mf|akpro|step|stp|zip)", std::regex::icase);
@@ -5997,7 +6664,22 @@ namespace Slic3r {
                     return false;
                 }
                 else if (paths.size() == 1) {
-                    load_gcode(from_path(paths.front()));
+                    ANKER_LOG_INFO << "Import path: " << paths.front();
+#ifdef _WIN32
+                    wxString utf8Path = wxString::FromUTF8(paths.front().string());
+                    load_gcode(utf8Path);
+                    setAKeyPrintSlicerTempGcodePath(utf8Path.ToStdString());
+#elif __APPLE__
+                    load_gcode(paths.front().string());
+                    setAKeyPrintSlicerTempGcodePath(paths.front().string());
+#endif // _WIN32
+
+                    if (p->previewRightSidePanel) {
+                        p->previewRightSidePanel->UpdateGcodePreviewSideBar(true);
+                        this->p->get_current_canvas3D()->zoom_to_bed();
+                        ANKER_LOG_INFO << "UpdateGcodePreviewSideBar.";
+                    }
+                    
                     return true;
                 }
                 return false;
@@ -6008,8 +6690,36 @@ namespace Slic3r {
                 fs::path path(into_path(filename));
                 if (std::regex_match(path.string(), pattern_drop))
                     paths.push_back(std::move(path));
-                else if (std::regex_match(path.string(), pattern_gcode_drop))
-                    start_new_gcodeviewer(&filename);
+                else if (std::regex_match(path.string(), pattern_gcode_drop)) {
+                    if (0) {
+                        start_new_gcodeviewer(&filename);
+                    }
+                    else {  
+                        ANKER_LOG_INFO << "Import gcode: " << path.string();
+                        this->p->preview->setGCodeImportType(true); // Set import gcode type.
+#ifdef _WIN32
+                        wxString utf8Path = wxString::FromUTF8(path.string());
+                        setAKeyPrintSlicerTempGcodePath(utf8Path.ToStdString());
+#elif __APPLE__
+                        setAKeyPrintSlicerTempGcodePath(path.string());
+#endif // _WIN32
+
+                        select_view_3D(VIEW_MODE_PREVIEW);
+                        wxGetApp().set_app_mode(GUI_App::EAppMode::GCodeViewer);
+
+#ifdef  _WIN32
+                        load_gcode(utf8Path);
+#elif __APPLE__
+                        load_gcode(path.string());
+#endif //  _WIN32
+                        
+                       if (p->previewRightSidePanel) {
+                        p->previewRightSidePanel->UpdateGcodePreviewSideBar(true);
+                        }
+                        this->p->get_current_canvas3D()->zoom_to_bed();
+                        ANKER_LOG_INFO << "Import gcode end.";
+                    }
+                }
                 else
                     continue;
             }
@@ -6111,17 +6821,20 @@ namespace Slic3r {
 
         void Plater::select_view(const std::string& direction) { p->select_view(direction); }
 
-        void Plater::select_view_3D(const std::string& name) { p->select_view_3D(name); }
+        void Plater::select_view_3D(ViewMode mode) { p->select_view_3D(mode); }
 
         bool Plater::is_preview_shown() const { return p->is_preview_shown(); }
         bool Plater::is_preview_loaded() const { return p->is_preview_loaded(); }
         bool Plater::is_view3D_shown() const { return p->is_view3D_shown(); }
+
 
         bool Plater::are_view3D_labels_shown() const { return p->are_view3D_labels_shown(); }
         void Plater::show_view3D_labels(bool show) { p->show_view3D_labels(show); }
 
         bool Plater::is_legend_shown() const { return p->is_legend_shown(); }
         void Plater::show_legend(bool show) { p->show_legend(show); }
+        wxWindow* Plater::get_preview_toolbar() { return p->get_preview_toolbar(); }
+        void Plater::enable_moves_slider(bool enable) { return p->enable_moves_slider(enable); }
 
         bool Plater::is_sidebar_collapsed() const { return p->is_sidebar_collapsed(); }
         void Plater::collapse_sidebar(bool show) { p->collapse_sidebar(show); }
@@ -6148,9 +6861,17 @@ namespace Slic3r {
             if (p->get_selection().is_empty())
                 return;
 
+
             Plater::TakeSnapshot snapshot(this, _L("Delete Selected Objects"));
             get_ui_job_worker().cancel_all();
             p->view3D->delete_selected();
+
+
+            if (wxGetApp().plater()->model().objects.empty())
+            {
+                //p->sidebarnew->enableSliceBtn(true, false);
+                p->sidebarnew->enableSliceBtn(false, false);
+            }
         }
 
         void Plater::increase_instances(size_t num, int obj_idx/* = -1*/)
@@ -6189,7 +6910,8 @@ namespace Slic3r {
 
             p->get_selection().add_instance(obj_idx, (int)model_object->instances.size() - 1);
 
-            sidebar().obj_list()->increase_object_instances(obj_idx, was_one_instance ? num + 1 : num);
+            //objectbar().getObjectList()->increase_object_instances(obj_idx, was_one_instance ? num + 1 : num);
+            objectbar()->increase_object_instances(obj_idx, was_one_instance ? num + 1 : num);
 
             p->selection_changed();
             this->p->schedule_background_process();
@@ -6217,7 +6939,8 @@ namespace Slic3r {
                     model_object->delete_last_instance();
                 p->update();
                 // Delete object from Sidebar list. Do it after update, so that the GLScene selection is updated with the modified model.
-                sidebar().obj_list()->decrease_object_instances(obj_idx, num);
+                //objectbar().getObjectList()->decrease_object_instances(obj_idx, num);
+                objectbar()->decrease_object_instances(obj_idx, num);
             }
             else {
                 remove(obj_idx);
@@ -6238,16 +6961,15 @@ namespace Slic3r {
             long max,
             wxWindow* parent)
         {
-#ifdef _WIN32
-            wxNumberEntryDialog dialog(parent, msg, prompt, title, value, min, max, wxDefaultPosition);
-            wxGetApp().UpdateDlgDarkUI(&dialog);
+
+           /* wxNumberEntryDialog dialog(parent, msg, prompt, title, value, min, max, wxDefaultPosition);
+            wxGetApp().UpdateDlgDarkUI(&dialog);*/
+            AnkerNumberEnterDialog dialog(parent, title.ToStdString(), prompt, min, max, value);
+            dialog.CenterOnParent();
             if (dialog.ShowModal() == wxID_OK)
                 return dialog.GetValue();
 
             return -1;
-#else
-            return wxGetNumberFromUser(msg, prompt, title, value, min, max, parent);
-#endif
         }
 
         void Plater::set_number_of_copies()
@@ -6257,8 +6979,8 @@ namespace Slic3r {
                 return;
 
             const size_t init_cnt = obj_idxs.size() == 1 ? p->model.objects[*obj_idxs.begin()]->instances.size() : 1;
-            const int num = GetNumberFromUser(" ", _L("Enter the number of copies:"),
-                _L("Copies of the selected object"), init_cnt, 0, 1000, this);
+            const int num = GetNumberFromUser(" ", _L("Number of the selected object:"),
+                _L("Set number of instances"), init_cnt, 0, 1000, this);
             if (num < 0)
                 return;
             TakeSnapshot snapshot(this, wxString::Format(_L("Set numbers of copies to %d"), num));
@@ -6295,7 +7017,8 @@ namespace Slic3r {
         void Plater::convert_unit(ConversionType conv_type)
         {
             std::vector<int> obj_idxs, volume_idxs;
-            wxGetApp().obj_list()->get_selection_indexes(obj_idxs, volume_idxs);
+            //wxGetApp().obj_list()->get_selection_indexes(obj_idxs, volume_idxs);
+            wxGetApp().objectbar()->get_selection_indexes(obj_idxs, volume_idxs);
             if (obj_idxs.empty() && volume_idxs.empty())
                 return;
 
@@ -6346,8 +7069,9 @@ namespace Slic3r {
 
             const auto new_objects = object->cut(instance_idx, cut_matrix, attributes);
 
+            //objectbar().getObjectList()->delete_object_from_list(obj_idx);
+            objectbar()->delete_object_from_list(obj_idx);
             model().delete_object(obj_idx);
-            sidebar().obj_list()->delete_object_from_list(obj_idx);
 
             // suppress to call selection update for Object List to avoid call of early Gizmos on/off update
             p->load_model_objects(new_objects, false, false);
@@ -6356,8 +7080,8 @@ namespace Slic3r {
             update();
             // Update InfoItems in ObjectList after update() to use of a correct value of the GLCanvas3D::is_sinking(),
             // which is updated after a view3D->reload_scene(false, flags & (unsigned int)UpdateParams::FORCE_FULL_SCREEN_REFRESH) call
-            for (size_t idx = 0; idx < p->model.objects.size(); idx++)
-                wxGetApp().obj_list()->update_info_items(idx);
+            //for (size_t idx = 0; idx < p->model.objects.size(); idx++)
+            //    wxGetApp().obj_list()->update_info_items(idx);
 
             Selection& selection = p->get_selection();
             size_t last_id = p->model.objects.size() - 1;
@@ -6365,79 +7089,171 @@ namespace Slic3r {
                 selection.add_object((unsigned int)(last_id - i), i == 0);
         }
 
-        void Plater::onProgressTimer(wxTimerEvent& event)
+        bool copyFile(const wxString& sourcePath, const wxString& destinationPath)
         {
-#ifdef __APPLE__
-            g_progressValue_mutex.lock();
-            p->sidebar->updateFileTransferProgressValue(g_progressValue);
-            if (g_progressValue < 0 || g_progressValue > 100) {
-                wxTimer* timer = static_cast<wxTimer*>(event.GetEventObject());
-                if (timer && timer->IsRunning()) {
-                    timer->Stop();
+            wxFile sourceFile(sourcePath, wxFile::read);
+            if (!sourceFile.IsOpened()) {
+                PrintLog("Failed to open source file: " + sourcePath.ToStdString());
+                return false;
+            }
+
+            wxFile destinationFile(destinationPath, wxFile::write);
+            if (!destinationFile.IsOpened())
+            {
+                PrintLog("Failed to open destination file: " + destinationPath.ToStdString());
+                return false;
+            }
+
+            const size_t bufferSize = 1024 * 4;
+            char buffer[bufferSize];
+
+            wxFileOffset fileSize = sourceFile.Length();
+            wxFileOffset bytesCopied = 0;
+
+            while (bytesCopied < fileSize) {
+                size_t bytesRead = sourceFile.Read(buffer, bufferSize);
+                if (bytesRead > 0) {
+                    destinationFile.Write(buffer, bytesRead);
+                    bytesCopied += bytesRead;
+                }
+                else {
+                    PrintLog("Failed to read from source file: " + sourcePath.ToStdString());
+                    sourceFile.Close();
+                    destinationFile.Close();
+                    return false;
                 }
             }
-            g_progressValue_mutex.unlock();
-#endif
+            sourceFile.Close();
+            destinationFile.Close();
+            return true;
         }
 
         void Plater::showDeviceList()
         {
-            p->sidebar->show_send_progress(true);
-            this->Layout(); // Flush GUI.
-            PrintLog(std::string("get_last_loaded_gcode: ") + get_last_loaded_gcode().ToStdString());
-            std::thread::id tid = std::this_thread::get_id();
-            std::hash<std::thread::id> hasher;
-            int id = hasher(tid);
-            PrintLog("Plater::showDeviceList thread id: " + std::to_string(id));
-            Datamanger::GetInstance().m_aKeyPrintGcodePath = m_currentPrintGcodeFile;
-            
-            boost::signals2::connection conn = Datamanger::GetInstance().
-                transferFilecConnect(boost::bind(&Plater::updateProgresValue, this, _1));
-            ChooseDeviceFrame chooseDeviceFrame(nullptr, wxID_ANY, _L("Choose A Device"),
-                wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE);
-            wxGetApp().UpdateDlgDarkUI(&chooseDeviceFrame, true);       
-            ANKER_LOG_INFO << "Plater::showDeviceList size: " + std::to_string(Datamanger::GetInstance().getDeviceObjectsSize());
-            if (Datamanger::GetInstance().getDeviceObjectsSize() > 0) {
-#ifdef __APPLE__
-                if(g_timer && !g_timer->IsRunning()){
-                    g_timer->Start(100);
-                }
-                chooseDeviceFrame.setTimer(g_timer);
-#endif
-                chooseDeviceFrame.initGui(p->sidebar->getExportGCodeHeight(), wxGetApp().bold_font(), this->GetBackgroundColour(), this->GetBackgroundStyle());
-            }
-            else {
-                chooseDeviceFrame.initNoDeviceGui(p->sidebar->getExportGCodeHeight(), wxGetApp().bold_font(), this->GetBackgroundColour(), this->GetBackgroundStyle());
-            }
-            chooseDeviceFrame.ShowModal();
-
-#ifdef __APPLE__
-            if (g_timer && g_timer->IsRunning()) {
-                g_timer->Stop();
-            }
-#endif
-            p->sidebar->show_send_progress(false);
-            this->Layout(); // Flush GUI.
-        }
-
-
-        void Plater::updateProgresValue(int value)
-        {
-            PrintLog("Plater::updateProgresValue: " + std::to_string(value));
-            #ifdef _WIN32
-                p->sidebar->updateFileTransferProgressValue(value);
-            #elif __APPLE__
-               g_progressValue_mutex.lock();
-               g_progressValue = value;
-               g_progressValue_mutex.unlock();
-            #endif
-            
         }
 
         // A key print clicked.
         void Slic3r::GUI::Plater::a_key_print_clicked()
         {
-           
+            if (!Datamanger::GetInstance().getAuthToken().empty()) {
+                //Datamanger::GetInstance().getAKeyPrintMachineListEx(this, true);
+                Datamanger::GetInstance().getAKeyPrintMachineListEx(this, false);
+                //showDeviceList();
+            }
+            else {
+                ANKER_LOG_INFO<<"CALL ShowAnkerWebView() 06";
+                wxGetApp().mainframe->ShowAnkerWebView();
+            }
+        }
+
+        void Slic3r::GUI::Plater::onSliceNow()
+        {
+            if (canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
+                return;
+
+            const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
+            if (export_gcode_after_slicing)
+                export_gcode(true);
+            else
+                reslice();
+            select_view_3D(VIEW_MODE_PREVIEW);
+        }
+
+		void Plater::set_export_progress_change_callback(progressChangeCallbackFunction cb)
+        {
+            if (p)
+                p->set_export_progress_change_callback(cb); 
+        };
+
+        void Plater::stop_exporting_Gcode()
+        {
+            if (p)
+                p->cancel_exporting_Gcode();
+        };
+
+        void Plater::set_create_AI_file_val(bool val)
+        {
+            if (p)
+                p->set_create_AI_file(val);
+        };
+
+        bool Plater::get_create_AI_file_val()
+        {
+            bool ret = false;
+            if (p)
+                ret = p->get_create_AI_file();
+            return ret;
+        };
+
+        void Plater::export_akeyPrint_gcode(std::string& path, bool isAcode)
+        {
+            if (p->model.objects.empty())
+                return;
+
+            if (canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
+                return;
+
+
+            if (p->process_completed_with_error)
+                return;
+
+            // If possible, remove accents from accented latin characters.
+            // This function is useful for generating file names to be processed by legacy firmwares.
+            fs::path default_output_file;
+            try {
+                // Update the background processing, so that the placeholder parser will get the correct values for the ouput file template.
+                // Also if there is something wrong with the current configuration, a pop-up dialog will be shown and the export will not be performed.
+                unsigned int state = this->p->update_restart_background_process(false, false);
+                if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
+                    return;
+                //default_output_file = this->p->background_process.output_filepath_for_project(into_path(get_project_filename(".3mf")));
+                boost::filesystem::path tmpDir = boost::filesystem::temp_directory_path();
+                if (model().objects.size() > 0) {
+                    std::string name = "";
+                    if ((*model().objects.begin())) {
+                        name = (*model().objects.begin())->name;
+                    }
+#ifdef _WIN32
+                    default_output_file = tmpDir.string() + "\\" + name;
+#elif __APPLE__
+                    default_output_file = tmpDir.string() + "/" + name;
+#endif // _WIN32
+
+                    
+                }
+            }
+            catch (const Slic3r::PlaceholderParserError& ex) {
+                // Show the error with monospaced font.
+                show_error(this, ex.what(), true);
+                return;
+            }
+            catch (const std::exception& ex) {
+                show_error(this, ex.what(), false);
+                return;
+            }
+            std::string tmpGcodePath = default_output_file.string();
+            int index = tmpGcodePath.find_last_of(".");
+            if (index == std::string::npos) {
+                index = tmpGcodePath.length();
+            }
+            tmpGcodePath = tmpGcodePath.substr(0, index) + "_bak.gcode";
+            default_output_file = fs::path(Slic3r::fold_utf8_to_ascii(tmpGcodePath));
+            AppConfig& appconfig = *wxGetApp().app_config;
+            RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
+            boost::filesystem::path output_path(default_output_file);
+            if (!output_path.empty()) {
+                bool path_on_removable_media = removable_drive_manager.set_and_verify_last_save_path(output_path.string());
+                p->notification_manager->new_export_began(path_on_removable_media);
+                p->exporting_status = path_on_removable_media ? ExportingStatus::EXPORTING_TO_REMOVABLE : ExportingStatus::EXPORTING_TO_LOCAL;
+                p->last_output_path = output_path.string();
+                p->last_output_dir_path = output_path.parent_path().string();
+                p->export_gcode(output_path, path_on_removable_media, PrintHostJob());
+                // Storing a path to AppConfig either as path to removable media or a path to internal media.
+                // is_path_on_removable_drive() is called with the "true" parameter to update its internal database as the user may have shuffled the external drives
+                // while the dialog was open.
+                appconfig.update_last_output_dir(output_path.parent_path().string(), path_on_removable_media);
+                path = output_path.string();  
+            }
         }
 
         void Plater::export_gcode(bool prefer_removable)
@@ -6490,13 +7306,20 @@ namespace Slic3r {
 #if !ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
                 std::string ext = default_output_file.extension().string();
 #endif // !ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
+
+                if (get_create_AI_file_val()) {
+                    // export as .acode file
+                    if (default_output_file.extension().string() == ".gcode")
+                        default_output_file.replace_extension(".acode");
+                }
+
                 wxFileDialog dlg(this, (printer_technology() == ptFFF) ? _L("Save G-code file as:") : _L("Save SL1 / SL1S file as:"),
                     start_dir,
                     from_path(default_output_file.filename()),
 #if ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
-                    GUI::file_wildcards((printer_technology() == ptFFF) ? FT_GCODE : FT_SL1),
+                    GUI::file_wildcards((printer_technology() == ptFFF) ? (get_create_AI_file_val() ? FT_ACODE : FT_GCODE) : FT_SL1),
 #else
-                    GUI::file_wildcards((printer_technology() == ptFFF) ? FT_GCODE : FT_SL1, ext),
+                    GUI::file_wildcards((printer_technology() == ptFFF) ? (get_create_AI_file_val() ? FT_ACODE : FT_GCODE) : FT_SL1, ext),
 #endif // ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
                     wxFD_SAVE | wxFD_OVERWRITE_PROMPT
                 );
@@ -6802,6 +7625,11 @@ namespace Slic3r {
 
         void Plater::reslice()
         {
+            // First, after importing the stl file without slicing, and then importing gcode, reslice will be called.
+            if (p->preview->is_GcodeImported()) {
+                return;
+            }
+            //this->p->background_process.setState(BackgroundSlicingProcess::STATE_RUNNING);
             // There is "invalid data" button instead "slice now"
             if (p->process_completed_with_error)
                 return;
@@ -6835,6 +7663,7 @@ namespace Slic3r {
             this->p->background_process.set_task(PrintBase::TaskParams());
             // Only restarts if the state is valid.
             this->p->restart_background_process(state | priv::UPDATE_BACKGROUND_PROCESS_FORCE_RESTART);
+            
 
             if ((state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) != 0)
                 return;
@@ -6843,10 +7672,12 @@ namespace Slic3r {
             if (p->background_process.running())
             {
                 if (wxGetApp().get_mode() == comSimple)
-                    p->sidebar->set_btn_label(ActionButtonType::abReslice, _L("Slicing") + dots);
+                {
+                    // p->sidebar->set_btn_label(ActionButtonType::abReslice, _L("Slicing") + dots);
+                }
                 else
                 {
-                    p->sidebar->set_btn_label(ActionButtonType::abReslice, _L("Slice now"));
+                   // p->sidebar->set_btn_label(ActionButtonType::abReslice, _L("Slice now"));
                     p->show_action_buttons(false);
                 }
             }
@@ -7030,7 +7861,9 @@ namespace Slic3r {
 
         bool Plater::search_string_getter(int idx, const char** label, const char** tooltip)
         {
-            const Search::OptionsSearcher& search_list = p->sidebar->get_searcher();
+            // add by allen for ankerCfgDlg search
+            //const Search::OptionsSearcher& search_list = p->sidebar->get_searcher();
+            const Search::OptionsSearcher& search_list = p->sidebarnew->get_searcher();
 
             if (0 <= idx && (size_t)idx < search_list.size()) {
                 search_list[idx].get_marked_label_and_tooltip(label, tooltip);
@@ -7042,6 +7875,9 @@ namespace Slic3r {
 
         void Plater::on_extruders_change(size_t num_extruders)
         {
+#if USE_SIDEBAR_NEW
+            sidebarnew().onExtrudersChange(num_extruders);
+#else
             auto& choices = sidebar().combos_filament();
 
             if (num_extruders == choices.size())
@@ -7066,6 +7902,7 @@ namespace Slic3r {
 
             sidebar().Layout();
             sidebar().scrolled_panel()->Refresh();
+#endif     
         }
 
         bool Plater::update_filament_colors_in_full_config()
@@ -7074,7 +7911,8 @@ namespace Slic3r {
             // Thus plater config option "filament_colour" should be filled with filament_presets values.
             // Otherwise, on 3dScene will be used last edited filament color for all volumes with extruder_color == "".
             const std::vector<std::string> filament_presets = wxGetApp().preset_bundle->filament_presets;
-            if (filament_presets.size() == 1 || !p->config->has("filament_colour"))
+            // add by allen for fixing use filament_colour instead of extruder_colour
+            if (/*filament_presets.size() == 1 || */!p->config->has("filament_colour"))
                 return false;
 
             const PresetCollection& filaments = wxGetApp().preset_bundle->filaments;
@@ -7085,6 +7923,23 @@ namespace Slic3r {
                 filament_colors.push_back(filaments.find_preset(filament_preset, true)->config.opt_string("filament_colour", (unsigned)0));
 
             p->config->option<ConfigOptionStrings>("filament_colour")->values = filament_colors;
+
+            // add by allen for add anker_filament_id and anker_colour_id
+            if (!p->config->has("anker_filament_id") || !p->config->has("anker_colour_id"))
+                return false;
+
+            if (wxGetApp().mainframe && wxGetApp().mainframe->plater()) {
+                std::vector<SFilamentInfo> filamentEditInfo = wxGetApp().mainframe->plater()->sidebarnew().getEditFilamentList();
+                std::vector<std::string> ankerFilamentId, ankerColourId;
+                for (auto iter : filamentEditInfo) {
+                    ankerFilamentId.emplace_back(iter.wxStrFilamentId.ToStdString());
+                    ankerColourId.emplace_back(iter.wxStrColorId.ToStdString());
+                }
+
+                p->config->option<ConfigOptionStrings>("anker_filament_id")->values = ankerFilamentId;
+                p->config->option<ConfigOptionStrings>("anker_colour_id")->values = ankerColourId;
+            }
+
             return true;
         }
 
@@ -7097,7 +7952,8 @@ namespace Slic3r {
                     update_scheduled = true; // update should be scheduled (for update 3DScene) #2738
 
                     if (update_filament_colors_in_full_config()) {
-                        p->sidebar->obj_list()->update_extruder_colors();
+                        //p->objectbar->getObjectList()->update_extruder_colors();
+                        p->objectbar->update_objects_list_extruder_column(p->config->option<ConfigOptionStrings>("filament_colour")->values.size());
                         continue;
                     }
                 }
@@ -7108,7 +7964,10 @@ namespace Slic3r {
                 p->config->set_key_value(opt_key, config.option(opt_key)->clone());
                 if (opt_key == "printer_technology") {
                     this->set_printer_technology(config.opt_enum<PrinterTechnology>(opt_key));
-                    p->sidebar->show_sliced_info_sizer(false);
+                   // p->sidebar->show_sliced_info_sizer(false);
+                    if (p->sidebarnew) {
+                        p->updatePreViewRightSideBar(false);
+                    }
                     p->reset_gcode_toolpaths();
                     p->view3D->get_canvas3d()->reset_sequential_print_clearance();
                 }
@@ -7129,7 +7988,8 @@ namespace Slic3r {
                 }
                 else if (opt_key == "extruder_colour") {
                     update_scheduled = true;
-                    p->sidebar->obj_list()->update_extruder_colors();
+                    //p->objectbar->getObjectList()->update_extruder_colors();
+                    p->objectbar->update_objects_list_extruder_column(p->config->option<ConfigOptionStrings>("filament_colour")->values.size());
                 }
                 else if (opt_key == "max_print_height") {
                     bed_shape_changed = true;
@@ -7194,7 +8054,8 @@ namespace Slic3r {
 
             if (update_scheduled) {
                 update();
-                p->sidebar->obj_list()->update_extruder_colors();
+                //p->objectbar->getObjectList()->update_extruder_colors();
+                p->objectbar->update_objects_list_extruder_column(p->config->option<ConfigOptionStrings>("filament_colour")->values.size());
             }
 
             if (p->main_frame->is_loaded())
@@ -7211,6 +8072,171 @@ namespace Slic3r {
         void Plater::on_activate()
         {
             this->p->show_delayed_error_message();
+        }
+
+        void Plater::on_move(wxMoveEvent& event)
+        {
+            if (this->p->objectbar)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->objectbar->getObjectBarView()->SetPosition(topleft + wxPoint(12, 12));
+
+                int newMaxHeight = GetSize().GetHeight();
+                this->p->objectbar->setListMaxHeight(newMaxHeight / 2.0);
+            }
+
+            if (this->p->floatinglist)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->floatinglist->SetPosition(topleft + wxPoint(12 + this->p->objectbar->getObjectBarView()->GetSize().x, 12 + 50));
+            }
+
+            if(p && p->preview)
+                p->preview->on_move(event);
+
+
+            if (p && p->sidebarnew)
+                p->sidebarnew->onMove(event);
+
+            updateMatchHint();
+        }
+
+        void Plater::on_show(wxShowEvent& event)
+        {
+            // show objectbar after the canvas initialized
+            if (this->p->objectbar && p->view3D->get_canvas3d()->is_initialized() && wxGetApp().mainframe)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->objectbar->getObjectBarView()->SetPosition(topleft + wxPoint(12, 12));
+                
+                bool objectbarVisible = event.IsShown() && wxGetApp().is_editor() && p->current_view_mode == VIEW_MODE_3D && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE;
+                this->p->objectbar->getObjectBarView()->Show(objectbarVisible);
+
+                int newMaxHeight = GetSize().GetHeight(); 
+                this->p->objectbar->setListMaxHeight(newMaxHeight / 2.0);
+            }
+
+            if (this->p->floatinglist && this->p->objectbar && wxGetApp().mainframe)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->floatinglist->SetPosition(topleft + wxPoint(12 + this->p->objectbar->getObjectBarView()->GetSize().x, 12 + 50));
+                bool visible = event.IsShown() && wxGetApp().is_editor() && p->current_view_mode == VIEW_MODE_3D && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE;
+                if (!visible)
+                    this->p->floatinglist->Show(false);
+            }
+
+            if (event.IsShown() && is_preview_shown() && is_preview_loaded() && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE) {
+                this->p->preview->showGcodeLayerToolbar(true);
+            }
+            else {
+                this->p->preview->showGcodeLayerToolbar(false);
+                // Close the filament edit dialog when plater is toggled hidden
+                if (p && p->sidebarnew) {
+                    p->sidebarnew->closeFilamentEditDlg();
+                }
+            }
+            updateMatchHint();
+        }
+
+        void Plater::updateMatchHint()
+        {
+            if (p && p->m_machineTypeMatchHint) {
+                if (wxGetApp().mainframe->get_current_tab_mode() != TabMode::TAB_SLICE) {
+                    p->m_machineTypeMatchHint->Show(false);
+                }
+                else {
+                    wxPoint mfPoint = wxGetApp().mainframe->GetScreenPosition();
+                    wxRect mfRect = wxGetApp().mainframe->GetScreenRect();
+                    wxPoint sidebarnewPos = p->sidebarnew->GetScreenPosition();
+                    wxRect sidebarnewRect = p->sidebarnew->GetScreenRect();
+
+                    wxSize machineSize = p->m_machineTypeMatchHint->GetSize();
+                    wxPoint machinePos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - machineSize.GetWidth() - AnkerLength(26),
+                        sidebarnewPos.y + AnkerLength(72));
+                    p->m_machineTypeMatchHint->SetPosition(machinePos);
+
+                    bool objectbarVisible = IsShown() && wxGetApp().is_editor() && p->current_view_mode == VIEW_MODE_3D;
+                    p->m_machineTypeMatchHint->Show(objectbarVisible);
+                }               
+            }
+        }
+
+        void Plater::on_size(wxSizeEvent& event)
+        {
+            if (this->p->objectbar)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->objectbar->getObjectBarView()->SetPosition(topleft + wxPoint(12, 12));
+
+                int newMaxHeight = event.GetSize().GetHeight();
+                this->p->objectbar->setListMaxHeight(newMaxHeight / 2.0);
+            }
+
+            if (this->p->floatinglist)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->floatinglist->SetPosition(topleft + wxPoint(12 + this->p->objectbar->getObjectBarView()->GetSize().x, 12 + 50));
+            }
+
+            if (p && p->sidebarnew)
+                p->sidebarnew->onSize(event);
+
+            updateMatchHint();
+        }
+
+        void Plater::on_minimize(wxIconizeEvent& event)
+        {
+            if (this->p->objectbar && wxGetApp().mainframe)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->objectbar->getObjectBarView()->SetPosition(topleft + wxPoint(12, 12));
+                bool objectbarVisible = this->IsShown() && !event.IsIconized() && wxGetApp().is_editor() && p->current_view_mode == VIEW_MODE_3D && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE;
+                this->p->objectbar->getObjectBarView()->Show(objectbarVisible);
+                
+                if (p->m_machineTypeMatchHint) {
+                    p->m_machineTypeMatchHint->Show(objectbarVisible);
+                }
+
+                int newMaxHeight = GetSize().GetHeight();
+                this->p->objectbar->setListMaxHeight(newMaxHeight / 2.0);
+            }
+
+            if (this->p->floatinglist && wxGetApp().mainframe)
+            {
+                wxPoint topleft = GetScreenPosition();
+                this->p->floatinglist->SetPosition(topleft + wxPoint(12 + this->p->objectbar->getObjectBarView()->GetSize().x, 12 + 50));
+
+                bool objectbarVisible = this->IsShown() && !event.IsIconized() && wxGetApp().is_editor() && p->current_view_mode == VIEW_MODE_3D && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE;
+                if (!objectbarVisible)
+                    this->p->floatinglist->Show(false);
+            }
+
+            if (this->IsShown() && !event.IsIconized() && is_preview_shown() && is_preview_loaded() && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE) {
+                this->p->preview->showGcodeLayerToolbar(true);
+            }
+            else {
+                this->p->preview->showGcodeLayerToolbar(false);
+            }
+
+            if (p && p->sidebarnew)
+                p->sidebarnew->onMinimize(event);
+        }
+
+        void Plater::on_maximize(wxMaximizeEvent& event) {
+            if (p && p->sidebarnew)
+                p->sidebarnew->onMaximize(event);
+            updateMatchHint();
+        }
+
+        void Plater::shutdown()
+        {
+            if (p && p->preview)
+            {
+                p->preview->shutdown();
+            }
+
+            if (p && p->sidebarnew)
+                p->sidebarnew->shutdown();
         }
 
         // Get vector of extruder colors considering filament color, if extruder color is undefined.
@@ -7237,12 +8263,26 @@ namespace Slic3r {
             }
         }
 
+        std::vector<std::string> Plater::get_filament_colors_from_plater_config(const GCodeProcessorResult* const result) const
+        {
+            std::vector<std::string> extruder_colors;
+
+            if (!p->config->has("filament_colour")) // in case of a SLA print
+                return extruder_colors;
+
+            extruder_colors = (p->config->option<ConfigOptionStrings>("filament_colour"))->values;
+
+            return extruder_colors;
+        }
+
         /* Get vector of colors used for rendering of a Preview scene in "Color print" mode
          * It consists of extruder colors and colors, saved in model.custom_gcode_per_print_z
          */
         std::vector<std::string> Plater::get_colors_for_color_print(const GCodeProcessorResult* const result) const
         {
-            std::vector<std::string> colors = get_extruder_colors_from_plater_config(result);
+            // add by allen for fixing use filament_colour instead of extruder_colour
+            //std::vector<std::string> colors = get_extruder_colors_from_plater_config(result);
+            std::vector<std::string> colors = get_filament_colors_from_plater_config(result);
             colors.reserve(colors.size() + p->model.custom_gcode_per_print_z.gcodes.size());
 
             if (wxGetApp().is_gcode_viewer() && result != nullptr) {
@@ -7301,6 +8341,13 @@ namespace Slic3r {
             return p->view3D->get_canvas3d();
         }
 
+        GLCanvas3D* Plater::canvas_preview()
+        {
+            if (!p || !(p->preview))
+                return nullptr;
+            return p->preview->get_canvas3d();
+        }
+
         GLCanvas3D* Plater::get_current_canvas3D()
         {
             return p->get_current_canvas3D();
@@ -7353,8 +8400,9 @@ namespace Slic3r {
                 }
             }
 
-            p->label_btn_export = printer_technology == ptFFF ? L("Export G-code") : L("Export");
-            p->label_btn_send = printer_technology == ptFFF ? L("Send G-code") : L("Send to printer");
+            //p->label_btn_export = printer_technology == ptFFF ? L("Export G-code") : L("Export");
+           // p->label_btn_export = printer_technology == ptFFF ? L("Export") : L("Export");
+          //  p->label_btn_send = printer_technology == ptFFF ? L("Send G-code") : L("Send to printer");
 
             if (wxGetApp().mainframe != nullptr)
                 wxGetApp().mainframe->update_menubar();
@@ -7428,6 +8476,8 @@ namespace Slic3r {
 
             // update print
             this->p->schedule_background_process();
+
+            this->p->object_list_changed();
         }
 
         void Plater::changed_objects(const std::vector<size_t>& object_idxs)
@@ -7454,6 +8504,8 @@ namespace Slic3r {
 
             // update print
             this->p->schedule_background_process();
+
+            this->p->object_list_changed();
         }
 
         void Plater::schedule_background_process(bool schedule/* = true*/)
@@ -7489,7 +8541,8 @@ namespace Slic3r {
             // At first try to copy selected values to the ObjectList's clipboard
             // to check if Settings or Layers are selected in the list
             // and then copy to 3DCanvas's clipboard if not
-            if (can_copy_to_clipboard() && !p->sidebar->obj_list()->copy_to_clipboard())
+            //if (can_copy_to_clipboard() && !p->objectbar->getObjectList()->copy_to_clipboard())
+            if (can_copy_to_clipboard() && !p->objectbar->copy_to_clipboard())
                 p->view3D->get_canvas3d()->get_selection().copy_to_clipboard();
         }
 
@@ -7503,11 +8556,12 @@ namespace Slic3r {
             // At first try to paste values from the ObjectList's clipboard
             // to check if Settings or Layers were copied
             // and then paste from the 3DCanvas's clipboard if not
-            if (!p->sidebar->obj_list()->paste_from_clipboard())
+            //if (!p->objectbar->getObjectList()->paste_from_clipboard())
+            if (!p->objectbar->paste_from_clipboard())
                 p->view3D->get_canvas3d()->get_selection().paste_from_clipboard();
         }
 
-        void Plater::search(bool plater_is_active)
+        void Plater::search(bool plater_is_active, wxString defaultSearchData)
         {
             if (plater_is_active) {
                 if (is_preview_shown())
@@ -7525,18 +8579,26 @@ namespace Slic3r {
                 canvas3D()->on_char(evt);
             }
             else {
-                p->sidebar->check_and_update_searcher(true);
-                p->sidebar->get_searcher().show_dialog();
+                // add by allen for ankerCfgDlg search
+                /* p->sidebar->check_and_update_searcher(true);
+                 p->sidebar->get_searcher().show_dialog();*/
+
+                p->sidebarnew->check_and_update_searcher(true);
+                p->sidebarnew->get_searcher().show_dialog(defaultSearchData);
             }
         }
 
         void Plater::msw_rescale()
         {
-            p->preview->msw_rescale();
+            if (p->preview)
+                p->preview->msw_rescale();
 
-            p->view3D->get_canvas3d()->msw_rescale();
+            if (p->view3D)
+                p->view3D->get_canvas3d()->msw_rescale();
 
-            p->sidebar->msw_rescale();
+            //p->sidebar->msw_rescale();
+            if (p->objectbar)
+                p->objectbar->msw_rescale();
 
             Layout();
             GetParent()->Layout();
@@ -7545,7 +8607,8 @@ namespace Slic3r {
         void Plater::sys_color_changed()
         {
             p->preview->sys_color_changed();
-            p->sidebar->sys_color_changed();
+            //p->sidebar->sys_color_changed();
+            p->objectbar->sys_color_changed();
 
             p->menus.sys_color_changed();
 
@@ -7575,8 +8638,12 @@ namespace Slic3r {
 
         void Plater::setAKeyPrintSlicerTempGcodePath(const std::string& gcodePath)
         {
-            Datamanger::GetInstance().m_aKeyPrintGcodePath = gcodePath;
             m_currentPrintGcodeFile = gcodePath;
+        }
+
+        std::string Plater::get_temp_gcode_output_path()
+        {
+            return p->background_process.get_temp_output_path();
         }
 
         const Camera& Plater::get_camera() const
@@ -7637,6 +8704,11 @@ namespace Slic3r {
             p->enable_preview_moves_slider(enable);
         }
 
+        void Plater::update_current_ViewType(GCodeViewer::EViewType type)
+        {
+            p->UpdateCurrentViewType(type);
+        }
+
         void Plater::reset_gcode_toolpaths()
         {
             p->reset_gcode_toolpaths();
@@ -7683,7 +8755,7 @@ namespace Slic3r {
             const Selection& selection = p->view3D->get_canvas3d()->get_selection();
             const Selection::Clipboard& clipboard = selection.get_clipboard();
 
-            if (clipboard.is_empty() && p->sidebar->obj_list()->clipboard_is_empty())
+            if (clipboard.is_empty() /*&& p->objectbar->getObjectList()->clipboard_is_empty()*/)
                 return false;
 
             if ((wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptSLA) && !clipboard.is_sla_compliant())
@@ -7778,6 +8850,55 @@ namespace Slic3r {
         wxMenu* Plater::layer_menu() { return p->menus.layer_menu(); }
         wxMenu* Plater::multi_selection_menu() { return p->menus.multi_selection_menu(); }
 
+
+        wxBoxSizer* Plater::CreatePreViewRightSideBar() {
+            return p->CreatePreViewRightSideBar();
+        }
+
+        void Plater::CalcModelObjectSize()
+        {
+            Selection& selection = wxGetApp().plater()->canvas3D()->get_selection();
+            ModelObjectPtrs objects = this->model().objects;
+            int obj_idx = selection.get_object_idx();
+
+
+            ConfigOptionMode mode = wxGetApp().get_mode();
+            if (mode < comExpert || objects.empty() || obj_idx < 0 || int(objects.size()) <= obj_idx ||
+                objects[obj_idx]->volumes.empty() ||                                            // hack to avoid crash when deleting the last object on the bed
+                (selection.is_single_full_object() && objects[obj_idx]->instances.size() > 1) ||
+                !(selection.is_single_full_instance() || selection.is_single_volume())) {
+                //p->object_info->Show(false);
+                return;
+            }
+
+
+            const ModelObject* model_object = objects[obj_idx];
+
+            int inst_idx = selection.get_instance_idx();
+            assert(inst_idx >= 0);
+
+            bool imperial_units = wxGetApp().app_config->get_bool("use_inches");
+            double koef = imperial_units ? ObjectManipulation::mm_to_in : 1.0f;
+
+            ModelVolume* vol = nullptr;
+            Transform3d t;
+            if (selection.is_single_volume()) {
+                std::vector<int> obj_idxs, vol_idxs;
+                //wxGetApp().obj_list()->get_selection_indexes(obj_idxs, vol_idxs);
+                wxGetApp().objectbar()->get_selection_indexes(obj_idxs, vol_idxs);
+                if (vol_idxs.size() != 1)
+                    // Case when this fuction is called between update selection in ObjectList and on Canvas
+                    // Like after try to delete last solid part in object, the object is selected in ObjectLIst when just a part is still selected on Canvas
+                    // see https://github.com/prusa3d/PrusaSlicer/issues/7408
+                    return;
+                vol = model_object->volumes[vol_idxs[0]];
+                t = model_object->instances[inst_idx]->get_matrix() * vol->get_matrix();
+            }
+
+            Vec3d size = vol ? vol->mesh().transformed_bounding_box(t).size() : model_object->instance_bounding_box(inst_idx).size();
+            setModelObjectSizeText(wxString::Format("%.2f X %.2f X %.2f mm", size(0) * koef, size(1) * koef, size(2) * koef));
+        }
+
         SuppressBackgroundProcessingUpdate::SuppressBackgroundProcessingUpdate() :
             m_was_scheduled(wxGetApp().plater()->is_background_process_update_scheduled())
         {
@@ -7802,6 +8923,7 @@ namespace Slic3r {
             if (m_enabled)
                 wxGetApp().plater()->arrange();
         }
-
     }
 }    // namespace Slic3r::GUI
+
+

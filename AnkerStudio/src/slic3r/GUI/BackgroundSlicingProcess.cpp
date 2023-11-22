@@ -81,8 +81,8 @@ std::pair<std::string, bool> SlicingProcessCompletedEvent::format_error_message(
                               "be glad if you reported it."), SLIC3R_APP_NAME);
         error += "\n\n" + std::string(ex.what());
     } catch (const HardCrash &ex) {
-        error = GUI::format(_L("AnkerMake_alpha has encountered a fatal error: \"%1%\""), ex.what()) + "\n\n" +
-        		_u8L("Please save your project and restart AnkerMake_alpha. "
+        error = GUI::format(_L("AnkerMake Studio has encountered a fatal error: \"%1%\""), ex.what()) + "\n\n" +
+        		_u8L("Please save your project and restart AnkerMake Studio. "
                      "We would be glad if you reported the issue.");
     } catch (PlaceholderParserError &ex) {
 		error = ex.what();
@@ -97,9 +97,10 @@ std::pair<std::string, bool> SlicingProcessCompletedEvent::format_error_message(
 
 BackgroundSlicingProcess::BackgroundSlicingProcess()
 {
-    boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
-    temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
-	m_temp_output_path = temp_path.string();
+    // boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+    // temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
+	// m_temp_output_path = temp_path.string();
+	update_temp_output_path();
 }
 
 BackgroundSlicingProcess::~BackgroundSlicingProcess() 
@@ -107,6 +108,21 @@ BackgroundSlicingProcess::~BackgroundSlicingProcess()
 	this->stop();
 	this->join_background_thread();
 	boost::nowide::remove(m_temp_output_path.c_str());
+}
+
+void BackgroundSlicingProcess::update_temp_output_path(bool createAiFile)
+{
+	boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+	if (createAiFile)
+		temp_path /= (boost::format(".%1%.acode") % get_current_pid()).str();
+	else
+		temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
+	m_temp_output_path = temp_path.string();
+}
+
+std::string BackgroundSlicingProcess::get_temp_output_path()
+{
+	return m_temp_output_path;
 }
 
 bool BackgroundSlicingProcess::select_technology(PrinterTechnology tech)
@@ -150,9 +166,16 @@ void BackgroundSlicingProcess::process_fff()
 	// Passing the timestamp 
 	evt.SetInt((int)(m_fff_print->step_state_with_timestamp(PrintStep::psSlicingFinished).timestamp));
 	wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+	//friva change for acode export
+	if (GUI::wxGetApp().plater()) {
+		bool isCreatAiFile = GUI::wxGetApp().plater()->get_create_AI_file_val();
+		m_fff_print->setCreatAiFile(isCreatAiFile);
+	}
+	
 	m_fff_print->export_gcode(m_temp_output_path, m_gcode_result, [this](const ThumbnailsParams& params) { return this->render_thumbnails(params); });
-	if (GUI::wxGetApp().plater()) GUI::wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(m_temp_output_path);
-	if (this->set_step_started(bspsGCodeFinalize)) {
+	if (GUI::wxGetApp().plater()) {
+		GUI::wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(m_gcode_result->filename);
+	}	if (this->set_step_started(bspsGCodeFinalize)) {
 	    if (! m_export_path.empty()) {
 			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, new wxCommandEvent(m_event_export_began_id));
 			finalize_gcode();
@@ -654,14 +677,29 @@ void BackgroundSlicingProcess::finalize_gcode()
 
 	// Perform the final post-processing of the export path by applying the print statistics over the file name.
 	std::string export_path = m_fff_print->print_statistics().finalize_output_path(m_export_path);
+
 	std::string output_path = m_temp_output_path;
+	//firva change to apply post gcode inner fixme: this maybe cause the post scripy don't work
+	std::string m_post_temp_output_path = m_temp_output_path + ".post";
+	if (boost::filesystem::exists(boost::filesystem::path(m_post_temp_output_path))) {
+		output_path = m_post_temp_output_path;
+	};
 	// Both output_path and export_path ar in-out parameters.
 	// If post processed, output_path will differ from m_temp_output_path as run_post_process_scripts() will make a copy of the G-code to not
 	// collide with the G-code viewer memory mapping of the unprocessed G-code. G-code viewer maps unprocessed G-code, because m_gcode_result 
 	// is calculated for the unprocessed G-code and it references lines in the memory mapped G-code file by line numbers.
 	// export_path may be changed by the post-processing script as well if the post processing script decides so, see GH #6042.
 	bool post_processed = run_post_process_scripts(output_path, true, "File", export_path, m_fff_print->full_print_config());
-	auto remove_post_processed_temp_file = [post_processed, &output_path]() {
+	auto remove_post_processed_temp_file = [post_processed, &output_path,&m_post_temp_output_path]() {
+		if (boost::filesystem::exists(boost::filesystem::path(m_post_temp_output_path))) {
+			try {
+				boost::filesystem::remove(m_post_temp_output_path);
+			}
+			catch (const std::exception& ex) {
+				BOOST_LOG_TRIVIAL(error) << "Failed to remove temp file " << output_path << ": " << ex.what();
+			}
+		}
+
 		if (post_processed)
 			try {
 				boost::filesystem::remove(output_path);

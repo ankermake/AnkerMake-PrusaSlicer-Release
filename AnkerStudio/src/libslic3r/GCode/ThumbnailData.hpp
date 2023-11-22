@@ -34,4 +34,23 @@ typedef std::function<ThumbnailsList(const ThumbnailsParams&)> ThumbnailsGenerat
 
 } // namespace Slic3r
 
+
+
+namespace post_gcode {
+    struct picData {
+        unsigned int width;
+        unsigned int height;
+        std::vector<unsigned char> pixels;
+        picData() { reset(); };
+        void set(unsigned int w, unsigned int h);
+        void reset();
+        bool is_valid() const;
+    };
+
+    using picDataList = std::vector<picData>;
+
+}
+
 #endif // slic3r_ThumbnailData_hpp_
+
+

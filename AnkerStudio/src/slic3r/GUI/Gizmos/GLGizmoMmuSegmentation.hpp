@@ -85,7 +85,12 @@ class GLGizmoMmuSegmentation : public GLGizmoPainterBase
 {
 public:
     GLGizmoMmuSegmentation(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id)
-        : GLGizmoPainterBase(parent, icon_filename, sprite_id) {}
+        : GLGizmoPainterBase(parent, icon_filename, sprite_id) 
+        , m_pInputWindowSizer(nullptr)
+        , m_isEditing(false)
+        , m_panelVisibleFlag(false)
+    {
+    }
     ~GLGizmoMmuSegmentation() override = default;
 
     void render_painter_gizmo() override;
@@ -106,11 +111,13 @@ protected:
     ColorRGBA get_cursor_sphere_left_button_color() const override;
     ColorRGBA get_cursor_sphere_right_button_color() const override;
 
-    EnforcerBlockerType get_left_button_state_type() const override { return EnforcerBlockerType(m_first_selected_extruder_idx + 1); }
+    EnforcerBlockerType get_left_button_state_type() const override { return EnforcerBlockerType(/*m_first_selected_extruder_idx*/m_current_extruder_idx + 1); }
     EnforcerBlockerType get_right_button_state_type() const override { return EnforcerBlockerType(m_second_selected_extruder_idx + 1); }
 
+    bool get_right_button_enable() const override { return false; }
+
     void on_render_input_window(float x, float y, float bottom_limit) override;
-    std::string on_get_name() const override;
+    std::string on_get_name(bool i18n = true) const override;
 
     bool on_is_selectable() const override;
     bool on_is_activable() const override;
@@ -130,6 +137,12 @@ protected:
 
     static const constexpr float      CursorRadiusMin = 0.1f; // cannot be zero
 
+    bool m_isEditing;
+    bool m_panelVisibleFlag;
+    size_t m_current_extruder_idx = 0;
+	ColorRGBA m_currentColor;
+	wxBoxSizer* m_pInputWindowSizer;
+
 private:
     bool on_init() override;
 
@@ -142,6 +155,9 @@ private:
 
     void init_model_triangle_selectors();
     void init_extruders_data();
+
+    // Anker
+    void set_input_window_state(bool on);
 
     // This map holds all translated description texts, so they can be easily referenced during layout calculations
     // etc. When language changes, GUI is recreated and this class constructed again, so the change takes effect.

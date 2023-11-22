@@ -34,6 +34,8 @@ const std::vector<std::pair<int, int>> OpenGLVersions::precore = { {2,0}, {2,1},
 
 int GUI_Run(GUI_InitParams &params)
 {
+    ANKER_LOG_INFO << "start run  ui ";
+
 #if __APPLE__
     // On OSX, we use boost::process::spawn() to launch new instances of AnkerStudio from another AnkerStudio.
     // boost::process::spawn() sets SIGCHLD to SIGIGN for the child process, thus if a child AnkerStudio spawns another
@@ -45,26 +47,29 @@ int GUI_Run(GUI_InitParams &params)
     signal(SIGCHLD, SIG_DFL);
 #endif // __APPLE__
 
+    ANKER_LOG_INFO << "Single instance detection before startup";
     try {
         GUI::GUI_App* gui = new GUI::GUI_App(params.start_as_gcodeviewer ? GUI::GUI_App::EAppMode::GCodeViewer : GUI::GUI_App::EAppMode::Editor);
         if (gui->get_app_mode() != GUI::GUI_App::EAppMode::GCodeViewer) {
             // G-code viewer is currently not performing instance check, a new G-code viewer is started every time.
             bool gui_single_instance_setting = gui->app_config->get_bool("single_instance");
-            if (Slic3r::instance_check(params.argc, params.argv, gui_single_instance_setting)) {
+            if (Slic3r::instance_check(params.argc, params.argv, true)) {
                 //TODO: do we have delete gui and other stuff?
+                ANKER_LOG_INFO << "The software is configured in single instance mode and a running instance already exists,just exit this instance";
                 return -1;
             }
         }
 
         GUI::GUI_App::SetInstance(gui);
         gui->init_params = &params;
+        ANKER_LOG_INFO << "wxEntry call";
         return wxEntry(params.argc, params.argv);
     } catch (const Slic3r::Exception &ex) {
         boost::nowide::cerr << ex.what() << std::endl;
-        wxMessageBox(boost::nowide::widen(ex.what()), _L("AnkerMake_alpha GUI initialization failed"), wxICON_STOP);
+        wxMessageBox(boost::nowide::widen(ex.what()), _L("AnkerMake Studio GUI initialization failed"), wxICON_STOP);
     } catch (const std::exception &ex) {
-        boost::nowide::cerr << "AnkerMake_alpha GUI initialization failed: " << ex.what() << std::endl;
-        wxMessageBox(format_wxstr(_L("Fatal error, exception catched: %1%"), ex.what()), _L("AnkerMake_alpha GUI initialization failed"), wxICON_STOP);
+        boost::nowide::cerr << "AnkerMake Studio GUI initialization failed: " << ex.what() << std::endl;
+        wxMessageBox(format_wxstr(_L("Fatal error, exception catched: %1%"), ex.what()), _L("AnkerMake Studio GUI initialization failed"), wxICON_STOP);
     }
 
     // error

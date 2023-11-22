@@ -548,13 +548,16 @@ void GLGizmoMeasure::on_set_state()
     }
 }
 
-std::string GLGizmoMeasure::on_get_name() const
+std::string GLGizmoMeasure::on_get_name(bool i18n) const
 {
-    return _u8L("Measure");
+    return i18n ? _u8L("Measure") : "Measure";
 }
 
 bool GLGizmoMeasure::on_is_activable() const
 {
+    // Anker: unavalible
+    return false;
+
     const Selection& selection = m_parent.get_selection();
     bool res = (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptSLA) ?
         selection.is_single_full_instance() :
@@ -1317,7 +1320,8 @@ void GLGizmoMeasure::render_dimensioning()
                 selection.setup_cache();
                 selection.scale(ratio * Vec3d::Ones(), type);
                 wxGetApp().plater()->canvas3D()->do_scale(""); // avoid storing another snapshot
-                wxGetApp().obj_manipul()->set_dirty();
+                //wxGetApp().obj_manipul()->set_dirty();
+                wxGetApp().aobj_manipul()->set_dirty();
 
                 // scale dimensioning
                 const Vec3d new_center = selection.get_bounding_box().center();

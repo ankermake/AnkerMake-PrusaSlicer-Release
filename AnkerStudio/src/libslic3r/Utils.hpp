@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
 
 #include "libslic3r.h"
 
@@ -92,6 +93,11 @@ extern size_t get_utf8_sequence_length(const char *seq, size_t size);
 // for a short while, so the file may not be movable. Retry while we see recoverable errors.
 extern std::error_code rename_file(const std::string &from, const std::string &to);
 
+extern unsigned char ToHex(unsigned char x);
+extern unsigned char FromHex(unsigned char x);
+extern std::string UrlEncode(const std::string& str);
+extern std::string UrlDecode(const std::string& str);
+
 enum CopyFileResult {
 	SUCCESS = 0,
 	FAIL_COPY_FILE,
@@ -134,6 +140,9 @@ std::string header_gcodeviewer_generated();
 
 // getpid platform wrapper
 extern unsigned get_current_pid();
+
+// get log dir platform wrapper
+boost::filesystem::path getLogDirPath();
 
 // Compute the next highest power of 2 of 32-bit v
 // http://graphics.stanford.edu/~seander/bithacks.html
@@ -269,7 +278,6 @@ inline typename CONTAINER_TYPE::value_type& next_value_modulo(typename CONTAINER
 extern std::string xml_escape(std::string text, bool is_marked = false);
 extern std::string xml_escape_double_quotes_attribute_value(std::string text);
 
-
 #if defined __GNUC__ && __GNUC__ < 5 && !defined __clang__
 // Older GCCs don't have std::is_trivially_copyable
 // cf. https://gcc.gnu.org/onlinedocs/gcc-4.9.4/libstdc++/manual/manual/status.html#status.iso.2011
@@ -403,6 +411,7 @@ inline std::string get_time_dhm(float time_in_secs)
 }
 
 } // namespace Slic3r
+
 
 #if WIN32
     #define SLIC3R_STDVEC_MEMSIZE(NAME, TYPE) NAME.capacity() * ((sizeof(TYPE) + __alignof(TYPE) - 1) / __alignof(TYPE)) * __alignof(TYPE)

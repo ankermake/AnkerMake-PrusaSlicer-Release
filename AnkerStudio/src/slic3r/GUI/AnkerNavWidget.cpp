@@ -4,6 +4,9 @@
 #include "../Utils/DataManger.hpp"
 #include "libslic3r/Utils.hpp"
 #include "wxExtensions.hpp"
+#include "Common/AnkerGUIConfig.hpp"
+#include "GUI_App.hpp"
+#include "I18N.hpp"
 
 #define BTN_BACKGROUND_COLOR "#292A2D"
 #define BTN_HOVER_COLOR		 "#354138"
@@ -49,8 +52,8 @@ void AnkerBtnList::clearExpiredTab(const std::string& sn)
 		}
 	}
 
-	if(m_tabBtnList.size() > 0)
-		m_tabBtnList.at(0)->setBtnStatus(SELECT_BTN);
+// 	if(m_tabBtnList.size() > 0)
+// 		m_tabBtnList.at(0)->setBtnStatus(SELECT_BTN);
 }
 
 
@@ -70,6 +73,28 @@ bool AnkerBtnList::checkTabExist(const std::string& sn)
 	}
 
 	return false;
+}
+
+void AnkerBtnList::switchTabFromSn(const std::string& sn)
+{
+	ANKER_LOG_INFO << "switch nav for id: " << sn.c_str();
+	for (auto iter = m_tabBtnList.begin(); iter != m_tabBtnList.end(); )
+	{
+		wxStringClientData* pIterSnId = static_cast<wxStringClientData*>((*iter)->GetClientObject());
+		std::string widgetId = std::string();
+		if (pIterSnId)
+		{
+			widgetId = pIterSnId->GetData().ToStdString();
+			if (widgetId == sn) {
+				SetCurrentTab((*iter)->GetId());
+				(*iter)->setBtnStatus(SELECT_BTN);
+			}
+			else {
+				(*iter)->setBtnStatus(NORMAL_BTN);
+			}
+		}
+		iter++;
+	}
 }
 
 void AnkerBtnList::clearList()
@@ -102,12 +127,25 @@ void AnkerBtnList::SetCurrentTab(const int& index)
 
 bool AnkerBtnList::InsertTab(const size_t& index, const std::string& tabName, const std::string& snID, bool isSelect /*= false*/)
 {
+	wxString  wxTabName(tabName.c_str(), wxConvUTF8);
 	static int btnIndex = 0;
-	AnkerTabBtn* pBtn = new AnkerTabBtn(m_pScrolledWindow, wxID_ANY, tabName);
+	AnkerTabBtn* pBtn = new AnkerTabBtn(m_pScrolledWindow, snID, wxID_ANY, wxTabName);
+
 	wxVariant myData(snID);
+	if (Datamanger::GetInstance().getDeviceTypeFromSn(snID) == DEVICE_UNKNOWN_TYPE)//default show
+	{
+		pBtn->setIcon("V8111_device_n.png");
+	}
+	else if (Datamanger::GetInstance().getDeviceTypeFromSn(snID) == DEVICE_UNKNOWN_TYPE)
+	{
+		pBtn->setIcon("V8110_device_n.png");
+	}
+
+	if (!Datamanger::GetInstance().checkDeviceStatusFromSn(snID))
+		pBtn->setOnlineStatus(false);
 
 	pBtn->SetClientObject(new wxStringClientData(myData));
-	pBtn->SetMinSize(wxSize(275, 30));
+	pBtn->SetMinSize(AnkerSize(214, 40));
 	pBtn->SetId(btnIndex);
 	m_pScrolledwinSizer->Add(pBtn, 0, wxALIGN_CENTER, 5);
 
@@ -170,6 +208,18 @@ void AnkerBtnList::RemoveTab(const size_t& index)
 	}
 }
 
+
+void AnkerBtnList::setTabOnlineStatus(bool isOnline, const wxString& snId)
+{
+	auto iter = m_tabBtnList.begin();
+	while (iter != m_tabBtnList.end())
+	{
+		if ((*iter)->getSnId() == snId)
+			(*iter)->setOnlineStatus(isOnline);
+		++iter;
+	}
+}
+
 void AnkerBtnList::initUi()
 {
 	wxBoxSizer* pMainVSizer = new wxBoxSizer(wxVERTICAL);
@@ -200,21 +250,30 @@ IMPLEMENT_DYNAMIC_CLASS(AnkerTabBtn, wxControl)
 #define ankerLabel_ID  1873
 
 AnkerTabBtn::AnkerTabBtn(wxWindow* parent,
+	const wxString& snId,
 	wxWindowID winid /*= wxID_ANY*/,
 	const wxString& btnName /*= wxString("")*/,
 	const wxPoint& pos /*= wxDefaultPosition*/,
 	const wxSize& size /*= wxDefaultSize*/) :
 	wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE),
-	m_status(ANKER_BTN_STATUS::NORMAL_BTN)
+	m_status(ANKER_BTN_STATUS::NORMAL_BTN),
+	m_snid(snId)
 {
 
 	SetBackgroundColour(wxColour(BTN_BACKGROUND_COLOR));
 
-	wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("M5_device_n.png")), wxBITMAP_TYPE_PNG);
-	image.Rescale(22, 22);
+	wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("V8111_device_n.png")), wxBITMAP_TYPE_PNG);
+	image.Rescale(22, 22, wxIMAGE_QUALITY_HIGH);
 	wxBitmap scaledBitmap(image);
 	m_icon = scaledBitmap;
 
+
+	wxImage offlineImage = wxImage(wxString::FromUTF8(Slic3r::var("device_offline.png")), wxBITMAP_TYPE_PNG);
+	offlineImage.Rescale(16, 16, wxIMAGE_QUALITY_HIGH);
+	wxBitmap offlineScaledBitmap(offlineImage);
+	
+
+	m_offlineIcon = offlineScaledBitmap;
 	m_tabName = btnName;
 }
 
@@ -223,6 +282,20 @@ AnkerTabBtn::AnkerTabBtn()
 
 }
 
+
+wxString AnkerTabBtn::getSnId()
+{
+	return m_snid;
+}
+
+void AnkerTabBtn::setIcon(const wxString& strIcon)
+{
+	wxImage image = wxImage(wxString::FromUTF8(Slic3r::var(strIcon.ToStdString())), wxBITMAP_TYPE_PNG);
+	image.Rescale(22, 22, wxIMAGE_QUALITY_HIGH);
+	wxBitmap scaledBitmap(image);
+	m_icon = scaledBitmap;
+	Refresh();
+}
 
 void AnkerTabBtn::OnClick(wxMouseEvent& event)
 {
@@ -285,7 +358,8 @@ void AnkerTabBtn::OnSize(wxSizeEvent& event)
 
 void AnkerTabBtn::setTabBtnName(const std::string& btnName)
 {	
-	m_tabName = btnName;
+	wxString  wxTabName(btnName.c_str(), wxConvUTF8);
+	m_tabName = wxTabName;
 	Update();
 }
 
@@ -295,15 +369,46 @@ void AnkerTabBtn::setBtnStatus(ANKER_BTN_STATUS status)
 	Refresh();
 }
 
+
+void AnkerTabBtn::setOnlineStatus(bool isOnline)
+{
+	m_isOnline = isOnline;
+	Update();
+}
+
 void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 {
 	wxPaintDC dc(this);
 	wxRect rect = GetClientRect();
 
+	wxPoint iconPoint;
+	wxPoint textPoint;
+	wxPoint logoPoint;
+	iconPoint.x = 12;
+	int yy = GetRect().y;
+	int hh = GetRect().GetHeight();
+	int ww = GetRect().GetWidth();
+
+	iconPoint.y = (GetRect().GetHeight() - m_icon.GetHeight())/2;
+
+	dc.SetFont(ANKER_FONT_NO_1);
+	wxSize textSize = dc.GetTextExtent(m_tabName);
+
+	textPoint.x = 18 + m_icon.GetWidth();
+
+#ifndef __APPLE__
+	textPoint.y = (GetRect().GetHeight() - textSize.GetHeight()) / 2;
+#else
+	textPoint.y = (GetRect().GetHeight() - textSize.GetHeight()/2) / 2;
+#endif // !__APPLE__
+
+	logoPoint.x = GetRect().GetWidth() - 12 - m_offlineIcon.GetWidth();
+	logoPoint.y = (GetRect().GetHeight() - m_offlineIcon.GetHeight()) / 2;
+
 	switch (m_status)
 	{
 	case NORMAL_BTN:
-	{		
+	{
 		dc.Clear();
 		wxBrush brush(BTN_BACKGROUND_COLOR);
 		wxPen pen(BTN_BACKGROUND_COLOR);
@@ -314,7 +419,7 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 	break;
 	case HOVER_BTN:
 	{
-		
+
 		wxBrush brush(BTN_HOVER_COLOR);
 		wxPen pen(BTN_HOVER_COLOR);
 		dc.SetBrush(brush);
@@ -323,7 +428,7 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 	}
 	break;
 	case SELECT_BTN:
-	{		
+	{
 		wxBrush brush(BTN_HOVER_COLOR);
 		wxPen pen(BTN_HOVER_COLOR);
 		dc.SetBrush(brush);
@@ -333,7 +438,7 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 	}
 	break;
 	case DISABLE_BTN:
-	{		
+	{
 		wxBrush brush(BTN_HOVER_COLOR);
 		wxPen pen(BTN_HOVER_COLOR);
 		dc.SetBrush(brush);
@@ -343,7 +448,7 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 	}
 	break;
 	case UNKNOWN_BTN:
-	{		
+	{
 		dc.Clear();
 		wxBrush brush(wxTRANSPARENT);
 		wxPen pen(wxTRANSPARENT);
@@ -354,7 +459,7 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 	break;
 
 	default:
-	{		
+	{
 		dc.Clear();
 		wxBrush brush(wxTRANSPARENT);
 		wxPen pen(wxTRANSPARENT);
@@ -364,19 +469,27 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 	}
 	break;
 	}
-	
-	dc.DrawBitmap(m_icon, wxPoint(9, 4));
 
-	{		
-		wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false);
-		dc.SetFont(font);
+	dc.DrawBitmap(m_icon, iconPoint);
+
+	{
+		dc.SetFont(ANKER_FONT_NO_2);
 		wxBrush brush(wxColour(BTN_BACKGROUND_COLOR));
-		wxPen pen(wxColour(255, 255, 255));	
+		wxPen pen(wxColour(255, 255, 255));
 		dc.SetTextForeground(wxColour(169, 170, 171));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
-		dc.DrawText(m_tabName, wxPoint(42,7));
+		dc.SetFont(ANKER_FONT_NO_1);
+		dc.DrawText(m_tabName, textPoint);
 	}
+
+	if (!m_isOnline)
+	{	
+		int xwith = GetRect().GetWidth() - 87;
+		dc.DrawBitmap(m_offlineIcon, logoPoint);
+		
+	}
+	//TODO: by Samuel, draw printer status picture
 	
 }
 
@@ -385,6 +498,11 @@ void AnkerTabBtn::OnLabelClicked(AnkerCustomEvent& event)
 	wxCommandEvent evt(wxEVT_BUTTON, GetId());
 	evt.SetEventObject(this);
 	GetEventHandler()->ProcessEvent(evt);
+}
+
+void AnkerTabBtn::GetPrinterStatus()
+{
+
 }
 
 AnkerNavBar::AnkerNavBar(wxWindow* parent,
@@ -403,14 +521,20 @@ AnkerNavBar::~AnkerNavBar()
 }
 
 
-void AnkerNavBar::updateRefresh(bool isRefreh)
+void AnkerNavBar::stopLoading()
 {
-	m_isRefresh = isRefreh;
+	m_reloadBtn->stopLoading();
 }
+
 
 bool AnkerNavBar::checkTabExist(const std::string& sn)
 {
 	return m_navBarList->checkTabExist(sn);
+}
+
+void AnkerNavBar::switchTabFromSn(const std::string& sn)
+{
+	m_navBarList->switchTabFromSn(sn);
 }
 
 void AnkerNavBar::clearExpiredTab(const std::string& sn)
@@ -450,55 +574,47 @@ void AnkerNavBar::showEmptyPanel(bool isShow)
 	Refresh();
 }
 
+
+void AnkerNavBar::setTabOnlineStatus(bool isOnline, const wxString& snId)
+{
+	m_navBarList->setTabOnlineStatus(isOnline, snId);
+}
+
 void AnkerNavBar::InitUi()
 {
-
-	m_reloadTimer = new wxTimer(this,wxID_ANY);	
-	m_reloadTimer->Bind(wxEVT_TIMER, &AnkerNavBar::OnTimer, this);
-
 	SetBackgroundColour(wxColour("#292A2D"));
 	wxBoxSizer* pMainVSizer = new wxBoxSizer(wxVERTICAL);
 
 	{
 		wxPanel* pTitlePanel = new wxPanel(this);
-		pTitlePanel->SetMinSize(wxSize(240, 45));
+		pTitlePanel->SetMaxSize(AnkerSize(240, 35));
+		pTitlePanel->SetSize(AnkerSize(240, 35));
 		pTitlePanel->SetBackgroundColour(wxColour("#292A2D"));
 
-		wxStaticText* pTitleText = new wxStaticText(pTitlePanel, wxID_ANY, L"Printers");
+		wxStaticText* pTitleText = new wxStaticText(pTitlePanel, wxID_ANY, _L("common_print_printerlist_title"));
 		pTitleText->SetForegroundColour(wxColour("#FFFFFF"));
-
-		wxFont titleFont(10, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, wxFONTWEIGHT_NORMAL);
-		titleFont.SetUnderlined(false);		
-		pTitleText->SetFont(titleFont);
-
+			
+		pTitleText->SetFont(ANKER_BOLD_FONT_NO_1);
 		wxClientDC dc(this);
 		dc.SetFont(pTitleText->GetFont());
-		wxSize titleSize = dc.GetTextExtent(L"Printers");
-		pTitleText->SetMinSize(wxSize(120,30));		
-		pTitleText->SetSize(wxSize(120, 30));
+		wxSize titleSize = dc.GetTextExtent(_L("common_print_printerlist_title"));
+		pTitleText->SetMinSize(AnkerSize(120, titleSize.GetHeight()));
+		pTitleText->SetSize(AnkerSize(120, titleSize.GetHeight()));
 		
-		m_reloadBtn = new wxButton(pTitlePanel, wxID_ANY ,"", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-		m_reloadBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
-			
-			if (m_isRefresh)
-				return;
-
-			m_reloadTimer->SetOwner(this, wxID_ANY);
-			m_reloadTimer->StartOnce(3000);
-
-			Connect(m_reloadTimer->GetId(), wxEVT_TIMER, wxTimerEventHandler(AnkerNavBar::OnTimer), NULL, this);
-
-			m_reloadBtn->Refresh();
-			wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_BTN_CLICKED);
-			ProcessEvent(evt);
-
-			m_isRefresh = true;
-			});
 		wxImage btnImage = wxImage(wxString::FromUTF8(Slic3r::var("update_ccw_icon.png")), wxBITMAP_TYPE_PNG);
-		btnImage.Rescale(20, 20);
-		m_reloadBtn->SetBitmap(btnImage);
-		m_reloadBtn->SetMinSize(wxSize(25, 25));
-		m_reloadBtn->SetMaxSize(wxSize(25, 25));
+		btnImage.Rescale(16, 16, wxIMAGE_QUALITY_HIGH);
+		m_reloadBtn = new AnkerLoadingLabel(pTitlePanel, btnImage, "#292A2D"); 
+		wxCursor handCursor(wxCURSOR_HAND);		
+		m_reloadBtn->SetCursor(handCursor);
+		m_reloadBtn->SetWindowStyleFlag(wxBORDER_NONE);
+		m_reloadBtn->SetMinSize(AnkerSize(16, 16));
+		m_reloadBtn->SetMaxSize(AnkerSize(16, 16));
+
+		m_reloadBtn->Bind(wxCUSTOMEVT_ANKER_LOADING_LABEL_CLICKED, [this](wxCommandEvent& event) {
+			ANKER_LOG_INFO << "reload devs list";
+			wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_BTN_CLICKED);			
+			wxPostEvent(this, evt);
+			});
 
 #ifdef _WIN32
 		m_reloadBtn->SetWindowStyle(wxBORDER_NONE);				
@@ -506,15 +622,19 @@ void AnkerNavBar::InitUi()
 		m_reloadBtn->SetBackgroundColour(pTitlePanel->GetBackgroundColour());
 		wxBoxSizer* pTitlePanelHSizer = new wxBoxSizer(wxHORIZONTAL);
 
-		pTitlePanelHSizer->Add(pTitleText, wxEXPAND | wxALL, wxEXPAND|wxALL, 15);		
+		pTitlePanelHSizer->AddSpacer(5);
+		pTitlePanelHSizer->Add(pTitleText, wxEXPAND|wxALL, wxEXPAND|wxALL, 7);		
 		pTitlePanelHSizer->AddStretchSpacer(1);
-		pTitlePanelHSizer->Add(m_reloadBtn, 0, wxALL, 10);
+		pTitlePanelHSizer->Add(m_reloadBtn, wxEXPAND | wxALL, wxEXPAND | wxALL, 7);
+		pTitlePanelHSizer->AddSpacer(5);
 
 		pTitlePanel->SetSizer(pTitlePanelHSizer);
+		pMainVSizer->AddSpacer(8);
 		pMainVSizer->Add(pTitlePanel);
+		pMainVSizer->AddSpacer(8);
 
 		wxPanel* pLine = new wxPanel(this, wxID_ANY);
-		pLine->SetBackgroundColour(wxColour("#38393C"));
+		pLine->SetBackgroundColour(wxColour("#38393C"));		
 		pLine->SetMaxSize(wxSize(500, 1));
 		pLine->SetMinSize(wxSize(500, 1));
 		pMainVSizer->Add(pLine);
@@ -538,18 +658,18 @@ void AnkerNavBar::InitUi()
 		wxBoxSizer* pEmptyPanelHSizer = new wxBoxSizer(wxVERTICAL);
 
 		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("file_icon_50x50.png")), wxBITMAP_TYPE_PNG);
-		image.Rescale(64, 64);
+		image.Rescale(64, 64, wxIMAGE_QUALITY_HIGH);
 		wxBitmap bitmap(image);
 		wxStaticBitmap* staticBitmap = new wxStaticBitmap(m_emptyPanel, wxID_ANY, bitmap);
 
 		wxStaticText* pEmptyText = new wxStaticText(m_emptyPanel,
 			wxID_ANY,
-			L"No Printer, Please Use The AnkerMake APP,to Add A Device.");
+			_L("common_print_statusnotice_noprinter"));
 		pEmptyText->SetForegroundColour(wxColour("#999999"));		
 		pEmptyText->Wrap(142);
 		wxClientDC dc(this);
 		dc.SetFont(pEmptyText->GetFont());
-		wxSize size = dc.GetTextExtent(L"No Printer, Please Use The AnkerMake APP,to Add A Device.");
+		wxSize size = dc.GetTextExtent(_L("common_print_statusnotice_noprinter"));
 		int textHeight = (size.GetWidth()/142 + 2)* size.GetHeight();
 
 		pEmptyText->SetMinSize(wxSize(142, textHeight));
@@ -567,10 +687,3 @@ void AnkerNavBar::InitUi()
 
 	SetSizer(pMainVSizer);
 }
-
-void AnkerNavBar::OnTimer(wxTimerEvent& event)
-{
-	updateRefresh(false);
-	m_reloadTimer->Stop();
-}
-

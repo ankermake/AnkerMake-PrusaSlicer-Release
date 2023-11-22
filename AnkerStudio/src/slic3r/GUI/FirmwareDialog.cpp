@@ -150,7 +150,7 @@ struct FirmwareDialog::priv
 	priv(FirmwareDialog *q) :
 		q(q),
 		btn_flash_label_ready(_(L("Flash!"))),
-		btn_flash_label_flashing(_(L("Cancel"))),
+		btn_flash_label_flashing(_(L("common_button_cancel"))),
 		label_status_flashing(_(L("Flashing in progress. Please do not disconnect the printer!"))),
 		timer_pulse(q),
 		port_autodetect(false),

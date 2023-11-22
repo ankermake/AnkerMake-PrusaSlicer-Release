@@ -61,7 +61,9 @@ public:
                 long style = 0,
                 bool add_mode_buttons = false)
     {
-        if (!wxBookCtrlBase::Create(parent, winid, pos, size, style | wxBK_TOP))
+        // add by allen for ankerCfgDlg to hide tabs
+        //if (!wxBookCtrlBase::Create(parent, winid, pos, size, style | wxBK_TOP))
+        if (!wxBookCtrlBase::Create(parent, winid, pos, size, style))
             return false;
 
         m_bookctrl = new ButtonsListCtrl(this, add_mode_buttons);
@@ -141,6 +143,7 @@ public:
         return InsertPage(GetPageCount(), page, text, bmp_name, bSelect);
     }
 
+
     // Page management
     virtual bool InsertPage(size_t n,
                             wxWindow * page,
@@ -151,13 +154,31 @@ public:
         if (!wxBookCtrlBase::InsertPage(n, page, text, bSelect, imageId))
             return false;
 
-        GetBtnsListCtrl()->InsertPage(n, text, bSelect);
+       // GetBtnsListCtrl()->InsertPage(n, text, bSelect);
 
         if (!DoSetSelectionAfterInsertion(n, bSelect))
             page->Hide();
 
         return true;
     }
+
+	// Page management
+	virtual bool InsertPageNew(size_t n,
+		wxWindow* page,
+		const wxString& text,
+		bool bSelect = false,
+		int imageId = NO_IMAGE)
+	{
+		if (!wxBookCtrlBase::InsertPage(n, page, text, bSelect, imageId))
+			return false;
+
+		//GetBtnsListCtrl()->InsertPage(n, text, bSelect);
+
+		if (!DoSetSelectionAfterInsertion(n, bSelect))
+			page->Hide();
+
+		return true;
+	}
 
     bool InsertPage(size_t n,
                     wxWindow * page,
@@ -168,7 +189,7 @@ public:
         if (!wxBookCtrlBase::InsertPage(n, page, text, bSelect))
             return false;
 
-        GetBtnsListCtrl()->InsertPage(n, text, bSelect, bmp_name);
+        //GetBtnsListCtrl()->InsertPage(n, text, bSelect, bmp_name);
 
         if (bSelect)
             SetSelection(n);

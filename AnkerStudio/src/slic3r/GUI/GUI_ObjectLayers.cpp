@@ -99,7 +99,7 @@ wxSizer* ObjectLayers::create_layer(const t_layer_height_range& range, PlusMinus
             add_button->range = new_range;
         update_focus_data(new_range, etMinZ, enter_pressed);
 
-        return wxGetApp().obj_list()->edit_layer_range(range, new_range, dont_update_ui);
+        return wxGetApp().objectbar()->edit_layer_range(range, new_range, dont_update_ui);
     });
 
     select_editor(editor, is_last_edited_range);
@@ -123,7 +123,7 @@ wxSizer* ObjectLayers::create_layer(const t_layer_height_range& range, PlusMinus
             add_button->range = new_range;
         update_focus_data(new_range, etMaxZ, enter_pressed);
 
-        return wxGetApp().obj_list()->edit_layer_range(range, new_range, dont_update_ui);
+        return wxGetApp().objectbar()->edit_layer_range(range, new_range, dont_update_ui);
     });
 
     select_editor(editor, is_last_edited_range);
@@ -134,7 +134,7 @@ wxSizer* ObjectLayers::create_layer(const t_layer_height_range& range, PlusMinus
     editor = new LayerRangeEditor(this, double_to_string(m_object->layer_config_ranges[range].option("layer_height")->getFloat()), etLayerHeight, set_focus_data,
         [range](coordf_t layer_height, bool, bool)
     {
-        return wxGetApp().obj_list()->edit_layer_range(range, layer_height);
+        return wxGetApp().objectbar()->edit_layer_range(range, layer_height);
     });
 
     select_editor(editor, is_last_edited_range);
@@ -160,7 +160,7 @@ void ObjectLayers::create_layers_list()
         del_btn->SetToolTip(_L("Remove layer range"));
 
         auto add_btn = new PlusMinusButton(m_parent, m_bmp_add, range);
-        wxString tooltip = wxGetApp().obj_list()->can_add_new_range_after_current(range);
+        wxString tooltip = wxGetApp().objectbar()->can_add_new_range_after_current(range);
         add_btn->SetToolTip(tooltip.IsEmpty() ? _L("Add layer range") : tooltip);
         add_btn->Enable(tooltip.IsEmpty());
 
@@ -169,53 +169,54 @@ void ObjectLayers::create_layers_list()
         sizer->Add(add_btn);
 
         del_btn->Bind(wxEVT_BUTTON, [del_btn](wxEvent &) {
-            wxGetApp().obj_list()->del_layer_range(del_btn->range);
+            wxGetApp().objectbar()->del_layer_range(del_btn->range);
         });
 
         add_btn->Bind(wxEVT_BUTTON, [add_btn](wxEvent &) {
-            wxGetApp().obj_list()->add_layer_range_after_current(add_btn->range);
+            wxGetApp().objectbar()->add_layer_range_after_current(add_btn->range);
         });
     }
 }
 
 void ObjectLayers::update_layers_list()
 {
-    ObjectList* objects_ctrl   = wxGetApp().obj_list();
-    if (objects_ctrl->multiple_selection()) return;
+    // Anker: TODO
+    //ObjectList* objects_ctrl   = wxGetApp().obj_list();
+    //if (objects_ctrl->multiple_selection()) return;
 
-    const auto item = objects_ctrl->GetSelection();
-    if (!item) return;
+    //const auto item = objects_ctrl->GetSelection();
+    //if (!item) return;
 
-    const int obj_idx = objects_ctrl->get_selected_obj_idx();
-    if (obj_idx < 0) return;
+    //const int obj_idx = objects_ctrl->get_selected_obj_idx();
+    //if (obj_idx < 0) return;
 
-    const ItemType type = objects_ctrl->GetModel()->GetItemType(item);
-    if (!(type & (itLayerRoot | itLayer))) return;
+    //const ItemType type = objects_ctrl->GetModel()->GetItemType(item);
+    //if (!(type & (itLayerRoot | itLayer))) return;
 
-    m_object = objects_ctrl->object(obj_idx);
-    if (!m_object || m_object->layer_config_ranges.empty()) return;
+    //m_object = objects_ctrl->object(obj_idx);
+    //if (!m_object || m_object->layer_config_ranges.empty()) return;
 
-    // Delete all controls from options group except of the legends
+    //// Delete all controls from options group except of the legends
 
-    const int cols = m_grid_sizer->GetEffectiveColsCount();
-    const int rows = m_grid_sizer->GetEffectiveRowsCount();
-    for (int idx = cols*rows-1; idx >= cols; idx--) {
-        wxSizerItem* t = m_grid_sizer->GetItem(idx);
-        if (t->IsSizer())
-            t->GetSizer()->Clear(true);
-        else
-            t->DeleteWindows();
-        m_grid_sizer->Remove(idx);
-    }
+    //const int cols = m_grid_sizer->GetEffectiveColsCount();
+    //const int rows = m_grid_sizer->GetEffectiveRowsCount();
+    //for (int idx = cols*rows-1; idx >= cols; idx--) {
+    //    wxSizerItem* t = m_grid_sizer->GetItem(idx);
+    //    if (t->IsSizer())
+    //        t->GetSizer()->Clear(true);
+    //    else
+    //        t->DeleteWindows();
+    //    m_grid_sizer->Remove(idx);
+    //}
 
-    // Add new control according to the selected item  
+    //// Add new control according to the selected item  
 
-    if (type & itLayerRoot)
-        create_layers_list();
-    else
-        create_layer(objects_ctrl->GetModel()->GetLayerRangeByItem(item), nullptr, nullptr);
+    //if (type & itLayerRoot)
+    //    create_layers_list();
+    //else
+    //    create_layer(objects_ctrl->GetModel()->GetLayerRangeByItem(item), nullptr, nullptr);
 
-    m_parent->Layout();
+    //m_parent->Layout();
 }
 
 void ObjectLayers::update_scene_from_editor_selection() const

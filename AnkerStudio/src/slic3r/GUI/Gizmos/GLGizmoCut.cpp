@@ -2,19 +2,24 @@
 #include "slic3r/GUI/GLCanvas3D.hpp"
 
 #include <GL/glew.h>
-
+#include <wx/valnum.h>
 #include <algorithm>
 
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/format.hpp"
+#include "slic3r/GUI/AnkerBtn.hpp"
+#include "slic3r/GUI/Common/AnkerTitledPanel.hpp"
+#include "slic3r/GUI/Common/AnkerGUIConfig.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
+#include "slic3r/GUI/MsgDialog.hpp"
+#include "libslic3r/Utils.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/TriangleMeshSlicer.hpp"
 
 #include "imgui/imgui_internal.h"
-#include "slic3r/GUI/MsgDialog.hpp"
+
 
 namespace Slic3r {
 namespace GUI {
@@ -181,6 +186,10 @@ GLGizmoCut3D::GLGizmoCut3D(GLCanvas3D& parent, const std::string& icon_filename,
     , m_connector_type (CutConnectorType::Plug)
     , m_connector_style (size_t(CutConnectorStyle::Prism))
     , m_connector_shape_id (size_t(CutConnectorShape::Circle))
+    , m_zHeightEditing(false)
+    , m_panelVisibleFlag(false)
+    , m_pInputWindowSizer(nullptr)
+    , m_pZHeightTextCtrl(nullptr)
 {
 //    m_modes = { _u8L("Planar"), _u8L("Grid")
 //              , _u8L("Radial"), _u8L("Modular")
@@ -847,9 +856,9 @@ void GLGizmoCut3D::on_save(cereal::BinaryOutputArchive& ar) const
         m_ar_plane_center, m_start_dragging_m);
 }
 
-std::string GLGizmoCut3D::on_get_name() const
+std::string GLGizmoCut3D::on_get_name(bool i18n) const
 {
-    return _u8L("Cut");
+    return i18n ? _u8L("Cut") : "Cut";
 }
 
 void GLGizmoCut3D::on_set_state()
@@ -866,6 +875,8 @@ void GLGizmoCut3D::on_set_state()
         m_ar_plane_center   = m_plane_center;
         m_start_dragging_m  = m_rotation_m;
 
+        set_input_window_state(true);
+
         m_parent.request_extra_frame();
     }
     else {
@@ -876,6 +887,8 @@ void GLGizmoCut3D::on_set_state()
         m_selected.clear();
         m_parent.set_use_color_clip_plane(false);
         m_c->selection_info()->set_use_shift(false);
+
+        set_input_window_state(false);
     }
 }
 
@@ -1384,6 +1397,8 @@ void GLGizmoCut3D::on_render()
     render_cut_line();
 
     m_selection_rectangle.render(m_parent);
+
+    update_input_window();
 }
 
 void GLGizmoCut3D::render_debug_input_window(float x)
@@ -2319,6 +2334,162 @@ bool GLGizmoCut3D::process_cut_line(SLAGizmoEventType action, const Vec2d& mouse
         return true;
     }
     return false;
+}
+
+void GLGizmoCut3D::set_input_window_state(bool on)
+{
+    if (wxGetApp().plater() == nullptr)
+        return;
+
+    ANKER_LOG_INFO << "GLGizmoCut3D: " << on;
+
+    std::string panelFlag = get_name(true, false);
+    if (on)
+    {
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+
+        if (m_pInputWindowSizer == nullptr)
+		{
+			m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+			container->setTitle(/*wxString::FromUTF8(get_name(true, false))*/_("common_slice_toolpannelcut_button"));
+			container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
+			int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
+			container->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, returnBtnID](wxCommandEvent& event) {
+				int btnID = event.GetInt();
+				if (btnID == returnBtnID)
+				{
+					wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+				}
+				});
+			m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
+
+			wxPanel* cutPanel = new wxPanel(container);
+			wxBoxSizer* cutPanelSizer = new wxBoxSizer(wxVERTICAL);
+			cutPanel->SetSizer(cutPanelSizer);
+			container->setContentPanel(cutPanel);
+
+			wxBoxSizer* labelSizer = new wxBoxSizer(wxHORIZONTAL);
+            auto zHeightBefore = labelSizer->AddStretchSpacer(0);
+            zHeightBefore->SetMinSize(AnkerSize(12, 56));
+
+			wxStaticText* zHeightText = new wxStaticText(cutPanel, wxID_ANY, /*L"Z-Height"*/_("common_slice_toolpannelcut_zheight"));
+            zHeightText->SetFont(ANKER_FONT_NO_1);
+			zHeightText->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+			labelSizer->Add(zHeightText, 0,   wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL  , 0);
+
+			labelSizer->AddStretchSpacer(1);
+            
+            char text[10];
+            sprintf(text, "%.2f", 10.00);
+            
+            m_pZHeightTextCtrl = new AnkerLineEditUnit(cutPanel, _L("mm"), ANKER_FONT_NO_1, wxColour(41, 42, 45), wxColour("#3F4043"), 4, wxID_ANY);
+            m_pZHeightTextCtrl->SetFont(ANKER_FONT_NO_1);
+            m_pZHeightTextCtrl->SetMaxSize(AnkerSize(170, 24));
+            m_pZHeightTextCtrl->SetMinSize(AnkerSize(36, 24));
+            m_pZHeightTextCtrl->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+            m_pZHeightTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+
+            labelSizer->Add(m_pZHeightTextCtrl, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL , 0);
+           /* 
+            wxFloatingPointValidator<double> doubleValidator;
+            m_pZHeightTextCtrl->SetValidator(doubleValidator);*/
+            m_pZHeightTextCtrl->getTextEdit()->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {
+                m_pZHeightTextCtrl->getTextEdit()->SetInsertionPointEnd(); 
+                event.Skip();
+                });
+
+            
+            m_pZHeightTextCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
+                if (m_zHeightEditing)
+                    return;
+                
+                double newValue = 10.0;
+                wxString newValueStr = m_pZHeightTextCtrl->GetValue();
+                bool success = newValueStr.ToDouble(&newValue);
+                if (success)
+                {
+                    //double val = value * (m_imperial_units ? ObjectManipulation::in_to_mm : 1.0);
+                    
+                    Vec3d move = m_plane_center;
+                    move[Z] = newValue;
+                    Plater::TakeSnapshot snapshot(wxGetApp().plater(), _L("Move cut plane"), UndoRedo::SnapshotType::GizmoAction);
+                    set_center(move, true);
+                    m_ar_plane_center = m_plane_center;
+                }
+            });
+
+
+            auto zHeightAfter = labelSizer->AddStretchSpacer(0);
+            zHeightAfter->SetMinSize(AnkerSize(12, 0));
+
+            cutPanelSizer->Add(labelSizer, 0, wxEXPAND );
+
+            //auto sizer = cutPanelSizer->AddStretchSpacer(1);
+            //sizer->SetProportion(0);
+            //sizer->SetMinSize(AnkerSize(0, 12));
+
+			AnkerBtn* cutBtn = new AnkerBtn(cutPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+			cutBtn->SetMinSize(AnkerSize(330, 34));
+			cutBtn->SetMaxSize(AnkerSize(330, 34));
+			cutBtn->SetSize(AnkerSize(330, 34));
+			cutBtn->SetText(/*L"Start Cutting"*/_("common_slice_toolpannelcut_button"));
+			cutBtn->SetBackgroundColour(wxColor(58, 59, 63));
+			cutBtn->SetRadius(4);
+			cutBtn->SetTextColor(wxColor(ANKER_RGB_INT));
+            cutBtn->SetFont(ANKER_BOLD_FONT_NO_1);
+			cutBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
+				if (this->can_perform_cut())
+					this->perform_cut(this->m_parent.get_selection());
+				});
+			cutPanelSizer->Add(cutBtn, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_TOP | wxTOP, AnkerSize(12, 0).GetWidth());
+            
+            cutPanel->Layout();
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                event.Skip();
+
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+		}
+
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+	else
+	{
+        m_panelVisibleFlag = false;
+        if (wxGetApp().plater()->sidebarnew().getSizerFlags() == panelFlag)
+        {
+            m_panelVisibleFlag = false;
+            wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+        }
+    }
+}
+
+void GLGizmoCut3D::update_input_window()
+{
+    if (m_pInputWindowSizer && !m_pZHeightTextCtrl->getTextEdit()->HasFocus())
+    {
+        m_zHeightEditing = true;
+
+        Vec3d move = m_plane_center;
+        char text[10];
+        sprintf(text, "%.2f", move[Z]);
+        m_pZHeightTextCtrl->SetValue(text);
+
+        m_zHeightEditing = false;
+    }
 }
 
 bool GLGizmoCut3D::add_connector(CutConnectors& connectors, const Vec2d& mouse_position)

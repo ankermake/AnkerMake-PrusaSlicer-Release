@@ -87,10 +87,13 @@ wxString AstroBox::get_test_ok_msg () const
 
 wxString AstroBox::get_test_failed_msg (wxString &msg) const
 {
+    //
+    wxString noteStr;
+    noteStr.Printf(_L("Note: AstroBox version at least %s is required."), SLIC3R_VERSION);
     return GUI::format_wxstr("%s: %s\n\n%s"
         , _L("Could not connect to AstroBox")
         , msg
-        , _L("Note: AstroBox version at least 1.1.2 is required."));
+        , noteStr);
 }
 
 bool AstroBox::upload(PrintHostUpload upload_data, ProgressFn prorgess_fn, ErrorFn error_fn, InfoFn info_fn) const

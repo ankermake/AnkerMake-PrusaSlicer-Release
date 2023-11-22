@@ -909,7 +909,9 @@ void GLVolumeCollection::update_colors_by_extruder(const DynamicPrintConfig* con
         colors.resize(colors_count);
 
         for (unsigned int i = 0; i < colors_count; ++i) {
-            const std::string& ext_color = config->opt_string("extruder_colour", i);
+            // add by allen for fixing use filament_colour instead of extruder_colour
+            //const std::string& ext_color = config->opt_string("extruder_colour", i);
+            const std::string& ext_color = config->opt_string("filament_colour", i);
             ColorRGB rgb;
             if (decode_color(ext_color, rgb))
                 colors[i] = { ext_color, rgb };

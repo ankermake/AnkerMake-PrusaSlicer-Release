@@ -6,7 +6,7 @@
 #include "GUI_App.hpp"
 #include "GUI.hpp"
 #include "GUI_ObjectManipulation.hpp"
-#include "GUI_ObjectList.hpp"
+//#include "GUI_ObjectList.hpp"
 #include "Camera.hpp"
 #include "Plater.hpp"
 #include "MsgDialog.hpp"
@@ -460,11 +460,13 @@ void Selection::clear()
     set_bounding_boxes_dirty();
 
     // this happens while the application is closing
-    if (wxGetApp().obj_manipul() == nullptr)
+    //if (wxGetApp().obj_manipul() == nullptr)
+    if (wxGetApp().aobj_manipul() == nullptr)
         return;
 
     // resets the cache in the sidebar
-    wxGetApp().obj_manipul()->reset_cache();
+    //wxGetApp().obj_manipul()->reset_cache();
+    wxGetApp().aobj_manipul()->reset_cache();
 
     // #et_FIXME fake KillFocus from sidebar
     wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event("", false);
@@ -728,7 +730,8 @@ const BoundingBoxf3& Selection::get_scaled_instance_bounding_box() const
 
 const BoundingBoxf3& Selection::get_full_unscaled_instance_bounding_box() const
 {
-    assert(is_single_full_instance());
+    // Anker: debug the error scale of negative part and modifier
+    //assert(is_single_full_instance());
 
     if (!m_full_unscaled_instance_bounding_box.has_value()) {
         std::optional<BoundingBoxf3>* bbox = const_cast<std::optional<BoundingBoxf3>*>(&m_full_unscaled_instance_bounding_box);
@@ -789,7 +792,7 @@ const std::pair<BoundingBoxf3, Transform3d>& Selection::get_bounding_box_in_curr
 
     assert(!is_empty());
 
-    ECoordinatesType coordinates_type = wxGetApp().obj_manipul()->get_coordinates_type();
+    ECoordinatesType coordinates_type = wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type();
     if (m_mode == Instance && coordinates_type == ECoordinatesType::Local)
         coordinates_type = ECoordinatesType::World;
 
@@ -1060,7 +1063,8 @@ void Selection::scale_to_fit_print_volume(const BuildVolume& volume)
         translate(offset, trafo_type);
         wxGetApp().plater()->canvas3D()->do_move(""); // avoid storing another snapshot
 
-        wxGetApp().obj_manipul()->set_dirty();
+        //wxGetApp().obj_manipul()->set_dirty();
+        wxGetApp().aobj_manipul()->set_dirty();
         return undoredo_snapshot;
     };
 
@@ -1349,8 +1353,8 @@ void Selection::translate(unsigned int object_idx, unsigned int instance_idx, co
 
 int Selection::bake_transform_if_needed() const
 {
-    if ((is_single_full_instance() && wxGetApp().obj_manipul()->is_world_coordinates()) ||
-        (is_single_volume_or_modifier() && !wxGetApp().obj_manipul()->is_local_coordinates())) {
+    if ((is_single_full_instance() && wxGetApp()./*obj_manipul()*/aobj_manipul()->is_world_coordinates()) ||
+        (is_single_volume_or_modifier() && !wxGetApp()./*obj_manipul()*/aobj_manipul()->is_local_coordinates())) {
         // Verify whether the instance rotation is multiples of 90 degrees, so that the scaling in world coordinates is possible.
         // all volumes in the selection belongs to the same instance, any of them contains the needed instance data, so we take the first one
         const GLVolume& volume = *get_first_volume();
@@ -1368,7 +1372,7 @@ int Selection::bake_transform_if_needed() const
         else if (is_single_volume_or_modifier()) {
             // is the volume angle close to a multiple of 90 degrees?
             needs_baking |= !Geometry::is_rotation_ninety_degrees(volume.get_volume_rotation());
-            if (wxGetApp().obj_manipul()->is_world_coordinates())
+            if (wxGetApp()./*obj_manipul()*/aobj_manipul()->is_world_coordinates())
                 // Is the instance angle close to a multiple of 90 degrees?
                 needs_baking |= !Geometry::is_rotation_ninety_degrees(volume.get_instance_rotation());
         }
@@ -1404,14 +1408,14 @@ void Selection::erase()
         return;
 
     if (is_single_full_object())
-        wxGetApp().obj_list()->delete_from_model_and_list(ItemType::itObject, get_object_idx(), 0);
+        wxGetApp().objectbar()->delete_from_model_and_list(AnkerObjectItem::ItemType::ITYPE_OBJECT, get_object_idx(), 0);
     else if (is_multiple_full_object()) {
-        std::vector<ItemForDelete> items;
+        std::vector<AnkerObjectBar::ItemForDelete> items;
         items.reserve(m_cache.content.size());
         for (ObjectIdxsToInstanceIdxsMap::iterator it = m_cache.content.begin(); it != m_cache.content.end(); ++it) {
-            items.emplace_back(ItemType::itObject, it->first, 0);
+            items.emplace_back(AnkerObjectItem::ItemType::ITYPE_OBJECT, it->first, 0);
         }
-        wxGetApp().obj_list()->delete_from_model_and_list(items);
+        wxGetApp().objectbar()->delete_from_model_and_list(items);
     }
     else if (is_multiple_full_instance()) {
         std::set<std::pair<int, int>> instances_idxs;
@@ -1421,17 +1425,17 @@ void Selection::erase()
             }
         }
 
-        std::vector<ItemForDelete> items;
+        std::vector<AnkerObjectBar::ItemForDelete> items;
         items.reserve(instances_idxs.size());
         for (const std::pair<int, int>& i : instances_idxs) {
-            items.emplace_back(ItemType::itInstance, i.first, i.second);
+            items.emplace_back(AnkerObjectItem::ItemType::ITYPE_INSTANCE, i.first, i.second);
         }
-        wxGetApp().obj_list()->delete_from_model_and_list(items);
+        wxGetApp().objectbar()->delete_from_model_and_list(items);
     }
     else if (is_single_full_instance())
-        wxGetApp().obj_list()->delete_from_model_and_list(ItemType::itInstance, get_object_idx(), get_instance_idx());
+        wxGetApp().objectbar()->delete_from_model_and_list(AnkerObjectItem::ItemType::ITYPE_INSTANCE, get_object_idx(), get_instance_idx());
     else if (is_mixed()) {
-        std::set<ItemForDelete> items_set;
+        std::set<AnkerObjectBar::ItemForDelete> items_set;
         std::map<int, int> volumes_in_obj;
 
         for (auto i : m_list) {
@@ -1441,9 +1445,9 @@ void Selection::erase()
 
             if (model_object->instances.size() == 1) {
                 if (model_object->volumes.size() == 1)
-                    items_set.insert(ItemForDelete(ItemType::itObject, glv_obj_idx, -1));
+                    items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_OBJECT, glv_obj_idx, -1));
                 else {
-                    items_set.insert(ItemForDelete(ItemType::itVolume, glv_obj_idx, gl_vol->volume_idx()));
+                    items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_VOLUME, glv_obj_idx, gl_vol->volume_idx()));
                     int idx = (volumes_in_obj.find(glv_obj_idx) == volumes_in_obj.end()) ? 0 : volumes_in_obj.at(glv_obj_idx);
                     volumes_in_obj[glv_obj_idx] = ++idx;
                 }
@@ -1456,9 +1460,9 @@ void Selection::erase()
                 if (obj_ins.first == glv_obj_idx) {
                     if (obj_ins.second.find(glv_ins_idx) != obj_ins.second.end()) {
                         if (obj_ins.second.size() == model_object->instances.size())
-                            items_set.insert(ItemForDelete(ItemType::itObject, glv_obj_idx, -1));
+                            items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_OBJECT, glv_obj_idx, -1));
                         else
-                            items_set.insert(ItemForDelete(ItemType::itInstance, glv_obj_idx, glv_ins_idx));
+                            items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_INSTANCE, glv_obj_idx, glv_ins_idx));
 
                         break;
                     }
@@ -1466,21 +1470,21 @@ void Selection::erase()
             }
         }
 
-        std::vector<ItemForDelete> items;
+        std::vector<AnkerObjectBar::ItemForDelete> items;
         items.reserve(items_set.size());
-        for (const ItemForDelete& i : items_set) {
-            if (i.type == ItemType::itVolume) {
+        for (const AnkerObjectBar::ItemForDelete & i : items_set) {
+            if (i.type == AnkerObjectItem::ItemType::ITYPE_VOLUME) {
                 const int vol_in_obj_cnt = volumes_in_obj.find(i.obj_idx) == volumes_in_obj.end() ? 0 : volumes_in_obj.at(i.obj_idx);
                 if (vol_in_obj_cnt == (int)m_model->objects[i.obj_idx]->volumes.size()) {
                     if (i.sub_obj_idx == vol_in_obj_cnt - 1)
-                        items.emplace_back(ItemType::itObject, i.obj_idx, 0);
+                        items.emplace_back(AnkerObjectItem::ItemType::ITYPE_OBJECT, i.obj_idx, 0);
                     continue;
                 }
             }
             items.emplace_back(i.type, i.obj_idx, i.sub_obj_idx);
         }
 
-        wxGetApp().obj_list()->delete_from_model_and_list(items);
+        wxGetApp().objectbar()->delete_from_model_and_list(items);
     }
     else {
         std::set<std::pair<int, int>> volumes_idxs;
@@ -1492,15 +1496,23 @@ void Selection::erase()
                 volumes_idxs.insert(std::make_pair(v->object_idx(), v->volume_idx()));
         }
 
-        std::vector<ItemForDelete> items;
+        std::vector<AnkerObjectBar::ItemForDelete> items;
         items.reserve(volumes_idxs.size());
         for (const std::pair<int, int>& v : volumes_idxs) {
-            items.emplace_back(ItemType::itVolume, v.first, v.second);
+            items.emplace_back(AnkerObjectItem::ItemType::ITYPE_VOLUME, v.first, v.second);
         }
 
-        wxGetApp().obj_list()->delete_from_model_and_list(items);
+        wxGetApp().objectbar()->delete_from_model_and_list(items);
         ensure_not_below_bed();
     }
+
+ //   // Anker: remove all selection model --- by xavier
+ //   for (auto itr = m_cache.content.begin(); itr != m_cache.content.end();)
+ //   {
+ //       wxGetApp().objectbar()->delete_from_model_and_list(itr->first);
+ //       itr = m_cache.content.begin();
+ //   }
+	//ensure_not_below_bed();
 }
 
 void Selection::render(float scale_factor)
@@ -1565,13 +1577,13 @@ void Selection::render_sidebar_hints(const std::string& sidebar_field)
 
     if (!boost::starts_with(sidebar_field, "layer")) {
         shader->set_uniform("emission_factor", 0.05f);
-        if (is_single_full_instance() && !wxGetApp().obj_manipul()->is_world_coordinates()) {
+        if (is_single_full_instance() && !wxGetApp()./*obj_manipul()*/aobj_manipul()->is_world_coordinates()) {
           orient_matrix = (*m_volumes)[*m_list.begin()]->get_instance_transformation().get_rotation_matrix();
           axes_center = (*m_volumes)[*m_list.begin()]->get_instance_offset();
         }
         else if (is_single_volume_or_modifier()) {
-            if (!wxGetApp().obj_manipul()->is_world_coordinates()) {
-                if (wxGetApp().obj_manipul()->is_local_coordinates()) {
+            if (!wxGetApp()./*obj_manipul()*/aobj_manipul()->is_world_coordinates()) {
+                if (wxGetApp()./*obj_manipul()*/aobj_manipul()->is_local_coordinates()) {
                     const GLVolume* v = (*m_volumes)[*m_list.begin()];
                     orient_matrix = v->get_instance_transformation().get_rotation_matrix() * v->get_volume_transformation().get_rotation_matrix();
                     axes_center = (*m_volumes)[*m_list.begin()]->world_matrix().translation();
@@ -1604,7 +1616,7 @@ void Selection::render_sidebar_hints(const std::string& sidebar_field)
         render_sidebar_layers_hints(sidebar_field, *shader);
 
     if (!boost::starts_with(sidebar_field, "layer")) {
-        if (wxGetApp().obj_manipul()->is_instance_coordinates())
+        if (wxGetApp()./*obj_manipul()*/aobj_manipul()->is_instance_coordinates())
             m_axes.render(Geometry::translation_transform(axes_center) * orient_matrix, 0.25f);
     }
 
@@ -2047,7 +2059,7 @@ void Selection::render_synchronized_volumes()
     if (m_mode == Instance)
         return;
 
-    const ECoordinatesType coordinates_type = wxGetApp().obj_manipul()->get_coordinates_type();
+    const ECoordinatesType coordinates_type = wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type();
     BoundingBoxf3 box;
     Transform3d trafo;
 
@@ -2259,7 +2271,7 @@ void Selection::render_sidebar_rotation_hints(const std::string& sidebar_field, 
 
 void Selection::render_sidebar_scale_hints(const std::string& sidebar_field, GLShaderProgram& shader, const Transform3d& matrix)
 {
-    const bool uniform_scale = wxGetApp().obj_manipul()->get_uniform_scaling();
+    const bool uniform_scale = wxGetApp()./*obj_manipul()*/aobj_manipul()->get_uniform_scaling();
 
     auto render_sidebar_scale_hint = [this, uniform_scale](Axis axis, GLShaderProgram& shader, const Transform3d& view_matrix, const Transform3d& model_matrix) {
         m_arrow.set_color(uniform_scale ? UNIFORM_SCALE_COLOR : get_color(axis));
@@ -2839,7 +2851,8 @@ void Selection::paste_volumes_from_clipboard()
             }
         }
 
-        wxGetApp().obj_list()->paste_volumes_into_list(dst_obj_idx, volumes);
+        //wxGetApp().obj_list()->paste_volumes_into_list(dst_obj_idx, volumes);
+        wxGetApp().objectbar()->paste_volumes_into_list(dst_obj_idx, volumes);
     }
 
 #ifdef _DEBUG
@@ -2871,7 +2884,8 @@ void Selection::paste_objects_from_clipboard()
 #endif /* _DEBUG */
     }
 
-    wxGetApp().obj_list()->paste_objects_into_list(object_idxs);
+    //wxGetApp().obj_list()->paste_objects_into_list(object_idxs);
+    wxGetApp().objectbar()->paste_objects_into_list(object_idxs);
 
 #ifdef _DEBUG
     check_model_ids_validity(*m_model);

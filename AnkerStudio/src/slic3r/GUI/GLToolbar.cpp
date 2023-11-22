@@ -147,6 +147,7 @@ GLToolbar::Layout::Layout()
     , top(0.0f)
     , left(0.0f)
     , border(0.0f)
+    , border_outer(0.0f)
     , separator_size(0.0f)
     , gap_size(0.0f)
     , icons_size(Default_Icons_Size)
@@ -163,6 +164,7 @@ GLToolbar::GLToolbar(GLToolbar::EType type, const std::string& name)
     , m_enabled(false)
     , m_icons_texture_dirty(true)
     , m_pressed_toggable_id(-1)
+    , m_background_color(0.0f, 0.0f, 0.0f, 0.0f)
 {
 }
 
@@ -190,6 +192,13 @@ bool GLToolbar::init(const BackgroundTexture::Metadata& background_texture)
 
     return res;
 }
+
+bool GLToolbar::init(Slic3r::ColorRGBA backgroundColor)
+{
+    m_background_color = backgroundColor;
+    return true;
+}
+
 
 bool GLToolbar::init_arrow(const std::string& filename)
 {
@@ -220,6 +229,12 @@ void GLToolbar::set_position(float top, float left)
 void GLToolbar::set_border(float border)
 {
     m_layout.border = border;
+    m_layout.dirty = true;
+}
+
+void GLToolbar::set_border_outer(float borderOuter)
+{
+    m_layout.border_outer = borderOuter;
     m_layout.dirty = true;
 }
 
@@ -363,6 +378,24 @@ int GLToolbar::get_item_id(const std::string& name) const
     return -1;
 }
 
+void GLToolbar::toggled_action(int item_id, GLCanvas3D& parent)
+{
+    if (item_id >= 0 && item_id < m_items.size())
+    {
+        if (m_items[item_id]->get_last_action_type() == GLToolbarItem::Left && m_items[item_id]->is_left_toggable())
+            do_action(GLToolbarItem::Left, item_id, parent, false);
+
+        if (m_items[item_id]->get_last_action_type() == GLToolbarItem::Right && m_items[item_id]->is_right_toggable())
+            do_action(GLToolbarItem::Right, item_id, parent, false);
+    }
+}
+
+void GLToolbar::reset_all_toggled_state(GLCanvas3D& parent)
+{
+    if (m_pressed_toggable_id != -1)
+        do_action(GLToolbarItem::Left, m_pressed_toggable_id, parent, false);
+}
+
 std::string GLToolbar::get_tooltip() const
 {
     std::string tooltip;
@@ -496,8 +529,11 @@ bool GLToolbar::on_mouse(wxMouseEvent& evt, GLCanvas3D& parent)
             m_mouse_capture.left = true;
             m_mouse_capture.parent = &parent;
             processed = true;
-            if (item_id != -2 && !m_items[item_id]->is_separator() && !m_items[item_id]->is_disabled() &&
-                (m_pressed_toggable_id == -1 || m_items[item_id]->get_last_action_type() == GLToolbarItem::Left)) {
+            // Anker: do not block toggling others when one is toggled
+            if (item_id != -2 && !m_items[item_id]->is_separator() && !m_items[item_id]->is_disabled() /*&&
+                (m_pressed_toggable_id == -1 || m_items[item_id]->get_last_action_type() != GLToolbarItem::Left)*/) {
+                if (m_pressed_toggable_id != -1 && m_items[item_id]->is_left_toggable() && item_id != m_pressed_toggable_id)
+                    do_action(GLToolbarItem::Left, m_pressed_toggable_id, parent, false);
                 // mouse is inside an icon
                 do_action(GLToolbarItem::Left, item_id, parent, true);
                 parent.set_as_dirty();
@@ -597,7 +633,8 @@ int GLToolbar::get_visible_items_cnt() const
 
 void GLToolbar::do_action(GLToolbarItem::EActionType type, int item_id, GLCanvas3D& parent, bool check_hover)
 {
-    if (m_pressed_toggable_id == -1 || m_pressed_toggable_id == item_id) {
+    // Anker: do not block toggling others when one is toggled
+    //if (m_pressed_toggable_id == -1 || m_pressed_toggable_id == item_id) {
         if (0 <= item_id && item_id < (int)m_items.size()) {
             GLToolbarItem* item = m_items[item_id];
             if (item != nullptr && !item->is_separator() && !item->is_disabled() && (!check_hover || item->is_hovered())) {
@@ -647,7 +684,7 @@ void GLToolbar::do_action(GLToolbarItem::EActionType type, int item_id, GLCanvas
                 }
             }
         }
-    }
+    //}
 }
 
 void GLToolbar::update_hover_state(const Vec2d& mouse_pos, GLCanvas3D& parent)
@@ -1036,78 +1073,125 @@ int GLToolbar::contains_mouse_vertical(const Vec2d& mouse_pos, const GLCanvas3D&
 
 void GLToolbar::render_background(float left, float top, float right, float bottom, float border_w, float border_h) const
 {
-    const unsigned int tex_id = m_background_texture.texture.get_id();
-    const float tex_width = (float)m_background_texture.texture.get_width();
-    const float tex_height = (float)m_background_texture.texture.get_height();
-    if (tex_id != 0 && tex_width > 0.0f && tex_height > 0.0f) {
-        const float inv_tex_width  = 1.0f / tex_width;
-        const float inv_tex_height = 1.0f / tex_height;
+    if (m_background_texture.texture.get_id() != 0)
+    {
+        const unsigned int tex_id = m_background_texture.texture.get_id();
+        const float tex_width = (float)m_background_texture.texture.get_width();
+        const float tex_height = (float)m_background_texture.texture.get_height();
+        if (tex_id != 0 && tex_width > 0.0f && tex_height > 0.0f) {
+            const float inv_tex_width = 1.0f / tex_width;
+            const float inv_tex_height = 1.0f / tex_height;
 
-        const float internal_left   = left + border_w;
-        const float internal_right  = right - border_w;
-        const float internal_top    = top - border_h;
-        const float internal_bottom = bottom + border_w;
+            const float internal_left = left + border_w;
+            const float internal_right = right - border_w;
+            const float internal_top = top - border_h;
+            const float internal_bottom = bottom + border_w;
 
-        const float left_uv   = 0.0f;
-        const float right_uv  = 1.0f;
-        const float top_uv    = 1.0f;
-        const float bottom_uv = 0.0f;
+            const float left_uv = 0.0f;
+            const float right_uv = 1.0f;
+            const float top_uv = 1.0f;
+            const float bottom_uv = 0.0f;
 
-        const float internal_left_uv = (float)m_background_texture.metadata.left * inv_tex_width;
-        const float internal_right_uv = 1.0f - (float)m_background_texture.metadata.right * inv_tex_width;
-        const float internal_top_uv = 1.0f - (float)m_background_texture.metadata.top * inv_tex_height;
-        const float internal_bottom_uv = (float)m_background_texture.metadata.bottom * inv_tex_height;
+            const float internal_left_uv = (float)m_background_texture.metadata.left * inv_tex_width;
+            const float internal_right_uv = 1.0f - (float)m_background_texture.metadata.right * inv_tex_width;
+            const float internal_top_uv = 1.0f - (float)m_background_texture.metadata.top * inv_tex_height;
+            const float internal_bottom_uv = (float)m_background_texture.metadata.bottom * inv_tex_height;
 
-        // top-left corner
-        if (m_layout.horizontal_orientation == Layout::HO_Left || m_layout.vertical_orientation == Layout::VO_Top)
-            GLTexture::render_sub_texture(tex_id, left, internal_left, internal_top, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, left, internal_left, internal_top, top, { { left_uv, internal_top_uv }, { internal_left_uv, internal_top_uv }, { internal_left_uv, top_uv }, { left_uv, top_uv } });
+            // top-left corner
+            if (m_layout.horizontal_orientation == Layout::HO_Left || m_layout.vertical_orientation == Layout::VO_Top)
+                GLTexture::render_sub_texture(tex_id, left, internal_left, internal_top, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, left, internal_left, internal_top, top, { { left_uv, internal_top_uv }, { internal_left_uv, internal_top_uv }, { internal_left_uv, top_uv }, { left_uv, top_uv } });
 
-        // top edge
-        if (m_layout.vertical_orientation == Layout::VO_Top)
-            GLTexture::render_sub_texture(tex_id, internal_left, internal_right, internal_top, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, internal_left, internal_right, internal_top, top, { { internal_left_uv, internal_top_uv }, { internal_right_uv, internal_top_uv }, { internal_right_uv, top_uv }, { internal_left_uv, top_uv } });
+            // top edge
+            if (m_layout.vertical_orientation == Layout::VO_Top)
+                GLTexture::render_sub_texture(tex_id, internal_left, internal_right, internal_top, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, internal_left, internal_right, internal_top, top, { { internal_left_uv, internal_top_uv }, { internal_right_uv, internal_top_uv }, { internal_right_uv, top_uv }, { internal_left_uv, top_uv } });
 
-        // top-right corner
-        if (m_layout.horizontal_orientation == Layout::HO_Right || m_layout.vertical_orientation == Layout::VO_Top)
-            GLTexture::render_sub_texture(tex_id, internal_right, right, internal_top, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, internal_right, right, internal_top, top, { { internal_right_uv, internal_top_uv }, { right_uv, internal_top_uv }, { right_uv, top_uv }, { internal_right_uv, top_uv } });
+            // top-right corner
+            if (m_layout.horizontal_orientation == Layout::HO_Right || m_layout.vertical_orientation == Layout::VO_Top)
+                GLTexture::render_sub_texture(tex_id, internal_right, right, internal_top, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, internal_right, right, internal_top, top, { { internal_right_uv, internal_top_uv }, { right_uv, internal_top_uv }, { right_uv, top_uv }, { internal_right_uv, top_uv } });
 
-        // center-left edge
-        if (m_layout.horizontal_orientation == Layout::HO_Left)
-            GLTexture::render_sub_texture(tex_id, left, internal_left, internal_bottom, internal_top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, left, internal_left, internal_bottom, internal_top, { { left_uv, internal_bottom_uv }, { internal_left_uv, internal_bottom_uv }, { internal_left_uv, internal_top_uv }, { left_uv, internal_top_uv } });
+            // center-left edge
+            if (m_layout.horizontal_orientation == Layout::HO_Left)
+                GLTexture::render_sub_texture(tex_id, left, internal_left, internal_bottom, internal_top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, left, internal_left, internal_bottom, internal_top, { { left_uv, internal_bottom_uv }, { internal_left_uv, internal_bottom_uv }, { internal_left_uv, internal_top_uv }, { left_uv, internal_top_uv } });
 
-        // center
-        GLTexture::render_sub_texture(tex_id, internal_left, internal_right, internal_bottom, internal_top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            // center
+            GLTexture::render_sub_texture(tex_id, internal_left, internal_right, internal_bottom, internal_top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
 
-        // center-right edge
-        if (m_layout.horizontal_orientation == Layout::HO_Right)
-            GLTexture::render_sub_texture(tex_id, internal_right, right, internal_bottom, internal_top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, internal_right, right, internal_bottom, internal_top, { { internal_right_uv, internal_bottom_uv }, { right_uv, internal_bottom_uv }, { right_uv, internal_top_uv }, { internal_right_uv, internal_top_uv } });
+            // center-right edge
+            if (m_layout.horizontal_orientation == Layout::HO_Right)
+                GLTexture::render_sub_texture(tex_id, internal_right, right, internal_bottom, internal_top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, internal_right, right, internal_bottom, internal_top, { { internal_right_uv, internal_bottom_uv }, { right_uv, internal_bottom_uv }, { right_uv, internal_top_uv }, { internal_right_uv, internal_top_uv } });
 
-        // bottom-left corner
-        if (m_layout.horizontal_orientation == Layout::HO_Left || m_layout.vertical_orientation == Layout::VO_Bottom)
-            GLTexture::render_sub_texture(tex_id, left, internal_left, bottom, internal_bottom, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, left, internal_left, bottom, internal_bottom, { { left_uv, bottom_uv }, { internal_left_uv, bottom_uv }, { internal_left_uv, internal_bottom_uv }, { left_uv, internal_bottom_uv } });
+            // bottom-left corner
+            if (m_layout.horizontal_orientation == Layout::HO_Left || m_layout.vertical_orientation == Layout::VO_Bottom)
+                GLTexture::render_sub_texture(tex_id, left, internal_left, bottom, internal_bottom, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, left, internal_left, bottom, internal_bottom, { { left_uv, bottom_uv }, { internal_left_uv, bottom_uv }, { internal_left_uv, internal_bottom_uv }, { left_uv, internal_bottom_uv } });
 
-        // bottom edge
-        if (m_layout.vertical_orientation == Layout::VO_Bottom)
-            GLTexture::render_sub_texture(tex_id, internal_left, internal_right, bottom, internal_bottom, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, internal_left, internal_right, bottom, internal_bottom, { { internal_left_uv, bottom_uv }, { internal_right_uv, bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_left_uv, internal_bottom_uv } });
+            // bottom edge
+            if (m_layout.vertical_orientation == Layout::VO_Bottom)
+                GLTexture::render_sub_texture(tex_id, internal_left, internal_right, bottom, internal_bottom, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, internal_left, internal_right, bottom, internal_bottom, { { internal_left_uv, bottom_uv }, { internal_right_uv, bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_left_uv, internal_bottom_uv } });
 
-        // bottom-right corner
-        if (m_layout.horizontal_orientation == Layout::HO_Right || m_layout.vertical_orientation == Layout::VO_Bottom)
-            GLTexture::render_sub_texture(tex_id, internal_right, right, bottom, internal_bottom, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
-        else
-            GLTexture::render_sub_texture(tex_id, internal_right, right, bottom, internal_bottom, { { internal_right_uv, bottom_uv }, { right_uv, bottom_uv }, { right_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv } });
+            // bottom-right corner
+            if (m_layout.horizontal_orientation == Layout::HO_Right || m_layout.vertical_orientation == Layout::VO_Bottom)
+                GLTexture::render_sub_texture(tex_id, internal_right, right, bottom, internal_bottom, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+            else
+                GLTexture::render_sub_texture(tex_id, internal_right, right, bottom, internal_bottom, { { internal_right_uv, bottom_uv }, { right_uv, bottom_uv }, { right_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv } });
+        }
+    }
+    else
+    {
+        glsafe(::glEnable(GL_BLEND));
+        glsafe(::glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
+#if !ENABLE_GL_CORE_PROFILE && !ENABLE_OPENGL_ES
+        glsafe(::glEnable(GL_TEXTURE_2D));
+        glsafe(::glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+#endif // !ENABLE_GL_CORE_PROFILE && !ENABLE_OPENGL_ES
+
+        GLModel::Geometry init_data;
+        init_data.format = { GLModel::Geometry::EPrimitiveType::Triangles, GLModel::Geometry::EVertexLayout::P2 };
+        init_data.reserve_vertices(4);
+        init_data.reserve_indices(6);
+
+        // vertices
+        init_data.add_vertex(Vec2f(left, bottom));
+        init_data.add_vertex(Vec2f(right, bottom));
+        init_data.add_vertex(Vec2f(right, top));
+        init_data.add_vertex(Vec2f(left, top));
+
+        init_data.add_triangle(0, 1, 2);
+        init_data.add_triangle(2, 3, 0);
+
+        init_data.color = m_background_color;
+
+        GLModel model;
+        model.init_from(std::move(init_data));
+
+        GLShaderProgram* shader = wxGetApp().get_shader("flat");
+        if (shader != nullptr) {
+            shader->start_using();
+            shader->set_uniform("view_model_matrix", Transform3d::Identity());
+            shader->set_uniform("projection_matrix", Transform3d::Identity());
+            //shader->set_uniform("uniform_color", m_background_color);
+            model.render();
+            shader->stop_using();
+        }
+
+#if !ENABLE_GL_CORE_PROFILE && !ENABLE_OPENGL_ES
+        glsafe(::glDisable(GL_TEXTURE_2D));
+#endif // !ENABLE_GL_CORE_PROFILE && !ENABLE_OPENGL_ES
+        glsafe(::glDisable(GL_BLEND));
     }
 }
 
@@ -1212,7 +1296,7 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent)
     const float icon_stride = icons_size_x + gap_size;
 
     float left   = 2.0f * m_layout.left * inv_cnv_w;
-    float top    = 2.0f * m_layout.top * inv_cnv_h;
+    float top    = (2.0f * m_layout.top - m_layout.border_outer) * inv_cnv_h;
     const float right  = left + width;
     const float bottom = top - height;
 
@@ -1305,21 +1389,21 @@ bool GLToolbar::generate_icons_texture()
         states.push_back({ 1, false }); // Normal
         states.push_back({ 0, false }); // Pressed
         states.push_back({ 2, false }); // Disabled
-        states.push_back({ 0, false }); // Hover
+        states.push_back({ 3, false }); // Hover
         states.push_back({ 0, false }); // HoverPressed
         states.push_back({ 2, false }); // HoverDisabled
         states.push_back({ 0, false }); // HighlightedShown
         states.push_back({ 2, false }); // HighlightedHidden
     }
     else {
-        states.push_back({ 1, false }); // Normal
-        states.push_back({ 1, true });  // Pressed
-        states.push_back({ 1, false }); // Disabled
-        states.push_back({ 0, false }); // Hover
-        states.push_back({ 1, true });  // HoverPressed
-        states.push_back({ 1, false }); // HoverDisabled
+        states.push_back({ 2, false }); // Normal
+        states.push_back({ 3, false }); // Pressed
+        states.push_back({ 2, false }); // Disabled
+        states.push_back({ 1, false }); // Hover
+        states.push_back({ 3, false }); // HoverPressed
+        states.push_back({ 2, false }); // HoverDisabled
         states.push_back({ 0, false }); // HighlightedShown
-        states.push_back({ 1, false }); // HighlightedHidden
+        states.push_back({ 2, false }); // HighlightedHidden
     }
 
     unsigned int sprite_size_px = (unsigned int)(m_layout.icons_size * m_layout.scale);
@@ -1370,7 +1454,8 @@ bool GLToolbar::update_items_enabled_state()
         if (item->is_enabled() && (m_pressed_toggable_id != -1) && (m_pressed_toggable_id != i))
         {
             ret = true;
-            item->set_state(GLToolbarItem::Disabled);
+            // Anker: do not disable others when one is toggled
+            //item->set_state(GLToolbarItem::Disabled);
         }
     }
 

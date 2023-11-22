@@ -16,6 +16,9 @@
 #include <wx/Overlay.h>
 
 #include "wx/popupwin.h"
+#include "wxExtensions.hpp"
+#include "GUI_App.hpp"
+#include "AnkerHyperlink.hpp"
 
 enum videoState
 {
@@ -206,6 +209,8 @@ public:
     AnkerVideo(wxWindow* parent, std::string sn="");
 	~AnkerVideo();
     void InitGUI();
+    void SetOnlineOfflineState(bool state);
+    void SetSN(std::string sn);
 
     void OnPlayBtnClicked(wxCommandEvent& event);
     void OnStopBtnClicked(wxCommandEvent& event);
@@ -232,6 +237,8 @@ protected:
 private:
     void videNotSuportUI();
     void videoShowRetryUI();
+    void HideVideoStatusInfo();
+    void OffLineUI();
     void PrintVideoState();
     std::string getVideoStateStr(videoState state);
 private:
@@ -240,21 +247,36 @@ private:
 private:
     std::string m_sn;
 
+    wxPanel* m_titlePanel;
     imageDisplayer* videoImgDisplayer;
 
 	// control bar
-	wxButton* m_playBtn;
-    wxButton* m_stopBtn;
+    wxPanel* m_controlBar;
+    ScalableButton* m_playBtn;
+    ScalableButton* m_stopBtn;
 	wxStaticText* m_playStopStateText;
     CustomComboBox* m_videoModeSelector;
-	wxButton* m_turnOnCameraLightBtn;
-    wxButton* m_turnOffCameraLightBtn;
+    ScalableButton* m_turnOnCameraLightBtn;
+    ScalableButton* m_turnOffCameraLightBtn;
 
-	wxButton* m_videoIconButton;
+    //ScalableButton* m_videoIconButton;
+    wxButton* m_videoIconButton;
+
+    // offline info
+    wxButton* m_offlineIconButton;
+    wxStaticText* m_offlineText;
+    wxButton* m_offlineHelpButton;
+    AnkerHyperlink* m_offlineHelpLink;
+
+    int m_titileBarHeight = 30;
+    int m_controlBarHeight = 30;
+    int m_spliteLineHeight = 1;
 
 	//wxStaticBitmap* m_videoStatusIcon;
 	//wxStaticText* m_videoStatusMsg;
 	//wxButton* m_retryBtn;
+
+    bool m_onlineOfflineState = true;  // true: online ; false:offline
 
     videoState currVideoState = Video_State_None;
     bool m_camerLightOnoff = false;

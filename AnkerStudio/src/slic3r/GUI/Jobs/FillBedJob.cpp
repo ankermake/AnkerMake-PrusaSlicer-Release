@@ -190,8 +190,7 @@ void FillBedJob::finalize(bool canceled, std::exception_ptr &eptr)
         // FIXME: somebody explain why this is needed for increase_object_instances
         if (inst_cnt == 1) added_cnt++;
 
-        m_plater->sidebar()
-            .obj_list()->increase_object_instances(m_object_idx, size_t(added_cnt));
+		m_plater->objectbar()->increase_object_instances(m_object_idx, size_t(added_cnt));
     }
 }
 

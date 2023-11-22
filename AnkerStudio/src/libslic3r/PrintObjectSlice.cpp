@@ -141,7 +141,7 @@ static std::vector<VolumeSlices> slice_volumes_inner(
     params_base.trafo          = object_trafo;
     params_base.resolution     = print_config.resolution.value;
 
-    switch (print_object_config.slicing_mode.value) {
+    switch (SlicingMode(print_object_config.slicing_mode.value)) {
     case SlicingMode::Regular:    params_base.mode = MeshSlicingParams::SlicingMode::Regular; break;
     case SlicingMode::EvenOdd:    params_base.mode = MeshSlicingParams::SlicingMode::EvenOdd; break;
     case SlicingMode::CloseHoles: params_base.mode = MeshSlicingParams::SlicingMode::Positive; break;

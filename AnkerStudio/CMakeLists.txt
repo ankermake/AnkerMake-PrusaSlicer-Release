@@ -46,6 +46,8 @@ option(SLIC3R_PERL_XS           "Compile XS Perl module and enable Perl unit and
 option(SLIC3R_ASAN              "Enable ASan on Clang and GCC" 0)
 option(SLIC3R_UBSAN             "Enable UBSan on Clang and GCC" 0)
 option(SLIC3R_ENABLE_FORMAT_STEP "Enable compilation of STEP file support" 1)
+option(ANKER_CLOUD_SLICE         "Compile AnkerCloudSlice" 0)
+
 # If SLIC3R_FHS is 1 -> SLIC3R_DESKTOP_INTEGRATION is always 0, othrewise variable.
 CMAKE_DEPENDENT_OPTION(SLIC3R_DESKTOP_INTEGRATION "Allow perfoming desktop integration during runtime" 1 "NOT SLIC3R_FHS" 0)
 
@@ -100,6 +102,10 @@ endforeach()
 if (SLIC3R_GUI)
     add_definitions(-DSLIC3R_GUI)
 endif ()
+
+if(ANKER_CLOUD_SLICE)
+    add_subdirectory(src/AnkerCloudSlice)
+endif()
 
 if(SLIC3R_DESKTOP_INTEGRATION)
     add_definitions(-DSLIC3R_DESKTOP_INTEGRATION)
@@ -237,8 +243,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
 
-    find_package(DBus REQUIRED)
-    include_directories(${DBUS_INCLUDE_DIRS})
+    if(SLIC3R_GUI)
+        find_package(DBus REQUIRED)
+        include_directories(${DBUS_INCLUDE_DIRS})
+    endif()
+
 endif()
 
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUXX)
@@ -473,8 +482,11 @@ endif ()
 
 find_package(PNG REQUIRED)
 
-set(OpenGL_GL_PREFERENCE "LEGACY")
-find_package(OpenGL REQUIRED)
+if(SLIC3R_GUI)
+    set(OpenGL_GL_PREFERENCE "LEGACY")
+    find_package(OpenGL REQUIRED)
+endif()
+
 
 # Find glew or use bundled version
 if (SLIC3R_STATIC AND NOT SLIC3R_STATIC_EXCLUDE_GLEW)
@@ -482,7 +494,9 @@ if (SLIC3R_STATIC AND NOT SLIC3R_STATIC_EXCLUDE_GLEW)
     set(GLEW_VERBOSE ON)
 endif()
 
-find_package(GLEW REQUIRED)
+if(SLIC3R_GUI)
+    find_package(GLEW REQUIRED)
+endif()
 
 # Find the Cereal serialization library
 find_package(cereal REQUIRED)
@@ -606,6 +620,11 @@ function(AnkerStudio_copy_dlls target)
     
     add_custom_command(TARGET ${target} POST_BUILD 
         COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/libmpfr-4.dll ${_out_dir}
+        COMMENT "Copy mpfr runtime to build tree"
+        VERBATIM)
+		
+	add_custom_command(TARGET ${target} POST_BUILD 
+        COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/WebView2Loader.dll ${_out_dir}
         COMMENT "Copy mpfr runtime to build tree"
         VERBATIM)
 

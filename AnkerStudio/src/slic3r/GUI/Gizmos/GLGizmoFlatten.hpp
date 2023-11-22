@@ -58,7 +58,7 @@ public:
     void data_changed() override;
 protected:
     bool on_init() override;
-    std::string on_get_name() const override;
+    std::string on_get_name(bool i18n = true) const override;
     bool on_is_activable() const override;
     void on_render() override;
     virtual void on_register_raycasters_for_picking() override;

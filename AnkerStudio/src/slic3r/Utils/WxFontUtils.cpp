@@ -349,3 +349,31 @@ std::unique_ptr<Emboss::FontFile> WxFontUtils::set_bold(wxFont &font, const Embo
     font.SetWeight(orig_weight);
     return nullptr;
 }
+
+void WxFontUtils::setText_wrap(wxStaticText* context, int width, const wxString& text, int language)
+{
+    if (language == wxLanguage::wxLANGUAGE_ENGLISH)
+    {
+        context->SetLabel(text);
+        context->Wrap(width);
+    }
+    else
+    {
+        wxString wrapStr = "";
+        wxClientDC dc(context);
+        int tmpWidth = 0;
+        for (size_t i = 0; i < text.length(); i++) {
+            wxSize tmpSize = dc.GetTextExtent(text[i]);
+            tmpWidth += tmpSize.x;
+            if (tmpWidth < width) {
+                wrapStr += text[i];
+            }
+            else {
+                wrapStr += '\n';
+                wrapStr += text[i];
+                tmpWidth = 1;
+            }
+        }
+        context->SetLabel(wrapStr);
+    }
+}

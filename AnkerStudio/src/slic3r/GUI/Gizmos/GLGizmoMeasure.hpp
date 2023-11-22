@@ -167,7 +167,7 @@ public:
 
 protected:
     bool on_init() override;
-    std::string on_get_name() const override;
+    std::string on_get_name(bool i18n = true) const override;
     bool on_is_activable() const override;
     void on_render() override;
     void on_set_state() override;

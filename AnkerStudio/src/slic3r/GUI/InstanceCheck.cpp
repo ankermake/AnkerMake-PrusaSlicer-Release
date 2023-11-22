@@ -27,6 +27,7 @@
 #include <dbus/dbus.h> /* Pull in all of D-Bus headers. */
 #endif //__linux__
 
+
 namespace Slic3r {
 
 #ifdef __APPLE__
@@ -98,13 +99,13 @@ namespace instance_check_internal
 		int          err;
 		err = GetClassName(hwnd, className, 1000);
 		if (err == 0)
-			return true;
+			return TRUE;
 		err = GetWindowText(hwnd, wndText, 1000);
 		if (err == 0)
-			return true;
+			return TRUE;
 		std::wstring classNameString(className);
 		std::wstring wndTextString(wndText);
-		if (wndTextString.find(L"AnkerStudio") != std::wstring::npos && classNameString == L"wxWindowNR") {
+		if (wndTextString.find(L"AnkerMake") != std::wstring::npos && classNameString == L"wxWindowNR") {
 			//check if other instances has same instance hash
 			//if not it is not same version(binary) as this version 
 			HANDLE   handle = GetProp(hwnd, L"Instance_Hash_Minor");
@@ -121,15 +122,22 @@ namespace instance_check_internal
 				l_anker_studio_hwnd = hwnd;
 				ShowWindow(hwnd, SW_SHOWMAXIMIZED);
 				SetForegroundWindow(hwnd);
-				return false;
+				return FALSE;
 			}
 			BOOST_LOG_TRIVIAL(debug) << "win enum - found wrong instance";
 		}
-		return true;
+		return TRUE;
 	}
 	static bool send_message(const std::string& message, const std::string &version)
 	{
 		if (!EnumWindows(EnumWindowsProc, 0)) {
+
+			DWORD dwLastError = GetLastError();
+			if (dwLastError)
+			{
+				BOOST_LOG_TRIVIAL(info) << "EnumWindows call failed.";
+				return false;
+			}
 			std::wstring wstr = boost::nowide::widen(message);
 			std::unique_ptr<LPWSTR> command_line_args = std::make_unique<LPWSTR>(const_cast<LPWSTR>(wstr.c_str()));
 			/*LPWSTR command_line_args = new wchar_t[wstr.size() + 1];
@@ -492,6 +500,9 @@ namespace MessageHandlerInternal
 void OtherInstanceMessageHandler::handle_message(const std::string& message) 
 {
 	BOOST_LOG_TRIVIAL(info) << "message from other instance: " << message;
+
+
+
 
 	std::vector<std::string> args;
 	bool parsed = unescape_strings_cstyle(message, args);

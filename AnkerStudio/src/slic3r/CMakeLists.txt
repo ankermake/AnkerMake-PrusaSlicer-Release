@@ -133,8 +133,12 @@ set(SLIC3R_GUI_SOURCES
     GUI/Field.hpp
     GUI/OptionsGroup.cpp
     GUI/OptionsGroup.hpp
+    GUI/AnkerOptionsGroup.cpp
+    GUI/AnkerOptionsGroup.hpp
     GUI/OG_CustomCtrl.cpp
     GUI/OG_CustomCtrl.hpp
+    GUI/Anker_OG_CustomCtrl.cpp
+    GUI/Anker_OG_CustomCtrl.hpp
     GUI/BedShapeDialog.cpp
     GUI/BedShapeDialog.hpp
     GUI/2DBed.cpp
@@ -159,6 +163,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/RemovableDriveManager.hpp
     GUI/SendSystemInfoDialog.cpp
     GUI/SendSystemInfoDialog.hpp
+    GUI/AnkerSideBarNew.cpp
+    GUI/AnkerSideBarNew.hpp
     GUI/SurfaceDrag.cpp
     GUI/SurfaceDrag.hpp
     GUI/BonjourDialog.cpp
@@ -167,6 +173,13 @@ set(SLIC3R_GUI_SOURCES
     GUI/ButtonsDescription.hpp
     GUI/ImGuiWrapper.hpp
     GUI/ImGuiWrapper.cpp
+	GUI/Network/basetype.hpp
+	GUI/Network/basetype.cpp
+    GUI/Network/DeviceObject.h
+    GUI/Network/DeviceObject.cpp
+    GUI/Network/MsgText.hpp
+    GUI/Network/SystemInfo.hpp
+    GUI/Network/SystemInfo.cpp
     Config/Snapshot.cpp
     Config/Snapshot.hpp
     Config/Version.cpp
@@ -244,39 +257,21 @@ set(SLIC3R_GUI_SOURCES
     GUI/Downloader.hpp
     GUI/DownloaderFileGet.cpp
     GUI/DownloaderFileGet.hpp
-	GUI/AnkerLoginDialog.hpp
-	GUI/AnkerLoginDialog.cpp	
     GUI/AnkerConfig.hpp	
-	GUI/AnkerDevice.cpp	
-    GUI/AnkerDevice.hpp
     GUI/AnkerBtn.cpp
     GUI/AnkerBtn.hpp
+    GUI/AnkerHint.cpp
+    GUI/AnkerHint.h
 	GUI/AnkerGCodeImportDialog.hpp
 	GUI/AnkerGCodeImportDialog.cpp
-	GUI/AnkerTaskPanel.hpp
-	GUI/AnkerTaskPanel.cpp
 	GUI/AnkerLineEdit.hpp
 	GUI/AnkerLineEdit.cpp
-	GUI/AnkerMsgDialog.hpp
-	GUI/AnkerMsgDialog.cpp
-	GUI/AnkerLoadingMask.hpp
-	GUI/AnkerLoadingMask.cpp
-	GUI/Network/mqttprotocolbase.h
-	GUI/Network/Ak_zip.h
-	GUI/Network/Ak_zip.cpp
-	GUI/Network/basetype.hpp
-	GUI/Network/basetype.cpp
-	GUI/Network/AnkerNetBase.h
-	GUI/Network/AnkerNetBase.cpp
-	GUI/Network/chooseDeviceFrame.h
-	GUI/Network/chooseDeviceFrame.cpp
-	GUI/Network/DeviceObject.h
-	GUI/Network/DeviceObject.cpp
-	GUI/Network/MsgText.hpp
-	GUI/Network/NetworkAes.h
-	GUI/Network/NetworkAes.cpp
     GUI/AnkerVideo.hpp
     GUI/AnkerVideo.cpp
+    GUI/AnkerGcodePreviewToolBar.hpp
+    GUI/AnkerGcodePreviewToolBar.cpp
+    GUI/AnkerGcodePreviewSideBar.hpp
+    GUI/AnkerGcodePreviewSideBar.cpp
 	GUI/AnkerAdjustItemWidget.hpp
     GUI/AnkerAdjustItemWidget.cpp
 	GUI/AnkerTextLabel.hpp
@@ -289,6 +284,102 @@ set(SLIC3R_GUI_SOURCES
     GUI/AnkerShowWidget.cpp
 	GUI/AnkerNavWidget.hpp
     GUI/AnkerNavWidget.cpp
+	GUI/AnkerCheckBox.cpp
+    GUI/AnkerCheckBox.hpp
+    GUI/AnkerEasyPanel.cpp
+    GUI/AnkerEasyPanel.hpp
+	GUI/AnkerObjectBar.hpp
+	GUI/AnkerObjectBar.cpp
+	GUI/AnkerObjectBarView.hpp
+	GUI/AnkerObjectBarView.cpp
+	GUI/AnkerObjectLayers.hpp
+	GUI/AnkerObjectLayers.cpp
+	GUI/AnkerFloatingList.hpp
+	GUI/AnkerFloatingList.cpp
+	GUI/AnkerObjectManipulator.hpp
+	GUI/AnkerObjectManipulator.cpp
+	GUI/AnkerFunctionPanel.cpp
+	GUI/AnkerFunctionPanel.h
+	GUI/Common/AnkerCombinButton.cpp
+	GUI/Common/AnkerCombinButton.h
+	GUI/Common/AnkerGUIConfig.hpp
+	GUI/Common/AnkerTitledPanel.hpp
+	GUI/Common/AnkerTitledPanel.cpp
+	GUI/Common/AnkerSplitCtrl.hpp
+	GUI/Common/AnkerSplitCtrl.cpp
+	GUI/Common/AnkerMsgDialog.hpp
+	GUI/Common/AnkerMsgDialog.cpp
+	GUI/Common/AnkerLoadingMask.hpp
+	GUI/Common/AnkerLoadingMask.cpp
+	GUI/Common/AnkerBox.hpp
+	GUI/Common/AnkerBox.cpp
+	GUI/Common/AnkerButton.hpp
+	GUI/Common/AnkerButton.cpp
+	GUI/Common/AnkerComboBox.hpp
+	GUI/Common/AnkerComboBox.cpp
+	GUI/Common/AnkerDialog.hpp
+	GUI/Common/AnkerDialog.cpp
+	GUI/Common/AnkerLine.hpp
+	GUI/Common/AnkerLine.cpp
+	GUI/Common/AnkerSpinBox.hpp
+	GUI/Common/AnkerSpinBox.cpp
+	GUI/Common/AnkerStaticText.hpp
+	GUI/Common/AnkerStaticText.cpp
+	GUI/Common/AnkerBase.hpp
+	GUI/Common/AnkerBase.cpp
+	GUI/Common/AnkerCopyrightDialog.hpp
+	GUI/Common/AnkerCopyrightDialog.cpp
+	GUI/Common/AnkerListCtrl.hpp
+	GUI/Common/AnkerListCtrl.cpp
+	GUI/Common/AnkerScrolledWindow.hpp
+	GUI/Common/AnkerScrolledWindow.cpp
+	GUI/Common/AnkerSimpleCombox.hpp
+	GUI/Common/AnkerSimpleCombox.cpp
+	GUI/Common/AnkerBitmapCombox.hpp
+	GUI/Common/AnkerBitmapCombox.cpp
+	GUI/Common/AnkerPopupWidget.hpp
+	GUI/Common/AnkerPopupWidget.cpp
+    GUI/Common/AnkerOTANotesBox.hpp
+	GUI/Common/AnkerOTANotesBox.cpp
+    GUI/Common/AnkerMenuBar.hpp
+    GUI/Common/AnkerMenuBar.cpp
+	GUI/Common/AnkerLineEditUnit.hpp
+	GUI/Common/AnkerLineEditUnit.cpp
+    GUI/Common/AnkerFrameModal.hpp
+    GUI/Common/AnkerFrameModal.cpp
+    GUI/Common/AnkerLoadingLabel.hpp
+    GUI/Common/AnkerLoadingLabel.cpp
+    GUI/Common/AnkerProgressCtrl.hpp
+    GUI/Common/AnkerProgressCtrl.cpp
+    GUI/Common/AnkerSliderCtrl.hpp
+    GUI/Common/AnkerSliderCtrl.cpp
+    GUI/Common/AnkerScrollbar.hpp
+    GUI/Common/AnkerScrollbar.cpp
+    GUI/Common/AnkerScrolledWindow.hpp
+    GUI/Common/AnkerScrolledWindow.cpp
+    GUI/Common/AnkerMerterialBoxBtn.hpp
+    GUI/Common/AnkerMerterialBoxBtn.cpp
+    GUI/Common/AnkerRoundPanel.cpp
+    GUI/Common/AnkerRoundPanel.hpp
+    GUI/Common/AnkerCombinComboBox.cpp
+    GUI/Common/AnkerCombinComboBox.hpp
+    GUI/Common/AnkerRoundBaseDialog.cpp
+    GUI/Common/AnkerRoundBaseDialog.hpp
+    GUI/Common/AnkerRoundDialog.cpp
+    GUI/Common/AnkerRoundDialog.hpp
+    GUI/Common/AnkerBaseCtls.h
+	GUI/Common/AnkerNozzlesStausPanel.cpp
+    GUI/Common/AnkerNozzlesStausPanel.h
+    GUI/Common/AnkerNumberEnterDialog.hpp
+    GUI/Common/AnkerNumberEnterDialog.cpp
+    GUI/Common/AnkerFeedbackDialog.hpp
+    GUI/Common/AnkerFeedbackDialog.cpp
+	GUI/PrinterConfigPlater/AnkerParameterPanel.hpp
+	GUI/PrinterConfigPlater/AnkerParameterPanel.cpp
+    GUI/AnkerConfigDialog/AnkerConfigDialog.hpp
+	GUI/AnkerConfigDialog/AnkerConfigDialog.cpp
+    GUI/AnkerCfgTab.hpp
+    GUI/AnkerCfgTab.cpp
 	Utils/AppUpdater.cpp
     Utils/AppUpdater.hpp
     Utils/Http.cpp
@@ -307,6 +398,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/FlashAir.hpp
     Utils/FontConfigHelp.cpp
     Utils/FontConfigHelp.hpp
+    Utils/GcodeInfo.cpp
+    Utils/GcodeInfo.hpp
     Utils/AstroBox.cpp
     Utils/AstroBox.hpp
     Utils/Repetier.cpp
@@ -349,6 +442,7 @@ if (APPLE)
             GUI/Mouse3DHandlerMac.mm
             GUI/InstanceCheckMac.mm
             GUI/InstanceCheckMac.h
+			GUI/FullScreenToggle.mm
         )
     FIND_LIBRARY(DISKARBITRATION_LIBRARY DiskArbitration)
 endif ()
@@ -373,7 +467,15 @@ elseif (APPLE)
     target_link_libraries(libslic3r_gui ${DISKARBITRATION_LIBRARY})
 endif()
 
+message("----include path; $ENV{THIRD_PART_ROOT}/usr/local/include/json ----")
+include_directories($ENV{THIRD_PART_ROOT}/usr/local/include/json)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../anker_net/Interface\ Files)
+if(MSVC)
+	target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/jansson/win/jansson.lib)
+elseif (APPLE)
+target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/jansson/mac/libjansson.a)
 
+endif()
 
 if (SLIC3R_STATIC)
     # FIXME: This was previously exported by wx-config but the wxWidgets

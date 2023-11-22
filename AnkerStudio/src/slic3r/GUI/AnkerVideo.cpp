@@ -1,9 +1,10 @@
 #include "libslic3r/Utils.hpp"
+#include "GUI_App.hpp"
 
 #include "AnkerVideo.hpp"
 
 #include "../Utils/DataManger.hpp"
-
+#include "Common/AnkerGUIConfig.hpp"
 
 
 static std::string num2Str(long long num)
@@ -159,8 +160,7 @@ void CustomPopupMenu::OnPaint(wxPaintEvent& event)
 
 		// draw menu item text
 		dc.SetTextForeground(GetForegroundColour());
-		wxFont font(m_fondSize, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-		dc.SetFont(GetFont());
+		dc.SetFont(ANKER_FONT_NO_1);
 		wxSize textSize = dc.GetTextExtent(menuItem);
 		//int textX = rectX + (rectWidth - textSize.GetWidth()) / 2;
 		int textY = y + (m_menuItemHeight - textSize.GetHeight()) / 2;
@@ -202,7 +202,7 @@ void CustomPopupMenu::OnMouseLeftDown(wxMouseEvent& event)
 
 void CustomPopupMenu::OnMouseMotion(wxMouseEvent& event)
 {
-	int menuItemIndex = event.GetY() / m_menuItemHeight; 
+	int menuItemIndex = event.GetY() / m_menuItemHeight;
 	if (menuItemIndex >= 0 && menuItemIndex < m_menuItems.size())
 	{
 		m_hoveredMenuItemIndx = menuItemIndex;
@@ -312,12 +312,11 @@ void CustomComboBox::OnPaint(wxPaintEvent& event)
 
 	dc.SetBrush(m_backgroudColor);
 	dc.SetPen(wxPen(m_borderColor));
-	dc.DrawRoundedRectangle(GetClientRect(), 15);
+	dc.DrawRoundedRectangle(GetClientRect(), 8);
 
 	m_textColorEnable = GetForegroundColour();
 	dc.SetTextForeground(IsEnabled() ? m_textColorEnable : m_textColorDisable);
-	//dc.SetFont(wxFont(wxFontInfo(12)));
-	dc.SetFont(GetFont());
+	dc.SetFont(ANKER_FONT_NO_1);
 	wxSize textSize = dc.GetTextExtent(m_currentOption);
 	int textX = 0 + (GetClientRect().GetWidth() - textSize.GetWidth()) / 2;
 	int textY = 0 + (GetClientRect().GetHeight() - textSize.GetHeight()) / 2;
@@ -335,7 +334,7 @@ void CustomComboBox::OnMouseLeftDown(wxMouseEvent& event)
 	wxPoint screenPos = ClientToScreen(wxPoint(mouseX, mouseY + 20));
 
 	CustomPopupMenu* m_popupMenu = new CustomPopupMenu(this);
-	m_popupMenu->SetFont(GetFont());
+	m_popupMenu->SetFont(ANKER_FONT_NO_1);
 	m_popupMenu->SetBackgroundColour(m_PopupMenuBackgroudColour);
 	m_popupMenu->SetForegroundColour(GetForegroundColour());
 	m_popupMenu->setHightLightMenuColour(m_hightLightMenuItemColor);
@@ -366,28 +365,6 @@ void CustomComboBox::OnMouseLeftDown(wxMouseEvent& event)
 
 	event.Skip();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -520,7 +497,7 @@ int imageDisplayer::getOffsetY(VideoOSDItem item)
 
 void imageDisplayer::render(wxDC& dc)
 {
-	//PrintLog("==============render()");
+	//ANKER_LOG_INFO << ("==============render()");
     int panelWidth, panelHeight;
     GetSize(&panelWidth, &panelHeight);
 
@@ -558,8 +535,7 @@ void imageDisplayer::render(wxDC& dc)
 	}
 
 	if (m_showVideoStatusMsg) {
-		wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-		dc.SetFont(font);
+		dc.SetFont(ANKER_FONT_NO_1);
 		dc.SetTextForeground(wxColour(255, 255, 255));
 		dc.SetTextBackground(wxColour(0, 0, 0, 0));
 		wxSize textSize = dc.GetTextExtent(m_videoStatusMsg);
@@ -585,8 +561,7 @@ void imageDisplayer::render(wxDC& dc)
 		dc.SetPen(wxPen(wxColour(255, 255,255))); 
 		dc.DrawRoundedRectangle(m_retryButtonX, m_retryButtonY, m_retryButtonWidth, m_retryButtonHeight, 5); 
 		
-		wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-		dc.SetFont(font);
+		dc.SetFont(ANKER_FONT_NO_1);
 		dc.SetTextForeground(wxColour(255, 255, 255)); 
 		dc.SetTextBackground(wxColour(0, 0, 0, 0)); 
 		wxSize textSize = dc.GetTextExtent(m_RetryBtnText);
@@ -607,10 +582,10 @@ AnkerVideo::AnkerVideo(wxWindow* parent, std::string sn)
 	: m_sn(sn),
 	wxPanel(parent)
 {
-	PrintLog("AnkerVideo construcor, sn="+sn);
+	ANKER_LOG_INFO << ("AnkerVideo constructor, sn="+sn);
 	Bind(wxEVT_SIZE, &AnkerVideo::OnSize, this);
 	Bind(wxCUSTOMEVT_UI_UPDATE, [this](wxCommandEvent& event) {
-		// PrintLog("--------on recv wxCUSTOMEVT_UI_UPDATE, thread id=" + num2Str((getThreadIdAsLongLong())));
+		// ANKER_LOG_INFO << ("--------on recv wxCUSTOMEVT_UI_UPDATE, thread id=" + num2Str((getThreadIdAsLongLong())));
 		UpdateUI();
 	});
 
@@ -622,7 +597,7 @@ AnkerVideo::~AnkerVideo()
 	/*
 	if (currVideoState == Video_State_Recving_Frame)
 	{
-		PrintLog("AnkerVideo destrucor, close video sn=" + m_sn);
+		ANKER_LOG_INFO << ("AnkerVideo destrucor, close video sn=" + m_sn);
 		videoImgDisplayer->m_bStopRender = true;
 		DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
 		if (!pDevObj) {
@@ -640,14 +615,23 @@ void AnkerVideo::InitGUI()
 	// title
 	{
 		wxBoxSizer* titleSizer = new wxBoxSizer(wxHORIZONTAL);
-		vBox->Add(titleSizer, 0, wxTOP | wxBOTTOM, 4 );
-		titleSizer->AddSpacer(12);
-		wxStaticText* titleBanner = new wxStaticText(this, wxID_ANY, "Monitor");
-		titleBanner->SetBackgroundColour(wxColour("#292A2D"));
-		titleBanner->SetForegroundColour(wxColour(200, 200, 200));
-		titleBanner->SetCanFocus(false);
+		m_titlePanel = new wxPanel(this);
+		vBox->Add(m_titlePanel, 0, wxALL , 0 );
+		m_titlePanel->SetSizer(titleSizer);
 
-		titleSizer->Add(titleBanner, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, 0);
+		m_titlePanel->SetBackgroundColour(wxColour("#292A2D"));
+		m_titlePanel->SetMinSize(AnkerSize(-1, m_titileBarHeight));
+		m_titlePanel->SetMaxSize(AnkerSize(-1, m_titileBarHeight));
+		m_titlePanel->SetSize(AnkerSize(-1, m_titileBarHeight));
+
+		titleSizer->AddSpacer(12);
+		wxStaticText* title = new wxStaticText(m_titlePanel, wxID_ANY, _L("common_print_monitor_title"));
+		title->SetFont(ANKER_BOLD_FONT_NO_1);
+		title->SetBackgroundColour(wxColour("#292A2D"));
+		title->SetForegroundColour(wxColour(255, 255, 255));
+		title->SetCanFocus(false);
+
+		titleSizer->Add(title, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, 0);
 	}
 
 
@@ -655,8 +639,8 @@ void AnkerVideo::InitGUI()
 		// Line
 		wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
 		splitLineCtrl->SetBackgroundColour(wxColour(62, 63, 66));
-		splitLineCtrl->SetMaxSize(wxSize(2000, 1));
-		splitLineCtrl->SetMinSize(wxSize(2000, 1));
+		splitLineCtrl->SetMaxSize(AnkerSize(2000, m_spliteLineHeight));
+		splitLineCtrl->SetMinSize(AnkerSize(2000, m_spliteLineHeight));
 		vBox->Add(splitLineCtrl, 0, wxALIGN_CENTER, 0);
 	}
 
@@ -672,24 +656,54 @@ void AnkerVideo::InitGUI()
 		//vBox->Add(sizer);
 	}
 	{
-		// video status msg
 		wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 		sizer->AddStretchSpacer(1);
-
-		m_videoIconButton = new wxButton(videoImgDisplayer, wxID_ANY, "",  wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-		m_videoIconButton->SetBackgroundColour(wxColour("#000000"));
+		// online 
 		{
-			wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("videoIcon.png")), wxBITMAP_TYPE_PNG);
-			wxImage BtnImage = BtnBitmap.ConvertToImage();
-			BtnImage.Rescale(40, 40);
-			wxBitmap scaledBitmap(BtnImage);
-			m_videoIconButton->SetBitmap(scaledBitmap);
-			m_videoIconButton->SetMinSize(scaledBitmap.GetSize());
-			m_videoIconButton->SetMaxSize(scaledBitmap.GetSize());
+			m_videoIconButton = new wxButton(videoImgDisplayer, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+			m_videoIconButton->SetBackgroundColour(wxColour("#000000"));
+			{
+				wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("videoIcon.png")), wxBITMAP_TYPE_PNG);
+				wxImage BtnImage = BtnBitmap.ConvertToImage();
+				BtnImage.Rescale(40, 40);
+				wxBitmap scaledBitmap(BtnImage);
+				m_videoIconButton->SetBitmap(scaledBitmap);
+				m_videoIconButton->SetMinSize(scaledBitmap.GetSize());
+				m_videoIconButton->SetMaxSize(scaledBitmap.GetSize());
+			}
+			m_videoIconButton->Bind(wxEVT_BUTTON, &AnkerVideo::OnPlayBtnClicked, this);
+			m_showVideoIcon = true;
+			sizer->Add(m_videoIconButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 5);
 		}
-		m_videoIconButton->Bind(wxEVT_BUTTON, &AnkerVideo::OnPlayBtnClicked, this);
-		m_showVideoIcon = true;
-		sizer->Add(m_videoIconButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 5);
+
+		// offline
+		{
+			int px_size = 60;
+			m_offlineIconButton = new ScalableButton(videoImgDisplayer, wxID_ANY, "device_wifi_icon_off", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, px_size);
+			m_offlineIconButton->SetBackgroundColour(wxColour("#000000"));
+			sizer->Add(m_offlineIconButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+
+			m_offlineText = new wxStaticText(videoImgDisplayer, wxID_ANY, _L("common_print_statusnotice_disconnected")); // "Device Is Disconnected,"
+			m_offlineText->SetFont(ANKER_FONT_NO_1);
+			m_offlineText->SetBackgroundColour(wxColour(0,0,0,255));
+			m_offlineText->SetForegroundColour(wxColour("#999999"));
+			m_offlineText->SetCanFocus(false);
+			sizer->Add(m_offlineText, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+
+			wxString helpText = _L("common_print_statusnotice_disconnected2"); // "please click to see more help >>"
+			wxSize textSize = videoImgDisplayer->GetTextExtent(helpText);
+			m_offlineHelpLink = new AnkerHyperlink(videoImgDisplayer, wxID_ANY, helpText, "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue", wxColour("#000000"));
+			m_offlineHelpLink->SetMinSize(AnkerSize(textSize.x+10, textSize.y + 10));
+			m_offlineHelpLink->SetSize(AnkerSize(textSize.x + 10, textSize.y + 10));
+			sizer->Add(m_offlineHelpLink, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+
+			wxBoxSizer* offLineMsgSizer = new wxBoxSizer(wxHORIZONTAL);
+			sizer->Add(offLineMsgSizer);
+
+			m_offlineIconButton->Hide();
+			m_offlineText->Hide();
+			m_offlineHelpLink->Hide();
+		}
 
 		sizer->AddStretchSpacer(1);
 		videoImgDisplayer->SetSizer(sizer);
@@ -699,105 +713,87 @@ void AnkerVideo::InitGUI()
 		// Line
 		wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
 		splitLineCtrl->SetBackgroundColour(wxColour(62, 63, 66));
-		splitLineCtrl->SetMaxSize(wxSize(2000, 1));
-		splitLineCtrl->SetMinSize(wxSize(2000, 1));
+		splitLineCtrl->SetMaxSize(AnkerSize(2000, m_spliteLineHeight));
+		splitLineCtrl->SetMinSize(AnkerSize(2000, m_spliteLineHeight));
 		vBox->Add(splitLineCtrl, 0, wxALIGN_CENTER, 0);
 	}
 
 	{
 		// buttons
-		wxBoxSizer* controlBar = new wxBoxSizer(wxHORIZONTAL);
-		controlBar->AddSpacer(10);
-		m_playBtn = new wxButton(this, wxID_ANY, "",  wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-		m_playBtn->SetBackgroundColour(wxColour("#292A2D"));
+		wxBoxSizer* controlBarSizer = new wxBoxSizer(wxHORIZONTAL);
+		m_controlBar = new wxPanel(this);
+		m_controlBar->SetBackgroundColour(wxColour("#292A2D"));
+		m_controlBar->SetMinSize(AnkerSize(-1, m_controlBarHeight));
+		m_controlBar->SetSize(AnkerSize(-1, m_controlBarHeight));
+
+		m_controlBar->SetSizer(controlBarSizer);
+		controlBarSizer->AddSpacer(10);
+
 		{
-			wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("PlayVideo.png")), wxBITMAP_TYPE_PNG);
-			wxImage BtnImage = BtnBitmap.ConvertToImage();
-			BtnImage.Rescale(30, 30);
-			wxBitmap scaledBitmap(BtnImage);
-			m_playBtn->SetBitmap(scaledBitmap);
-			m_playBtn->SetMinSize(scaledBitmap.GetSize());
-			m_playBtn->SetMaxSize(scaledBitmap.GetSize());
+			int px_size = 20;
+			m_playBtn = new ScalableButton(m_controlBar, wxID_ANY, "PlayVideo", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, px_size);
+			m_playBtn->SetBackgroundColour(wxColour("#292A2D"));
+			m_playBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnPlayBtnClicked, this);
 		}
-		m_playBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnPlayBtnClicked, this);
-
-		m_stopBtn = new wxButton(this, wxID_ANY, "",  wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-		m_stopBtn->SetBackgroundColour(wxColour("#292A2D"));
 		{
-			wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("StopVideo.png")), wxBITMAP_TYPE_PNG);
-			wxImage BtnImage = BtnBitmap.ConvertToImage();
-			BtnImage.Rescale(30, 30);
-			wxBitmap scaledBitmap(BtnImage);
-			m_stopBtn->SetBitmap(scaledBitmap);
-			m_stopBtn->SetMinSize(scaledBitmap.GetSize());
-			m_stopBtn->SetMaxSize(scaledBitmap.GetSize());
+			int px_size = 20;
+			m_stopBtn = new ScalableButton(m_controlBar, wxID_ANY, "StopVideo", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, px_size);
+			m_stopBtn->SetBackgroundColour(wxColour("#292A2D"));
+			m_stopBtn->Hide();
+			m_stopBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnStopBtnClicked, this);
 		}
-		m_stopBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnStopBtnClicked, this);
-
-		m_playStopStateText = new wxStaticText(this, wxID_ANY, "");
-		m_playStopStateText->SetBackgroundColour(wxColour("#292A2D"));
-		m_playStopStateText->SetForegroundColour("#777777");
-		wxFont font(m_playStopStateText->GetFont());
-		font.SetPointSize(12);
-		m_playStopStateText->SetFont(font);
-
-		m_turnOnCameraLightBtn = new wxButton(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-		m_turnOnCameraLightBtn->SetBackgroundColour(wxColour("#292A2D"));
 		{
-			wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("TurnonLight_disable.png")), wxBITMAP_TYPE_PNG);
-			wxImage BtnImage = BtnBitmap.ConvertToImage();
-			BtnImage.Rescale(30, 30);
-			wxBitmap scaledBitmap(BtnImage);
-			m_turnOnCameraLightBtn->SetBitmap(scaledBitmap);
-			m_turnOnCameraLightBtn->SetMinSize(scaledBitmap.GetSize());
-			m_turnOnCameraLightBtn->SetMaxSize(scaledBitmap.GetSize());
+			m_playStopStateText = new wxStaticText(m_controlBar, wxID_ANY, "");
+			m_playStopStateText->SetBackgroundColour(wxColour("#292A2D"));
+			m_playStopStateText->SetForegroundColour("#777777");
+			m_playStopStateText->SetFont(ANKER_FONT_NO_1);
 		}
-		m_turnOnCameraLightBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnTurnOnLightBtnClicked, this);
-
-		m_turnOffCameraLightBtn = new wxButton(this, wxID_ANY, "",  wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-		m_turnOffCameraLightBtn->SetBackgroundColour(wxColour("#292A2D"));
 		{
-			wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("TurnoffLight.png")), wxBITMAP_TYPE_PNG);
-			wxImage BtnImage = BtnBitmap.ConvertToImage();
-			BtnImage.Rescale(30, 30);
-			wxBitmap scaledBitmap(BtnImage);
-			m_turnOffCameraLightBtn->SetBitmap(scaledBitmap);
-			m_turnOffCameraLightBtn->SetMinSize(scaledBitmap.GetSize());
-			m_turnOffCameraLightBtn->SetMaxSize(scaledBitmap.GetSize());
+			int px_size = 20;
+			m_turnOnCameraLightBtn = new ScalableButton(m_controlBar, wxID_ANY, "TurnonLight", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, px_size);
+			m_turnOnCameraLightBtn->SetBackgroundColour(wxColour("#292A2D"));
+			m_turnOnCameraLightBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnTurnOnLightBtnClicked, this);
 		}
-		m_turnOffCameraLightBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnTurnOffLightBtnClicked, this);
+		{
+			int px_size = 20;
+			m_turnOffCameraLightBtn = new ScalableButton(m_controlBar, wxID_ANY, "TurnoffLight", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, px_size);
+			m_turnOffCameraLightBtn->SetBackgroundColour(wxColour("#292A2D"));
+			m_turnOffCameraLightBtn->Hide();
+			m_turnOffCameraLightBtn->Bind(wxEVT_BUTTON, &AnkerVideo::OnTurnOffLightBtnClicked, this);
+		}
 
-		m_videoModeSelector = new CustomComboBox(this);
+		m_videoModeSelector = new CustomComboBox(m_controlBar);
 		m_videoModeSelector->SetBackgroundColour(wxColour("#292A2D"));
 		m_videoModeSelector->SetForegroundColour(wxColour("#EAEAEA"));
 		m_videoModeSelector->setPopupMenuBackgroudColour(wxColour("#202020"));
 		m_videoModeSelector->setHightlightMenuItemColour(wxColour("#555555"));
-		wxFont thefont(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-		m_videoModeSelector->SetFont(thefont);
-		m_videoModeSelector->SetMinSize(wxSize(80, 30));
-		m_videoModeSelector->AddOption("HD");
-		m_videoModeSelector->AddOption("Smooth");
-		m_videoModeSelector->SetCurrentOption("HD");
+		m_videoModeSelector->SetFont(ANKER_FONT_NO_1);
+		m_videoModeSelector->SetMinSize(wxSize(80, 20));
+		m_videoModeSelector->AddOption(_L("common_print_monitor_switchhd"));		// "HD"
+		m_videoModeSelector->AddOption(_L("common_print_monitor_switchsd"));	// "Smooth"
+		m_videoModeSelector->SetCurrentOption(_L("common_print_monitor_switchhd"));	// "HD"
 		m_videoModeSelector->SetOptionChangeCallback([this](const wxString& menuItem) {
 			//wxLogMessage("you have Selected item: %s", menuItem);
 			OnSelectVideoMode(menuItem);
 			});
 
-		controlBar->Add(m_playBtn, 0, wxALL | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 5);
-		controlBar->Add(m_stopBtn, 0, wxALL | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 5);
-		controlBar->Add(m_playStopStateText, 0, wxALL | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
-		controlBar->AddStretchSpacer(1);
-		//controlBar->Add(dropdownControl, 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
-		controlBar->Add(m_videoModeSelector, 0, wxALL | wxALIGN_CENTER_VERTICAL, 3);
-		controlBar->Add(m_turnOnCameraLightBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
-		controlBar->Add(m_turnOffCameraLightBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
-		controlBar->AddSpacer(10);
-		vBox->Add(controlBar, 0, wxEXPAND | wxALL, 0);
+		controlBarSizer->Add(m_playBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+		controlBarSizer->Add(m_stopBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+		controlBarSizer->AddSpacer(5);
+		controlBarSizer->Add(m_playStopStateText, 0, wxALL | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+		controlBarSizer->AddStretchSpacer(1);
+		controlBarSizer->Add(m_videoModeSelector, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+		controlBarSizer->AddSpacer(10);
+		controlBarSizer->Add(m_turnOnCameraLightBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+		controlBarSizer->Add(m_turnOffCameraLightBtn, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+		controlBarSizer->AddSpacer(10);
+
+		vBox->Add(m_controlBar, 0, wxEXPAND | wxALL, 0);
 	}
 	UpdateUI();
 
 	m_videoStreamConnetingTimer.Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
-		PrintLog("==ConectingVideo time out");
+		ANKER_LOG_INFO << ("==ConectingVideo time out");
 		this->m_videoStreamConnetingTimer.Stop();
 		this->m_VideoConnetingClosingIconUpdtTimer.Stop();
 		this->currVideoState = Video_State_ConectingVideo_Fail;
@@ -808,7 +804,7 @@ void AnkerVideo::InitGUI()
 		static int currIdx = 0;
 		++currIdx;
 		std::string pngFile = "preparingVideo" + num2Str(1 + currIdx % 8) + ".png";
-		//PrintLog("==================update icon pngFile");
+		//ANKER_LOG_INFO << ("==================update icon pngFile");
 		videoImgDisplayer->setOSDItem(Video_Status_Icon, pngFile);
 		videoImgDisplayer->Update();
 		videoImgDisplayer->Refresh();
@@ -818,15 +814,30 @@ void AnkerVideo::InitGUI()
 	videoImgDisplayer->setRetryBtnClickCB(std::bind(&AnkerVideo::onRetryBtnClickCB, this));
 }
 
+void AnkerVideo::SetOnlineOfflineState(bool state)
+{
+	ANKER_LOG_INFO << ("SetOnlineOfflineState:"+num2Str(state));
+	m_onlineOfflineState = state;
+	UpdateUI();
+}
 
 
+void  AnkerVideo::SetSN(std::string sn)
+{
+	m_sn = sn;
+	UpdateUI();
+}
 
 void AnkerVideo::OnSize(wxSizeEvent& event)
 {
 	m_resizing = true;
 
 	videoImgDisplayer->SetBackgroundColour(wxColour("#000000"));
-    videoImgDisplayer->SetMinSize(wxSize(GetSize().GetWidth(), GetSize().GetHeight()-70));
+
+	int titileHeight = AnkerSize(-1, m_titileBarHeight).GetHeight();
+	int controlBarHeight = AnkerSize(-1, m_controlBarHeight).GetHeight();
+	int spliteLineHeight = AnkerSize(-1, m_spliteLineHeight).GetHeight();
+    videoImgDisplayer->SetMinSize(wxSize(GetSize().GetWidth(), GetSize().GetHeight()-(titileHeight + controlBarHeight + spliteLineHeight * 2)));
 	Update();
 	Refresh();
 	Layout();
@@ -842,21 +853,22 @@ void AnkerVideo::OnCloseWindow(wxCloseEvent& event)
 
 void AnkerVideo::onRetryBtnClickCB()
 {
-	PrintLog(" clickRetryBtn");
+	ANKER_LOG_INFO << (" clickRetryBtn");
 	wxCommandEvent event;
 	OnPlayBtnClicked(event);
 }
 
 void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 {
-	PrintLog("===>OnPlayBtnClicked,sn = "+ m_sn);
+	ANKER_LOG_INFO << ("===>OnPlayBtnClicked,sn = "+ m_sn);
     DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
     if (!pDevObj)    {
+		ANKER_LOG_ERROR << ("device obj is null");
         return;
     }
 
     if (!pDevObj->onlined) {
-		PrintLog("device is offline");
+		ANKER_LOG_ERROR << ("device is offline");
         return;
     }
 
@@ -872,7 +884,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
         return;
     }
 
-	m_videoModeSelector->SetCurrentOption("HD");
+	m_videoModeSelector->SetCurrentOption(_L("common_print_monitor_switchhd"));  // "HD"
 	if (currVideoState == Video_State_None || currVideoState == Video_State_ConectingVideo_Fail || currVideoState == Video_State_p2p_was_preempted)
 	{
 		m_videoIconButton->Show(false);
@@ -889,17 +901,18 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		//pDevObj->setVideoPlayStart();
 	}
 	else {
-		PrintLog("===> ignore, currstate:"+ getVideoStateStr(currVideoState));
+		ANKER_LOG_ERROR << ("===> ignore, currstate:"+ getVideoStateStr(currVideoState));
 	}
 
-	// PrintLog("--------in playclick thread id=" + num2Str((getThreadIdAsLongLong())));
+	// ANKER_LOG_INFO << ("--------in playclick thread id=" + num2Str((getThreadIdAsLongLong())));
 }
 
 void AnkerVideo::OnStopBtnClicked(wxCommandEvent& event)
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
 	if (!pDevObj) {
+		ANKER_LOG_ERROR << ("device obj is null");
 		return;
 	}
 
@@ -912,7 +925,7 @@ void AnkerVideo::OnStopBtnClicked(wxCommandEvent& event)
 		pDevObj->setVideoStop();
 	}
 	else {
-		PrintLog("curr state is not playing video, do nothing");
+		ANKER_LOG_ERROR << ("curr state is not playing video, do nothing");
 	}
 
 }
@@ -920,20 +933,17 @@ void AnkerVideo::OnStopBtnClicked(wxCommandEvent& event)
 
 void AnkerVideo::OnTurnOnLightBtnClicked(wxCommandEvent& event)
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
 	if (!pDevObj) {
+		ANKER_LOG_ERROR << ("device obj is null");
 		return;
 	}
 
     m_turnOnCameraLightBtn->Enable(false);
     m_turnOffCameraLightBtn->Enable(false);
 
-	wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("TurnonLight_disable.png")), wxBITMAP_TYPE_PNG);
-	wxImage BtnImage = BtnBitmap.ConvertToImage();
-	BtnImage.Rescale(30, 30);
-	wxBitmap scaledBitmap(BtnImage);
-	m_turnOnCameraLightBtn->SetBitmap(scaledBitmap);
+	m_turnOnCameraLightBtn->SetBitmap_("TurnonLight_disable");
 
 	m_timer.Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
 		if (currVideoState == Video_State_Recving_Frame) {
@@ -950,7 +960,7 @@ void AnkerVideo::OnTurnOnLightBtnClicked(wxCommandEvent& event)
 
 void AnkerVideo::OnTurnOffLightBtnClicked(wxCommandEvent& event)
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
 	if (!pDevObj) {
 		return;
@@ -972,15 +982,15 @@ void AnkerVideo::OnTurnOffLightBtnClicked(wxCommandEvent& event)
 
 void AnkerVideo::OnSelectVideoMode(wxString mode)
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
 	if (!pDevObj) {
 		return;
 	}
 	
-	if (mode == "HD") {
+	if (mode == "HD" || mode == _L("common_print_monitor_switchhd")) {
 		pDevObj->setVideoMode(1);
-	}else if (mode == "Smooth") {
+	}else if (mode == "Smooth" || mode == _L("common_print_monitor_switchsd") ) {
 		pDevObj->setVideoMode(2);
 	}
 }
@@ -1016,7 +1026,7 @@ void AnkerVideo::displayVideoFrame(const unsigned char* imgData, int width, int 
 	{
 		if (imgData)
 		{
-			//PrintLog(" draw a frame ...");
+			//ANKER_LOG_INFO << (" draw a frame ...");
 			//wxImage image( width, height, const_cast<unsigned char*>(imgData), true);
 			DataFrame data;
 			data.frame = const_cast<unsigned char *> (imgData);
@@ -1027,11 +1037,34 @@ void AnkerVideo::displayVideoFrame(const unsigned char* imgData, int width, int 
 			MyCustomEvent evt = MyCustomEvent(wxCUSTOMEVT_FRAME_DATA_UPDATE);
 			evt.SetCustomData(data);
 			wxPostEvent(videoImgDisplayer, evt); 
-			// PrintLog("===post frame data, sn="+m_sn);
+			// ANKER_LOG_INFO << ("===post frame data, sn="+m_sn);
 		}
 	}
 }
 
+void AnkerVideo::HideVideoStatusInfo()
+{
+	videoImgDisplayer->showOSDItem(Video_Status_Icon, false);
+	videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
+	videoImgDisplayer->showOSDItem(Retry_Btn, false);
+
+	m_videoIconButton->Show(false);
+	m_offlineIconButton->Show(false);
+	m_offlineText->Show(false);
+	m_offlineHelpLink->Show(false);
+}
+
+void AnkerVideo::OffLineUI()
+{
+	videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
+	videoImgDisplayer->showOSDItem(Video_Status_Msg, true);
+	videoImgDisplayer->showOSDItem(Retry_Btn, false);
+
+	m_videoIconButton->Show(false);
+	m_offlineIconButton->Show(true);
+	m_offlineText->Show(true);
+	m_offlineHelpLink->Show(true);
+}
 
 void AnkerVideo::videNotSuportUI()
 {
@@ -1041,7 +1074,7 @@ void AnkerVideo::videNotSuportUI()
 
 	std::string pngFile = "cameraNotExist.png";
 	videoImgDisplayer->setOSDItem(Video_Status_Icon, pngFile);
-	videoImgDisplayer->setOSDItem(Video_Status_Msg, "The current device does not support real-time video");
+	videoImgDisplayer->setOSDItem(Video_Status_Msg, _L("common_print_monitor_nomonitor").ToStdString());    // "The current device does not support real-time video"
 }
 
 void AnkerVideo::videoShowRetryUI()
@@ -1053,14 +1086,14 @@ void AnkerVideo::videoShowRetryUI()
 		videoImgDisplayer->showOSDItem(Retry_Btn, true);
 
 		videoImgDisplayer->setOSDItem(Video_Status_Icon, "UnablePlayVideo.png");
-		videoImgDisplayer->setOSDItem(Video_Status_Msg, "Unable to play real-time video");
-		videoImgDisplayer->setOSDItem(Retry_Btn, "Retry");
+		videoImgDisplayer->setOSDItem(Video_Status_Msg, _L("common_print_monitor_disconnect").ToStdString());	// "Unable to play real-time video"
+		videoImgDisplayer->setOSDItem(Retry_Btn, _L("common_print_monitor_buttonretry").ToStdString());	// "Retry"
 	}
 }
 
 void AnkerVideo::PostUpdateUIEvent()
 {
-	// PrintLog("--------in PostUpdateUIEvent, thread id=" + num2Str((getThreadIdAsLongLong())));
+	// ANKER_LOG_INFO << ("--------in PostUpdateUIEvent, thread id=" + num2Str((getThreadIdAsLongLong())));
 	MyCustomEvent evt = MyCustomEvent(wxCUSTOMEVT_UI_UPDATE);
 	// evt.SetCustomData(data);
 	wxPostEvent(this, evt);
@@ -1068,21 +1101,29 @@ void AnkerVideo::PostUpdateUIEvent()
 
 void AnkerVideo::UpdateUI()
 {
-	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
-	if (!pDevObj) {
-		return;
-	}
+	ANKER_LOG_INFO << ("===> sn:"+ m_sn+" currstate:" + getVideoStateStr(currVideoState) + " online ? : " + num2Str(m_onlineOfflineState));
 
+	bool isOffline = false;
 	bool isVideoSuport = true;
-	if (pDevObj->deviceType == DEVICE_V8110_TYPE)
-	{
-		isVideoSuport = false;
-	}
-	// PrintLog("--------in updateUI, thread id=" + num2Str((getThreadIdAsLongLong())));
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
 
-	if (isVideoSuport == false)
-	{
+	if (m_onlineOfflineState == false || m_sn.empty()) {
+		isOffline = true;
+	}
+	else {
+		DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
+		if (!pDevObj) {
+			return;
+		}
+		if (pDevObj->deviceType == DEVICE_UNKNOWN_TYPE)
+		{
+			isVideoSuport = false;
+		}
+	}
+
+	HideVideoStatusInfo();
+
+	if (isOffline) {
+		// offline UI
 		m_playBtn->Show(true);
 		m_playBtn->Enable(false);
 
@@ -1101,33 +1142,29 @@ void AnkerVideo::UpdateUI()
 		m_turnOffCameraLightBtn->Enable(false);
 
 		m_videoIconButton->Show(false);
+		m_offlineIconButton->Show(false);
+		m_offlineText->Show(false);
+		m_offlineHelpLink->Show(false);
 
 		videoImgDisplayer->showOSDItem(Video_Status_Icon, false);
 		videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
 		videoImgDisplayer->showOSDItem(Retry_Btn, false);
 
-		videNotSuportUI();
+		OffLineUI();
 	}
 	else
 	{
-		switch (currVideoState)
+		if (isVideoSuport == false)
 		{
-		case Video_State_None:
 			m_playBtn->Show(true);
-			m_playBtn->Enable(true);
+			m_playBtn->Enable(false);
 
 			m_stopBtn->Show(false);
-			m_stopBtn->Enable(true);
+			m_stopBtn->Enable(false);
 
-			if (m_showVideoIcon) {
-				m_playStopStateText->Show(false);
-			}
-			else {
-				m_playStopStateText->Show(true);
-				m_playStopStateText->SetLabelText("Paused");
-			}
-				
+			m_playStopStateText->Show(false);
 
+			m_videoModeSelector->Show(true);
 			m_videoModeSelector->Enable(false);
 
 			m_turnOnCameraLightBtn->Show(true);
@@ -1136,234 +1173,251 @@ void AnkerVideo::UpdateUI()
 			m_turnOffCameraLightBtn->Show(false);
 			m_turnOffCameraLightBtn->Enable(false);
 
-		    m_videoIconButton->Show(m_showVideoIcon);
+			m_videoIconButton->Show(false);
+			m_offlineIconButton->Show(false);
+			m_offlineText->Show(false);
+			m_offlineHelpLink->Show(false);
 
 			videoImgDisplayer->showOSDItem(Video_Status_Icon, false);
 			videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
 			videoImgDisplayer->showOSDItem(Retry_Btn, false);
-			break;
-		case Video_State_ConectingVideo:
-			m_playBtn->Show(true);
-			m_playBtn->Enable(false);
 
-			m_stopBtn->Show(false);
-			m_stopBtn->Enable(true);
+			videNotSuportUI();
+		}
+		else {
+			// online
+			m_offlineIconButton->Show(false);
+			m_offlineText->Show(false);
+			m_offlineHelpLink->Show(false);
 
-			m_playStopStateText->Show(true);
-			m_playStopStateText->SetLabelText("Paused");
-
-			m_videoModeSelector->Enable(false);
-
-			m_turnOnCameraLightBtn->Show(true);
-			m_turnOnCameraLightBtn->Enable(false);
-
-			m_turnOffCameraLightBtn->Show(false);
-			m_turnOffCameraLightBtn->Enable(false);
-
-		    m_videoIconButton->Show(false);
-
-			videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
-			videoImgDisplayer->showOSDItem(Video_Status_Msg, true);
-			videoImgDisplayer->showOSDItem(Retry_Btn, false);
-			videoImgDisplayer->setOSDItem(Video_Status_Msg, "Establishing secure video channel...");
-
-			break;
-
-		case Video_State_ConectingVideo_Fail:
-			m_playBtn->Show(true);
-			m_playBtn->Enable(false);
-
-			m_stopBtn->Show(false);
-			m_stopBtn->Enable(true);
-
-			m_playStopStateText->Show(true);
-			m_playStopStateText->SetLabelText("Paused");
-
-			m_videoModeSelector->Enable(false);
-
-			m_turnOnCameraLightBtn->Show(true);
-			m_turnOnCameraLightBtn->Enable(false);
-
-			m_turnOffCameraLightBtn->Show(false);
-			m_turnOffCameraLightBtn->Enable(false);
-
-			m_videoIconButton->Show(false);
-
-			videoShowRetryUI();
-			break;
-
-		case Video_State_p2pInit_OK:
-			m_playBtn->Show(true);
-			m_playBtn->Enable(true);
-
-			m_stopBtn->Show(false);
-			m_stopBtn->Enable(true);
-
-			m_playStopStateText->Show(true);
-			m_playStopStateText->SetLabelText("Paused");
-
-			m_videoModeSelector->Enable(false);
-
-			m_turnOnCameraLightBtn->Show(true);
-			m_turnOnCameraLightBtn->Enable(false);
-
-			m_turnOffCameraLightBtn->Show(false);
-			m_turnOffCameraLightBtn->Enable(true);
-
-			m_videoIconButton->Show(false);
-
-			videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
-			videoImgDisplayer->showOSDItem(Video_Status_Msg, true);
-			videoImgDisplayer->showOSDItem(Retry_Btn, false);
-
-			break;
-
-		case Video_State_Recving_Frame:
-			m_playBtn->Show(false);
-			m_playBtn->Enable(true);
-
-			m_stopBtn->Show(true);
-			m_stopBtn->Enable(true);
-
-			m_playStopStateText->Show(true);
-			m_playStopStateText->SetLabelText("Playing");
-
-			m_videoModeSelector->Enable(true);
-
-			if (m_camerLightOnoff)
+			switch (currVideoState)
 			{
-				m_turnOnCameraLightBtn->Show(false);
-				m_turnOnCameraLightBtn->Enable(true);
+			case Video_State_None:
+				m_playBtn->Show(true);
+				m_playBtn->Enable(true);
 
-				m_turnOffCameraLightBtn->Show(true);
-				m_turnOffCameraLightBtn->Enable(true);
-			}
-			else
-			{
+				m_stopBtn->Show(false);
+				m_stopBtn->Enable(true);
+
+				if (m_showVideoIcon) {
+					m_playStopStateText->Show(false);
+				}
+				else {
+					m_playStopStateText->Show(true);
+					m_playStopStateText->SetLabelText(_L("common_print_monitor_paused"));    // "Paused"
+				}
+
+				m_videoModeSelector->Enable(false);
+
 				m_turnOnCameraLightBtn->Show(true);
-				m_turnOnCameraLightBtn->Enable(true);
+				m_turnOnCameraLightBtn->Enable(false);
+
+				m_turnOffCameraLightBtn->Show(false);
+				m_turnOffCameraLightBtn->Enable(false);
+
+				m_videoIconButton->Show(m_showVideoIcon);
+				videoImgDisplayer->showOSDItem(Video_Status_Icon, false);
+				videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
+				videoImgDisplayer->showOSDItem(Retry_Btn, false);
+				break;
+			case Video_State_ConectingVideo:
+				m_playBtn->Show(true);
+				m_playBtn->Enable(false);
+
+				m_stopBtn->Show(false);
+				m_stopBtn->Enable(true);
+
+				m_playStopStateText->Show(true);
+				m_playStopStateText->SetLabelText(_L("common_print_monitor_paused"));    // "Paused"
+
+				m_videoModeSelector->Enable(false);
+
+				m_turnOnCameraLightBtn->Show(true);
+				m_turnOnCameraLightBtn->Enable(false);
+
+				m_turnOffCameraLightBtn->Show(false);
+				m_turnOffCameraLightBtn->Enable(false);
+
+				m_videoIconButton->Show(false);
+
+				videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
+				videoImgDisplayer->showOSDItem(Video_Status_Msg, true);
+				videoImgDisplayer->showOSDItem(Retry_Btn, false);
+				//videoImgDisplayer->setOSDItem(Video_Status_Msg, "Establishing secure video channel...");	// ""Establishing secure video channel...""
+				videoImgDisplayer->setOSDItem(Video_Status_Msg, "");	// ""Establishing secure video channel...""
+				break;
+
+			case Video_State_ConectingVideo_Fail:
+				m_playBtn->Show(true);
+				m_playBtn->Enable(false);
+
+				m_stopBtn->Show(false);
+				m_stopBtn->Enable(true);
+
+				m_playStopStateText->Show(true);
+				m_playStopStateText->SetLabelText(_L("common_print_monitor_paused"));    // "Paused"
+
+				m_videoModeSelector->Enable(false);
+
+				m_turnOnCameraLightBtn->Show(true);
+				m_turnOnCameraLightBtn->Enable(false);
+
+				m_turnOffCameraLightBtn->Show(false);
+				m_turnOffCameraLightBtn->Enable(false);
+
+				m_videoIconButton->Show(false);
+
+				videoShowRetryUI();
+				break;
+
+			case Video_State_p2pInit_OK:
+				m_playBtn->Show(true);
+				m_playBtn->Enable(true);
+
+				m_stopBtn->Show(false);
+				m_stopBtn->Enable(true);
+
+				m_playStopStateText->Show(true);
+				m_playStopStateText->SetLabelText(_L("common_print_monitor_paused"));    // "Paused"
+
+				m_videoModeSelector->Enable(false);
+
+				m_turnOnCameraLightBtn->Show(true);
+				m_turnOnCameraLightBtn->Enable(false);
 
 				m_turnOffCameraLightBtn->Show(false);
 				m_turnOffCameraLightBtn->Enable(true);
+
+				m_videoIconButton->Show(false);
+
+				videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
+				videoImgDisplayer->showOSDItem(Video_Status_Msg, true);
+				videoImgDisplayer->showOSDItem(Retry_Btn, false);
+
+				break;
+
+			case Video_State_Recving_Frame:
+				m_playBtn->Show(false);
+				m_playBtn->Enable(true);
+
+				m_stopBtn->Show(true);
+				m_stopBtn->Enable(true);
+
+				m_playStopStateText->Show(true);
+				m_playStopStateText->SetLabelText(_L("common_print_monitor_playing"));    // "Playing"
+
+				m_videoModeSelector->Enable(true);
+
+				if (m_camerLightOnoff)
+				{
+					m_turnOnCameraLightBtn->Show(false);
+					m_turnOnCameraLightBtn->Enable(true);
+
+					m_turnOffCameraLightBtn->Show(true);
+					m_turnOffCameraLightBtn->Enable(true);
+				}
+				else
+				{
+					m_turnOnCameraLightBtn->Show(true);
+					m_turnOnCameraLightBtn->Enable(true);
+
+					m_turnOffCameraLightBtn->Show(false);
+					m_turnOffCameraLightBtn->Enable(true);
+				}
+
+				m_videoIconButton->Show(false);
+
+				videoImgDisplayer->showOSDItem(Video_Status_Icon, false);
+				videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
+				videoImgDisplayer->showOSDItem(Retry_Btn, false);
+
+				break;
+
+			case Video_State_Closing_Video:
+				m_playBtn->Show(false);
+				m_playBtn->Enable(true);
+
+				m_stopBtn->Show(true);
+				m_stopBtn->Enable(false);
+
+				m_playStopStateText->Show(true);
+				m_playStopStateText->SetLabelText(_L("common_print_monitor_paused"));    // "Paused"
+
+				m_videoModeSelector->Enable(false);
+
+				m_turnOnCameraLightBtn->Show(true);
+				m_turnOnCameraLightBtn->Enable(false);
+
+				m_turnOffCameraLightBtn->Show(false);
+				m_turnOffCameraLightBtn->Enable(false);
+
+				m_videoIconButton->Show(false);
+
+				videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
+				videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
+				videoImgDisplayer->showOSDItem(Retry_Btn, false);
+				videoImgDisplayer->setOSDItem(Video_Status_Msg, "");
+
+				break;
+
+			case Video_State_p2p_was_preempted:
+				m_playBtn->Show(true);
+				m_playBtn->Enable(true);
+
+				m_stopBtn->Show(false);
+				m_stopBtn->Enable(true);
+
+				m_playStopStateText->Show(true);
+				m_playStopStateText->SetLabelText("common_print_monitor_paused");    // "Paused"
+
+				m_videoModeSelector->Enable(false);
+
+				m_turnOnCameraLightBtn->Show(true);
+				m_turnOnCameraLightBtn->Enable(false);
+
+				m_turnOffCameraLightBtn->Show(false);
+				m_turnOffCameraLightBtn->Enable(false);
+
+				videoShowRetryUI();
+				break;
+
+			default: break;
 			}
-
-			m_videoIconButton->Show(false);
-
-			videoImgDisplayer->showOSDItem(Video_Status_Icon, false);
-			videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
-			videoImgDisplayer->showOSDItem(Retry_Btn, false);
-
-			break;
-
-		case Video_State_Closing_Video:
-			m_playBtn->Show(false);
-			m_playBtn->Enable(true);
-
-			m_stopBtn->Show(true);
-			m_stopBtn->Enable(false);
-
-			m_playStopStateText->Show(true);
-			m_playStopStateText->SetLabelText("Paused");
-
-			m_videoModeSelector->Enable(false);
-
-			m_turnOnCameraLightBtn->Show(true);
-			m_turnOnCameraLightBtn->Enable(false);
-
-			m_turnOffCameraLightBtn->Show(false);
-			m_turnOffCameraLightBtn->Enable(false);
-
-			m_videoIconButton->Show(false);
-
-			videoImgDisplayer->showOSDItem(Video_Status_Icon, true);
-			videoImgDisplayer->showOSDItem(Video_Status_Msg, false);
-			videoImgDisplayer->showOSDItem(Retry_Btn, false);
-			videoImgDisplayer->setOSDItem(Video_Status_Msg, "");
-
-			break;
-
-		case Video_State_p2p_was_preempted:
-			m_playBtn->Show(true);
-			m_playBtn->Enable(true);
-
-			m_stopBtn->Show(false);
-			m_stopBtn->Enable(true);
-
-			m_playStopStateText->Show(true);
-			m_playStopStateText->SetLabelText("Paused");
-
-			m_videoModeSelector->Enable(false);
-
-			m_turnOnCameraLightBtn->Show(true);
-			m_turnOnCameraLightBtn->Enable(false);
-
-			m_turnOffCameraLightBtn->Show(false);
-			m_turnOffCameraLightBtn->Enable(false);
-
-			videoShowRetryUI();
-			break;
-
-		default: break;
 		}
 	}
 
 	if (m_playBtn->IsThisEnabled())
 	{
-		wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("PlayVideo.png")), wxBITMAP_TYPE_PNG);
-		wxImage BtnImage = BtnBitmap.ConvertToImage();
-		BtnImage.Rescale(30, 30);
-		wxBitmap scaledBitmap(BtnImage);
-		m_playBtn->SetBitmap(scaledBitmap);
+		m_playBtn->SetBitmap_("PlayVideo");
 	}
 	else
 	{
-		wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("PlayVideo_disable.png")), wxBITMAP_TYPE_PNG);
-		wxImage BtnImage = BtnBitmap.ConvertToImage();
-		BtnImage.Rescale(30, 30);
-		wxBitmap scaledBitmap(BtnImage);
-		m_playBtn->SetBitmap(scaledBitmap);
+		m_playBtn->SetBitmap_("PlayVideo_disable");
 	}
 
 	if (m_stopBtn->IsEnabled())
 	{
-		wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("StopVideo.png")), wxBITMAP_TYPE_PNG);
-		wxImage BtnImage = BtnBitmap.ConvertToImage();
-		BtnImage.Rescale(30, 30);
-		wxBitmap scaledBitmap(BtnImage);
-		m_stopBtn->SetBitmap(scaledBitmap);
+		m_stopBtn->SetBitmap_("StopVideo");
 	}
 	else
 	{
-		wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("StopVideo_disable.png")), wxBITMAP_TYPE_PNG);
-		wxImage BtnImage = BtnBitmap.ConvertToImage();
-		BtnImage.Rescale(30, 30);
-		wxBitmap scaledBitmap(BtnImage);
-		m_stopBtn->SetBitmap(scaledBitmap);
-	}
-	if (m_turnOnCameraLightBtn->IsEnabled())
-	{
-		wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("TurnonLight.png")), wxBITMAP_TYPE_PNG);
-		wxImage BtnImage = BtnBitmap.ConvertToImage();
-		BtnImage.Rescale(30, 30);
-		wxBitmap scaledBitmap(BtnImage);
-		m_turnOnCameraLightBtn->SetBitmap(scaledBitmap);
-	}
-	else
-	{
-		wxBitmap BtnBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("TurnonLight_disable.png")), wxBITMAP_TYPE_PNG);
-		wxImage BtnImage = BtnBitmap.ConvertToImage();
-		BtnImage.Rescale(30, 30);
-		wxBitmap scaledBitmap(BtnImage);
-		m_turnOnCameraLightBtn->SetBitmap(scaledBitmap);
+		m_stopBtn->SetBitmap_("StopVideo_disable");
 	}
 
-    //PrintLog("---in updateUI, to update and start update timer ");
+	if (m_turnOnCameraLightBtn->IsEnabled())
+	{
+		m_turnOnCameraLightBtn->SetBitmap_("TurnonLight");
+	}
+	else
+	{
+		m_turnOnCameraLightBtn->SetBitmap_("TurnonLight_disable");
+	}
+	//ANKER_LOG_INFO << ("---in updateUI, to update and start update timer ");
 	Layout();
 	videoImgDisplayer->Update();
 	videoImgDisplayer->Refresh();
 	Refresh();
 }
-
 
 void AnkerVideo::onRecvCameraLightStateNotify(bool onOff)
 {
@@ -1389,7 +1443,7 @@ void AnkerVideo::onRecVideoModeNotify(int mode)
 
 void AnkerVideo::onVideoP2pInited()
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 	if (currVideoState == Video_State_ConectingVideo) {
 		currVideoState = Video_State_p2pInit_OK;
 		//UpdateUI();
@@ -1399,7 +1453,7 @@ void AnkerVideo::onVideoP2pInited()
 
 void AnkerVideo::onP2pvideoStreamSessionInit()
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 	if (currVideoState == Video_State_ConectingVideo) {
 		currVideoState = Video_State_p2pInit_OK;
 		//UpdateUI();
@@ -1413,7 +1467,7 @@ void AnkerVideo::onP2pvideoStreamSessionInit()
 
 void AnkerVideo::onRecvVideoStreamClosing(int closeReason)
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState) + "  reason:"+num2Str(closeReason));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState) + "  reason:"+num2Str(closeReason));
 	videoImgDisplayer->m_bStopRender = true;
 	if (closeReason > 0) // video is not close by click "stop" button
 	{
@@ -1426,12 +1480,12 @@ void AnkerVideo::onRecvVideoStreamClosing(int closeReason)
 
 void AnkerVideo::onP2pvideoStreamSessionClosed(int closeReason)
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState) + "  reason:" + num2Str(closeReason));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState) + "  reason:" + num2Str(closeReason));
 	Datamanger::GetInstance().setP2POperationType(P2P_IDLE);
 	m_isInP2pSession = false;
 	m_camerLightOnoff = false;
 	m_VideoConnetingClosingIconUpdtTimer.Stop();
-	m_videoModeSelector->SetCurrentOption("HD");
+	// m_videoModeSelector->SetCurrentOption(_L("common_print_monitor_switchhd")); // "HD"
 	if (currVideoState == Video_State_ConectingVideo_Fail)
 	{
 		// do nothing
@@ -1447,13 +1501,13 @@ void AnkerVideo::onP2pvideoStreamSessionClosed(int closeReason)
 	}
 	//UpdateUI();
 	PostUpdateUIEvent();
-	// PrintLog("--------in onClosed, thread id=" + num2Str((getThreadIdAsLongLong())));
+	// ANKER_LOG_INFO << ("--------in onClosed, thread id=" + num2Str((getThreadIdAsLongLong())));
 
 }
 
 void AnkerVideo::onRcvP2pVideoStreamCtrlBusyFeedback()
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState) );
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState) );
 
 	m_videoStreamConnetingTimer.Stop();
 	m_VideoConnetingClosingIconUpdtTimer.Stop();
@@ -1464,7 +1518,7 @@ void AnkerVideo::onRcvP2pVideoStreamCtrlBusyFeedback()
 
 void AnkerVideo::onRcvP2pVideoStreamCtrlAbnomal()
 {
-	PrintLog("===> currstate:" + getVideoStateStr(currVideoState));
+	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
 
 	m_videoStreamConnetingTimer.Stop();
 	m_VideoConnetingClosingIconUpdtTimer.Stop();
@@ -1477,7 +1531,7 @@ void AnkerVideo::PrintVideoState()
 {
 	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
 	if (pDevObj) {
-	// printLog("VideoState:" + getVideoStateStr(currVideoState)  + " sn:" + pDevObj->m_sn + "  devName:" + pDevObj->station_name);
+	// ANKER_LOG_INFO << ("VideoState:" + getVideoStateStr(currVideoState)  + " sn:" + pDevObj->m_sn + "  devName:" + pDevObj->station_name);
 	}
 }
 

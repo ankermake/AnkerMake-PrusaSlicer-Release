@@ -212,10 +212,26 @@ static void add_msg_content(wxWindow* parent, wxBoxSizer* content_sizer, wxStrin
                                "</html>", 
                     bgr_clr_str, text_clr_str, from_u8(msg_escaped)));
 
+
+
     html->Bind(wxEVT_HTML_LINK_CLICKED, [parent](wxHtmlLinkEvent& event) {
         wxGetApp().open_browser_with_warning_dialog(event.GetLinkInfo().GetHref(), parent, false);
         event.Skip(false);
     });
+
+    // handle dpi change event to redraw background
+    html->Bind(wxEVT_DPI_CHANGED, [bgr_clr_str, text_clr_str,html, msg_escaped](wxDPIChangedEvent& event) {
+        html->SetPage(format_wxstr("<html>"
+            "<body bgcolor=%1% link=%2%>"
+            "<font color=%2%>"
+            "%3%"
+            "</font>"
+            "</body>"
+            "</html>",
+            bgr_clr_str, text_clr_str, from_u8(msg_escaped)));
+        wxGetApp().UpdateDarkUI(html);
+        }
+        );
 
     content_sizer->Add(html, 1, wxEXPAND);
     wxGetApp().UpdateDarkUI(html);

@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <chrono>
 
+
 namespace Slic3r {
 namespace GUI {
 
@@ -336,6 +337,8 @@ void GCodeViewer::SequentialView::Marker::render()
 
     ImGuiWrapper& imgui = *wxGetApp().imgui();
     const Size cnv_size = wxGetApp().plater()->get_current_canvas3D()->get_canvas_size();
+    //std::cout<< cnv_size.get_width() << "*"<< cnv_size .get_height()<<std::endl;
+#if 0
     imgui.set_next_window_pos(0.5f * static_cast<float>(cnv_size.get_width()), static_cast<float>(cnv_size.get_height()), ImGuiCond_Always, 0.5f, 1.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::SetNextWindowBgAlpha(0.25f);
@@ -358,6 +361,9 @@ void GCodeViewer::SequentialView::Marker::render()
 
     imgui.end();
     ImGui::PopStyleVar();
+#else
+    imgui.set_requires_extra_frame();
+#endif
 }
 
 void GCodeViewer::SequentialView::GCodeWindow::load_gcode(const std::string& filename, const std::vector<size_t>& lines_ends)
@@ -641,9 +647,35 @@ const ColorRGBA GCodeViewer::Neutral_Color = ColorRGBA::DARK_GRAY();
 
 GCodeViewer::GCodeViewer()
 {
-    m_extrusions.reset_role_visibility_flags();
     m_shells.volumes.set_use_raycasters(false);
 //    m_sequential_view.skip_invisible_moves = true;
+
+    m_view_type = EViewType::FeatureType;
+    if (wxGetApp().app_config->has("gcode_view_type")) {
+        std::string val = wxGetApp().app_config->get("gcode_view_type");
+        unsigned int value;
+        wxString(val).ToUInt(&value);
+        m_view_type = static_cast<EViewType>(value);
+    }
+
+    m_legend_enabled = true;
+    if (wxGetApp().app_config->has("show_legend")) {
+        m_legend_enabled = wxGetApp().app_config->get_bool("show_legend");
+    }
+
+    m_extrusions.reset_role_visibility_flags();
+    if (wxGetApp().app_config->has("extrusion_role_sisibility")) {
+        std::string val = wxGetApp().app_config->get("extrusion_role_sisibility");
+        unsigned int value;
+        wxString(val).ToUInt(&value);
+        m_extrusions.role_visibility_flags = static_cast<unsigned int>(value);
+    }
+
+    bool show_gcode_win = true;
+    //if (wxGetApp().app_config->has("show_gcode_win")) {
+    //    show_gcode_win = wxGetApp().app_config->get_bool("show_gcode_win");
+    //}
+    set_gcode_window_visibility(show_gcode_win);
 }
 
 void GCodeViewer::init()
@@ -697,9 +729,14 @@ void GCodeViewer::init()
             buffer.render_primitive_type = TBuffer::ERenderPrimitiveType::Line;
             buffer.vertices.format = VBuffer::EFormat::Position;
 #if ENABLE_GL_CORE_PROFILE
-            buffer.shader = OpenGLManager::get_gl_info().is_core_profile() ? "dashed_thick_lines" : "flat";
+    #ifdef _APPLE_  //using the geometry shader of dashed_thick_lines is to slow on mac platform
+                buffer.shader = "flat";
+    #else
+                buffer.shader = OpenGLManager::get_gl_info().is_core_profile() ? "dashed_thick_lines" : "flat";
+    #endif // _APPLE_
+			
 #else
-            buffer.shader = "flat";
+			buffer.shader = "flat";
 #endif // ENABLE_GL_CORE_PROFILE
             break;
         }
@@ -1052,6 +1089,14 @@ void GCodeViewer::set_layers_z_range(const std::array<unsigned int, 2>& layers_z
     m_layers_z_range = layers_z_range;
     refresh_render_paths(keep_sequential_current_first, keep_sequential_current_last);
     wxGetApp().plater()->update_preview_moves_slider();
+}
+
+void GUI::GCodeViewer::set_layers_z_range_inter(const std::array<unsigned int, 2>& layers_z_range)
+{
+    bool keep_sequential_current_first = layers_z_range[0] >= m_layers_z_range[0];
+    bool keep_sequential_current_last = layers_z_range[1] <= m_layers_z_range[1];
+    m_layers_z_range = layers_z_range;
+    refresh_render_paths(keep_sequential_current_first, keep_sequential_current_last);
 }
 
 void GCodeViewer::export_toolpaths_to_obj(const char* filename) const
@@ -3188,6 +3233,197 @@ void GCodeViewer::render_shells()
     shader->stop_using();
 }
 
+//Anker: for offer-render pic
+void GUI::GCodeViewer::render_toolpaths_ext(double layer_y_pos, double layer_z_pos)
+{
+    auto createProjectionMatrix = [](double in_fov,double in_aspectRatio)
+    {
+        double fov = in_fov;
+        double aspectRatio = in_aspectRatio;
+        double nearClip = 10; 
+        double farClip = 10000.0;
+
+        Eigen::Matrix4d projectionMatrix;
+        projectionMatrix.setZero();
+        double f = 1.0 / std::tan(fov * 0.5 * M_PI / 180.0);
+        projectionMatrix(0, 0) = f / aspectRatio;
+        projectionMatrix(1, 1) = f;
+        projectionMatrix(2, 2) = (farClip + nearClip) / (nearClip - farClip);
+        projectionMatrix(2, 3) = (2.0 * farClip * nearClip) / (nearClip - farClip);
+        projectionMatrix(3, 2) = -1.0;
+
+        return projectionMatrix;
+    };
+
+    auto calculateViewMatrix = [](const Vec3d& position, const Vec3d& up, const Vec3d& front) -> Eigen::Matrix4d
+    {
+        Eigen::Matrix4d viewMatrix;
+        viewMatrix.setZero();
+
+        const Vec3d unit_z = -front.normalized();
+        const Vec3d unit_x = up.cross(unit_z).normalized();
+        const Vec3d unit_y = unit_z.cross(unit_x).normalized();
+
+        viewMatrix(0, 0) = unit_x.x();
+        viewMatrix(0, 1) = unit_x.y();
+        viewMatrix(0, 2) = unit_x.z();
+        viewMatrix(0, 3) = -unit_x.dot(position);
+
+        viewMatrix(1, 0) = unit_y.x();
+        viewMatrix(1, 1) = unit_y.y();
+        viewMatrix(1, 2) = unit_y.z();
+        viewMatrix(1, 3) = -unit_y.dot(position);
+
+        viewMatrix(2, 0) = unit_z.x();
+        viewMatrix(2, 1) = unit_z.y();
+        viewMatrix(2, 2) = unit_z.z();
+        viewMatrix(2, 3) = -unit_z.dot(position);
+
+        viewMatrix(3, 0) = 0.0;
+        viewMatrix(3, 1) = 0.0;
+        viewMatrix(3, 2) = 0.0;
+        viewMatrix(3, 3) = 1.0;
+
+        return viewMatrix;
+    };
+
+
+
+    auto render_as_triangles = [
+#if ENABLE_GCODE_VIEWER_STATISTICS
+        this
+#endif // ENABLE_GCODE_VIEWER_STATISTICS
+    ](std::vector<RenderPath>::iterator it_path, std::vector<RenderPath>::iterator it_end, GLShaderProgram& shader, int uniform_color) {
+        for (auto it = it_path; it != it_end && it_path->ibuffer_id == it->ibuffer_id; ++it) {
+            const RenderPath& path = *it;
+            // Some OpenGL drivers crash on empty glMultiDrawElements, see GH #7415.
+            assert(!path.sizes.empty());
+            assert(!path.offsets.empty());
+            shader.set_uniform(uniform_color, path.color);
+#if ENABLE_OPENGL_ES
+            for (size_t i = 0; i < path.sizes.size(); ++i) {
+                glsafe(::glDrawElements(GL_TRIANGLES, (GLsizei)path.sizes[i], GL_UNSIGNED_SHORT, (const void*)path.offsets[i]));
+            }
+#else
+            glsafe(::glMultiDrawElements(GL_TRIANGLES, (const GLsizei*)path.sizes.data(), GL_UNSIGNED_SHORT, (const void* const*)path.offsets.data(), (GLsizei)path.sizes.size()));
+#endif // ENABLE_OPENGL_ES
+#if ENABLE_GCODE_VIEWER_STATISTICS
+            ++m_statistics.gl_multi_triangles_calls_count;
+#endif // ENABLE_GCODE_VIEWER_STATISTICS
+        }
+    };
+        
+        const unsigned char begin_id = buffer_id(EMoveType::Retract);
+        const unsigned char end_id = buffer_id(EMoveType::Count);
+
+        for (unsigned char i = begin_id; i < end_id; ++i) {
+            TBuffer& buffer = m_buffers[i];
+            if (!buffer.visible || !buffer.has_data())
+                continue;
+
+            GLShaderProgram* shader = wxGetApp().get_shader("gouraud_light_pic");
+            if (shader == nullptr)
+                continue;
+
+            shader->start_using();
+            Matrix4d pM;
+            pM = createProjectionMatrix(90,2048.0/1196.0);
+            Vec3d position = { 292.78,20.57, 2.07 };
+            position.y() += layer_y_pos;
+            position.z() += layer_z_pos;
+            Vec3d front = { -0.866, 0.0,-0.5 };
+            Vec3d up = { -0.5, 0.0,0.866 };
+            Matrix4d vM;
+            vM = calculateViewMatrix(position, up, front);
+            const Camera& camera = wxGetApp().plater()->get_camera();
+            shader->set_uniform("mv_matrix", vM);
+            shader->set_uniform("p_matrix", pM);
+            shader->set_uniform("normal_matrix", (Matrix3d)Matrix3d::Identity());
+            
+
+                const int position_id = shader->get_attrib_location("aPos");
+                const int normal_id = shader->get_attrib_location("aNormal");
+                const int uniform_color = shader->get_uniform_location("uniform_color");
+
+                auto it_path = buffer.render_paths.begin();
+                for (unsigned int ibuffer_id = 0; ibuffer_id < static_cast<unsigned int>(buffer.indices.size()); ++ibuffer_id) {
+                    const IBuffer& i_buffer = buffer.indices[ibuffer_id];
+                    // Skip all paths with ibuffer_id < ibuffer_id.
+                    for (; it_path != buffer.render_paths.end() && it_path->ibuffer_id < ibuffer_id; ++it_path);
+                    if (it_path == buffer.render_paths.end() || it_path->ibuffer_id > ibuffer_id)
+                        // Not found. This shall not happen.
+                        continue;
+
+#if ENABLE_GL_CORE_PROFILE
+                    if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+                        glsafe(::glBindVertexArray(i_buffer.vao));
+#endif // ENABLE_GL_CORE_PROFILE
+                    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, i_buffer.vbo));
+                    if (position_id != -1) {
+                        glsafe(::glVertexAttribPointer(position_id, buffer.vertices.position_size_floats(), GL_FLOAT, GL_FALSE, buffer.vertices.vertex_size_bytes(), (const void*)buffer.vertices.position_offset_bytes()));
+                        glsafe(::glEnableVertexAttribArray(position_id));
+                    }
+                    const bool has_normals = buffer.vertices.normal_size_floats() > 0;
+                    if (has_normals) {
+                        if (normal_id != -1) {
+                            glsafe(::glVertexAttribPointer(normal_id, buffer.vertices.normal_size_floats(), GL_FLOAT, GL_FALSE, buffer.vertices.vertex_size_bytes(), (const void*)buffer.vertices.normal_offset_bytes()));
+                            glsafe(::glEnableVertexAttribArray(normal_id));
+                        }
+                    }
+
+                    glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, i_buffer.ibo));
+
+                    // Render all elements with it_path->ibuffer_id == ibuffer_id, possible with varying colors.
+                    switch (buffer.render_primitive_type)
+                    {
+                    case TBuffer::ERenderPrimitiveType::Line: {
+                    }
+                    case TBuffer::ERenderPrimitiveType::Triangle: {
+                        render_as_triangles(it_path, buffer.render_paths.end(), *shader, uniform_color);
+                        break;
+                    }
+                    default: { break; }
+                    }
+
+                    glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+
+                    if (normal_id != -1)
+                        glsafe(::glDisableVertexAttribArray(normal_id));
+                    if (position_id != -1)
+                        glsafe(::glDisableVertexAttribArray(position_id));
+                    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+#if ENABLE_GL_CORE_PROFILE
+                    if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+                        glsafe(::glBindVertexArray(0));
+#endif // ENABLE_GL_CORE_PROFILE
+                }
+            
+
+            shader->stop_using();
+        }
+}
+
+
+void GCodeViewer::set_role_visible(GCodeExtrusionRole role, bool visible)
+{
+    m_extrusions.role_visibility_flags = visible ? m_extrusions.role_visibility_flags | (1 << int(role)) : m_extrusions.role_visibility_flags & ~(1 << int(role));
+    if (wxGetApp().plater()->is_preview_loaded()) {
+        // update buffers' render paths
+        refresh_render_paths(false, false);
+        if (m_extrusions.role_visibility_flags == 0) {
+            wxGetApp().plater()->enable_moves_slider(false);
+        }
+        else {
+            wxGetApp().plater()->enable_moves_slider(true);
+            wxGetApp().plater()->update_preview_moves_slider();
+        }
+        wxGetApp().plater()->canvas_preview()->set_as_dirty();
+    }
+
+    wxString str = wxString::Format("%d", static_cast<unsigned int>(m_extrusions.role_visibility_flags));
+    Slic3r::GUI::wxGetApp().app_config->set("extrusion_role_sisibility", str.ToStdString());
+}
+
 void GCodeViewer::render_legend(float& legend_height)
 {
     if (!m_legend_enabled)
@@ -3203,7 +3439,7 @@ void GCodeViewer::render_legend(float& legend_height)
     const float max_height = 0.75f * static_cast<float>(cnv_size.get_height());
     const float child_height = 0.3333f * max_height;
     ImGui::SetNextWindowSizeConstraints({ 0.0f, 0.0f }, { -1.0f, max_height });
-    imgui.begin(std::string("Legend"), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+    imgui.begin(std::string("Legend"), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove| ImGuiWindowFlags_NoTitleBar);
 
     enum class EItemType : unsigned char
     {
@@ -3254,11 +3490,17 @@ void GCodeViewer::render_legend(float& legend_height)
             break;
         }
         }
+#if 1
+       // callback = nullptr;
 
         // draw text
         ImGui::Dummy({ icon_size, icon_size });
         ImGui::SameLine();
+
         if (callback != nullptr) {
+            imgui.text(label);
+#if 0 //dhf
+
             if (ImGui::MenuItem(label.c_str()))
                 callback();
             else {
@@ -3278,6 +3520,13 @@ void GCodeViewer::render_legend(float& legend_height)
                     imgui.set_requires_extra_frame();
                 }
             }
+#else
+         //   if (!visible)
+        //        ImGui::PopStyleVar();
+
+#endif
+
+
 
             if (!time.empty()) {
                 ImGui::SameLine(offsets[0]);
@@ -3326,7 +3575,7 @@ void GCodeViewer::render_legend(float& legend_height)
                 imgui.text(buf);
             }
         }
-
+#endif
         if (!visible)
             ImGui::PopStyleVar();
     };
@@ -3559,14 +3808,17 @@ void GCodeViewer::render_legend(float& legend_height)
 
     // selection section
     bool view_type_changed = false;
+#if 0
     int old_view_type = static_cast<int>(get_view_type());
     int view_type = old_view_type;
-
+    std::cerr << std::endl << "===old type:"<< old_view_type << std::endl;
+#endif
     if (!m_legend_resizer.dirty)
         ImGui::SetNextItemWidth(-1.0f);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, { 0.1f, 0.1f, 0.1f, 0.8f });
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, { 0.2f, 0.2f, 0.2f, 0.8f });
+#if 0
     imgui.combo("", { _u8L("Feature type"),
                       _u8L("Height (mm)"),
                       _u8L("Width (mm)"),
@@ -3578,18 +3830,23 @@ void GCodeViewer::render_legend(float& legend_height)
                       _u8L("Layer time (logarithmic)"),
                       _u8L("Tool"),
                       _u8L("Color Print") }, view_type, ImGuiComboFlags_HeightLargest);
+#endif
     ImGui::PopStyleColor(2);
-   
+
+    static int  old_view_type = 0;
+    int view_type = static_cast<int>(get_view_type());
+    // std::cerr << "===render_legend, view_type:" << (int)view_type << std::endl;
     if (old_view_type != view_type) {
         set_view_type(static_cast<EViewType>(view_type));
         wxGetApp().plater()->set_keep_current_preview_type(true);
         wxGetApp().plater()->refresh_print();
         view_type_changed = true;
+        old_view_type = view_type;
     }
 
     // extrusion paths section -> title
     if (m_view_type == EViewType::FeatureType)
-        append_headers({ "", _u8L("Time"), _u8L("Percentage"), _u8L("Used filament") }, offsets);
+        append_headers({ _u8L("Feature type"), _u8L("Time"), _u8L("Percentage"), _u8L("Used filament") }, offsets);
     else if (m_view_type == EViewType::Tool)
         append_headers({ "", _u8L("Used filament"), "", ""}, offsets);
     else
@@ -3599,7 +3856,7 @@ void GCodeViewer::render_legend(float& legend_height)
         // extrusion paths section -> items
         switch (m_view_type)
         {
-        case EViewType::FeatureType:
+        case EViewType::FeatureType: //dhf
         {
             max_time_percent = std::max(max_time_percent, time_mode.travel_time / time_mode.time);
 
@@ -3613,7 +3870,7 @@ void GCodeViewer::render_legend(float& legend_height)
                         m_extrusions.role_visibility_flags = visible ? m_extrusions.role_visibility_flags & ~(1 << int(role)) : m_extrusions.role_visibility_flags | (1 << int(role));
                         // update buffers' render paths
                         refresh_render_paths(false, false);
-                        wxGetApp().plater()->update_preview_moves_slider();
+                        wxGetApp().plater()->update_preview_moves_slider();    // dhf
                         wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
                     }
                 );
@@ -4009,7 +4266,7 @@ void GCodeViewer::render_legend(float& legend_height)
         default : { assert(false); break; }
         }
     }
-
+#if 1
     // toolbar section
     auto toggle_button = [this, &imgui, icon_size](Preview::OptionType type, const std::string& name,
         std::function<void(ImGuiWindow& window, const ImVec2& pos, float size)> draw_callback) {
@@ -4113,7 +4370,7 @@ void GCodeViewer::render_legend(float& legend_height)
     toggle_button(Preview::OptionType::ToolMarker, _u8L("Tool marker"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendToolMarker);
         });
-
+#endif
     bool size_dirty = !ImGui::GetCurrentWindow()->ScrollbarY && ImGui::CalcWindowNextAutoFitSize(ImGui::GetCurrentWindow()).x != ImGui::GetWindowWidth();
     if (m_legend_resizer.dirty || size_dirty != m_legend_resizer.dirty) {
         wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();

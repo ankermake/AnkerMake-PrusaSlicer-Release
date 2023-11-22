@@ -237,6 +237,8 @@ public:
     void    SetHigherValue(const int higher_val);
     void    SetSelectionSpan(const int lower_val, const int higher_val);
 
+    void    SetSelectionThumb(SelectedSlider sel){m_selection = sel;}
+    void    SetMinValue(const int min_value);
     void    SetMaxValue(const int max_value);
     void    SetKoefForLabels(const double koef)                { m_label_koef = koef; }
     void    SetSliderValues(const std::vector<double>& values);

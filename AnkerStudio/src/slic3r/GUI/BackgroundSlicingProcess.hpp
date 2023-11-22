@@ -82,6 +82,8 @@ public:
 	// Stop the background processing and finalize the bacgkround processing thread, remove temp files.
 	~BackgroundSlicingProcess();
 
+	void update_temp_output_path(bool createAiFile = false);
+	std::string get_temp_output_path();
 	void set_fff_print(Print *print) { m_fff_print = print; }
     void set_sla_print(SLAPrint *print) { m_sla_print = print; }
 	void set_thumbnail_cb(ThumbnailsGeneratorCallback cb) { m_thumbnail_cb = cb; }
@@ -164,12 +166,14 @@ public:
 	};
 	State 	state() 	const { return m_state; }
 	bool    idle() 		const { return m_state == STATE_IDLE; }
+	void	setState(State state) { m_state = state; }
 	bool    running() 	const { return m_state == STATE_STARTED || m_state == STATE_RUNNING || m_state == STATE_FINISHED || m_state == STATE_CANCELED; }
     // Returns true if the last step of the active print was finished with success.
     // The "finished" flag is reset by the apply() method, if it changes the state of the print.
     // This "finished" flag does not account for the final export of the output file (.gcode or zipped PNGs),
     // and it does not account for the OctoPrint scheduling.
     bool    finished() const { return m_print->finished(); }
+	void	clearGCodeSliceState() { m_print->clearGCodeSliceState(); }
     
 private:
 	void 	thread_proc();

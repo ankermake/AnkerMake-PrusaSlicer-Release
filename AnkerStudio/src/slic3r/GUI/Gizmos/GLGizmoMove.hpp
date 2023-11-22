@@ -28,6 +28,9 @@ class GLGizmoMove3D : public GLGizmoBase
     };
     std::array<GrabberConnection, 3> m_grabber_connections;
 
+    bool m_panelVisibleFlag;
+    wxBoxSizer* m_pInputWindowSizer;
+
 public:
     GLGizmoMove3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
     virtual ~GLGizmoMove3D() = default;
@@ -50,8 +53,9 @@ public:
     void data_changed() override;
 protected:
     bool on_init() override;
-    std::string on_get_name() const override;
+    std::string on_get_name(bool i18n = true) const override;
     bool on_is_activable() const override;
+    void on_set_state() override;
     void on_start_dragging() override;
     void on_stop_dragging() override;
     void on_dragging(const UpdateData& data) override;
@@ -62,6 +66,9 @@ protected:
 private:
     double calc_projection(const UpdateData& data) const;
     Transform3d local_transform(const Selection& selection) const;
+
+    // Anker
+    void set_input_window_state(bool on);
 };
 
 

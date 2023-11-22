@@ -11,9 +11,11 @@
 #include "BitmapComboBox.hpp"
 #include "GalleryDialog.hpp"
 #include "MainFrame.hpp"
+#include "AnkerObjectBarView.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 #include "Gizmos/GLGizmoCut.hpp"
 #include "Gizmos/GLGizmoScale.hpp"
+#include "Common/AnkerGUIConfig.hpp"
 
 #include "OptionsGroup.hpp"
 #include "Tab.hpp"
@@ -74,9 +76,9 @@ static void take_snapshot(const wxString& snapshot_name)
 ObjectList::ObjectList(wxWindow* parent) :
     wxDataViewCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 
 #ifdef _WIN32
-        wxBORDER_SIMPLE | 
+        wxBORDER_NONE | 
 #endif
-        wxDV_MULTIPLE)
+        wxDV_MULTIPLE | wxDV_NO_HEADER)
 {
     wxGetApp().UpdateDVCDarkUI(this, true);
 
@@ -211,7 +213,9 @@ ObjectList::ObjectList(wxWindow* parent) :
     });
 #endif //__WXMSW__
 
+#ifdef __WXOSX__
     Bind(wxEVT_DATAVIEW_ITEM_CONTEXT_MENU,  &ObjectList::OnContextMenu,     this);
+#endif //__WXOSX__
 
     Bind(wxEVT_DATAVIEW_ITEM_BEGIN_DRAG,    &ObjectList::OnBeginDrag,       this);
     Bind(wxEVT_DATAVIEW_ITEM_DROP_POSSIBLE, &ObjectList::OnDropPossible,    this);
@@ -292,6 +296,13 @@ void ObjectList::update_min_height()
     set_min_height();
 }
 
+int ObjectList::get_item_count()
+{
+    wxDataViewItemArray all_items;
+    m_objects_model->GetAllChildren(wxDataViewItem(nullptr), all_items);
+    size_t items_cnt = all_items.Count();
+    return items_cnt;
+}
 
 void ObjectList::create_objects_ctrl()
 {
@@ -300,6 +311,14 @@ void ObjectList::create_objects_ctrl()
      * 2. change it to the normal(meaningful) min value after first whole Mainframe updating/layouting
      */
     SetMinSize(wxSize(-1, 3000));
+#ifdef __APPLE__
+    SetBackgroundColour(wxColour(31, 32, 35));
+#else
+    SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+#endif
+    //SetAlternateRowColour(wxColour(PANEL_BACK_RGB_INT));
+    SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+    SetRowHeight(26);
 
     m_sizer = new wxBoxSizer(wxVERTICAL);
     m_sizer->Add(this, 1, wxGROW);
@@ -321,10 +340,10 @@ void ObjectList::create_objects_ctrl()
         return m_objects_model->GetItemType(GetSelection()) & (itVolume | itObject);
     });
     AppendColumn(new wxDataViewColumn(_L("Name"), bmp_text_renderer,
-        colName, 20*em, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE));
+        colName, 22 * em, wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE));
 
     // column PrintableProperty (Icon) of the view control:
-    AppendBitmapColumn(" ", colPrint, wxDATAVIEW_CELL_INERT, 3*em,
+    AppendBitmapColumn(" ", colPrint, wxDATAVIEW_CELL_INERT, 3 * em,
         wxALIGN_CENTER_HORIZONTAL, wxDATAVIEW_COL_RESIZABLE);
 
     // column Extruder of the view control:
@@ -336,20 +355,24 @@ void ObjectList::create_objects_ctrl()
         return m_objects_model->GetDefaultExtruderIdx(GetSelection());
     });
     AppendColumn(new wxDataViewColumn(_L("Extruder"), bmp_choice_renderer,
-        colExtruder, 8*em, wxALIGN_CENTER_HORIZONTAL, wxDATAVIEW_COL_RESIZABLE));
+        colExtruder, 3 * em, wxALIGN_CENTER_HORIZONTAL, wxDATAVIEW_COL_RESIZABLE));
+
+    //// column ItemEditing of the view control:
+    //AppendBitmapColumn(_L("Editing"), colEditing, wxDATAVIEW_CELL_INERT, 3*em,
+    //    wxALIGN_CENTER_HORIZONTAL, wxDATAVIEW_COL_RESIZABLE);
 
     // column ItemEditing of the view control:
-    AppendBitmapColumn(_L("Editing"), colEditing, wxDATAVIEW_CELL_INERT, 3*em,
-        wxALIGN_CENTER_HORIZONTAL, wxDATAVIEW_COL_RESIZABLE);
+	AppendBitmapColumn(_L(""), colEditing, wxDATAVIEW_CELL_INERT, 0 * em,
+		wxALIGN_CENTER_HORIZONTAL, wxDATAVIEW_COL_RESIZABLE);
 
     // For some reason under OSX on 4K(5K) monitors in wxDataViewColumn constructor doesn't set width of column.
     // Therefore, force set column width.
     if (wxOSX)
     {
-        GetColumn(colName)->SetWidth(20*em);
+        GetColumn(colName)->SetWidth(17*em);
         GetColumn(colPrint)->SetWidth(3*em);
-        GetColumn(colExtruder)->SetWidth(8*em);
-        GetColumn(colEditing) ->SetWidth(7*em);
+        GetColumn(colExtruder)->SetWidth(3*em);
+        GetColumn(colEditing) ->SetWidth(0*em);
     }
 }
 
@@ -568,7 +591,7 @@ void ObjectList::update_extruder_values_for_items(const size_t max_extruder)
         wxString extruder;
         if (!object->config.has("extruder") ||
             size_t(object->config.extruder()) > max_extruder)
-            extruder = _(L("default"));
+            extruder = _(L(/*"default"*/"1"));
         else
             extruder = wxString::Format("%d", object->config.extruder());
 
@@ -580,7 +603,7 @@ void ObjectList::update_extruder_values_for_items(const size_t max_extruder)
                 if (!item) continue;
                 if (!object->volumes[id]->config.has("extruder") ||
                     size_t(object->volumes[id]->config.extruder()) > max_extruder)
-                    extruder = _(L("default"));
+                    extruder = _(L(/*"default"*/"1"));
                 else
                     extruder = wxString::Format("%d", object->volumes[id]->config.extruder()); 
 
@@ -605,9 +628,11 @@ void ObjectList::update_objects_list_extruder_column(size_t extruders_count)
     // set show/hide for this column 
     set_extruder_column_hidden(extruders_count <= 1);
     //a workaround for a wrong last column width updating under OSX 
-    GetColumn(colEditing)->SetWidth(25);
+    //GetColumn(colEditing)->SetWidth(25);
 
     m_prevent_update_extruder_in_config = false;
+
+    Layout();
 }
 
 void ObjectList::update_extruder_colors()
@@ -949,7 +974,7 @@ void ObjectList::list_manipulation(const wxPoint& mouse_pos, bool evt_context_me
         }
 
         if (evt_context_menu) {
-            show_context_menu(evt_context_menu);
+            //show_context_menu(evt_context_menu);
             return;
         }
     }
@@ -969,15 +994,17 @@ void ObjectList::list_manipulation(const wxPoint& mouse_pos, bool evt_context_me
 	    const wxString title = col->GetTitle();
 	    if (title == " ")
 	        toggle_printable_state();
-	    else if (title == _("Editing"))
-	        show_context_menu(evt_context_menu);
+        else if (title == _("Editing"))
+        {
+            //show_context_menu(evt_context_menu);
+        }
         else if (title == _("Name"))
         {
             if (is_windows10() && m_objects_model->HasWarningIcon(item) &&
                 mouse_pos.x > 2 * wxGetApp().em_unit() && mouse_pos.x < 4 * wxGetApp().em_unit())
                 fix_through_netfabb();
-            else if (evt_context_menu)
-                show_context_menu(evt_context_menu); // show context menu for "Name" column too
+            //else if (evt_context_menu)
+            //    show_context_menu(evt_context_menu); // show context menu for "Name" column too
         }
 	    // workaround for extruder editing under OSX 
 	    else if (wxOSX && evt_context_menu && title == _("Extruder"))
@@ -1040,31 +1067,57 @@ void ObjectList::extruder_editing()
     wxSize size = rect.GetSize();
     size.SetWidth(size.GetWidth() + 8);
 
-    apply_extruder_selector(&m_extruder_editor, this, L("default"), pos, size);
+    //apply_extruder_selector(&m_extruder_editor, this, L(/*"default"*/"1"), pos, size);
+    //m_extruder_editor->SetSelection(m_objects_model->GetExtruderNumber(item));
+    //m_extruder_editor->Show();
 
-    m_extruder_editor->SetSelection(m_objects_model->GetExtruderNumber(item));
-    m_extruder_editor->Show();
-
-    auto set_extruder = [this]()
+    ObjectDataViewModelNode* node = static_cast<ObjectDataViewModelNode*>(item.GetID());
+    int currentIndex = atoi(node->GetExtruder().c_str()) - 1;
+    std::vector<std::pair<wxColour, wxString>> contentList;
+    const std::vector<Slic3r::GUI::SFilamentInfo>& filamentInfos = Slic3r::GUI::wxGetApp().plater()->sidebarnew().getEditFilamentList();
+    for (int i = 0; i < filamentInfos.size(); i++)
     {
-        wxDataViewItem item = GetSelection();
-        if (!item) return;
+        contentList.push_back({ wxColour(filamentInfos[i].wxStrColor), filamentInfos[i].wxStrLabelType });
+    }
 
-        const int selection = m_extruder_editor->GetSelection();
-        if (selection >= 0) 
-            m_objects_model->SetExtruder(m_extruder_editor->GetString(selection), item);
+    Slic3r::GUI::wxGetApp().floatinglist()->setContentList(contentList);
+    Slic3r::GUI::wxGetApp().floatinglist()->setCurrentSelection(currentIndex);
+    Slic3r::GUI::wxGetApp().floatinglist()->Show();
 
-        m_extruder_editor->Hide();
+    auto set_extruder = [this, item]()
+    {
+        Slic3r::GUI::wxGetApp().floatinglist()->Hide();
+
+        int currentIndex = Slic3r::GUI::wxGetApp().floatinglist()->getCurrentSelectionIndex();
+        std::pair<wxColour, wxString> currentSelection = Slic3r::GUI::wxGetApp().floatinglist()->getItemContent(currentIndex);
+        SetLabelText(std::to_string(currentIndex + 1));
+
+
+        const int selection = currentIndex + 1;
+        if (selection >= 0)
+            m_objects_model->SetExtruder(std::to_string(currentIndex + 1), item);
+
+
         update_extruder_in_config(item);
         Refresh();
     };
 
-    // to avoid event propagation to other sidebar items
-    m_extruder_editor->Bind(wxEVT_COMBOBOX, [set_extruder](wxCommandEvent& evt)
-    {
+    Slic3r::GUI::wxGetApp().floatinglist()->setItemClickCallback([set_extruder](int index) {
         set_extruder();
-        evt.StopPropagation();
-    });
+        });
+
+	//// to avoid event propagation to other sidebar items
+	//bitmapTextBtn->Bind(wxEVT_KILL_FOCUS, [set_extruder](wxFocusEvent& evt)
+	//	{
+	//		set_extruder();
+	//		evt.StopPropagation();
+	//	});
+
+	//bitmapTextBtn->Bind(wxEVT_BUTTON, [set_extruder](wxCommandEvent& evt)
+	//	{
+	//		Slic3r::GUI::wxGetApp().floatinglist()->Show();
+	//		evt.StopPropagation();
+	//	});
 }
 
 void ObjectList::copy()
@@ -2043,7 +2096,7 @@ bool ObjectList::del_from_cut_object(bool is_cut_connector, bool is_model_part/*
 
     InfoDialog dialog(wxGetApp().plater(), title,
                       _L("This action will break a cut information.\n"
-                         "After that AnkerMake_alpha can't guarantee model consistency.") + "\n\n" +
+                         "After that AnkerMake Studio can't guarantee model consistency.") + "\n\n" +
                       _L("To manipulate with solid parts or negative volumes you have to invalidate cut infornation first." + msg_end ),
                       false, buttons_style | wxCANCEL_DEFAULT | wxICON_WARNING);
 
@@ -2102,7 +2155,7 @@ bool ObjectList::del_subobject_from_object(const int obj_idx, const int idx, con
 
                 // update extruder color in ObjectList
                 if (obj_item) {
-                    wxString extruder = object->config.has("extruder") ? wxString::Format("%d", object->config.extruder()) : _L("default");
+                    wxString extruder = object->config.has("extruder") ? wxString::Format("%d", object->config.extruder()) : _L(/*"default"*/"1");
                     m_objects_model->SetExtruder(extruder, obj_item);
                 }
                 // add settings to the object, if it has them
@@ -2171,7 +2224,7 @@ void ObjectList::split()
 
     // After removing custom supports, seams, and multimaterial painting, we have to update info about the object to remove information about
     // custom supports, seams, and multimaterial painting in the right panel.
-    wxGetApp().obj_list()->update_info_items(obj_idx);
+    wxGetApp().objectbar()->update_info_items(obj_idx);
 }
 
 void ObjectList::merge(bool to_multipart_object)
@@ -2391,7 +2444,7 @@ void ObjectList::layers_editing()
     if (!item)
         return;
 
-    const wxDataViewItem obj_item = m_objects_model->GetTopParent(item);
+    const wxDataViewItem obj_item = m_objects_model->GetTopParent(item); // dhf
     wxDataViewItem layers_item = m_objects_model->GetLayerRootItem(obj_item);
 
     // if it doesn't exist now
@@ -2667,7 +2720,7 @@ void ObjectList::part_selection_changed()
     bool disable_ss_manipulation {false};
     bool disable_ununiform_scale {false};
 
-    ECoordinatesType coordinates_type = wxGetApp().obj_manipul()->get_coordinates_type();
+    ECoordinatesType coordinates_type = wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type();
 
     const auto item = GetSelection();
 
@@ -2855,13 +2908,13 @@ void ObjectList::part_selection_changed()
 
     if (printer_technology() == ptSLA)
         update_and_show_layers = false;
-    else if (update_and_show_layers)
-        wxGetApp().obj_layers()->get_og()->set_name(" " + og_name + " ");
+    //else if (update_and_show_layers)
+    //    wxGetApp().obj_layers()->get_og()->set_name(" " + og_name + " ");
 
     update_min_height();
 
-    Sidebar& panel = wxGetApp().sidebar();
-    panel.Freeze();
+    //Sidebar& panel = wxGetApp().sidebar();
+    //panel.Freeze();
 
     std::string opt_key;
     if (m_selected_object_id >= 0) {
@@ -2871,13 +2924,14 @@ void ObjectList::part_selection_changed()
     }
     wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event(opt_key, !opt_key.empty());
     wxGetApp().plater()->canvas3D()->enable_moving(enable_manipulation); // ysFIXME
-    wxGetApp().obj_manipul() ->UpdateAndShow(update_and_show_manipulations);
-    wxGetApp().obj_settings()->UpdateAndShow(update_and_show_settings);
-    wxGetApp().obj_layers()  ->UpdateAndShow(update_and_show_layers);
-    wxGetApp().sidebar().show_info_sizer();
+    //wxGetApp().obj_manipul() ->UpdateAndShow(update_and_show_manipulations);
+    //wxGetApp().obj_settings()->UpdateAndShow(update_and_show_settings);
+    //wxGetApp().obj_layers()  ->UpdateAndShow(update_and_show_layers);
+    //wxGetApp().sidebar().show_info_sizer();
+    wxGetApp().plater()->CalcModelObjectSize();
 
-    panel.Layout();
-    panel.Thaw();
+    //panel.Layout();
+    //panel.Thaw();
 }
 
 // Add new SettingsItem for parent_item if it doesn't exist, or just update a digest according to new config
@@ -3000,11 +3054,13 @@ void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selectio
                 Select(item_obj);
         }
     }
+
+    wxGetApp().objectbar()->object_list_changed();
 }
 
 static wxString extruder2str(int extruder)
 {
-    return extruder == 0 ? _L("default") : wxString::Format("%d", extruder);
+    return extruder == 0 ? _L(/*"default"*/"1") : wxString::Format("%d", extruder);
 }
 
 static bool can_add_volumes_to_object(const ModelObject* object)
@@ -4393,14 +4449,14 @@ void ObjectList::update_settings_item_and_selection(wxDataViewItem item, wxDataV
         // If settings item was just updated
         if (old_settings_item == new_settings_item)
         {
-            Sidebar& panel = wxGetApp().sidebar();
-            panel.Freeze();
+         /*   Sidebar& panel = wxGetApp().sidebar();
+            panel.Freeze();*/
 
             // update settings list
             wxGetApp().obj_settings()->UpdateAndShow(true);
 
-            panel.Layout();
-            panel.Thaw();
+      /*      panel.Layout();
+            panel.Thaw();*/
         }
         else
         // If settings item was deleted from the list, 
@@ -4786,10 +4842,10 @@ void ObjectList::msw_rescale()
 
     const int em = wxGetApp().em_unit();
 
-    GetColumn(colName    )->SetWidth(20 * em);
-    GetColumn(colPrint   )->SetWidth( 3 * em);
-    GetColumn(colExtruder)->SetWidth( 8 * em);
-    GetColumn(colEditing )->SetWidth( 3 * em);
+    GetColumn(colName)->SetWidth(24 * em);
+    GetColumn(colPrint)->SetWidth(3 * em);
+    GetColumn(colExtruder)->SetWidth(3 * em);
+    GetColumn(colEditing )->SetWidth(0 * em);
 
     Layout();
 }
@@ -4871,7 +4927,7 @@ void ObjectList::set_extruder_for_selected_items(const int extruder) const
         else if (extruder > 0)
             config.set_key_value("extruder", new ConfigOptionInt(extruder));
 
-        const wxString extruder_str = extruder == 0 ? wxString (_(L("default"))) : 
+        const wxString extruder_str = extruder == 0 ? wxString (_(L(/*"default"*/"1"))) :
                                       wxString::Format("%d", config.extruder());
 
         auto const type = m_objects_model->GetItemType(item);

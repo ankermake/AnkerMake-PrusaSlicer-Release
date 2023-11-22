@@ -1,10 +1,16 @@
 #include "AnkerGCodeImportDialog.hpp"
 #include "AnkerBtn.hpp"
-#include "AnkerMsgDialog.hpp"
-#include "AnkerLoadingMask.hpp"
+#include "GUI_App.hpp"
+
 #include "libslic3r/Utils.hpp"
  #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
+#include "slic3r/GUI/Common/AnkerGUIConfig.hpp"
+#include "slic3r/GUI/Common/AnkerMsgDialog.hpp"
+#include "slic3r/GUI/Common/AnkerLoadingMask.hpp"
+#include "slic3r/GUI/Common/AnkerTitledPanel.hpp"
+#include "slic3r/Utils/WxFontUtils.hpp"
+
 #ifdef _WIN32
 #include <dbt.h>
 #include <shlobj.h>
@@ -17,12 +23,12 @@
 wxDEFINE_EVENT(wxCUSTOMEVT_FILEITEM_CLICKED, wxCommandEvent);
 
 AnkerGCodeImportDialog::AnkerGCodeImportDialog(std::string currentDeviceSn, wxWindow* parent)
-	: wxDialog(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize)
+	: wxDialog(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE)
 	, m_currentDeviceSn(currentDeviceSn)
 	, m_localImportDefaultDir(".")
-	, m_pFileSelectVSizer(nullptr)
-	, m_pFileInfoVSizer(nullptr)
-	, m_pFinishedVSizer(nullptr)
+	, m_pFileSelectPanel(nullptr)
+	, m_pFileInfoPanel(nullptr)
+	, m_pFinishedPanel (nullptr)
 	, m_pFSComputerWidget(nullptr)
 	, m_pFSEmptyWidget(nullptr)
 	, m_pFSStorageListWidget(nullptr)
@@ -41,19 +47,22 @@ AnkerGCodeImportDialog::AnkerGCodeImportDialog(std::string currentDeviceSn, wxWi
 	, m_gcodeInfoReq(false)
 	, m_gcodePreviewWaiting(false)
 {
-	m_dialogColor = wxColour(41, 42, 45);
-	m_textLightColor = wxColour(255, 255, 255);
-	m_textDarkColor = wxColour(183, 183, 183);
+	m_dialogColor = wxColour(PANEL_BACK_LIGHT_RGB_INT);
+	m_textLightColor = wxColour(TEXT_LIGHT_RGB_INT);
+#ifdef __APPLE__
+	m_textDarkColor = wxColour(193, 193, 193);
+#else
+	m_textDarkColor = wxColour(TEXT_DARK_RGB_INT);
+#endif // __APPLE__
 	m_btnFocusColor = wxColour(69, 102, 74);
-	m_btnFocusTextColor = wxColour("#62D361");
+	m_btnFocusTextColor = wxColour(ANKER_RGB_INT);
+	m_splitLineColor = wxColour(255, 255, 255);
+	m_splitLineColor = m_splitLineColor.ChangeLightness(30);
 
 	initUI();
 
 	Bind(wxEVT_SHOW, &AnkerGCodeImportDialog::OnShow, this);
-
-	m_pRequestTimer = new wxTimer();
-	m_pRequestTimer->Bind(wxEVT_TIMER, &AnkerGCodeImportDialog::OnTimer, this);
-
+	Bind(wxEVT_MOVE, &AnkerGCodeImportDialog::OnMove, this);
 }
 
 AnkerGCodeImportDialog::~AnkerGCodeImportDialog()
@@ -72,140 +81,9 @@ void onDownLoadProgress(double dltotal, double dlnow, double ultotal, double uln
 
 }
 
-void AnkerGCodeImportDialog::requestCallback()
+void AnkerGCodeImportDialog::requestCallback(int type)
 {
-	PrintLog("AnkerGCodeImportDialog::OnRequestReply...");
 
-	Datamanger& dm = Datamanger::GetInstance();
-	DeviceObjectPtr currentDev = dm.getDeviceObjectFromSn(m_currentDeviceSn);
-
-	if (!currentDev)
-		return;
-
-	if (currentDev->currentCmdType == mqtt_command_type_e::MQTT_CMD_FILE_LIST_REQUEST)
-	{
-		m_fileListUpdateReq = false;
-
-		MqttType::FileList& fileList = currentDev->deviceFileList;
-		wxScrolledWindow* fileListWidget = m_currentMode == FSM_STORAGE ? m_pFSStorageListWidget : m_pFSUSBListWidget;
-		wxScrolledWindow* anotherListWidget = m_currentMode == FSM_STORAGE ? m_pFSUSBListWidget : m_pFSStorageListWidget;
-		if (fileList.files.size() > 0)
-		{
-			fileListWidget->GetSizer()->Clear();
-			fileListWidget->DestroyChildren();
-			m_gfItemList.clear();
-
-			for (auto itr = fileList.files.begin(); itr != fileList.files.end(); itr++)
-			{
-				AnkerGCodeFileItem* item = new AnkerGCodeFileItem(fileListWidget);
-				item->setFileName(wxString::FromUTF8(itr->name).ToStdString());
-				item->setFilePath(wxString::FromUTF8(itr->path).ToStdString());
-				time_t time = itr->timestamp;
-				struct tm* timeP = gmtime(&time);
-				time_t PTime = time + (8 * 60 * 60);
-				timeP = gmtime(&time);
-				std::string timeStr = std::to_string(timeP->tm_year + 1900) + "."
-					+ std::to_string(timeP->tm_mon + 1) + "."
-					+ std::to_string(timeP->tm_mday) + " "
-					+ std::to_string(timeP->tm_hour) + ":"
-					+ std::to_string(timeP->tm_min);
-				item->setFileTimeStr(timeStr);
-				item->Bind(wxEVT_LEFT_UP, &AnkerGCodeImportDialog::OnFileItemClicked, this);
-				fileListWidget->GetSizer()->Add(item, 0, wxEXPAND | wxALIGN_LEFT, 0);
-
-				m_gfItemList.push_back(item);
-			}
-
-			fileListWidget->Show(true);
-			anotherListWidget->Show(false);
-			m_pFSEmptyWidget->Show(false);
-		}
-		else
-		{
-			fileListWidget->Show(false);
-			anotherListWidget->Show(false);
-			m_pFSEmptyWidget->Show(true);
-		}
-
-		Layout();
-
-		setLoadingVisible(false);
-	}
-	else if (currentDev->currentCmdType == mqtt_command_type_e::MQTT_CMD_GCODE_FILE_REQUEST)
-	{
-		m_gcodeInfoReq = false;
-
-		auto targetMapItr = dm.getMqttDataMap()->find(m_currentDeviceSn);
-		if (targetMapItr != dm.getMqttDataMap()->end())
-		{
-			auto targetItr = targetMapItr->second.find(MQTT_CMD_GCODE_FILE_REQUEST);
-			if (targetItr != targetMapItr->second.end())
-			{
-				CmdType* targetData = targetItr->second.get();
-				GCodeInfo* gcodeInfo = static_cast<GCodeInfo*>(targetData);
-
-				setFileInfoSpeed(std::to_string(gcodeInfo->speed) + "mm/s");
-				setFileInfoFilament(std::to_string(gcodeInfo->filamentUsed) + gcodeInfo->filamentUnit);
-				int leftTime = gcodeInfo->leftTime;
-				setFileInfoTime(leftTime);
-
-				// request image from server: gcodeInfo->completeUrl
-				wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
-				setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
-
-				switch2FileInfo(m_gcodeInfoFilePath);
-			}
-		}
-
-		m_gcodeInfoFilePath = "";
-
-		setLoadingVisible(false);
-
-		Layout();
-		Refresh();
-
-		m_gcodePreviewWaiting = true;
-	}
-	else if (m_gcodePreviewWaiting && currentDev->currentCmdType == mqtt_command_type_e::MQTT_CMD_THUMBNAIL_UPLOAD_NOTICE && !currentDev->thumbnail.empty())
-	{
-		GCodeInfoPtr gcodeInfo = currentDev->getGcodeInfo();
-		std::string url = currentDev->thumbnail;
-		wxString filePath = std::string();
-
-
-		wxStandardPaths standarPaths = wxStandardPaths::Get();
-		filePath = standarPaths.GetUserDataDir();
-		// Todo: check the file status when the cache is existed
-		filePath = filePath + "/cache/" + gcodeInfo->fileName + ".png";
-
-#ifndef __APPLE__
-		filePath.Replace("\\", "/");
-#endif       
-
-		//if file not exists
-		std::string filePathStr = wxString::FromUTF8(filePath.ToStdString()).ToStdString();
-		if (!wxFileExists(filePathStr) && url.size() > 0) {
-			std::vector<std::string> headerList;
-			Datamanger::GetInstance().setHeaderList(headerList);
-			Datamanger::GetInstance().getAnkerNetBase()->AsyDownLoad(
-				url,
-				filePathStr,
-				headerList,
-				this,
-				onDownLoadFinishedCallBack,
-				onDownLoadProgress, true);
-		}
-
-		wxImage image = wxImage(wxString::FromUTF8(/*Slic3r::var("gcode_image_sample.png")*/filePath.ToStdString()), wxBITMAP_TYPE_PNG);
-		setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
-
-		setLoadingVisible(false);
-
-		Layout();
-		Refresh();
-
-		m_gcodePreviewWaiting = false;
-	}
 }
 
 void AnkerGCodeImportDialog::setFileInfoSpeed(std::string str)
@@ -229,7 +107,7 @@ void AnkerGCodeImportDialog::setFileInfoSpeed(std::string str)
 		}
 	}
 
-	m_pSpeedText->SetLabelText(speedStr);
+	//m_pSpeedText->SetLabelText(speedStr);
 
 	Layout();
 
@@ -271,6 +149,7 @@ void AnkerGCodeImportDialog::setPreviewImage(int width, int height, unsigned cha
 
 	wxImage image(width, height, data, alpha, freeFlag);
 	image.Rescale(160, 160);
+	image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
 
 	wxBitmap scaledBitmap(image);
 	m_pPreviewImage->SetBitmap(scaledBitmap);
@@ -282,12 +161,13 @@ void AnkerGCodeImportDialog::setPreviewImage(int width, int height, unsigned cha
 
 void AnkerGCodeImportDialog::switch2FileSelect(FileSelectMode mode)
 {
-	m_pFileSelectVSizer->Show(true);
-	m_pFileInfoVSizer->Show(false);
-	m_pFinishedVSizer->Show(false);
+	m_pFileSelectPanel->Show(true);
+	m_pFileInfoPanel ->Show(false);
+	m_pFinishedPanel->Show(false);
 
-	SetTitle("Select File");
-	SetSizer(m_pFileSelectVSizer, false);
+	//SetTitle(L"Select File");
+	m_pTitledPanel->setTitle(/*L"Select File"*/_("common_print_filepath_title"));
+	//SetSizer(m_pFileSelectVSizer, false);
 
 	switch2FSMode(mode);
 
@@ -297,9 +177,9 @@ void AnkerGCodeImportDialog::switch2FileSelect(FileSelectMode mode)
 
 void AnkerGCodeImportDialog::switch2FileInfo(std::string filepath, std::string strTitleName)
 {
-	m_pFileSelectVSizer->Show(false);
-	m_pFileInfoVSizer->Show(true);
-	m_pFinishedVSizer->Show(false);
+	m_pFileSelectPanel->Show(false);
+	m_pFileInfoPanel->Show(true);
+	m_pFinishedPanel->Show(false);
 
 	int lastSlashIndex = filepath.find_last_of("\\");
 	lastSlashIndex = lastSlashIndex < 0 ? filepath.find_last_of("/") : lastSlashIndex;
@@ -319,8 +199,9 @@ void AnkerGCodeImportDialog::switch2FileInfo(std::string filepath, std::string s
 	}
    
 	wxString wxFileName = wxString(filename);
-	SetTitle(wxFileName);
-	SetSizer(m_pFileInfoVSizer, false);
+	//SetTitle(wxFileName);
+	m_pTitledPanel->setTitle(wxFileName);
+	//SetSizer(m_pFileInfoVSizer, false);
 
 	Layout();
 	Refresh();
@@ -328,14 +209,15 @@ void AnkerGCodeImportDialog::switch2FileInfo(std::string filepath, std::string s
 
 void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResult& result)
 {
-	m_pFileSelectVSizer->Show(false);
-	m_pFileInfoVSizer->Show(false);
-	m_pFinishedVSizer->Show(true);
+	m_pFileSelectPanel->Show(false);
+	m_pFileInfoPanel->Show(false);
+	m_pFinishedPanel->Show(true);
 
 	m_importResult = result;
 
-	SetTitle(result.m_fileName);
-	SetSizer(m_pFinishedVSizer, false);
+	//SetTitle(wxString::FromUTF8(result.m_fileName));
+	m_pTitledPanel->setTitle(wxString::FromUTF8(result.m_fileName));
+	//SetSizer(m_pFinishedVSizer, false);
 
 	if (success)
 	{
@@ -345,7 +227,7 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 		m_pFinishedStatusImage->SetMinSize(image.GetSize());
 		m_pFinishedStatusImage->SetMaxSize(image.GetSize());
 
-		m_pFinishedStatusText->SetLabelText(L"Print Success");
+		m_pFinishedStatusText->SetLabelText(/*L"Success"*/_("common_print_taskpannelfinished_completed"));
 	}
 	else
 	{
@@ -355,7 +237,7 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 		m_pFinishedStatusImage->SetMinSize(image.GetSize());
 		m_pFinishedStatusImage->SetMaxSize(image.GetSize());
 
-		m_pFinishedStatusText->SetLabelText(L"Print Failed");
+		m_pFinishedStatusText->SetLabelText(/*L"Print Failed"*/_("common_print_taskpannelfinished_failed"));
 	}
 
 	m_pFinishedFilamentText->SetLabelText(result.m_filamentStr);
@@ -363,7 +245,11 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 	int seconds = result.m_timeSecond;
 	int hours = seconds / 60 / 60;
 	int minutes = seconds / 60 % 60;
-	std::string newTime = std::to_string(hours) + "hs" + std::to_string(minutes) + "mins";
+	seconds = seconds % 60;
+	std::string newTime = 
+		(hours > 0 ? std::to_string(hours) + "h" : "") +
+		(minutes > 0 || seconds <= 0 ? std::to_string(minutes) + "min" : "") +
+		(hours <= 0 && minutes <= 0 && seconds > 0 ? std::to_string(seconds) + "s" : "");
 	m_pFinishedPrintTimeText->SetLabelText(newTime);
 
 	Layout();
@@ -373,46 +259,96 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 void AnkerGCodeImportDialog::initUI()
 {
 	SetBackgroundColour(m_dialogColor);
-	SetSize(wxSize(324, 531));
+	SetSizeHints(AnkerSize(324, 531), AnkerSize(324, 531));
+	SetSize(AnkerSize(324, 531));
+
+	wxBoxSizer* dialogVSizer = new wxBoxSizer(wxVERTICAL);
+	SetSizer(dialogVSizer);
+
+	m_pTitledPanel = new AnkerTitledPanel(this, 44, 8);
+	m_pTitledPanel->SetBackgroundColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
+	m_pTitledPanel->setTitle(L"Select File");
+	m_pTitledPanel->setTitleAlign(AnkerTitledPanel::TitleAlign::CENTER);
+	int closeBtnID = m_pTitledPanel->addTitleButton(wxString::FromUTF8(Slic3r::var("fdm_nav_del_icon.png")), false);
+	m_pTitledPanel->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, closeBtnID](wxCommandEvent& event) {
+		int btnID = event.GetInt();
+		if (btnID == closeBtnID)
+		{
+			m_gcodeInfoReq = false;
+			m_fileListUpdateReq = false;
+			m_gcodePreviewWaiting = false;
+
+			EndModal(wxCANCEL);
+			Hide();
+		}
+		});
+	dialogVSizer->Add(m_pTitledPanel, 1, wxEXPAND, 0);
+
+	wxPanel* contentPanel = new wxPanel(m_pTitledPanel);
+	wxBoxSizer* mainVSizer = new wxBoxSizer(wxVERTICAL);
+	contentPanel->SetSizer(mainVSizer);
+
+	m_pTitledPanel->setContentPanel(contentPanel);
 
 	// File Select Sizer
 	{
-		m_pFileSelectVSizer = new wxBoxSizer(wxVERTICAL);
+		m_pFileSelectPanel = new wxPanel(contentPanel);
+		wxBoxSizer* pFileSelectVSizer = new wxBoxSizer(wxVERTICAL);
+		m_pFileSelectPanel->SetSizer(pFileSelectVSizer);
+		mainVSizer->Add(m_pFileSelectPanel, 1, wxEXPAND, 0);
 
-		m_pFileSelectVSizer->AddSpacer(9);
+		pFileSelectVSizer->AddSpacer(9);
 
 		{
 			wxBoxSizer* buttonTabSizer = new wxBoxSizer(wxHORIZONTAL);
-			m_pFileSelectVSizer->Add(buttonTabSizer, 0, wxALIGN_CENTER, 0);
+			pFileSelectVSizer->Add(buttonTabSizer, 0, wxALIGN_CENTER, 0);
 
-			m_pComputerBtn = new wxButton(this, wxID_ANY, "Computer", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-			m_pComputerBtn->SetBackgroundColour(m_dialogColor);
-			m_pComputerBtn->SetForegroundColour(m_textDarkColor);
-			m_pComputerBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnComputerBtn, this);
-			buttonTabSizer->Add(m_pComputerBtn, 0, wxEXPAND, 0);
+            m_pComputerBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+            m_pComputerBtn->SetMinSize(AnkerSize(90, 24));
+            m_pComputerBtn->SetMaxSize(AnkerSize(90, 24));
+            m_pComputerBtn->SetText(/*L"Computer"*/_("common_print_filepath_title1"));
+            m_pComputerBtn->SetBackgroundColour(m_dialogColor);
+            m_pComputerBtn->SetRadius(4);
+            m_pComputerBtn->SetTextColor(m_textDarkColor);
+            m_pComputerBtn->SetFont(ANKER_FONT_NO_1);
+            m_pComputerBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnComputerBtn, this);
+			m_pComputerBtn->SetBackRectColour(m_dialogColor);
+            buttonTabSizer->Add(m_pComputerBtn, 0, wxEXPAND, 0);
 
-			m_pStorageBtn = new wxButton(this, wxID_ANY, "Storage", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-			m_pStorageBtn->SetBackgroundColour(m_dialogColor);
-			m_pStorageBtn->SetForegroundColour(m_textDarkColor);
-			m_pStorageBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnStorageBtn, this);
-			buttonTabSizer->Add(m_pStorageBtn, 0, wxEXPAND, 0);
-
-			m_pUSBBtn = new wxButton(this, wxID_ANY, "USB", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-			m_pUSBBtn->SetBackgroundColour(m_dialogColor);
-			m_pUSBBtn->SetForegroundColour(m_textDarkColor);
-			m_pUSBBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnUSBBtn, this);
-			buttonTabSizer->Add(m_pUSBBtn, 0, wxEXPAND, 0);
+            m_pStorageBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+            m_pStorageBtn->SetMinSize(AnkerSize(90, 24));
+            m_pStorageBtn->SetMaxSize(AnkerSize(90, 24));
+            m_pStorageBtn->SetText(/*L"Storage"*/_("common_print_filepath_title2"));
+            m_pStorageBtn->SetBackgroundColour(m_dialogColor);
+            m_pStorageBtn->SetRadius(4);
+            m_pStorageBtn->SetTextColor(m_textDarkColor);
+            m_pStorageBtn->SetFont(ANKER_FONT_NO_1);
+            m_pStorageBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnStorageBtn, this);
+			m_pStorageBtn->SetBackRectColour(m_dialogColor);
+            buttonTabSizer->Add(m_pStorageBtn, 0, wxEXPAND, 0);
+            
+            m_pUSBBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+            m_pUSBBtn->SetMinSize(AnkerSize(90, 24));
+            m_pUSBBtn->SetMaxSize(AnkerSize(90, 24));
+            m_pUSBBtn->SetText(/*L"USB"*/_("common_print_filepath_title3"));
+            m_pUSBBtn->SetBackgroundColour(m_dialogColor);
+            m_pUSBBtn->SetRadius(4);
+            m_pUSBBtn->SetTextColor(m_textDarkColor);
+            m_pUSBBtn->SetFont(ANKER_FONT_NO_1);
+            m_pUSBBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnUSBBtn, this);
+			m_pUSBBtn->SetBackRectColour(m_dialogColor);
+            buttonTabSizer->Add(m_pUSBBtn, 0, wxEXPAND, 0);
 		}
 
 		{
-			m_pFileSelectVSizer->AddSpacer(8);
+			pFileSelectVSizer->AddSpacer(8);
 
-			wxControl* frameBox = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+			wxControl* frameBox = new wxControl(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
 			frameBox->SetBackgroundColour(m_dialogColor);
 			frameBox->SetForegroundColour(m_textDarkColor);
-			frameBox->SetMinSize(wxSize(276, 24));
-			frameBox->SetMaxSize(wxSize(276, 24));
-			m_pFileSelectVSizer->Add(frameBox, 0, wxALIGN_CENTER, 0);
+			frameBox->SetMinSize(AnkerSize(276, 24));
+			frameBox->SetMaxSize(AnkerSize(276, 24));
+			pFileSelectVSizer->Add(frameBox, 0, wxALIGN_CENTER, 0);
 
 			wxBoxSizer* searchSizer = new wxBoxSizer(wxHORIZONTAL);
 			frameBox->SetSizer(searchSizer);
@@ -430,37 +366,41 @@ void AnkerGCodeImportDialog::initUI()
 
 			searchSizer->AddSpacer(5);
 
-			m_pSearchTextCtrl = new wxTextCtrl(frameBox, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_PROCESS_ENTER);
-			m_pSearchTextCtrl->SetMinSize(wxSize(270, 24));
+			m_pSearchTextCtrl = new wxTextCtrl(frameBox, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+			m_pSearchTextCtrl->SetMinSize(AnkerSize(270, 24));
+#ifdef __APPLE__
+			m_pSearchTextCtrl->SetBackgroundColour(wxColour(31, 32, 35));
+#else
 			m_pSearchTextCtrl->SetBackgroundColour(m_dialogColor);
+#endif // __APPLE__
 			m_pSearchTextCtrl->SetForegroundColour(m_textLightColor);
 			m_pSearchTextCtrl->Bind(wxEVT_TEXT, &AnkerGCodeImportDialog::OnSearchTextChanged, this);
 			m_pSearchTextCtrl->Bind(wxEVT_TEXT_ENTER, &AnkerGCodeImportDialog::OnSearchTextEnter, this);
 			m_pSearchTextCtrl->SetEditable(true);
-			searchSizer->Add(m_pSearchTextCtrl, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_BOTTOM, 0);
+			searchSizer->Add(m_pSearchTextCtrl, 0, wxEXPAND | wxALIGN_LEFT | wxALIGN_BOTTOM | wxTOP | wxBOTTOM, 2);
 		}
 
-		m_pFileSelectVSizer->AddSpacer(5);
+		pFileSelectVSizer->AddSpacer(5);
 
-		m_pFSComputerWidget = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
-		m_pFSComputerWidget->SetMinSize(wxSize(324, 422));
-		m_pFSComputerWidget->SetScrollRate(324, 60);
-		m_pFileSelectVSizer->Add(m_pFSComputerWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
+		m_pFSComputerWidget = new wxScrolledWindow(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
+		m_pFSComputerWidget->SetMinSize(AnkerSize(324, 422));
+		m_pFSComputerWidget->SetScrollRate(-1, 60);
+		pFileSelectVSizer->Add(m_pFSComputerWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
 
-		m_pFSEmptyWidget = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
-		m_pFSEmptyWidget->SetMinSize(wxSize(324, 422));
-		m_pFSEmptyWidget->SetScrollRate(324, 60);
-		m_pFileSelectVSizer->Add(m_pFSEmptyWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
+		m_pFSEmptyWidget = new wxScrolledWindow(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
+		m_pFSEmptyWidget->SetMinSize(AnkerSize(324, 422));
+		m_pFSEmptyWidget->SetScrollRate(-1, 60);
+		pFileSelectVSizer->Add(m_pFSEmptyWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
 
-		m_pFSStorageListWidget = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
-		m_pFSStorageListWidget->SetMinSize(wxSize(324, 422));
-		m_pFSStorageListWidget->SetScrollRate(324, 60);
-		m_pFileSelectVSizer->Add(m_pFSStorageListWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
+		m_pFSStorageListWidget = new wxScrolledWindow(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
+		m_pFSStorageListWidget->SetMinSize(AnkerSize(324, 422));
+		m_pFSStorageListWidget->SetScrollRate(-1, 60);
+		pFileSelectVSizer->Add(m_pFSStorageListWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
 
-		m_pFSUSBListWidget = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
-		m_pFSUSBListWidget->SetMinSize(wxSize(324, 422));
-		m_pFSUSBListWidget->SetScrollRate(324, 60);
-		m_pFileSelectVSizer->Add(m_pFSUSBListWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
+		m_pFSUSBListWidget = new wxScrolledWindow(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxVSCROLL);
+		m_pFSUSBListWidget->SetMinSize(AnkerSize(324, 422));
+		m_pFSUSBListWidget->SetScrollRate(-1, 60);
+		pFileSelectVSizer->Add(m_pFSUSBListWidget, 0, wxEXPAND | wxALIGN_CENTER, 0);
 
 		initFSComputerSizer(m_pFSComputerWidget);
 		initFSEmptySizer(m_pFSEmptyWidget);
@@ -473,15 +413,66 @@ void AnkerGCodeImportDialog::initUI()
 	}
 
 	// File Info Sizer
-	initFileInfoSizer(this);
+	initFileInfoSizer(contentPanel);
 
-	initFinishedSizer(this);
+	initFinishedSizer(contentPanel);
 
 	switch2FileSelect(FSM_COMPUTER);
 }
 
+void AnkerGCodeImportDialog::SimulateData()
+{
+	printFilamentInfo info;
+	info.iIndex = 0;
+	info.bCanReplace = true;
+	filamentInfo innerInfo;
+	innerInfo.strfilamentColor = "#fffff";//white
+	innerInfo.strFilamentName = "PLA";
+	info.infoDetail = innerInfo;
+	m_PrinterFilamentVec.push_back(info);
+
+	info.iIndex = 1;
+	innerInfo.strfilamentColor = "#FF0000";
+	innerInfo.strFilamentName = "PLA+";
+	m_PrinterFilamentVec.push_back(info);
+
+	info.iIndex = 2;
+	innerInfo.strfilamentColor = "#00ff00";
+	innerInfo.strFilamentName = "PLA+";
+
+
+	info.iIndex = 3;
+	innerInfo.strfilamentColor = "#0000FF";
+	innerInfo.strFilamentName = "PLA+";
+	m_PrinterFilamentVec.push_back(info);
+
+	info.iIndex = 4;
+	innerInfo.strfilamentColor = "#12ff00";
+	innerInfo.strFilamentName = "TPT+";
+	info.bCanReplace = false;
+
+
+	info.iIndex = 5;
+	innerInfo.strfilamentColor = "#00ffF3";
+	innerInfo.strFilamentName = "?";
+	info.bCanReplace = false;
+
+
+	filamentInfo gcodeFilementInfo;
+	gcodeFilementInfo.strfilamentColor = "#fffff";
+	gcodeFilementInfo.strFilamentName = "PLA";
+
+	filamentMap.insert(std::make_pair(gcodeFilementInfo,m_PrinterFilamentVec[0]));
+
+	gcodeFilementInfo.strfilamentColor = "#123456";
+	gcodeFilementInfo.strFilamentName = "PLA+";
+	filamentMap.insert(std::make_pair(gcodeFilementInfo, m_PrinterFilamentVec[1]));
+}
+
 bool AnkerGCodeImportDialog::initFSComputerSizer(wxWindow* parent)
 {
+	int langType = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+
 	wxBoxSizer* computerSizer = new wxBoxSizer(wxVERTICAL);
 
 	computerSizer->AddSpacer(115);
@@ -499,24 +490,26 @@ bool AnkerGCodeImportDialog::initFSComputerSizer(wxWindow* parent)
 	computerSizer->AddSpacer(16);
 
 	// drag drop text
-	wxStaticText* tipText = new wxStaticText(parent, wxID_ANY, "Click to open the file.");
+	wxStaticText* tipText = new wxStaticText(parent, wxID_ANY, "");
 	tipText->SetBackgroundColour(m_dialogColor);
 	tipText->SetForegroundColour(m_textDarkColor);
-	wxFont font = tipText->GetFont();
-	font.SetPointSize(10);
-	tipText->SetFont(font);
+	tipText->SetFont(ANKER_FONT_NO_1);
+	tipText->SetSize(AnkerSize(224, 32));
+	Slic3r::GUI::WxFontUtils::setText_wrap(tipText, 224,  /*"Click to open the file."*/_("common_print_filepath_computernotice"), langType);
 	computerSizer->Add(tipText, 0, wxALIGN_CENTER, 0);
 
 	computerSizer->AddSpacer(32);
 
 	// open button
-	AnkerBtn* openButton = new AnkerBtn(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-	openButton->SetMinSize(wxSize(184, 24));
-	openButton->SetMaxSize(wxSize(184, 24));
-	openButton->SetText(L"Open");
+	AnkerBtn* openButton = new AnkerBtn(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+	openButton->SetMinSize(AnkerSize(184, 24));
+	openButton->SetMaxSize(AnkerSize(184, 24));
+	openButton->SetText(/*L"Open"*/_("common_button_open"));
 	openButton->SetBackgroundColour(wxColor("#62D361"));
 	openButton->SetRadius(4);
 	openButton->SetTextColor(wxColor("#FFFFFF"));
+	openButton->SetFont(ANKER_BOLD_FONT_NO_1);
+	openButton->SetBackRectColour(m_dialogColor);
 	openButton->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnComputerImportBtn, this);
 	computerSizer->Add(openButton, 0, wxALIGN_CENTER, 0);
 
@@ -547,12 +540,10 @@ bool AnkerGCodeImportDialog::initFSEmptySizer(wxWindow* parent)
 	emptySizer->AddSpacer(21);
 
 	// drag drop text
-	wxStaticText* tipText = new wxStaticText(parent, wxID_ANY, "No Files");
+	wxStaticText* tipText = new wxStaticText(parent, wxID_ANY, /*"No Files"*/_("common_print_filepathnotice_nofile"));
 	tipText->SetBackgroundColour(m_dialogColor);
 	tipText->SetForegroundColour(m_textDarkColor);
-	wxFont font = tipText->GetFont();
-	font.SetPointSize(10);
-	tipText->SetFont(font);
+	tipText->SetFont(ANKER_FONT_NO_1);
 	emptySizer->Add(tipText, 0, wxALIGN_CENTER, 0);
 
 	//m_pFSEmptyWidget->Show(false);
@@ -572,286 +563,317 @@ bool AnkerGCodeImportDialog::initFSListSizer(wxWindow* parent)
 
 bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 {
-	m_pFileInfoVSizer = new wxBoxSizer(wxVERTICAL);
+	m_pFileInfoPanel = new wxPanel(parent);
+	wxBoxSizer* pFileInfoVSizer = new wxBoxSizer(wxVERTICAL);
+	m_pFileInfoPanel->SetSizer(pFileInfoVSizer);
+	parent->GetSizer()->Add(m_pFileInfoPanel, 1, wxEXPAND, 0);
 
-	m_pFileInfoVSizer->AddSpacer(45);
+	pFileInfoVSizer->AddSpacer(AnkerLength(40));
 
 	// preview image
 	wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
 	wxImage image = bitmapEx.ConvertToImage();
-	image.Rescale(160, 160);
+
+	//
+	Datamanger& dm = Datamanger::GetInstance();
+	DeviceObjectPtr currentDev = dm.getDeviceObjectFromSn(m_currentDeviceSn);
+	if(currentDev) {
+		if (currentDev->devicePartsType == DEVICE_PARTS_NO)
+		{
+			image.Rescale(160, 160);
+			image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
+		}
+		else
+		{
+			image.Rescale(115, 115);
+			image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
+		}
+	}	
 
 	wxBitmap scaledBitmap(image);
-	m_pPreviewImage = new wxStaticBitmap(parent, wxID_ANY, scaledBitmap);
+	m_pPreviewImage = new wxStaticBitmap(m_pFileInfoPanel, wxID_ANY, scaledBitmap);
 	m_pPreviewImage->SetMinSize(scaledBitmap.GetSize());
 	m_pPreviewImage->SetMaxSize(scaledBitmap.GetSize());
-	m_pPreviewImage->SetBackgroundColour(wxColour(41, 42, 45));
-	m_pFileInfoVSizer->Add(m_pPreviewImage, 0, wxALIGN_CENTER, 0);
+	m_pPreviewImage->SetBackgroundColour(m_dialogColor);
 
-	m_pFileInfoVSizer->AddSpacer(44);
+	if(currentDev)
+	{
+		if (currentDev->devicePartsType == DEVICE_PARTS_NO)
+		{
+			pFileInfoVSizer->Add(m_pPreviewImage, 1, wxEXPAND | wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 32);
+		}
+		else
+		{
+			pFileInfoVSizer->Add(m_pPreviewImage, 1, wxEXPAND | wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 16);
+			//by Samuel,show filament mapping info for multi-color printer
+			// split line
+			wxControl* splitLineCtrl = new wxControl(m_pFileInfoPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			splitLineCtrl->SetBackgroundColour(m_splitLineColor);
+			splitLineCtrl->SetSizeHints(wxSize(264, 1), wxSize(264, 1));
+			pFileInfoVSizer->Add(splitLineCtrl, 0, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 16);
+
+			//TODO: by Samuel,To get the mapping info from printer
+		}
+	}
+
 
 	// split line
-	wxControl* splitLineCtrl = new wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-	splitLineCtrl->SetBackgroundColour(wxColour(64, 65, 70));
+	wxControl* splitLineCtrl = new wxControl(m_pFileInfoPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+	splitLineCtrl->SetBackgroundColour(m_splitLineColor);
 	splitLineCtrl->SetMaxSize(wxSize(264, 1));
 	splitLineCtrl->SetMinSize(wxSize(264, 1));
-	m_pFileInfoVSizer->Add(splitLineCtrl, 0, wxALIGN_CENTER, 0);
+	pFileInfoVSizer->Add(splitLineCtrl, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP | wxBOTTOM, 8);
 
-	m_pFileInfoVSizer->AddSpacer(16);
+	//m_pFileInfoVSizer->AddSpacer(16);
 
 	// speed
 	{
-		wxBoxSizer* speedSizer = new wxBoxSizer(wxHORIZONTAL);
-		speedSizer->SetMinSize(wxSize(264, 34));
-		m_pFileInfoVSizer->Add(speedSizer, 0, wxALIGN_CENTER, 0);
+		//by Samuel, no need to display speed info
+		/*wxBoxSizer* speedSizer = new wxBoxSizer(wxHORIZONTAL);
+		speedSizer->SetMinSize(AnkerSize(264, 32));
+		pFileInfoVSizer->Add(speedSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
 
-		wxBitmap speedBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("printer_speed.png")), wxBITMAP_TYPE_PNG);
-		wxStaticBitmap* speedIcon = new wxStaticBitmap(parent, wxID_ANY, speedBitmap);
+		wxImage speedBitmap = wxImage(wxString::FromUTF8(Slic3r::var("printer_speed.png")), wxBITMAP_TYPE_PNG);
+		wxStaticBitmap* speedIcon = new wxStaticBitmap(m_pFileInfoPanel, wxID_ANY, speedBitmap);
 		speedIcon->SetMinSize(speedBitmap.GetSize());
-		speedSizer->Add(speedIcon, 0, wxALIGN_LEFT, 0);
+		speedSizer->Add(speedIcon, 0, wxALIGN_LEFT | wxRIGHT | wxTOP | wxBOTTOM, 8);
 
-		speedSizer->AddSpacer(7);
-
-		wxStaticText* speedText = new wxStaticText(parent, wxID_ANY, "Speed");
+		wxStaticText* speedText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "Speed"_("common_print_previewpopup_speed"));
 		speedText->SetBackgroundColour(m_dialogColor);
 		speedText->SetForegroundColour(m_textDarkColor);
-		wxFont font = speedText->GetFont();
-		font.SetPointSize(10);
-		speedText->SetFont(font);
-		speedSizer->Add(speedText, 0, wxALIGN_LEFT, 0);
+		speedText->SetFont(ANKER_FONT_NO_1);
+		speedText->Fit();
+		speedSizer->Add(speedText, 0, wxALIGN_LEFT | wxTOP | wxBOTTOM, 8);
 
 		speedSizer->AddStretchSpacer(1);
 
-		m_pSpeedText = new wxStaticText(parent, wxID_ANY, "X5.0(250mm/s)");
+		m_pSpeedText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "X5.0(250mm/s)");
 		m_pSpeedText->SetBackgroundColour(m_dialogColor);
-		m_pSpeedText->SetForegroundColour(m_textDarkColor);
-		font = m_pSpeedText->GetFont();
-		font.SetPointSize(10);
-		m_pSpeedText->SetFont(font);
-		speedSizer->Add(m_pSpeedText, 0, wxALIGN_RIGHT, 0);
+		m_pSpeedText->SetForegroundColour(m_textLightColor);
+		m_pSpeedText->SetFont(ANKER_BOLD_FONT_NO_1);
+		m_pSpeedText->Fit();
+		speedSizer->Add(m_pSpeedText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 9);*/
 	}
 
-	m_pFileInfoVSizer->AddSpacer(16);
 
 	// filament
 	{
 		wxBoxSizer* filamentSizer = new wxBoxSizer(wxHORIZONTAL);
-		filamentSizer->SetMinSize(wxSize(264, 34));
-		m_pFileInfoVSizer->Add(filamentSizer, 0, wxALIGN_CENTER, 0);
+		filamentSizer->SetMinSize(AnkerSize(264, 32));
+		pFileInfoVSizer->Add(filamentSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
 
-		wxBitmap usedFBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("used_filament.png")), wxBITMAP_TYPE_PNG);
-		wxStaticBitmap* usedFIcon = new wxStaticBitmap(parent, wxID_ANY, usedFBitmap);
+		wxImage usedFBitmap = wxImage(wxString::FromUTF8(Slic3r::var("used_filament.png")), wxBITMAP_TYPE_PNG);
+		wxStaticBitmap* usedFIcon = new wxStaticBitmap(m_pFileInfoPanel, wxID_ANY, usedFBitmap);
 		usedFIcon->SetMinSize(usedFBitmap.GetSize());
-		filamentSizer->Add(usedFIcon, 0, wxALIGN_LEFT, 0);
+		filamentSizer->Add(usedFIcon, 0, wxALIGN_LEFT | wxRIGHT | wxTOP | wxBOTTOM, 8);
 
-		filamentSizer->AddSpacer(7);
-
-		wxStaticText* usedFText = new wxStaticText(parent, wxID_ANY, "Filament");
+		wxStaticText* usedFText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, /*"Filament"*/_("common_print_previewpopup_filament"));
 		usedFText->SetBackgroundColour(m_dialogColor);
 		usedFText->SetForegroundColour(m_textDarkColor);
-		wxFont font = usedFText->GetFont();
-		font.SetPointSize(10);
-		usedFText->SetFont(font);
-		filamentSizer->Add(usedFText, 0, wxALIGN_LEFT, 0);
+		usedFText->SetFont(ANKER_FONT_NO_1);
+		usedFText->Fit();
+		filamentSizer->Add(usedFText, 0, wxALIGN_LEFT | wxTOP | wxBOTTOM, 8);
 
 		filamentSizer->AddStretchSpacer(1);
 
-		m_pFilamentText = new wxStaticText(parent, wxID_ANY, "220g");
+		m_pFilamentText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "220g");
 		m_pFilamentText->SetBackgroundColour(m_dialogColor);
-		m_pFilamentText->SetForegroundColour(m_textDarkColor);
-		font = m_pFilamentText->GetFont();
-		font.SetPointSize(10);
-		m_pFilamentText->SetFont(font);
-		filamentSizer->Add(m_pFilamentText, 0, wxALIGN_RIGHT, 0);
+		m_pFilamentText->SetForegroundColour(m_textLightColor);
+		m_pFilamentText->SetFont(ANKER_BOLD_FONT_NO_1);
+		m_pFilamentText->Fit();
+		filamentSizer->Add(m_pFilamentText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
 	}
 
-	m_pFileInfoVSizer->AddSpacer(16);
+	//pFileInfoVSizer->AddSpacer(16);
 
 	// print time
 	{
 		wxBoxSizer* printTimeSizer = new wxBoxSizer(wxHORIZONTAL);
-		printTimeSizer->SetMinSize(wxSize(264, 34));
-		m_pFileInfoVSizer->Add(printTimeSizer, 0, wxALIGN_CENTER, 0);
+		printTimeSizer->SetMinSize(AnkerSize(264, 32));
+		pFileInfoVSizer->Add(printTimeSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
 
-		wxBitmap usedFBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("finish_time.png")), wxBITMAP_TYPE_PNG);
-		wxStaticBitmap* usedFIcon = new wxStaticBitmap(parent, wxID_ANY, usedFBitmap);
+		wxImage usedFBitmap = wxImage(wxString::FromUTF8(Slic3r::var("finish_time.png")), wxBITMAP_TYPE_PNG);
+		wxStaticBitmap* usedFIcon = new wxStaticBitmap(m_pFileInfoPanel, wxID_ANY, usedFBitmap);
 		usedFIcon->SetMinSize(usedFBitmap.GetSize());
-		printTimeSizer->Add(usedFIcon, 0, wxALIGN_LEFT, 0);
+		printTimeSizer->Add(usedFIcon, 0, wxALIGN_LEFT | wxRIGHT | wxTOP | wxBOTTOM, 8);
 
-		printTimeSizer->AddSpacer(7);
-
-		wxStaticText* printTimeText = new wxStaticText(parent, wxID_ANY, "Print Time");
+		wxStaticText* printTimeText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, /*"Print Time"*/_("common_print_previewpopup_printtime"));
 		printTimeText->SetBackgroundColour(m_dialogColor);
 		printTimeText->SetForegroundColour(m_textDarkColor);
-		wxFont font = printTimeText->GetFont();
-		font.SetPointSize(10);
-		printTimeText->SetFont(font);
-		printTimeSizer->Add(printTimeText, 0, wxALIGN_LEFT, 0);
+		printTimeText->SetFont(ANKER_FONT_NO_1);
+		printTimeText->Fit();
+		printTimeSizer->Add(printTimeText, 0, wxALIGN_LEFT | wxTOP | wxBOTTOM, 8);
 
 		printTimeSizer->AddStretchSpacer(1);
 
-		m_pPrintTimeText = new wxStaticText(parent, wxID_ANY, "1h32mins");
+		m_pPrintTimeText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "1h32mins");
 		m_pPrintTimeText->SetBackgroundColour(m_dialogColor);
-		m_pPrintTimeText->SetForegroundColour(m_textDarkColor);
-		font = m_pPrintTimeText->GetFont();
-		font.SetPointSize(10);
-		m_pPrintTimeText->SetFont(font);
-		printTimeSizer->Add(m_pPrintTimeText, 0, wxALIGN_RIGHT, 0);
+		m_pPrintTimeText->SetForegroundColour(m_textLightColor);
+		m_pPrintTimeText->SetFont(ANKER_BOLD_FONT_NO_1);
+		m_pPrintTimeText->Fit();
+		printTimeSizer->Add(m_pPrintTimeText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
 	}
 
-	m_pFileInfoVSizer->AddStretchSpacer(1);
+	pFileInfoVSizer->AddStretchSpacer(1);
 
 	// button sizer
 	wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-	m_pFileInfoVSizer->Add(buttonSizer, 1, wxEXPAND | wxALIGN_BOTTOM | wxBOTTOM, 30);
+	pFileInfoVSizer->Add(buttonSizer, 0, wxEXPAND | wxALIGN_BOTTOM | wxBOTTOM, 30);
 
 	buttonSizer->AddStretchSpacer(1);
 
-	m_pPrintBtn = new AnkerBtn(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-	m_pPrintBtn->SetMinSize(wxSize(104, 24));
-	m_pPrintBtn->SetMaxSize(wxSize(264, 24));
-	m_pPrintBtn->SetText(L"Start Printing");
+	m_pPrintBtn = new AnkerBtn(m_pFileInfoPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+	m_pPrintBtn->SetMinSize(AnkerSize(264, 24));
+	m_pPrintBtn->SetMaxSize(AnkerSize(264, 24));
+	m_pPrintBtn->SetText(/*L"Start Printing"*/_("common_print_taskbar_buttonstart"));
+	m_pPrintBtn->SetDisableTextColor(wxColor(105,105,108));
 	m_pPrintBtn->SetBackgroundColour(wxColor("#62D361"));
 	m_pPrintBtn->SetRadius(4);
 	m_pPrintBtn->SetTextColor(wxColor("#FFFFFF"));
+	m_pPrintBtn->SetFont(ANKER_BOLD_FONT_NO_1);
+	m_pPrintBtn->SetBackRectColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
 	m_pPrintBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnPrintBtn, this);
-	buttonSizer->Add(m_pPrintBtn, 1, wxEXPAND | wxALIGN_CENTER, 0);
-
-	buttonSizer->AddStretchSpacer(1);
+	buttonSizer->Add(m_pPrintBtn, 1, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT , 24);
 
 	return true;
 }
 
 bool AnkerGCodeImportDialog::initFinishedSizer(wxWindow* parent)
 {
-	m_pFinishedVSizer = new wxBoxSizer(wxVERTICAL);
+	m_pFinishedPanel = new wxPanel(parent);
+	m_pFinishedPanel->SetMinSize(AnkerSize(324, 486));
+	wxBoxSizer* pFinishedVSizer = new wxBoxSizer(wxVERTICAL);
+	m_pFinishedPanel->SetSizer(pFinishedVSizer);
+	parent->GetSizer()->Add(m_pFinishedPanel, 1, wxEXPAND, 0);
 
-	m_pFinishedVSizer->AddSpacer(40);
+	pFinishedVSizer->AddSpacer(AnkerLength(20));
 
 	// preview image
 	wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("result_success_icon.png")), wxBITMAP_TYPE_PNG);
 	image.Rescale(120, 120);
-	m_pFinishedStatusImage = new wxStaticBitmap(parent, wxID_ANY, image);
+	m_pFinishedStatusImage = new wxStaticBitmap(m_pFinishedPanel, wxID_ANY, image);
 	m_pFinishedStatusImage->SetMinSize(image.GetSize());
 	m_pFinishedStatusImage->SetMaxSize(image.GetSize());
-	m_pFinishedStatusImage->SetBackgroundColour(wxColour(41, 42, 45));
-	m_pFinishedVSizer->Add(m_pFinishedStatusImage, 0, wxALIGN_CENTER, 0);
+	m_pFinishedStatusImage->SetBackgroundColour(m_dialogColor);
+	pFinishedVSizer->Add(m_pFinishedStatusImage, 0, wxALIGN_CENTER_HORIZONTAL, 0);
 
-	m_pFinishedStatusText = new wxStaticText(parent, wxID_ANY, "Print Success");
-	m_pFinishedStatusText->SetMinSize(wxSize(102, 16));
+	m_pFinishedStatusText = new wxStaticText(m_pFinishedPanel, wxID_ANY, /*"Success"*/_("common_print_taskpannelfinished_completed"),
+												wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
+	m_pFinishedStatusText->SetWindowStyle(wxALIGN_CENTER_HORIZONTAL);
+	m_pFinishedStatusText->SetMinSize(AnkerSize(120, 30));
+	m_pFinishedStatusText->SetSize(AnkerSize(120, 30));
 	m_pFinishedStatusText->SetBackgroundColour(m_dialogColor);
-	m_pFinishedStatusText->SetForegroundColour(m_textDarkColor);
-	wxFont font = m_pFinishedStatusText->GetFont();
-	font.SetPointSize(10);
-	m_pFinishedStatusText->SetFont(font);
-	m_pFinishedVSizer->Add(m_pFinishedStatusText, 0, wxALIGN_CENTER, 0);
+	m_pFinishedStatusText->SetForegroundColour(m_textLightColor);
 
-	m_pFinishedVSizer->AddSpacer(36);
+	m_pFinishedStatusText->SetFont(ANKER_FONT_NO_1);
+	pFinishedVSizer->Add(m_pFinishedStatusText, 0, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 20);
+
+	//m_pFinishedVSizer->AddSpacer(36);
 
 	// split line
-	wxControl* splitLineCtrl = new wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-	splitLineCtrl->SetBackgroundColour(wxColour(64, 65, 70));
+	wxControl* splitLineCtrl = new wxControl(m_pFinishedPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+	splitLineCtrl->SetBackgroundColour(m_splitLineColor);
 	splitLineCtrl->SetMaxSize(wxSize(264, 1));
 	splitLineCtrl->SetMinSize(wxSize(264, 1));
-	m_pFinishedVSizer->Add(splitLineCtrl, 0, wxALIGN_CENTER, 0);
+	pFinishedVSizer->Add(splitLineCtrl, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP | wxBOTTOM, 16);
 
-	m_pFinishedVSizer->AddSpacer(16);
-
-	// filament
-	{
-		wxBoxSizer* filamentSizer = new wxBoxSizer(wxHORIZONTAL);
-		filamentSizer->SetMinSize(wxSize(264, 34));
-		m_pFinishedVSizer->Add(filamentSizer, 0, wxALIGN_CENTER, 0);
-
-		wxBitmap usedFBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("used_filament.png")), wxBITMAP_TYPE_PNG);
-		wxStaticBitmap* usedFIcon = new wxStaticBitmap(parent, wxID_ANY, usedFBitmap);
-		usedFIcon->SetMinSize(usedFBitmap.GetSize());
-		filamentSizer->Add(usedFIcon, 0, wxALIGN_LEFT, 0);
-
-		filamentSizer->AddSpacer(7);
-
-		wxStaticText* usedFText = new wxStaticText(parent, wxID_ANY, "Filament");
-		usedFText->SetBackgroundColour(m_dialogColor);
-		usedFText->SetForegroundColour(m_textDarkColor);
-		wxFont font = usedFText->GetFont();
-		font.SetPointSize(10);
-		usedFText->SetFont(font);
-		filamentSizer->Add(usedFText, 0, wxALIGN_LEFT, 0);
-
-		filamentSizer->AddStretchSpacer(1);
-
-		m_pFinishedFilamentText = new wxStaticText(parent, wxID_ANY, "220g");
-		m_pFinishedFilamentText->SetBackgroundColour(m_dialogColor);
-		m_pFinishedFilamentText->SetForegroundColour(m_textDarkColor);
-		font = m_pFinishedFilamentText->GetFont();
-		font.SetPointSize(10);
-		m_pFinishedFilamentText->SetFont(font);
-		filamentSizer->Add(m_pFinishedFilamentText, 0, wxALIGN_RIGHT, 0);
-	}
-
-	m_pFinishedVSizer->AddSpacer(16);
+	//m_pFinishedVSizer->AddSpacer(16);
 
 	// print time
 	{
 		wxBoxSizer* printTimeSizer = new wxBoxSizer(wxHORIZONTAL);
-		printTimeSizer->SetMinSize(wxSize(264, 34));
-		m_pFinishedVSizer->Add(printTimeSizer, 0, wxALIGN_CENTER, 0);
+		printTimeSizer->SetMinSize(AnkerSize(264, 32));
+		pFinishedVSizer->Add(printTimeSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
 
-		wxBitmap usedFBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("finish_time.png")), wxBITMAP_TYPE_PNG);
-		wxStaticBitmap* usedFIcon = new wxStaticBitmap(parent, wxID_ANY, usedFBitmap);
-		usedFIcon->SetMinSize(usedFBitmap.GetSize());
-		printTimeSizer->Add(usedFIcon, 0, wxALIGN_LEFT, 0);
+		//wxBitmap usedFBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("finish_time.png")), wxBITMAP_TYPE_PNG);
+		//wxStaticBitmap* usedFIcon = new wxStaticBitmap(m_pFinishedPanel, wxID_ANY, usedFBitmap);
+		//usedFIcon->SetMinSize(usedFBitmap.GetSize());
+		//printTimeSizer->Add(usedFIcon, 0, wxALIGN_LEFT, 0);
 
-		printTimeSizer->AddSpacer(7);
+		//printTimeSizer->AddSpacer(7);
 
-		wxStaticText* printTimeText = new wxStaticText(parent, wxID_ANY, "Print Time");
+		wxStaticText* printTimeText = new wxStaticText(m_pFinishedPanel, wxID_ANY, /*"Print Time"*/_("common_print_previewpopup_printtime"));
 		printTimeText->SetBackgroundColour(m_dialogColor);
 		printTimeText->SetForegroundColour(m_textDarkColor);
-		wxFont font = printTimeText->GetFont();
-		font.SetPointSize(10);
-		printTimeText->SetFont(font);
-		printTimeSizer->Add(printTimeText, 0, wxALIGN_LEFT, 0);
+		printTimeText->SetFont(ANKER_FONT_NO_1);
+		printTimeText->Fit();
+		printTimeSizer->Add(printTimeText, 0, wxALIGN_LEFT | wxTOP | wxBOTTOM, 8);
 
 		printTimeSizer->AddStretchSpacer(1);
 
-		m_pFinishedPrintTimeText = new wxStaticText(parent, wxID_ANY, "1h32mins");
+		m_pFinishedPrintTimeText = new wxStaticText(m_pFinishedPanel, wxID_ANY, "1h32min");
 		m_pFinishedPrintTimeText->SetBackgroundColour(m_dialogColor);
-		m_pFinishedPrintTimeText->SetForegroundColour(m_textDarkColor);
-		font = m_pFinishedPrintTimeText->GetFont();
-		font.SetPointSize(10);
-		m_pFinishedPrintTimeText->SetFont(font);
-		printTimeSizer->Add(m_pFinishedPrintTimeText, 0, wxALIGN_RIGHT, 0);
+		m_pFinishedPrintTimeText->SetForegroundColour(m_textLightColor);
+		m_pFinishedPrintTimeText->SetFont(ANKER_BOLD_FONT_NO_1);
+		m_pFinishedPrintTimeText->Fit();
+		printTimeSizer->Add(m_pFinishedPrintTimeText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
 	}
 
-	m_pFinishedVSizer->AddStretchSpacer(1);
+	//pFinishedVSizer->AddSpacer(16);
+
+	// filament
+	{
+		wxBoxSizer* filamentSizer = new wxBoxSizer(wxHORIZONTAL);
+		filamentSizer->SetMinSize(AnkerSize(264, 34));
+		pFinishedVSizer->Add(filamentSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
+
+		//wxBitmap usedFBitmap = wxBitmap(wxString::FromUTF8(Slic3r::var("used_filament.png")), wxBITMAP_TYPE_PNG);
+		//wxStaticBitmap* usedFIcon = new wxStaticBitmap(m_pFinishedPanel, wxID_ANY, usedFBitmap);
+		//usedFIcon->SetMinSize(usedFBitmap.GetSize());
+		//filamentSizer->Add(usedFIcon, 0, wxALIGN_LEFT, 0);
+
+		//filamentSizer->AddSpacer(7);
+
+		wxStaticText* usedFText = new wxStaticText(m_pFinishedPanel, wxID_ANY, /*"Filament"*/_("common_print_previewpopup_filament"));
+		usedFText->SetBackgroundColour(m_dialogColor);
+		usedFText->SetForegroundColour(m_textDarkColor);
+		usedFText->SetFont(ANKER_FONT_NO_1);
+		usedFText->Fit();
+		filamentSizer->Add(usedFText, 0, wxALIGN_LEFT | wxTOP | wxBOTTOM, 8);
+
+		filamentSizer->AddStretchSpacer(1);
+
+		m_pFinishedFilamentText = new wxStaticText(m_pFinishedPanel, wxID_ANY, "220g");
+		m_pFinishedFilamentText->SetBackgroundColour(m_dialogColor);
+		m_pFinishedFilamentText->SetForegroundColour(m_textLightColor);
+		m_pFinishedFilamentText->SetFont(ANKER_BOLD_FONT_NO_1);
+		m_pFinishedFilamentText->Fit();
+		filamentSizer->Add(m_pFinishedFilamentText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
+	}
+
+	pFinishedVSizer->AddStretchSpacer(1);
 
 	// button sizer
-	wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-	m_pFinishedVSizer->Add(buttonSizer, 1, wxEXPAND | wxALIGN_BOTTOM | wxBOTTOM, 30);
+	wxBoxSizer* buttonHSizer = new wxBoxSizer(wxHORIZONTAL);
+	pFinishedVSizer->Add(buttonHSizer, 0, wxALIGN_BOTTOM | wxBOTTOM, 30);
 
-	buttonSizer->AddStretchSpacer(1);
+	buttonHSizer->AddStretchSpacer(1);
 
-	m_pRePrintBtn = new AnkerBtn(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-	m_pRePrintBtn->SetMinSize(wxSize(104, 24));
-	m_pRePrintBtn->SetMaxSize(wxSize(264, 24));
-	m_pRePrintBtn->SetText(L"Reprint");
+	m_pRePrintBtn = new AnkerBtn(m_pFinishedPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+	m_pRePrintBtn->SetMinSize(AnkerSize(104, 24));
+	m_pRePrintBtn->SetMaxSize(AnkerSize(104, 24));
+	m_pRePrintBtn->SetText(/*L"Reprint"*/_("common_print_popupfinished_buttonreprint"));
 	m_pRePrintBtn->SetBackgroundColour(wxColor("#62D361"));
 	m_pRePrintBtn->SetRadius(4);
 	m_pRePrintBtn->SetTextColor(wxColor("#FFFFFF"));
+	m_pRePrintBtn->SetFont(ANKER_BOLD_FONT_NO_1);
+	m_pRePrintBtn->SetBackRectColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
 	m_pRePrintBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnPrintBtn, this);
-	buttonSizer->Add(m_pRePrintBtn, 1, wxEXPAND | wxALIGN_CENTER, 0);
+	buttonHSizer->Add(m_pRePrintBtn, 1, wxEXPAND | wxALIGN_CENTER, 0);
 
-	m_pFinishBtn = new AnkerBtn(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-	m_pFinishBtn->SetMinSize(wxSize(104, 24));
-	m_pFinishBtn->SetMaxSize(wxSize(264, 24));
-	m_pFinishBtn->SetText(L"Finish");
+	m_pFinishBtn = new AnkerBtn(m_pFinishedPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+	m_pFinishBtn->SetMinSize(AnkerSize(104, 24));
+	m_pFinishBtn->SetMaxSize(AnkerSize(104, 24));
+	m_pFinishBtn->SetText(/*L"Finish"*/_("common_print_popupfinished_buttonfinish"));
 	m_pFinishBtn->SetBackgroundColour(wxColor("#62D361"));
 	m_pFinishBtn->SetRadius(4);
 	m_pFinishBtn->SetTextColor(wxColor("#FFFFFF"));
+	m_pFinishBtn->SetFont(ANKER_BOLD_FONT_NO_1);
+	m_pFinishBtn->SetBackRectColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
 	m_pFinishBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnFinishBtn, this);
-	buttonSizer->Add(m_pFinishBtn, 1, wxALIGN_CENTER | wxLEFT, 30);
+	buttonHSizer->Add(m_pFinishBtn, 1, wxEXPAND | wxALIGN_CENTER | wxLEFT, 30);
 
-	buttonSizer->AddStretchSpacer(1);
+	buttonHSizer->AddStretchSpacer(1);
 
 	return true;
 }
@@ -861,11 +883,14 @@ void AnkerGCodeImportDialog::switch2FSMode(FileSelectMode mode)
 	if (m_currentMode != mode)
 	{
 		m_pComputerBtn->SetBackgroundColour(m_dialogColor);
-		m_pComputerBtn->SetForegroundColour(m_textDarkColor);
+		m_pComputerBtn->SetTextColor(m_textDarkColor);
+		m_pComputerBtn->SetFont(ANKER_FONT_NO_1);
 		m_pStorageBtn->SetBackgroundColour(m_dialogColor);
-		m_pStorageBtn->SetForegroundColour(m_textDarkColor);
+		m_pStorageBtn->SetTextColor(m_textDarkColor);
+		m_pStorageBtn->SetFont(ANKER_FONT_NO_1);
 		m_pUSBBtn->SetBackgroundColour(m_dialogColor);
-		m_pUSBBtn->SetForegroundColour(m_textDarkColor);
+		m_pUSBBtn->SetTextColor(m_textDarkColor);
+		m_pUSBBtn->SetFont(ANKER_FONT_NO_1);
 
 		m_pFSComputerWidget->Show(false);
 		m_pFSEmptyWidget->Show(false);
@@ -878,17 +903,20 @@ void AnkerGCodeImportDialog::switch2FSMode(FileSelectMode mode)
 		{
 		case AnkerGCodeImportDialog::FSM_COMPUTER:
 			m_pComputerBtn->SetBackgroundColour(m_btnFocusColor);
-			m_pComputerBtn->SetForegroundColour(m_btnFocusTextColor);
+			m_pComputerBtn->SetTextColor(m_btnFocusTextColor);
+			m_pComputerBtn->SetFont(ANKER_BOLD_FONT_NO_1);
 			m_pFSComputerWidget->Show(true);
 			break;
 		case AnkerGCodeImportDialog::FSM_STORAGE:
 			m_pStorageBtn->SetBackgroundColour(m_btnFocusColor);
-			m_pStorageBtn->SetForegroundColour(m_btnFocusTextColor);
+			m_pStorageBtn->SetTextColor(m_btnFocusTextColor);
+			m_pStorageBtn->SetFont(ANKER_BOLD_FONT_NO_1);
 			m_pFSEmptyWidget->Show(true);
 			break;
 		case AnkerGCodeImportDialog::FSM_USB:
 			m_pUSBBtn->SetBackgroundColour(m_btnFocusColor);
-			m_pUSBBtn->SetForegroundColour(m_btnFocusTextColor);
+			m_pUSBBtn->SetTextColor(m_btnFocusTextColor);
+			m_pUSBBtn->SetFont(ANKER_BOLD_FONT_NO_1);
 			m_pFSEmptyWidget->Show(true);
 			break;
 		default:
@@ -898,6 +926,7 @@ void AnkerGCodeImportDialog::switch2FSMode(FileSelectMode mode)
 		m_currentMode = mode;
 
 		Layout();
+		Refresh();
 	}
 }
 
@@ -911,33 +940,31 @@ void AnkerGCodeImportDialog::setLoadingVisible(bool visible)
 	// loading frame
 	if (m_pLoadingMask == nullptr)
 	{
-		m_pLoadingMask = new AnkerLoadingMask(this);
-		//m_pLoadingMask->SetSize(GetClientSize());
-		//m_pLoadingMask->SetPosition(GetScreenPosition() + GetClientAreaOrigin());
+		m_pLoadingMask = new AnkerLoadingMask(this, 15000, false);
+		m_pLoadingMask->setText("");
+		m_pLoadingMask->Bind(wxANKEREVT_LOADING_TIMEOUT, &AnkerGCodeImportDialog::OnLoadingTimeout, this);
 	}
 
 	int x, y;
 	GetScreenPosition(&x, &y);
-	y += 71;
-	x += 8;
+	y += 51;
+	x += 4;
 
 	wxSize clientSize = GetClientSize();
+	clientSize.x -= 5;
+	clientSize.y -= 50;
 
-	m_pLoadingMask->SetSize(GetSize());
-	m_pLoadingMask->SetPosition(wxPoint(0, 0)/* + GetClientAreaOrigin()*/);
+	m_pLoadingMask->updateMaskRect(wxPoint(x, y), clientSize);
 	m_pLoadingMask->Show(visible);
-}
-
-void AnkerGCodeImportDialog::startRequestTimer()
-{
-	m_pRequestTimer->Start(30000, true);
+	if (visible)
+		m_pLoadingMask->start();
+	else 
+		m_pLoadingMask->stop();
 }
 
 void AnkerGCodeImportDialog::OnComputerBtn(wxCommandEvent& event)
 {
 	switch2FSMode(FSM_COMPUTER);
-
-	Layout();
 }
 
 void AnkerGCodeImportDialog::OnStorageBtn(wxCommandEvent& event)
@@ -958,7 +985,7 @@ void AnkerGCodeImportDialog::OnStorageBtn(wxCommandEvent& event)
 
 	m_pFSStorageListWidget->Show(false);
 	m_pFSUSBListWidget->Show(false);
-	m_pFSEmptyWidget->Show(true);
+	m_pFSEmptyWidget->Show(false);
 	Layout();
 	Refresh();
 
@@ -984,7 +1011,7 @@ void AnkerGCodeImportDialog::OnUSBBtn(wxCommandEvent& event)
 
 	m_pFSStorageListWidget->Show(false);
 	m_pFSUSBListWidget->Show(false);
-	m_pFSEmptyWidget->Show(true);
+	m_pFSEmptyWidget->Show(false);
 	Layout();
 	Refresh();
 
@@ -1000,11 +1027,11 @@ void AnkerGCodeImportDialog::OnSearchTextChanged(wxCommandEvent& event)
 {
 	if (m_gfItemList.size() > 0)
 	{
-		std::string targetText = m_pSearchTextCtrl->GetLineText(0).ToStdString();
+		wxString targetText = m_pSearchTextCtrl->GetLineText(0);
 
 		for (int i = 0; i < m_gfItemList.size(); i++)
 		{
-			std::string fileName = m_gfItemList[i]->getFileName();
+			wxString fileName = m_gfItemList[i]->getFileName();
 
 			bool visible = false;
 			int searchLen = fileName.size() - targetText.size();
@@ -1039,6 +1066,9 @@ void AnkerGCodeImportDialog::OnSearchTextEnter(wxCommandEvent& event)
 
 void AnkerGCodeImportDialog::OnFileItemClicked(wxMouseEvent& event)
 {
+	if (m_gcodeInfoReq)
+		return;
+
 	m_gcodePreviewWaiting = false;
 
 	AnkerGCodeFileItem* item = dynamic_cast<AnkerGCodeFileItem*>(event.GetEventObject());
@@ -1054,13 +1084,11 @@ void AnkerGCodeImportDialog::OnFileItemClicked(wxMouseEvent& event)
 	if (currentDev == nullptr)
 		return;
 
-	std::string fileName = item->getFileName();
-	std::string filePath = item->getFilePath();
-	std::string fileTime = item->getFileTimeStr();
+	wxString filePath = item->getFilePath().ToStdString();
 
-	m_gcodeInfoFilePath = filePath;
-	filePath = wxString(filePath).ToUTF8();
-	currentDev->setRequestGCodeInfo(filePath);
+	m_gcodeInfoFilePath = filePath.ToStdString();
+	std::string filePathUTF8 = filePath.ToUTF8().data();
+	currentDev->setRequestGCodeInfo(filePathUTF8);
 
 	m_gcodeInfoReq = true;
 	setLoadingVisible(true);
@@ -1074,7 +1102,7 @@ void AnkerGCodeImportDialog::OnShow(wxShowEvent& event)
 		setLoadingVisible(false);
 }
 
-void AnkerGCodeImportDialog::OnTimer(wxTimerEvent& event)
+void AnkerGCodeImportDialog::OnLoadingTimeout(wxCommandEvent& event)
 {
 	// TODO
 	if (m_fileListUpdateReq)
@@ -1090,14 +1118,32 @@ void AnkerGCodeImportDialog::OnTimer(wxTimerEvent& event)
 	m_fileListUpdateReq = false;
 	m_gcodeInfoReq = false;
 
-	std::string levelReminder = "Failed to connect to the machine";
-	std::string title = "Error";
+	ANKER_LOG_INFO << "AnkerGCodeImportDialog: OnLoadingTimeout";
+
+	std::string levelReminder = /*"Failed to connect to the machine"*/_("common_print_filepathnotice_loadingfail").ToStdString();
+	std::string title = /*"Error"*/_("common_print_taskpannelfinished_failed").ToStdString();
 	AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, levelReminder, title, false);
+}
+
+void AnkerGCodeImportDialog::OnMove(wxMoveEvent& event)
+{
+	if (m_pLoadingMask && m_pLoadingMask->IsShown())
+	{
+		int x, y;
+		GetScreenPosition(&x, &y);
+		y += 71;
+		x += 8;
+
+		wxSize clientSize = GetClientSize();
+		clientSize.y -= 40;
+
+		m_pLoadingMask->updateMaskRect(wxPoint(x, y), clientSize);
+	}
 }
 
 void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 {
-	wxFileDialog openFileDialog(this, ("Open GCode File"), m_localImportDefaultDir, "",
+	wxFileDialog openFileDialog(this, (/*"Open GCode File"*/_("common_print_filepath_computernotice")), m_localImportDefaultDir, "",
 		"GCode files (*.gcode;*.acode)|*.gcode;*.acode", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
 	if (openFileDialog.ShowModal() == wxID_CANCEL)
@@ -1105,34 +1151,40 @@ void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 
 	m_importResult.m_srcType = m_currentMode;
 	wxString resultOriFilePath = openFileDialog.GetPath();
-	wxString resultFilePath = resultOriFilePath.ToUTF8();
-	PrintLog("AnkerGCodeImportDialog ===== import gcode file path: " + resultOriFilePath.ToStdString() + 
-		", unicode fila path:" + resultFilePath.ToStdString());
+	std::string resultFilePath = resultOriFilePath.ToUTF8().data();
+	// do not set the UTF data to wxString which will let wxString be empty
+	//wxString resultFilePath = wxString(fileNameT);
+	PrintLog("AnkerGCodeImportDialog ===== import gcode file path: " + resultOriFilePath.ToStdString());
 	// filepath may contains special characters and couldn't be converted to unicode
     if (!resultOriFilePath.empty() && resultFilePath.empty()) {
-        std::string title = "AnkerSlicer Warning";
-        std::string content = "The file path may contain special characters like '+#%-' that cannot be converted to unicode,so it will be ignored";
+        std::string title = /*"AnkerSlicer Warning"*/_("common_popup_titlenotice").ToStdString();
+        std::string content = /*"The file path may contain special characters like '+#%-' that cannot be converted to unicode,so it will be ignored"*/_("common_print_filepath_errorfile").ToStdString();
         AnkerMessageBox(nullptr, content, title, false);
     }
 
-    switch2FileInfo(resultFilePath.ToStdString(), std::string(resultOriFilePath.mb_str()));
+    switch2FileInfo(resultFilePath, std::string(resultOriFilePath.mb_str()));
 
-	m_localImportDefaultDir = resultFilePath.substr(0, resultFilePath.find_last_of("\\")).ToStdString();
+	m_localImportDefaultDir = resultOriFilePath.substr(0, resultOriFilePath.find_last_of("\\")).ToStdString();
 
 	Slic3r::GCodeProcessor processor;
 	Slic3r::GCodeProcessorResultExt out;
 	// we still open the file which filepath may contains special characters
 	processor.process_file_ext(resultOriFilePath.ToUTF8().data(), out);
-	wxImage image = Slic3r::GCodeThumbnails::base64ToImage<wxImage, wxMemoryInputStream>(out.base64_str);
 
 	// get the print info from gcode
 	// set the info to dialog
 
-	setFileInfoSpeed(out.speed);
+	//setFileInfoSpeed(out.speed);
 	setFileInfoFilament(out.filament_cost.empty() ? "--" : out.filament_cost);
 	setFileInfoTime(out.print_time);
 
-	if (out.base64_str.empty())
+	wxImage image;
+	if (!out.base64_str.empty())
+	{
+		image = Slic3r::GCodeThumbnails::base64ToImage<wxImage, wxMemoryInputStream>(out.base64_str);
+	}
+
+	if (!image.IsOk())
 	{
 		wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
 		image = bitmapEx.ConvertToImage();
@@ -1177,7 +1229,7 @@ AnkerGCodeFileItem::~AnkerGCodeFileItem()
 {
 }
 
-void AnkerGCodeFileItem::setFileName(std::string filename)
+void AnkerGCodeFileItem::setFileName(wxString filename)
 {
 	m_fileName = filename;
 
@@ -1185,18 +1237,20 @@ void AnkerGCodeFileItem::setFileName(std::string filename)
 		m_pFileNameText->SetLabelText(filename);
 }
 
-void AnkerGCodeFileItem::setFilePath(std::string filepath)
+void AnkerGCodeFileItem::setFilePath(wxString filepath)
 {
 	m_filePath = filepath;
 
-	if (filepath.size() > GetSize().y)
-		filepath = filepath.substr(0, GetSize().y) + "...";
+	if (filepath.size() > 40)
+		filepath = filepath.substr(0, 40) + "...";
+
+	m_filePathRenderStr = filepath;
 
 	if (m_pFilePathText)
 		m_pFilePathText->SetLabelText(filepath);
 }
 
-void AnkerGCodeFileItem::setFileTimeStr(std::string time)
+void AnkerGCodeFileItem::setFileTimeStr(wxString time)
 {
 	m_fileTimeInfo = time;
 
@@ -1204,87 +1258,27 @@ void AnkerGCodeFileItem::setFileTimeStr(std::string time)
 		m_pFileTimeText->SetLabelText(time);
 }
 
-std::string AnkerGCodeFileItem::getFileName()
+wxString AnkerGCodeFileItem::getFileName()
 {
 	return m_fileName;
 }
 
-std::string AnkerGCodeFileItem::getFilePath()
+wxString AnkerGCodeFileItem::getFilePath()
 {
 	return m_filePath;
 }
 
-std::string AnkerGCodeFileItem::getFileTimeStr()
+wxString AnkerGCodeFileItem::getFileTimeStr()
 {
 	return m_fileTimeInfo;
 }
 
 void AnkerGCodeFileItem::initUI()
 {
-	//wxBoxSizer* itemSizer = new wxBoxSizer(wxVERTICAL);
-	//SetSizer(itemSizer);
-	SetBackgroundColour(wxColour(41, 42, 45));
-	SetMinSize(wxSize(324, 88));
+	SetBackgroundColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
+	SetMinSize(AnkerSize(324, 88));
+	SetMaxSize(AnkerSize(324, 88));
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
-
-	//// split line
-	//wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-	//splitLineCtrl->SetBackgroundColour(wxColour(64, 65, 70));
-	//splitLineCtrl->SetMaxSize(wxSize(300, 1));
-	//splitLineCtrl->SetMinSize(wxSize(300, 1));
-	//itemSizer->Add(splitLineCtrl, 0, wxALIGN_LEFT | wxLEFT, 12);
-
-	//itemSizer->AddSpacer(8);
-
-	//// icon and name
-	//wxBoxSizer* titleSizer = new wxBoxSizer(wxHORIZONTAL);
-	//titleSizer->SetMinSize(wxSize(324, 20));
-	//itemSizer->Add(titleSizer, 0, wxALIGN_LEFT | wxLEFT, 12);
-
-	//wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("file_icon_50x50.png")), wxBITMAP_TYPE_PNG);
-	//image.Rescale(20, 20);
-	//wxStaticBitmap* iconImage = new wxStaticBitmap(this, wxID_ANY, image);
-	//iconImage->SetMaxSize(wxSize(20, 20));
-	//titleSizer->Add(iconImage, wxEXPAND | wxALL, wxEXPAND | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
-
-	//titleSizer->AddSpacer(8);
-
-	//m_pFileNameText = new wxStaticText(this, wxID_ANY, "File Name");
-	//m_pFileNameText->SetBackgroundColour(wxColour(41, 42, 45));
-	//m_pFileNameText->SetForegroundColour(wxColour(255, 255, 255));
-	//m_pFileNameText->SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
-	//m_pFileNameText->SetMinSize(wxSize(270, 20));
-	//wxFont font = m_pFileNameText->GetFont();
-	//font.SetPointSize(10);
-	//m_pFileNameText->SetFont(font);
-	//titleSizer->Add(m_pFileNameText, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxLEFT, 0);
-
-	//itemSizer->AddSpacer(4);
-
-	//// path
-	//m_pFilePathText = new wxStaticText(this, wxID_ANY, "File Path");
-	//m_pFilePathText->SetBackgroundColour(wxColour(41, 42, 45));
-	//m_pFilePathText->SetForegroundColour(wxColour(183, 183, 183));
-	//m_pFilePathText->SetBackgroundStyle(wxBG_STYLE_TRANSPARENT);
-	//m_pFilePathText->SetMinSize(wxSize(290, 15));
-	//font = m_pFilePathText->GetFont();
-	//font.SetPointSize(10);
-	//m_pFilePathText->SetFont(font);
-	//itemSizer->Add(m_pFilePathText, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxLEFT, 34);
-
-	//itemSizer->AddSpacer(4);
-
-	//// time
-	//m_pFileTimeText = new wxStaticText(this, wxID_ANY, "File Time");
-	//m_pFileTimeText->SetBackgroundColour(wxColour(41, 42, 45));
-	//m_pFileTimeText->SetForegroundColour(wxColour(183, 183, 183));
-	//m_pFileTimeText->SetMinSize(wxSize(290, 15));
-	//font = m_pFileTimeText->GetFont();
-	//font.SetPointSize(10);
-	//m_pFileTimeText->SetFont(font);
-	//itemSizer->Add(m_pFileTimeText, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxLEFT, 34);
-
-	//itemSizer->AddSpacer(18);
 }
 
 void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
@@ -1296,7 +1290,7 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 
 	wxRect rect = GetClientRect();
 	wxBrush brush(bgColor);
-	wxPen pen(wxColour(41, 42, 45));
+	wxPen pen(wxColour(PANEL_BACK_LIGHT_RGB_INT));
 	dc.SetBrush(brush);
 	dc.SetPen(pen);
 	dc.DrawRectangle(rect);
@@ -1304,7 +1298,7 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 	// draw line
 	{
 		wxBrush brush(bgColor);
-		wxPen pen(wxColour(64, 65, 70));
+		wxPen pen(wxColour(255, 255, 255).ChangeLightness(30));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
 		dc.SetTextForeground(wxColour(255, 255, 255));
@@ -1330,9 +1324,7 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 		wxPen pen(wxColour(255, 255, 255));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
-		wxFont font = dc.GetFont();
-		font.SetPointSize(10);
-		dc.SetFont(font);
+		dc.SetFont(ANKER_BOLD_FONT_NO_1);
 		dc.SetTextForeground(wxColour(255, 255, 255));
 		wxPoint textPoint = wxPoint(42, 13);
 		dc.DrawText(m_fileName, textPoint);
@@ -1344,12 +1336,10 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 		wxPen pen(wxColour(184, 184, 186));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
-		wxFont font = dc.GetFont();
-		font.SetPointSize(8);
-		dc.SetFont(font);
+		dc.SetFont(ANKER_FONT_NO_2);
 		dc.SetTextForeground(wxColour(184, 184, 186));
 		wxPoint textPoint = wxPoint(42, 39);
-		dc.DrawText(m_filePath, textPoint);
+		dc.DrawText(m_filePathRenderStr, textPoint);
 	}
 
 	// draw file time
@@ -1358,9 +1348,7 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 		wxPen pen(wxColour(184, 184, 186));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
-		wxFont font = dc.GetFont();
-		font.SetPointSize(8);
-		dc.SetFont(font);
+		dc.SetFont(ANKER_FONT_NO_2);
 		dc.SetTextForeground(wxColour(184, 184, 186));
 		wxPoint textPoint = wxPoint(42, 61);
 		dc.DrawText(m_fileTimeInfo, textPoint);
@@ -1370,17 +1358,11 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 void AnkerGCodeFileItem::OnMouseEnterWindow(wxMouseEvent& event)
 {
 	SetBackgroundColour(wxColour(77, 78, 82));
-	//m_pFileNameText->SetBackgroundColour(wxColour(77, 78, 82));
-	//m_pFilePathText->SetBackgroundColour(wxColour(77, 78, 82));
-	//m_pFileTimeText->SetBackgroundColour(wxColour(77, 78, 82));
 	Refresh();
 }
 
 void AnkerGCodeFileItem::OnMouseLeaveWindow(wxMouseEvent& event)
 {
-	SetBackgroundColour(wxColour(41, 42, 45));
-	//m_pFileNameText->SetBackgroundColour(wxColour(41, 42, 45));
-	//m_pFilePathText->SetBackgroundColour(wxColour(41, 42, 45));
-	//m_pFileTimeText->SetBackgroundColour(wxColour(41, 42, 45));
+	SetBackgroundColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
 	Refresh();
 }

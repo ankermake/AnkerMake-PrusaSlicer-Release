@@ -1,6 +1,7 @@
 #include "ObjectDataViewModel.hpp"
 #include "wxExtensions.hpp"
 #include "BitmapCache.hpp"
+#include "Plater.hpp"
 #include "GUI_App.hpp"
 #include "GUI_Factories.hpp"
 #include "I18N.hpp"
@@ -256,7 +257,8 @@ bool ObjectDataViewModelNode::SetValue(const wxVariant& variant, unsigned col)
         DataViewBitmapText data;
         data << variant;
         m_extruder_bmp = data.GetBitmap();
-        m_extruder = data.GetText() == "0" ? _(L("default")) : data.GetText();
+        m_extruder = data.GetText() == "1" ? /*_(L("default"))*/_(L("1")) : data.GetText();
+        m_extruder_color = data.GetColor();
         return true; }
     case colEditing:
 //        m_action_icon << variant;
@@ -292,20 +294,29 @@ void ObjectDataViewModelNode::UpdateExtruderAndColorIcon(wxString extruder /*= "
             extruder_idx = atoi(m_parent->GetExtruder().c_str());
         }
         else {
-            m_extruder_bmp = wxNullBitmap;
+            //m_extruder_bmp = wxNullBitmap;
+            m_extruder_color = wxColour();
             return;
         }
     }
 
     if (extruder_idx > 0) --extruder_idx;
-    // Create the bitmap with color bars.
-    std::vector<wxBitmapBundle*> bmps = get_extruder_color_icons();// use wide icons
-    if (bmps.empty()) {
-        m_extruder_bmp = wxNullBitmap;
+    //// Create the bitmap with color bars.
+    //std::vector<wxBitmapBundle*> bmps = get_extruder_color_icons();// use wide icons
+    //if (bmps.empty()) {
+    //    m_extruder_bmp = wxNullBitmap;
+    //    return;
+    //}
+
+    //m_extruder_bmp = *bmps[extruder_idx >= bmps.size() ? 0 : extruder_idx];
+
+    const std::vector<Slic3r::GUI::SFilamentInfo>& filamentInfos = Slic3r::GUI::wxGetApp().plater()->sidebarnew().getEditFilamentList();
+    if (filamentInfos.empty())
+    {
+        m_extruder_color = wxColour();
         return;
     }
-
-    m_extruder_bmp = *bmps[extruder_idx >= bmps.size() ? 0 : extruder_idx];
+    m_extruder_color = wxColour(filamentInfos[extruder_idx >= filamentInfos.size() ? 0 : extruder_idx].wxStrColor);
 }
 
 // *****************************************************************************
@@ -447,7 +458,7 @@ wxDataViewItem ObjectDataViewModel::AddInfoChild(const wxDataViewItem &parent_it
 {
     ObjectDataViewModelNode *root = static_cast<ObjectDataViewModelNode*>(parent_item.GetID());
     if (!root) return wxDataViewItem(0);
-
+    
     const auto node = new ObjectDataViewModelNode(root, info_type);
 
     // The new item should be added according to its order in InfoItemType.
@@ -463,6 +474,7 @@ wxDataViewItem ObjectDataViewModel::AddInfoChild(const wxDataViewItem &parent_it
 
     root->Insert(node, idx+1);
     node->SetBitmap(*m_info_bmps.at(info_type));
+    node->SetExtruderColor(wxColour(-1, -1, -1));
     // notify control
     const wxDataViewItem child((void*)node);
     ItemAdded(parent_item, child);
@@ -1293,10 +1305,10 @@ void ObjectDataViewModel::GetValue(wxVariant &variant, const wxDataViewItem &ite
         variant << DataViewBitmapText(node->m_name, node->m_bmp.GetBitmapFor(m_ctrl));
 		break;
 	case colExtruder:
-		variant << DataViewBitmapText(node->m_extruder, node->m_extruder_bmp.GetBitmapFor(m_ctrl));
+		variant << DataViewBitmapText(node->m_extruder, node->m_extruder_bmp.GetBitmapFor(m_ctrl), node->m_extruder_color);
 		break;
 	case colEditing:
-		variant << node->m_action_icon.GetBitmapFor(m_ctrl);
+		//variant << node->m_action_icon.GetBitmapFor(m_ctrl);
 		break;
 	default:
 		;

@@ -5,6 +5,7 @@
 
 #include <wx/dataview.h>
 
+
 #if wxUSE_MARKUP && wxCHECK_VERSION(3, 1, 1)
     #define SUPPORTS_MARKUP
 #endif
@@ -17,24 +18,29 @@ class DataViewBitmapText : public wxObject
 {
 public:
     DataViewBitmapText( const wxString &text = wxEmptyString,
-                        const wxBitmap& bmp = wxNullBitmap) :
+                        const wxBitmap& bmp = wxNullBitmap,
+                        const wxColour& color = wxColour()) :
         m_text(text),
-        m_bmp(bmp)
+        m_bmp(bmp),
+        m_color(color)
     { }
 
     DataViewBitmapText(const DataViewBitmapText &other)
         : wxObject(),
         m_text(other.m_text),
-        m_bmp(other.m_bmp)
+        m_bmp(other.m_bmp),
+        m_color(other.m_color)
     { }
 
     void SetText(const wxString &text)      { m_text = text; }
     wxString GetText() const                { return m_text; }
     void SetBitmap(const wxBitmap &bmp)     { m_bmp = bmp; }
     const wxBitmap &GetBitmap() const       { return m_bmp; }
+    void SetColor(const wxColour color) { m_color = color; }
+    const wxColour GetColor() const { return m_color; }
 
     bool IsSameAs(const DataViewBitmapText& other) const {
-        return m_text == other.m_text && m_bmp.IsSameAs(other.m_bmp);
+        return m_text == other.m_text && /*m_bmp.IsSameAs(other.m_bmp)*/m_color == other.m_color;
     }
 
     bool operator==(const DataViewBitmapText& other) const {
@@ -48,6 +54,7 @@ public:
 private:
     wxString    m_text;
     wxBitmap    m_bmp;
+    wxColour   m_color;
 
     wxDECLARE_DYNAMIC_CLASS(DataViewBitmapText);
 };
@@ -139,7 +146,9 @@ public:
         wxDATAVIEW_CELL_EDITABLE
 #endif
         , int align = wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL
-    ) : wxDataViewCustomRenderer(wxT("DataViewBitmapText"), mode, align) {}
+    ) : wxDataViewCustomRenderer(wxT("DataViewBitmapText"), mode, align) 
+    {
+    }
 
     bool SetValue(const wxVariant& value) override;
     bool GetValue(wxVariant& value) const override;
