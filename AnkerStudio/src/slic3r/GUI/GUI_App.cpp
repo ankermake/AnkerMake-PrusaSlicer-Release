@@ -74,6 +74,11 @@
 #include "FirmwareDialog.hpp"
 #include "Preferences.hpp"
 #include "Tab.hpp"
+// add by allen for ankerCfgDlg
+#include "AnkerCfgTab.hpp"
+#include "AnkerConfigDialog/AnkerConfigDialog.hpp"
+#include "AnkerSideBarNew.hpp"
+
 #include "SysInfoDialog.hpp"
 #include "KBShortcutsDialog.hpp"
 #include "UpdateDialogs.hpp"
@@ -87,7 +92,7 @@
 #include "DesktopIntegrationDialog.hpp"
 #include "SendSystemInfoDialog.hpp"
 #include "Downloader.hpp"
-
+#include "slic3r/GUI/Common/AnkerDialog.hpp"
 #include "BitmapCache.hpp"
 #include "Notebook.hpp"
 
@@ -113,10 +118,12 @@
 #endif
 #include "AnkerConfig.hpp"
 
-// The default retention log is 5 days
-#define LOG_SAVE_DAYS  5
-// sleep once a hour
-#define LOG_THRD_SLEEP_TIME  60 * 60 * 1000
+#include "libslic3r/Utils.hpp"
+
+// The default retention log is 7 days
+#define LOG_SAVE_DAYS  7
+// sleep four hours
+#define LOG_THRD_SLEEP_TIME  4 * 60 * 60 * 1000
 
 using namespace std::literals;
 
@@ -124,6 +131,34 @@ namespace Slic3r {
 namespace GUI {
 
 class MainFrame;
+
+extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& lineLength)
+{
+	if (Slic3r::GUI::wxGetApp().getCurrentLanguageType() == Slic3r::GUI::GUI_App::AnkerLanguageType::AnkerLanguageType_English)
+		return str;
+
+	wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
+	dc.SetFont(font);
+	wxSize size = dc.GetTextExtent(str);
+
+	wxString wrapStr = "";
+	int tmpWidth = 0;
+
+	for (size_t i = 0; i < str.length(); i++) {
+		wxSize tmpSize = dc.GetTextExtent(str[i]);
+		tmpWidth += tmpSize.x;
+		if (tmpWidth < lineLength) {
+			wrapStr += str[i];
+		}
+		else {
+			wrapStr += '\n';
+			wrapStr += str[i];
+			tmpWidth = 1;
+		}
+	}
+
+	return wrapStr;
+}
 
 class SplashScreen : public wxSplashScreen
 {
@@ -261,6 +296,20 @@ public:
         m_action_line_y_position = logo_and_header_height + 0.5 * (bmp.GetHeight() - margin - credits_height - logo_and_header_height - text_height);
     }
 
+    bool ProcessEvent(wxEvent& event) override
+    {
+        // Ignore mouse events
+        if (event.GetEventType() == wxEVT_LEFT_DOWN ||
+            event.GetEventType() == wxEVT_RIGHT_DOWN ||
+            event.GetEventType() == wxEVT_MIDDLE_DOWN ||
+            event.GetEventType() == wxEVT_MOTION ||
+            event.GetEventType() == wxEVT_MOUSEWHEEL)
+        {
+            return false;
+        }
+        return wxSplashScreen::ProcessEvent(event);
+    }
+
 private:
     wxBitmap    m_main_bitmap;
     wxFont      m_action_font;
@@ -283,7 +332,7 @@ private:
             title = wxGetApp().is_editor() ? SLIC3R_APP_NAME : GCODEVIEWER_APP_NAME;
 
             // dynamically get the version to display
-            version = _L("Version") + " " + std::string(SLIC3R_VERSION);
+            version = _L("Version") + " " + std::string(SLIC3R_VERSION) + std::string(SLIC3R_MIN_VER);
 
             // TODO: update credits infornation
             //credits = title + " " +
@@ -320,7 +369,7 @@ private:
         // So, scale credits_font in the respect to the longest string width
         //int   longest_string_width = word_wrap_string(m_constant_text.credits);
         //float font_scale = (float)text_banner_width / longest_string_width;
-        float font_scale = 1.2;
+        float font_scale = 1.2f;
         scale_font(m_constant_text.credits_font, font_scale);
     }
 
@@ -488,6 +537,7 @@ static const FileWildcards file_wildcards_by_type[FT_SIZE] = {
     /* FT_AMF */     { "AMF files"sv,       { ".amf"sv, ".zip.amf"sv, ".xml"sv } },
     /* FT_3MF */     { "3MF files"sv,       { ".3mf"sv } },
     /* FT_GCODE */   { "G-code files"sv,    { ".gcode"sv, ".gco"sv, ".g"sv, ".ngc"sv } },
+    /* FT_ACODE */   { "G-code files"sv,    { ".acode"sv, ".gcode"sv, ".gco"sv, ".g"sv, ".ngc"sv } },
     /* FT_MODEL */   { "Known files"sv,     { ".stl"sv, ".obj"sv, ".3mf"sv, ".amf"sv, ".zip.amf"sv, ".xml"sv, ".step"sv, ".stp"sv } },
     /* FT_PROJECT */ { "Project files"sv,   { ".3mf"sv, ".amf"sv, ".zip.amf"sv } },
     /* FT_FONTS */   { "Font files"sv,      { ".ttc"sv, ".ttf"sv } },
@@ -741,23 +791,27 @@ static void generic_exception_handle()
     } catch (const std::bad_alloc& ex) {
         // bad_alloc in main thread is most likely fatal. Report immediately to the user (wxLogError would be delayed)
         // and terminate the app so it is at least certain to happen now.
-        wxString errmsg = wxString::Format(_L("%s has encountered an error. It was likely caused by running out of memory. "
+       /* wxString errmsg = wxString::Format(_L("%s has encountered an error. It was likely caused by running out of memory. "
                               "If you are sure you have enough RAM on your system, this may also be a bug and we would "
                               "be glad if you reported it.\n\nThe application will now terminate."), SLIC3R_APP_NAME);
         wxMessageBox(errmsg + "\n\n" + wxString(ex.what()), _L("Fatal error"), wxOK | wxICON_ERROR);
         BOOST_LOG_TRIVIAL(error) << boost::format("std::bad_alloc exception: %1%") % ex.what();
-        std::terminate();
+        std::terminate();*/
+        ANKER_LOG_ERROR << boost::format("std::bad_alloc exception: %1%") % ex.what();
+        throw;
     } catch (const boost::io::bad_format_string& ex) {
-        wxString errmsg = _L("AnkerMake_alpha has encountered a localization error. "
+     /*   wxString errmsg = _L("AnkerMake_alpha has encountered a localization error. "
                              "Please report to AnkerMake_alpha team, what language was active and in which scenario "
                              "this issue happened. Thank you.\n\nThe application will now terminate.");
         wxMessageBox(errmsg + "\n\n" + wxString(ex.what()), _L("Critical error"), wxOK | wxICON_ERROR);
         BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();
-        std::terminate();
+        std::terminate();*/
+        ANKER_LOG_ERROR << boost::format("std::bad_alloc exception: %1%") % ex.what();
         throw;
     } catch (const std::exception& ex) {
-        wxLogError(format_wxstr(_L("Internal error: %1%"), ex.what()));
-        BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();
+        /*wxLogError(format_wxstr(_L("Internal error: %1%"), ex.what()));
+        BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();*/
+        ANKER_LOG_ERROR << boost::format("Uncaught exception: %1%") % ex.what();
         throw;
     }
 }
@@ -852,7 +906,8 @@ void GUI_App::post_init()
     // }
 
     // Set AnkerStudio version and save to AnkerStudio.ini or AnkerStudioGcodeViewer.ini.
-    app_config->set("version", SLIC3R_VERSION);
+
+    app_config->set("version", std::string(SLIC3R_VERSION) + std::string(SLIC3R_MIN_VER));
 
 #ifdef _WIN32
     // Sets window property to mainframe so other instances can indentify it.
@@ -872,15 +927,17 @@ GUI_App::GUI_App(EAppMode mode)
     , m_downloader(std::make_unique<Downloader>())
 {
 	//app config initializes early becasuse it is used in instance checking in AnkerStudio.cpp
+    ANKER_LOG_INFO << "parse anker app config";
 	this->init_app_config();
+
     // init app downloader after path to datadir is set
     m_app_updater = std::make_unique<AppUpdater>();
 
-#ifdef WIN32
+
     m_bDelLogTimerStop.store(false);
     m_thrdDelLog = std::thread(&GUI_App::delLogtimer, this);
     m_thrdDelLog.detach();
-#endif
+
 }
 
 GUI_App::~GUI_App()
@@ -888,9 +945,7 @@ GUI_App::~GUI_App()
     delete app_config;
     delete preset_bundle;
     delete preset_updater;
-#ifdef WIN32
     m_bDelLogTimerStop.store(true);
-#endif
 }
 
 // If formatted for github, plaintext with OpenGL extensions enclosed into <details>.
@@ -940,10 +995,10 @@ static boost::optional<Semver> parse_semver_from_ini(std::string path)
 
 void GUI_App::init_app_config()
 {
-	// Profiles for the alpha are stored into the AnkerStudio-alpha directory to not mix with the current release.
+	// Profiles for the alpha are stored into the AnkerMake Studio Profile directory to not mix with the current release.
 
 //  SetAppName(SLIC3R_APP_KEY);
-	SetAppName(SLIC3R_APP_KEY "-alpha");
+	SetAppName(SLIC3R_APP_KEY " Profile");
 //  SetAppName(SLIC3R_APP_KEY "-beta");
 
 
@@ -980,7 +1035,7 @@ void GUI_App::init_app_config()
             // Error while parsing config file. We'll customize the error message and rethrow to be displayed.
             if (is_editor()) {
                 throw Slic3r::RuntimeError(
-                    _u8L("Error parsing AnkerMake_alpha config file, it is probably corrupted. "
+                    _u8L("Error parsing AnkerMake Studio config file, it is probably corrupted. "
                         "Try to manually delete the file to recover from the error. Your user profiles will not be affected.") +
                     "\n\n" + app_config->config_path() + "\n\n" + error);
             }
@@ -992,6 +1047,9 @@ void GUI_App::init_app_config()
             }
         }
     }
+
+    //set default custom printer config 
+    app_config->initDefaultPrinterList();
 }
 
 // returns old config path to copy from if such exists,
@@ -1077,7 +1135,7 @@ std::string GUI_App::check_older_app_config(Semver current_version, bool backup)
             // Error while parsing config file. We'll customize the error message and rethrow to be displayed.
             if (is_editor()) {
                 throw Slic3r::RuntimeError(
-                    _u8L("Error parsing AnkerMake_alpha config file, it is probably corrupted. "
+                    _u8L("Error parsing AnkerMake Studio config file, it is probably corrupted. "
                         "Try to manually delete the file to recover from the error. Your user profiles will not be affected.") +
                     "\n\n" + app_config->config_path() + "\n\n" + error);
             }
@@ -1102,15 +1160,153 @@ void GUI_App::init_single_instance_checker(const std::string &name, const std::s
     m_single_instance_checker = std::make_unique<wxSingleInstanceChecker>(boost::nowide::widen(name), boost::nowide::widen(path));
 }
 
+bool GUI_App::check_privacy_policy()
+{
+    std::string app_version = SLIC3R_VERSION;
+
+    std::string user_agreement_ver = app_config->get("user_agreement_ver");
+    if (user_agreement_ver != app_version)
+    {
+        auto ShowUserAgreeDlg = [&]() {
+            wxSize dialogSize = AnkerSize(600, 320);
+            AnkerDialog dialog(nullptr, wxID_ANY, _L("User Agreement"),
+                _L(""), wxDefaultPosition, dialogSize);
+            dialog.setBackgroundColour(wxColour("#151619"));
+
+            // dialog content 
+            wxPanel* contentPanel = new wxPanel(&dialog);
+            wxBoxSizer* contenSizer = new wxBoxSizer(wxVERTICAL);
+            contenSizer->AddSpacer(50);
+
+            wxStaticText* welcomeText = new wxStaticText(contentPanel, wxID_ANY, _L("common_launch_policy_content1"));    // "Welcome to AnkerMake"
+            welcomeText->SetBackgroundColour(wxColour("#151619"));
+            welcomeText->SetForegroundColour(wxColour(255, 255, 255));
+            welcomeText->SetFont(ANKER_BOLD_FONT_BIG);
+            contenSizer->Add(welcomeText, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+
+            contenSizer->AddSpacer(10);
+
+            {
+                // text:"Please click to read the Terms of Use and Privacy Policy" ,with link
+                wxBoxSizer* HelpTextSizer = new wxBoxSizer(wxHORIZONTAL);
+
+                wxStaticText* helpText = new wxStaticText(contentPanel, wxID_ANY, _L("Please click to read the"));
+                helpText->SetBackgroundColour(wxColour("#151619"));
+                helpText->SetForegroundColour(wxColour(255, 255, 255));
+                helpText->SetFont(ANKER_FONT_NO_1);
+                HelpTextSizer->Add(helpText, 0, wxALIGN_CENTRE_VERTICAL, 0);
+
+                wxButton* TermsOfUse = new wxButton(contentPanel, wxID_ANY, _L(""), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+                TermsOfUse->SetBackgroundColour(wxColour("#151619"));
+                TermsOfUse->SetForegroundColour(wxColour("#65d361"));
+                TermsOfUse->SetLabel(_L("Terms of Use"));
+                TermsOfUse->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
+                    int type = getCurrentLanguageType();
+                    wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.en.html";
+                    if (wxLanguage::wxLANGUAGE_JAPANESE == type || wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type)
+                        URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.ja.html";
+                    //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
+                    wxLaunchDefaultBrowser(URL);
+                    }
+                );
+                HelpTextSizer->Add(TermsOfUse, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+
+                wxStaticText* helpText2 = new wxStaticText(contentPanel, wxID_ANY, _L("and"));
+                helpText2->SetBackgroundColour(wxColour("#151619"));
+                helpText2->SetForegroundColour(wxColour(255, 255, 255));
+                helpText2->SetFont(ANKER_FONT_NO_1);
+                HelpTextSizer->Add(helpText2, 0, wxALIGN_CENTRE_VERTICAL, 0);
+
+                wxButton* PrivacyPolicy = new wxButton(contentPanel, wxID_ANY, _L(""), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+                PrivacyPolicy->SetBackgroundColour(wxColour("#151619"));
+                PrivacyPolicy->SetForegroundColour(wxColour("#65d361"));
+                PrivacyPolicy->SetLabel(_L("Privacy Policy"));
+                PrivacyPolicy->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
+                    int type = getCurrentLanguageType();
+                    wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.en.html";
+                    if (wxLanguage::wxLANGUAGE_JAPANESE == type || wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type)
+                        URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.ja.html";
+                    //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
+                    wxLaunchDefaultBrowser(URL);
+                    }
+                );
+                HelpTextSizer->Add(PrivacyPolicy, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+
+                contenSizer->Add(HelpTextSizer, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+
+            }
+
+            contenSizer->AddSpacer(50);
+            // accept btn
+            {
+                AnkerBtn* acceptBtn = new AnkerBtn(contentPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+                acceptBtn->SetMinSize(wxSize(220, 32));
+                // acceptBtn->SetMaxSize(wxSize(252, 24));
+                acceptBtn->SetText(L"Accept");
+                acceptBtn->SetBackgroundColour("#62D361");
+                acceptBtn->SetTextColor("#FFFFFF");
+                acceptBtn->SetRadius(5);
+                acceptBtn->SetFont(ANKER_BOLD_FONT_NO_1);
+                acceptBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [&](wxCommandEvent& event) {
+                    Slic3r::GUI::wxGetApp().app_config->set("user_agreement_ver", app_version);
+                    dialog.Close();
+                    });
+                contenSizer->Add(acceptBtn, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+            }
+
+            contenSizer->AddSpacer(20);
+            // decline btn
+            {
+                AnkerBtn* declineBtn = new AnkerBtn(contentPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+                declineBtn->SetMinSize(wxSize(220, 32));
+                declineBtn->SetText(L"Decline");
+                declineBtn->SetBackgroundColour("#444444");
+                declineBtn->SetTextColor("#FFFFFF");
+                declineBtn->SetRadius(5);
+                declineBtn->SetFont(ANKER_BOLD_FONT_NO_1);
+                declineBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [&](wxCommandEvent& event) {
+                    dialog.Close();
+                    });
+                contenSizer->Add(declineBtn, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+            }
+
+            contenSizer->AddSpacer(25);
+
+            contentPanel->SetSizer(contenSizer);
+            dialog.SetCustomContent(contentPanel);
+
+            wxDisplay display;
+            wxRect screenRect = display.GetGeometry();
+            int screenWidth = screenRect.GetWidth();
+            int screenHeight = screenRect.GetHeight();
+            wxSize dlgSize = dialog.GetSize();
+            wxPoint pos((screenWidth- dlgSize.GetWidth())/2, (screenHeight - dlgSize.GetHeight()) / 2);
+            dialog.SetPosition(pos);
+
+            dialog.ShowAnkerModal(AnkerDialogType_CustomContent);
+        };
+
+
+        ShowUserAgreeDlg();
+    }
+
+    user_agreement_ver = app_config->get("user_agreement_ver");
+    return user_agreement_ver == app_version;
+}
+
 bool GUI_App::OnInit()
 {
+    ANKER_LOG_INFO << "Init App... ";
     ::wxInitAllImageHandlers();
-    try {
-        return on_init_inner();
-    } catch (const std::exception&) {
-        generic_exception_handle();
-        return false;
-    }
+    // mod by allen for blocking the original exception capture, 
+    // convenient for capturing the stack to the log or dmp file when crash occurs
+    /* try {
+         return on_init_inner();
+     } catch (const std::exception&) {
+         generic_exception_handle();
+         return false;
+     }*/
+    return on_init_inner();
 }
 
 bool GUI_App::on_init_inner()
@@ -1122,11 +1318,11 @@ bool GUI_App::on_init_inner()
     // Win32 32bit build.
     if (wxPlatformInfo::Get().GetArchName().substr(0, 2) == "64") {
         RichMessageDialog dlg(nullptr,
-            _L("You are running a 32 bit build of AnkerMake_alpha on 64-bit Windows."
-                "\n32 bit build of AnkerMake_alpha will likely not be able to utilize all the RAM available in the system."
-                "\nPlease download and install a 64 bit build of AnkerMake_alpha from https://www.xxx.xxx/xxx/."
+            _L("You are running a 32 bit build of AnkerMake Studio on 64-bit Windows."
+                "\n32 bit build of AnkerMake Studio will likely not be able to utilize all the RAM available in the system."
+                "\nPlease download and install a 64 bit build of AnkerMake Studio from https://www.xxx.xxx/xxx/."
                 "\nDo you wish to continue?"),
-            "AnkerMake_alpha", wxICON_QUESTION | wxYES_NO);
+            "AnkerMake Studio", wxICON_QUESTION | wxYES_NO);
         if (dlg.ShowModal() != wxID_YES)
             return false;
     }
@@ -1164,7 +1360,15 @@ bool GUI_App::on_init_inner()
     // Like here, before the show InfoDialog in check_older_app_config()
 
     // If load_language() fails, the application closes.
+    ANKER_LOG_INFO << "load languages";
     load_language(wxString(), true);
+
+    if (is_editor()) {
+        ANKER_LOG_INFO << "check privacy policy";
+        if (!check_privacy_policy())
+            return false;
+    }
+
 #ifdef _MSW_DARK_MODE
     bool init_dark_color_mode = app_config->get_bool("dark_color_mode");
     bool init_sys_menu_enabled = app_config->get_bool("sys_menu_enabled");
@@ -1210,7 +1414,7 @@ bool GUI_App::on_init_inner()
             RichMessageDialog
                 dlg(nullptr,
                     wxString::Format(_L("%s\nDo you want to continue?"), msg),
-                    "AnkerMake_alpha", wxICON_QUESTION | wxYES_NO);
+                    "AnkerMake Studio", wxICON_QUESTION | wxYES_NO);
             dlg.ShowCheckBox(_L("Remember my choice"));
             if (dlg.ShowModal() != wxID_YES) return false;
 
@@ -1253,7 +1457,13 @@ bool GUI_App::on_init_inner()
 #ifndef __linux__
         wxYield();
 #endif
-        scrn->SetText(_L("Loading configuration")+ dots);
+        if (scrn) {
+            scrn->SetText(_L("Loading configuration") + dots);
+            ANKER_LOG_INFO << "splashScreen created success";
+        }
+        else {
+            ANKER_LOG_ERROR << "splashScreen created failed";
+        }
     }
 
     preset_bundle = new PresetBundle();
@@ -1345,16 +1555,19 @@ bool GUI_App::on_init_inner()
     if (!delayed_error_load_presets.empty())
         show_error(nullptr, delayed_error_load_presets);
 
-    mainframe = new MainFrame(app_config->has("font_size") ? atoi(app_config->get("font_size").c_str()) : -1);    
-    //mainframe->setUrl(AnkerConfig::LoginWebUrl);
-    //mainframe->getwebLoginDataBack();
-    // hide settings tabs after first Layout
-    if (is_editor())
-        mainframe->select_tab(size_t(0));
-
-    sidebar().obj_list()->init_objects(); // propagate model objects to object list
-//     update_mode(); // !!! do that later
+    ANKER_LOG_INFO << "create MainFrame when start App";
+    mainframe = new MainFrame(app_config->has("font_size") ? atoi(app_config->get("font_size").c_str()) : -1); 
     SetTopWindow(mainframe);
+    mainframe->setUrl(AnkerConfig::LoginWebUrl);
+    mainframe->getwebLoginDataBack();
+    // hide settings tabs after first Layout
+    /*if (is_editor())
+        mainframe->select_tab(size_t(0));*/
+
+    //objectbar().getObjectList()->init_objects(); // propagate model objects to object list
+    objectbar()->init_objects();
+//     update_mode(); // !!! do that later
+   
 
     plater_->init_notification_manager();
 
@@ -1379,9 +1592,26 @@ bool GUI_App::on_init_inner()
         plater_->update_project_dirty_from_presets();
     }
 
-    mainframe->Show(true);
+    //ANKER_LOG_INFO << "createAnkerCfgDlg start";
+    //mainframe->createAnkerCfgDlg();
+    //ANKER_LOG_INFO << "createAnkerCfgDlg end";
 
-    obj_list()->set_min_height();
+    ANKER_LOG_DEBUG << "on_set_focus start";
+    auto tmpEvent = wxFocusEvent();
+    mainframe->m_plater->canvas3D()->set_force_on_screen(true);
+    mainframe->m_plater->canvas3D()->on_set_focus(tmpEvent);
+    mainframe->m_plater->canvas3D()->set_force_on_screen(false);
+    ANKER_LOG_DEBUG << "on_set_focus end";
+
+    mainframe->Show(true);
+    // the position of mainframe is not correct
+    /*if (mainframe->IsMaximized()) {
+        mainframe->SetSize(wxGetApp().get_min_size());
+        mainframe->Centre();
+        mainframe->Refresh();
+    }*/
+
+    //obj_list()->set_min_height();
 
     update_mode(); // update view mode after fix of the object_list size
 
@@ -1394,7 +1624,8 @@ bool GUI_App::on_init_inner()
         if (! plater_)
             return;
 
-        this->obj_manipul()->update_if_dirty();
+        //this->obj_manipul()->update_if_dirty();
+        this->aobj_manipul()->update_if_dirty();
 
         // An ugly solution to GH #5537 in which GUI_App::init_opengl (normally called from events wxEVT_PAINT
         // and wxEVT_SET_FOCUS before GUI_App::post_init is called) wasn't called before GUI_App::post_init and OpenGL wasn't initialized.
@@ -1419,33 +1650,34 @@ bool GUI_App::on_init_inner()
 
     m_initialized = true;
 
-    if (const std::string& crash_reason = app_config->get("restore_win_position");
-        boost::starts_with(crash_reason,"crashed"))
-    {
-        wxString preferences_item = _L("Restore window position on start");
-        InfoDialog dialog(nullptr,
-            _L("AnkerMake_alpha started after a crash"),
-            format_wxstr(_L("AnkerMake_alpha crashed last time when attempting to set window position.\n"
-                "We are sorry for the inconvenience, it unfortunately happens with certain multiple-monitor setups.\n"
-                "More precise reason for the crash: \"%1%\".\n"
-                "For more information see our GitHub issue tracker: \"%2%\" and \"%3%\"\n\n"
-                "To avoid this problem, consider disabling \"%4%\" in \"Preferences\". "
-                "Otherwise, the application will most likely crash again next time."),
-                "<b>" + from_u8(crash_reason) + "</b>",
-                "<a href=http://github.com/prusa3d/PrusaSlicer/issues/2939>#2939</a>",
-                "<a href=http://github.com/prusa3d/PrusaSlicer/issues/5573>#5573</a>",
-                "<b>" + preferences_item + "</b>"),
-            true, wxYES_NO);
+    // Anker: hide the prusa info
+    //if (const std::string& crash_reason = app_config->get("restore_win_position");
+    //    boost::starts_with(crash_reason,"crashed"))
+    //{
+    //    wxString preferences_item = _L("Restore window position on start");
+    //    InfoDialog dialog(nullptr,
+    //        _L("AnkerMake Studio started after a crash"),
+    //        format_wxstr(_L("AnkerMake Studio crashed last time when attempting to set window position.\n"
+    //            "We are sorry for the inconvenience, it unfortunately happens with certain multiple-monitor setups.\n"
+    //            "More precise reason for the crash: \"%1%\".\n"
+    //            "For more information see our GitHub issue tracker: \"%2%\" and \"%3%\"\n\n"
+    //            "To avoid this problem, consider disabling \"%4%\" in \"Preferences\". "
+    //            "Otherwise, the application will most likely crash again next time."),
+    //            "<b>" + from_u8(crash_reason) + "</b>",
+    //            "<a href=http://github.com/prusa3d/PrusaSlicer/issues/2939>#2939</a>",
+    //            "<a href=http://github.com/prusa3d/PrusaSlicer/issues/5573>#5573</a>",
+    //            "<b>" + preferences_item + "</b>"),
+    //        true, wxYES_NO);
 
-        dialog.SetButtonLabel(wxID_YES, format_wxstr(_L("Disable \"%1%\""), preferences_item));
-        dialog.SetButtonLabel(wxID_NO,  format_wxstr(_L("Leave \"%1%\" enabled") , preferences_item));
-        
-        auto answer = dialog.ShowModal();
-        if (answer == wxID_YES)
-            app_config->set("restore_win_position", "0");
-        else if (answer == wxID_NO)
-            app_config->set("restore_win_position", "1");
-    }
+    //    dialog.SetButtonLabel(wxID_YES, format_wxstr(_L("Disable \"%1%\""), preferences_item));
+    //    dialog.SetButtonLabel(wxID_NO,  format_wxstr(_L("Leave \"%1%\" enabled") , preferences_item));
+    //    
+    //    auto answer = dialog.ShowModal();
+    //    if (answer == wxID_YES)
+    //        app_config->set("restore_win_position", "0");
+    //    else if (answer == wxID_NO)
+    //        app_config->set("restore_win_position", "1");
+    //}
 
     return true;
 }
@@ -1543,7 +1775,12 @@ void GUI_App::update_ui_colours_from_appconfig()
 
 void GUI_App::update_label_colours()
 {
+#if SHOW_OLD_SETTING_DIALOG
     for (Tab* tab : tabs_list)
+        tab->update_label_colours();
+#endif
+    // add by allen for ankerCfgDlg
+    for (AnkerTab* tab : ankerTabsList)
         tab->update_label_colours();
 }
 
@@ -1585,18 +1822,18 @@ void GUI_App::UpdateDarkUI(wxWindow* window, bool highlited/* = false*/, bool ju
                 btn->Update();
             };
 
-            // hovering
-            btn->Bind(wxEVT_ENTER_WINDOW, [mark_button](wxMouseEvent& event) { mark_button(true); event.Skip(); });
-            btn->Bind(wxEVT_LEAVE_WINDOW, [mark_button, btn](wxMouseEvent& event) { mark_button(is_focused(btn->GetHWND())); event.Skip(); });
-            // focusing
-            btn->Bind(wxEVT_SET_FOCUS,    [mark_button](wxFocusEvent& event) { mark_button(true); event.Skip(); });
-            btn->Bind(wxEVT_KILL_FOCUS,   [mark_button](wxFocusEvent& event) { mark_button(false); event.Skip(); });
+            //// hovering
+            //btn->Bind(wxEVT_ENTER_WINDOW, [mark_button](wxMouseEvent& event) { mark_button(true); event.Skip(); });
+            //btn->Bind(wxEVT_LEAVE_WINDOW, [mark_button, btn](wxMouseEvent& event) { mark_button(is_focused(btn->GetHWND())); event.Skip(); });
+            //// focusing
+            //btn->Bind(wxEVT_SET_FOCUS,    [mark_button](wxFocusEvent& event) { mark_button(true); event.Skip(); });
+            //btn->Bind(wxEVT_KILL_FOCUS,   [mark_button](wxFocusEvent& event) { mark_button(false); event.Skip(); });
 
             is_focused_button = is_focused(btn->GetHWND());
             is_default_button = is_default(btn);
             if (is_focused_button || is_default_button)
                 mark_button(is_focused_button);
-        }
+        } 
     }
     else if (wxTextCtrl* text = dynamic_cast<wxTextCtrl*>(window)) {
         if (text->GetBorder() != wxBORDER_SIMPLE)
@@ -1649,12 +1886,12 @@ void GUI_App::UpdateDVCDarkUI(wxDataViewCtrl* dvc, bool highlited/* = false*/)
 #ifdef _WIN32
     UpdateDarkUI(dvc, highlited ? dark_mode() : false);
 #ifdef _MSW_DARK_MODE
-    dvc->RefreshHeaderDarkMode(&m_normal_font);
+    //dvc->RefreshHeaderDarkMode(&m_normal_font);
 #endif //_MSW_DARK_MODE
     if (dvc->HasFlag(wxDV_ROW_LINES))
         dvc->SetAlternateRowColour(m_color_highlight_default);
-    if (dvc->GetBorder() != wxBORDER_SIMPLE)
-        dvc->SetWindowStyle(dvc->GetWindowStyle() | wxBORDER_SIMPLE);
+    //if (dvc->GetBorder() != wxBORDER_SIMPLE)
+    //    dvc->SetWindowStyle(dvc->GetWindowStyle() | wxBORDER_SIMPLE);
 #endif
 }
 
@@ -1755,6 +1992,37 @@ void GUI_App::set_mode_palette(const std::vector<wxColour>& palette)
     }
 }
 
+
+wxSize GUI_App::getRealSize(const wxSize& windowSize)
+{
+    if(windowSize.GetWidth() == -1)
+	    return wxSize(windowSize.GetWidth(), windowSize.GetHeight() * 1.0 / 10 * m_em_unit);
+    else if(windowSize.GetHeight() == -1)
+	    return wxSize(windowSize.GetWidth() * 1.0 / 10 * m_em_unit, windowSize.GetHeight());
+    else
+	    return wxSize(windowSize.GetWidth() * 1.0 / 10 * m_em_unit, windowSize.GetHeight() * 1.0 / 10 * m_em_unit);
+}
+
+wxRect GUI_App::getRealRect(const wxRect& windowRect)
+{
+    if (windowRect.GetWidth() == -1)
+        return wxRect(windowRect.GetX() * 1.0 / 10 * m_em_unit, windowRect.GetY() * 1.0 / 10 * m_em_unit, windowRect.GetWidth(), windowRect.GetHeight() * 1.0 / 10 * m_em_unit);
+    else if (windowRect.GetHeight() == -1)
+        return wxRect(windowRect.GetX() * 1.0 / 10 * m_em_unit, windowRect.GetY() * 1.0 / 10 * m_em_unit, windowRect.GetWidth() * 1.0 / 10 * m_em_unit, windowRect.GetHeight());
+    else
+        return wxRect(windowRect.GetX() * 1.0 / 10 * m_em_unit, windowRect.GetY() * 1.0 / 10 * m_em_unit, windowRect.GetWidth() * 1.0 / 10 * m_em_unit, windowRect.GetHeight() * 1.0 / 10 * m_em_unit);
+}
+
+wxPoint GUI_App::getRealPoint(const wxPoint& windowPoint)
+{
+    return wxPoint(windowPoint.x * 1.0  / 10 * m_em_unit, windowPoint.y * 1.0 / 10 * m_em_unit);
+}
+
+int GUI_App::getRealLength(const int windowsLen)
+{
+    return windowsLen * 1.0 / 10 * m_em_unit;
+}
+
 bool GUI_App::tabs_as_menu() const
 {
     return app_config->get_bool("tabs_as_menu"); // || dark_mode();
@@ -1762,7 +2030,13 @@ bool GUI_App::tabs_as_menu() const
 
 wxSize GUI_App::get_min_size() const
 {
-    return wxSize(76*m_em_unit, 49 * m_em_unit);
+    // Fix the issue of the form exceeding the screen size under high DPI
+    //return wxSize(76*m_em_unit, 49 * m_em_unit);
+#ifdef __APPLE__
+    return wxSize(908 / 10.0 * m_em_unit, 604 / 10.0 * m_em_unit);
+#else
+    return wxSize(1200 / 10.0 * m_em_unit, 675 / 10.0 * m_em_unit);
+#endif
 }
 
 float GUI_App::toolbar_icon_scale(const bool is_limited/* = false*/) const
@@ -1815,7 +2089,7 @@ void GUI_App::check_printer_presets()
     for (const std::string& preset_name : preset_names)
         msg_text += "\n    \"" + from_u8(preset_name) + "\",";
     msg_text.RemoveLast();
-    msg_text += "\n\n" + _L("But since this version of AnkerMake_alpha we don't show this information in Printer Settings anymore.\n"
+    msg_text += "\n\n" + _L("But since this version of AnkerMake Studio we don't show this information in Printer Settings anymore.\n"
                             "Settings will be available in physical printers settings.") + "\n\n" +
                          _L("By default new Printer devices will be named as \"Printer N\" during its creation.\n"
                             "Note: This name can be changed later from the physical printers settings");
@@ -1837,14 +2111,16 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
     dlg.Update(10, _L("Recreating") + dots);
 
     MainFrame *old_main_frame = mainframe;
+    ANKER_LOG_INFO << "create MainFrame when call recreate_GUI";
     mainframe = new MainFrame(app_config->has("font_size") ? atoi(app_config->get("font_size").c_str()) : -1);
-    //mainframe->setUrl(AnkerConfig::LoginWebUrl);
-   // mainframe->getwebLoginDataBack();
+    mainframe->setUrl(AnkerConfig::LoginWebUrl);
+    mainframe->getwebLoginDataBack();
     if (is_editor())
         // hide settings tabs after first Layout
         mainframe->select_tab(size_t(0));
     // Propagate model objects to object list.
-    sidebar().obj_list()->init_objects();
+    //objectbar().getObjectList()->init_objects();
+    objectbar()->init_objects();
     SetTopWindow(mainframe);
 
     dlg.Update(30, _L("Recreating") + dots);
@@ -1857,7 +2133,7 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
 
     dlg.Update(90, _L("Loading of a mode view") + dots);
 
-    obj_list()->set_min_height();
+    //obj_list()->set_min_height();
     update_mode();
 
     // #ys_FIXME_delete_after_testing  Do we still need this  ?
@@ -2047,6 +2323,22 @@ bool GUI_App::switch_language()
     }
 }
 
+bool GUI_App::switch_language(AnkerLanguageType language)
+{
+    if (select_language(language)) {
+        recreate_GUI(_L("Changing of an application language") + dots);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+int GUI_App::getCurrentLanguageType() const
+{
+    return m_wxLocale->GetLanguage();
+}
+
 #ifdef __linux__
 static const wxLanguageInfo* linux_get_existing_locale_language(const wxLanguageInfo* language,
                                                                 const wxLanguageInfo* system_language)
@@ -2180,7 +2472,7 @@ bool GUI_App::select_language()
     if (init_selection != -1)
     	// This is the language to highlight in the choice dialog initially.
     	init_selection_default = init_selection;
-
+    
     const long index = GetSingleChoiceIndex(_L("Select the language"), _L("Language"), names, init_selection_default);
 	// Try to load a new language.
     if (index != -1 && (init_selection == -1 || init_selection != index)) {
@@ -2194,9 +2486,72 @@ bool GUI_App::select_language()
             // 2) Current locale language may not match the dictionary name, see GH issue #3901
             //    m_wxLocale->GetCanonicalName()
             // 3) new_language_info->CanonicalName is a safe bet. It points to a valid dictionary name.
-			app_config->set("translation_language", new_language_info->CanonicalName.ToUTF8().data());            
+			app_config->set("translation_language", new_language_info->CanonicalName.ToUTF8().data());   
     		return true;
     	}
+    }
+
+    return false;
+}
+
+bool GUI_App::select_language(AnkerLanguageType type)
+{
+    wxArrayString translations = wxTranslations::Get()->GetAvailableTranslations(SLIC3R_APP_KEY);
+    std::vector<const wxLanguageInfo*> language_infos;
+    language_infos.emplace_back(wxLocale::GetLanguageInfo(wxLANGUAGE_ENGLISH));
+    for (size_t i = 0; i < translations.GetCount(); ++i) {
+        const wxLanguageInfo* langinfo = wxLocale::FindLanguageInfo(translations[i]);
+        if (langinfo != nullptr)
+            language_infos.emplace_back(langinfo);
+    }
+    sort_remove_duplicates(language_infos);
+    std::sort(language_infos.begin(), language_infos.end(), [](const wxLanguageInfo* l, const wxLanguageInfo* r) { return l->Description < r->Description; });
+
+    wxArrayString names;
+    names.Alloc(language_infos.size());
+
+    // Some valid language should be selected since the application start up.
+    const wxLanguage current_language = wxLanguage(m_wxLocale->GetLanguage());
+    int 		     init_selection = -1;
+    int 			 init_selection_alt = -1;
+    int 			 init_selection_default = -1;
+    for (size_t i = 0; i < language_infos.size(); ++i) {
+        if (wxLanguage(language_infos[i]->Language) == current_language)
+            // The dictionary matches the active language and country.
+            init_selection = i;
+        else if ((language_infos[i]->CanonicalName.BeforeFirst('_') == m_wxLocale->GetCanonicalName().BeforeFirst('_')) ||
+            // if the active language is Slovak, mark the Czech language as active.
+            (language_infos[i]->CanonicalName.BeforeFirst('_') == "cs" && m_wxLocale->GetCanonicalName().BeforeFirst('_') == "sk"))
+            // The dictionary matches the active language, it does not necessarily match the country.
+            init_selection_alt = i;
+        if (language_infos[i]->CanonicalName.BeforeFirst('_') == "en")
+            // This will be the default selection if the active language does not match any dictionary.
+            init_selection_default = i;
+        names.Add(language_infos[i]->Description);
+    }
+    if (init_selection == -1)
+        // This is the dictionary matching the active language.
+        init_selection = init_selection_alt;
+    if (init_selection != -1)
+        // This is the language to highlight in the choice dialog initially.
+        init_selection_default = init_selection;
+
+    int index = type;
+    // Try to load a new language.
+    if (index != -1 && (init_selection == -1 || init_selection != index)) {
+        const wxLanguageInfo* new_language_info = language_infos[index];
+        if (this->load_language(new_language_info->CanonicalName, false)) {
+            // Save language at application config.
+            // Which language to save as the selected dictionary language?
+            // 1) Hopefully the language set to wxTranslations by this->load_language(), but that API is weird and we don't want to rely on its
+            //    stability in the future:
+            //    wxTranslations::Get()->GetBestTranslation(SLIC3R_APP_KEY, wxLANGUAGE_ENGLISH);
+            // 2) Current locale language may not match the dictionary name, see GH issue #3901
+            //    m_wxLocale->GetCanonicalName()
+            // 3) new_language_info->CanonicalName is a safe bet. It points to a valid dictionary name.
+            app_config->set("translation_language", new_language_info->CanonicalName.ToUTF8().data());
+            return true;
+        }
     }
 
     return false;
@@ -2210,7 +2565,7 @@ bool GUI_App::load_language(wxString language, bool initial)
     	// There is a static list of lookup path prefixes in wxWidgets. Add ours.
 	    wxFileTranslationsLoader::AddCatalogLookupPathPrefix(from_u8(localization_dir()));
     	// Get the active language from AnkerStudio.ini, or empty string if the key does not exist.
-        language = app_config->get("translation_language");
+        language =  app_config->get("translation_language");
         if (! language.empty())
         	BOOST_LOG_TRIVIAL(trace) << boost::format("translation_language provided by AnkerStudio.ini: %1%") % language;
 
@@ -2265,7 +2620,7 @@ bool GUI_App::load_language(wxString language, bool initial)
 	}
 
 	if (language_info != nullptr && language_info->LayoutDirection == wxLayout_RightToLeft) {
-    	BOOST_LOG_TRIVIAL(trace) << boost::format("The following language code requires right to left layout, which is not supported by AnkerMake_alpha: %1%") % language_info->CanonicalName.ToUTF8().data();
+    	BOOST_LOG_TRIVIAL(trace) << boost::format("The following language code requires right to left layout, which is not supported by AnkerMake Studio: %1%") % language_info->CanonicalName.ToUTF8().data();
 		language_info = nullptr;
 	}
 
@@ -2319,14 +2674,14 @@ bool GUI_App::load_language(wxString language, bool initial)
     if (! wxLocale::IsAvailable(language_info->Language)) {
 #endif
     	// Loading the language dictionary failed.
-    	wxString message = "Switching AnkerMake_alpha to language " + language_info->CanonicalName + " failed.";
+    	wxString message = "Switching AnkerMake Studio to language " + language_info->CanonicalName + " failed.";
 #if !defined(_WIN32) && !defined(__APPLE__)
         // likely some linux system
         message += "\nYou may need to reconfigure the missing locales, likely by running the \"locale-gen\" and \"dpkg-reconfigure locales\" commands.\n";
 #endif
         if (initial)
         	message + "\n\nApplication will close.";
-        wxMessageBox(message, "AnkerMake_alpha - Switching language failed", wxOK | wxICON_ERROR);
+        wxMessageBox(message, "AnkerMake Studio - Switching language failed", wxOK | wxICON_ERROR);
         if (initial)
 			std::exit(EXIT_FAILURE);
 		else
@@ -2357,10 +2712,22 @@ Tab* GUI_App::get_tab(Preset::Type type)
     return nullptr;
 }
 
+// add by allen for ankerCfgDlg
+AnkerTab* GUI_App::getAnkerTab(Preset::Type type) {
+    // add by allen, we must new AnkerConfigDlg in here to solve the problem of item showed in taskbar;
+    mainframe->createAnkerCfgDlg();
+   
+    for (AnkerTab* tab : ankerTabsList)
+        if (tab->type() == type)
+            return tab->completed() ? tab : nullptr; // To avoid actions with no-completed Tab
+    return nullptr;
+}
+
 ConfigOptionMode GUI_App::get_mode()
 {
+    return comExpert;
     if (!app_config->has("view_mode"))
-        return comSimple;
+        return comExpert;
 
     const auto mode = app_config->get("view_mode");
     return mode == "expert" ? comExpert : 
@@ -2398,14 +2765,26 @@ bool GUI_App::save_mode(const /*ConfigOptionMode*/int mode)
 // Update view mode according to selected menu
 void GUI_App::update_mode()
 {
-    sidebar().update_mode();
+   // sidebar().update_mode();
+    // add by allen for ankerCfgDlg search
+    sidebarnew().update_mode();
 
 #ifdef _WIN32 //_MSW_DARK_MODE
-    if (!wxGetApp().tabs_as_menu())
-        dynamic_cast<Notebook*>(mainframe->m_tabpanel)->UpdateMode();
+    if (!wxGetApp().tabs_as_menu()) {
+        //dynamic_cast<Notebook*>(mainframe->m_tabpanel)->UpdateMode();
+        // add by allen for ankerCfgDlg
+        if (mainframe->m_ankerCfgDlg && mainframe->m_ankerCfgDlg->m_rightPanel) {
+            dynamic_cast<Notebook*>(mainframe->m_ankerCfgDlg->m_rightPanel)->UpdateMode();
+        }   
+    }
+        
 #endif
-
+#if SHOW_OLD_SETTING_DIALOG
     for (auto tab : tabs_list)
+        tab->update_mode();
+#endif
+    // add by allen for ankerCfgDlg
+    for (auto tab : ankerTabsList)
         tab->update_mode();
 
     plater()->update_menus();
@@ -2616,17 +2995,32 @@ void GUI_App::open_preferences(const std::string& highlight_option /*= std::stri
 bool GUI_App::has_unsaved_preset_changes() const
 {
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
+#if SHOW_OLD_SETTING_DIALOG
     for (const Tab* const tab : tabs_list) {
         if (tab->supports_printer_technology(printer_technology) && tab->saved_preset_is_dirty())
             return true;
     }
+#endif
+    // add by allen for ankerCfgDlg
+    for (const AnkerTab* const tab : ankerTabsList) {
+        if (tab->supports_printer_technology(printer_technology) && tab->saved_preset_is_dirty())
+            return true;
+    }
+
     return false;
 }
 
 bool GUI_App::has_current_preset_changes() const
 {
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
+#if SHOW_OLD_SETTING_DIALOG
     for (const Tab* const tab : tabs_list) {
+        if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
+            return true;
+    }
+#endif
+    // add by allen for ankerCfgDlg
+    for (const AnkerTab* const tab : ankerTabsList) {
         if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
             return true;
     }
@@ -2636,7 +3030,14 @@ bool GUI_App::has_current_preset_changes() const
 void GUI_App::update_saved_preset_from_current_preset()
 {
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
+#if SHOW_OLD_SETTING_DIALOG
     for (Tab* tab : tabs_list) {
+        if (tab->supports_printer_technology(printer_technology))
+            tab->update_saved_preset_from_current_preset();
+    }
+#endif
+    // add by allen for ankerCfgDlg
+    for (AnkerTab* tab : ankerTabsList) {
         if (tab->supports_printer_technology(printer_technology))
             tab->update_saved_preset_from_current_preset();
     }
@@ -2646,7 +3047,13 @@ std::vector<const PresetCollection*> GUI_App::get_active_preset_collections() co
 {
     std::vector<const PresetCollection*> ret;
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
+#if SHOW_OLD_SETTING_DIALOG
     for (const Tab* tab : tabs_list)
+        if (tab->supports_printer_technology(printer_technology))
+            ret.push_back(tab->get_presets());
+#endif
+    // add by allen for ankerCfgDlg
+    for (const AnkerTab* tab : ankerTabsList)
         if (tab->supports_printer_technology(printer_technology))
             ret.push_back(tab->get_presets());
     return ret;
@@ -2697,7 +3104,14 @@ bool GUI_App::check_and_save_current_preset_changes(const wxString& caption, con
 void GUI_App::apply_keeped_preset_modifications()
 {
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
+#if SHOW_OLD_SETTING_DIALOG
     for (Tab* tab : tabs_list) {
+        if (tab->supports_printer_technology(printer_technology))
+            tab->apply_config_from_cache();
+    }
+#endif
+    // add by allen for ankerCfgDlg
+    for (AnkerTab* tab : ankerTabsList) {
         if (tab->supports_printer_technology(printer_technology))
             tab->apply_config_from_cache();
     }
@@ -2727,7 +3141,14 @@ bool GUI_App::check_and_keep_current_preset_changes(const wxString& caption, con
                 return; // no need to discared changes. It will be done fromConfigWizard closing
 
             PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
+#if SHOW_OLD_SETTING_DIALOG
             for (const Tab* const tab : tabs_list) {
+                if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
+                    tab->m_presets->discard_current_changes();
+            }
+#endif
+            // add by allen for ankerCfgDlg
+            for (const AnkerTab* const tab : ankerTabsList) {
                 if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
                     tab->m_presets->discard_current_changes();
             }
@@ -2774,6 +3195,25 @@ bool GUI_App::check_and_keep_current_preset_changes(const wxString& caption, con
                     if (!is_called_from_configwizard)
                         tab->m_presets->discard_current_changes();
                 }
+                // add by allen for ankerCfgDlg
+                for (const std::pair<std::string, Preset::Type>& nt : preset_names_and_types) {
+                    Preset::Type type = nt.second;
+                    AnkerTab* tab = getAnkerTab(type);
+                    std::vector<std::string> selected_options = dlg.get_selected_options(type);
+                    if (type == Preset::TYPE_PRINTER) {
+                        auto it = std::find(selected_options.begin(), selected_options.end(), "extruders_count");
+                        if (it != selected_options.end()) {
+                            // erase "extruders_count" option from the list
+                            selected_options.erase(it);
+                            // cache the extruders count
+                            static_cast<AnkerTabPrinter*>(tab)->cache_extruder_cnt();
+                        }
+                    }
+                    tab->cache_config_diff(selected_options);
+                    if (!is_called_from_configwizard)
+                        tab->m_presets->discard_current_changes();
+                }
+
                 if (is_called_from_configwizard)
                     *postponed_apply_of_keeped_changes = true;
                 else
@@ -2831,6 +3271,15 @@ bool GUI_App::checked_tab(Tab* tab)
     return ret;
 }
 
+// add by allen for ankerCfgDlg
+bool GUI_App::checkedAnkerTab(AnkerTab* tab)
+{
+    bool ret = true;
+    if (find(ankerTabsList.begin(), ankerTabsList.end(), tab) == ankerTabsList.end())
+        ret = false;
+    return ret;
+}
+
 // Update UI / Tabs to reflect changes in the currently loaded presets
 void GUI_App::load_current_presets(bool check_printer_presets_ /*= true*/)
 {
@@ -2841,6 +3290,7 @@ void GUI_App::load_current_presets(bool check_printer_presets_ /*= true*/)
 
     PrinterTechnology printer_technology = preset_bundle->printers.get_edited_preset().printer_technology();
 	this->plater()->set_printer_technology(printer_technology);
+#if SHOW_OLD_SETTING_DIALOG
     for (Tab *tab : tabs_list)
 		if (tab->supports_printer_technology(printer_technology)) {
 			if (tab->type() == Preset::TYPE_PRINTER) {
@@ -2850,6 +3300,17 @@ void GUI_App::load_current_presets(bool check_printer_presets_ /*= true*/)
 			}
 			tab->load_current_preset();
 		}
+#endif
+    // for anker config dialog tab
+    for (AnkerTab* tab : ankerTabsList)
+        if (tab->supports_printer_technology(printer_technology)) {
+            if (tab->type() == Preset::TYPE_PRINTER) {
+                static_cast<AnkerTabPrinter*>(tab)->update_pages();
+                // Mark the plater to update print bed by tab->load_current_preset() from Plater::on_config_change().
+                this->plater()->force_print_bed_update();
+            }
+            tab->load_current_preset();
+        }
 }
 
 bool GUI_App::OnExceptionInMainLoop()
@@ -2940,6 +3401,21 @@ Sidebar& GUI_App::sidebar()
 {
     return plater_->sidebar();
 }
+// add by allen for ankerCfgDlg
+AnkerSidebarNew& GUI_App::sidebarnew()
+{
+    return plater_->sidebarnew();
+}
+
+AnkerObjectBar* GUI_App::objectbar()
+{
+    return plater_->objectbar();
+}
+
+AnkerFloatingList* GUI_App::floatinglist()
+{
+    return (plater_ != nullptr) ? plater_->floatinglist() : nullptr;
+}
 
 ObjectManipulation* GUI_App::obj_manipul()
 {
@@ -2947,19 +3423,30 @@ ObjectManipulation* GUI_App::obj_manipul()
     return (plater_ != nullptr) ? sidebar().obj_manipul() : nullptr;
 }
 
+AnkerObjectManipulator* GUI_App::aobj_manipul()
+{
+    // If this method is called before plater_ has been initialized, return nullptr (to avoid a crash)
+    return (plater_ != nullptr) ? plater_->aobject_manipulator() : nullptr;
+}
+
 ObjectSettings* GUI_App::obj_settings()
 {
     return sidebar().obj_settings();
 }
 
-ObjectList* GUI_App::obj_list()
-{
-    return sidebar().obj_list();
-}
+//ObjectList* GUI_App::obj_list()
+//{
+//    return sidebar().obj;
+//}
 
-ObjectLayers* GUI_App::obj_layers()
+//ObjectLayers* GUI_App::obj_layers()
+//{
+//    return sidebar().obj_layers();
+//}
+
+AnkerObjectLayers* GUI_App::obj_layers()
 {
-    return sidebar().obj_layers();
+    return  (plater_ != nullptr) ? plater_->object_layers() : nullptr;
 }
 
 Plater* GUI_App::plater()
@@ -2979,6 +3466,12 @@ Model& GUI_App::model()
 wxBookCtrlBase* GUI_App::tab_panel() const
 {
     return mainframe->m_tabpanel;
+}
+// add by allen for ankerCfgDlg
+wxBookCtrlBase* GUI_App::ankerTabPanel() const
+{
+    return mainframe->m_ankerCfgDlg ? 
+        mainframe->m_ankerCfgDlg->m_rightPanel : nullptr;
 }
 
 NotificationManager* GUI_App::notification_manager()
@@ -3226,6 +3719,7 @@ void GUI_App::window_pos_restore(wxTopLevelWindow* window, const std::string &na
         return;
     }
 
+#ifndef __WXOSX__
     const wxRect& rect = metrics->get_rect();
 
     if (app_config->get_bool("restore_win_position")) {
@@ -3244,6 +3738,7 @@ void GUI_App::window_pos_restore(wxTopLevelWindow* window, const std::string &na
         app_config->save();
     }
     else
+#endif
         window->CenterOnScreen();
 
     window->Maximize(metrics->get_maximized());
@@ -3325,18 +3820,18 @@ bool GUI_App::open_browser_with_warning_dialog(const wxString& url, wxWindow* pa
     std::string option_key = "suppress_hyperlinks";
     if (force_remember_choice || app_config->get(option_key).empty()) {
         if (app_config->get(option_key).empty()) {
-            RichMessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("AnkerMake_alpha: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
+            RichMessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("AnkerMake Studio: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
             dialog.ShowCheckBox(_L("Remember my choice"));
             auto answer = dialog.ShowModal();
             launch = answer == wxID_YES;
             if (dialog.IsCheckBoxChecked()) {
                 wxString preferences_item = _L("Suppress to open hyperlink in browser");
                 wxString msg =
-                    _L("AnkerMake_alpha will remember your choice.") + "\n\n" +
+                    _L("AnkerMake Studio will remember your choice.") + "\n\n" +
                     _L("You will not be asked about it again on hyperlinks hovering.") + "\n\n" +
                     format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto changes your choice."), preferences_item);
 
-                MessageDialog msg_dlg(parent, msg, _L("AnkerMake_alpha: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
+                MessageDialog msg_dlg(parent, msg, _L("AnkerMake Studio: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
                 if (msg_dlg.ShowModal() == wxID_CANCEL)
                     return false;
                 app_config->set(option_key, answer == wxID_NO ? "1" : "0");
@@ -3348,7 +3843,7 @@ bool GUI_App::open_browser_with_warning_dialog(const wxString& url, wxWindow* pa
     // warning dialog doesn't containe a "Remember my choice" checkbox
     // and will be shown only when "Suppress to open hyperlink in browser" is ON.
     else if (app_config->get_bool(option_key)) {
-        MessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("AnkerMake_alpha: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
+        MessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("AnkerMake Studio: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
         launch = dialog.ShowModal() == wxID_YES;
     }
 
@@ -3519,11 +4014,15 @@ void GUI_App::delLogtimer() {
 }
 
 void GUI_App::auto_delete_logfile(const unsigned int days) {
-    std::string logPath = boost::filesystem::initial_path<boost::filesystem::path>().string();
-    logPath += "/log";
+    ANKER_LOG_INFO << "auto_delete_logfile enter";
+    boost::filesystem::path targetLogPath = getLogDirPath();
+    bool bExists = boost::filesystem::exists(targetLogPath);
+    if (!bExists) {
+        ANKER_LOG_INFO << "auto_delete_logfile fail, " << targetLogPath.string().c_str() << " is not exist";
+        return;
+    }
 
     boost::filesystem::directory_iterator endIter;
-    boost::filesystem::path targetLogPath(logPath);
     for (boost::filesystem::directory_iterator iter(targetLogPath); iter != endIter; iter++) {
         if (!boost::filesystem::is_directory(*iter)) {
             time_t tCurTime = time(NULL);
@@ -3535,7 +4034,7 @@ void GUI_App::auto_delete_logfile(const unsigned int days) {
                     boost::filesystem::remove(*iter);
                 }
                 catch (const std::exception& ex) {
-                    boost::nowide::cerr << ex.what() << std::endl;
+                    ANKER_LOG_INFO << "auto_delete_logfile remove fail, errMsg=" << ex.what();
                     return;
                 }
             }

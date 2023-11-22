@@ -64,7 +64,8 @@ ThickPolylines FillEnsuring::fill_surface_arachne(const Surface *surface, const 
                 assert(thick_polylines_out[i].length() > 0.);
                 //assert(thick_polylines_out[i].points.size() == thick_polylines_out[i].width.size());
                 thick_polylines_out[i].clip_end(this->loop_clipping);
-                assert(thick_polylines_out[i].size() > 1);
+                //update by alves, cover right parameters data to the config if fff_print then process
+                //assert(thick_polylines_out[i].size() > 1);
                 if (thick_polylines_out[i].is_valid()) {
                     if (j < i)
                         thick_polylines_out[j] = std::move(thick_polylines_out[i]);

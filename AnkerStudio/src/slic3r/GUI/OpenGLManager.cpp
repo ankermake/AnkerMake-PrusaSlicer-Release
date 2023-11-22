@@ -374,22 +374,22 @@ bool OpenGLManager::init_gl()
             // Complain about the OpenGL version.
             wxString message = format_wxstr(
 #if ENABLE_OPENGL_ES
-                _L("AnkerMake_alpha requires OpenGL ES 2.0 capable graphics driver to run correctly, \n"
+                _L("AnkerMake Studio requires OpenGL ES 2.0 capable graphics driver to run correctly, \n"
                     "while OpenGL version %s, render %s, vendor %s was detected."), s_gl_info.get_version_string(), s_gl_info.get_renderer(), s_gl_info.get_vendor());
 #elif ENABLE_GL_CORE_PROFILE
-                _L("AnkerMake_alpha requires OpenGL %s capable graphics driver to run correctly, \n"
+                _L("AnkerMake Studio requires OpenGL %s capable graphics driver to run correctly, \n"
                     "while OpenGL version %s, render %s, vendor %s was detected."), (s_gl_info.is_core_profile() ? "3.3" : "2.0"), s_gl_info.get_version_string(), s_gl_info.get_renderer(), s_gl_info.get_vendor());
 #else
-                _L("AnkerMake_alpha requires OpenGL 2.0 capable graphics driver to run correctly, \n"
+                _L("AnkerMake Studio requires OpenGL 2.0 capable graphics driver to run correctly, \n"
                     "while OpenGL version %s, render %s, vendor %s was detected."), s_gl_info.get_version_string(), s_gl_info.get_renderer(), s_gl_info.get_vendor());
 #endif // ENABLE_OPENGL_ES
             message += "\n";
         	message += _L("You may need to update your graphics card driver.");
 #ifdef _WIN32
             message += "\n";
-            message += _L("As a workaround, you may run AnkerMake_alpha with a software rendered 3D graphics by running anker-studio.exe with the --sw-renderer parameter.");
+            message += _L("As a workaround, you may run AnkerMake Studio with a software rendered 3D graphics by running anker-studio.exe with the --sw-renderer parameter.");
 #endif
-        	wxMessageBox(message, wxString("AnkerMake_alpha - ") + _L("Unsupported OpenGL version"), wxOK | wxICON_ERROR);
+        	wxMessageBox(message, wxString("AnkerMake Studio - ") + _L("Unsupported OpenGL version"), wxOK | wxICON_ERROR);
         }
 
         if (valid_version) {
@@ -397,7 +397,7 @@ bool OpenGLManager::init_gl()
             auto [result, error] = m_shaders_manager.init();
             if (!result) {
                 wxString message = format_wxstr(_L("Unable to load the following shaders:\n%s"), error);
-                wxMessageBox(message, wxString("AnkerMake_alpha - ") + _L("Error loading shaders"), wxOK | wxICON_ERROR);
+                wxMessageBox(message, wxString("AnkerMake Studio - ") + _L("Error loading shaders"), wxOK | wxICON_ERROR);
             }
 #if ENABLE_OPENGL_DEBUG_OPTION
             if (m_debug_enabled && GLEW_KHR_debug) {

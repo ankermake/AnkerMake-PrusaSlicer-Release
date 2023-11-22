@@ -89,6 +89,7 @@ private:
     void        append_menu_item_add_text(wxMenu* menu, ModelVolumeType type, bool is_submenu_item = true);
     void        append_menu_items_add_volume(MenuType type);
     wxMenuItem* append_menu_item_layers_editing(wxMenu* menu);
+    wxMenuItem* append_menu_item_add_print_settings(wxMenu* menu);
     wxMenuItem* append_menu_item_settings(wxMenu* menu);
     wxMenuItem* append_menu_item_change_type(wxMenu* menu);
     wxMenuItem* append_menu_item_instance_to_object(wxMenu* menu);

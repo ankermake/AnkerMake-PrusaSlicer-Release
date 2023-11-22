@@ -14,6 +14,8 @@
 #include "GUI_App.hpp"
 #include "Plater.hpp"
 #include "Tab.hpp"
+// add by allen for ankerCfgDlg search
+#include "AnkerCfgTab.hpp"
 
 #define FTS_FUZZY_MATCH_IMPLEMENTATION
 #include "ExtraRenderers.hpp"
@@ -107,7 +109,10 @@ void OptionsSearcher::append_options(DynamicPrintConfig* config, Preset::Type ty
             options.emplace_back(Option{ boost::nowide::widen(key), type,
                                         (label + suffix).ToStdWstring(), (_(label) + suffix_local).ToStdWstring(),
                                         gc.group.ToStdWstring(), _(gc.group).ToStdWstring(),
-                                        gc.category.ToStdWstring(), GUI::Tab::translate_category(gc.category, type).ToStdWstring() });
+                                        gc.category.ToStdWstring(), 
+                                        // add by allen for ankerCfgDlg search
+                                        /*GUI::Tab::translate_category(gc.category, type).ToStdWstring() */
+                                       GUI::AnkerTab::translate_category(gc.category, type).ToStdWstring() });
     };
 
     for (std::string opt_key : config->keys())
@@ -402,7 +407,9 @@ static Option create_option(const std::string& opt_key, const wxString& label, P
     return Option{ boost::nowide::widen(get_key(opt_key, type)), type,
                 (label + suffix).ToStdWstring(), (_(label) + suffix_local).ToStdWstring(),
                 gc.group.ToStdWstring(), _(gc.group).ToStdWstring(),
-                gc.category.ToStdWstring(), GUI::Tab::translate_category(category, type).ToStdWstring() };
+                 // add by allen for ankerCfgDlg search
+                gc.category.ToStdWstring(), /*GUI::Tab::translate_category(category, type).ToStdWstring()*/
+                GUI::AnkerTab::translate_category(category, type).ToStdWstring() };
 }
 
 Option OptionsSearcher::get_option(const std::string& opt_key, const wxString& label, Preset::Type type) const
@@ -431,7 +438,7 @@ Option OptionsSearcher::get_option(const std::string& opt_key, const wxString& l
     return create_option(opt_key, label, type, gc);
 }
 
-void OptionsSearcher::show_dialog()
+void OptionsSearcher::show_dialog(wxString defaultSearchData)
 {
     if (!search_dialog) {
         search_dialog = new SearchDialog(this);
@@ -444,7 +451,7 @@ void OptionsSearcher::show_dialog()
         search_dialog->SetPosition(pos);
     }
 
-    search_dialog->Popup();
+    search_dialog->Popup(wxDefaultPosition, defaultSearchData);
 }
 
 void OptionsSearcher::dlg_sys_color_changed()
@@ -571,12 +578,15 @@ SearchDialog::SearchDialog(OptionsSearcher* searcher)
     topSizer->SetSizeHints(this);
 }
 
-void SearchDialog::Popup(wxPoint position /*= wxDefaultPosition*/)
+void SearchDialog::Popup(wxPoint position /*= wxDefaultPosition*/, wxString setSearchData )
 {
+    if (!setSearchData.empty())
+        searcher->set_search_string(setSearchData.ToStdString());
     const std::string& line = searcher->search_string();
     search_line->SetValue(line.empty() ? default_string : from_u8(line));
     search_line->SetFocus();
-    search_line->SelectAll();
+    if (!setSearchData.empty())
+        search_line->SelectAll();
 
     update_list();
 

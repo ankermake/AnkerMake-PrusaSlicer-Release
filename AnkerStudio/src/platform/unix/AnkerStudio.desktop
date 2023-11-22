@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=AnkerMake_alpha
+Name=AnkerMake Studio
 GenericName=3D Printing Software
 Icon=AnkerStudio
-Exec=ankermake_alpha %F
+Exec=ankermake studio %F
 Terminal=false
 Type=Application
 MimeType=model/stl;application/vnd.ms-3mfdocument;application/prs.wavefront-obj;application/x-amf;

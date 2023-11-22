@@ -43,6 +43,9 @@ class GLGizmoScale3D : public GLGizmoBase
     ColorRGBA m_base_color;
     ColorRGBA m_drag_color;
     ColorRGBA m_highlight_color;
+
+    bool m_panelVisibleFlag;
+    wxBoxSizer* m_pInputWindowSizer;
 public:
     GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
 
@@ -65,8 +68,9 @@ public:
     void enable_ununiversal_scale(bool enable);
 protected:
     virtual bool on_init() override;
-    virtual std::string on_get_name() const override;
+    virtual std::string on_get_name(bool i18n = true) const override;
     virtual bool on_is_activable() const override;
+    virtual void on_set_state() override;
     virtual void on_start_dragging() override;
     virtual void on_stop_dragging() override;
     virtual void on_dragging(const UpdateData& data) override;
@@ -82,6 +86,9 @@ private:
 
     double calc_ratio(const UpdateData& data) const;
     void update_render_data();
+
+    // Anker
+    void set_input_window_state(bool on);
 };
 
 

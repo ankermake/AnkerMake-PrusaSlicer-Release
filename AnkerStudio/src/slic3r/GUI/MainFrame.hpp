@@ -14,17 +14,21 @@
 
 #include <string>
 #include <map>
+#include <mutex>
 
 #include "GUI_Utils.hpp"
 #include "Event.hpp"
 #include "UnsavedChangesDialog.hpp"
-#include "AnkerLoginDialog.hpp"
-#include "AnkerDevice.hpp"
 #include "GUI_App.hpp"
+#include "AnkerFunctionPanel.h"
+//#include "Common/AnkerMenuBar.hpp"
+#include "AnkerConfigDialog/AnkerConfigDialog.hpp"
+
 
 class wxBookCtrlBase;
 class wxProgressDialog;
-
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RELOAD_DATA, wxCommandEvent);
 namespace Slic3r {
 
 class ProgressStatusBar;
@@ -33,11 +37,17 @@ namespace GUI
 {
 
 class Tab;
+// add by allen for ankerCfgDlg
+class AnkerTab;
+class AnkerConfigDlg;
+class AnkerTabPresetComboBox;
+
 class PrintHostQueueDialog;
 class Plater;
 class MainFrame;
 class PreferencesDialog;
 class GalleryDialog;
+
 
 enum QuickSlice
 {
@@ -46,6 +56,13 @@ enum QuickSlice
     qsSaveAs = 2,
     qsExportSVG = 4,
     qsExportPNG = 8
+};
+
+enum TabMode
+{
+    TAB_SLICE,
+    TAB_DEVICE,
+    TAB_COUNT
 };
 
 struct PresetTab {
@@ -73,6 +90,7 @@ protected:
     void on_dpi_changed(const wxRect& suggested_rect) override;
 };
 
+
 class MainFrame : public DPIFrame
 {
     bool        m_loaded {false};
@@ -82,20 +100,29 @@ class MainFrame : public DPIFrame
     wxString    m_qs_last_output_file = wxEmptyString;
     wxString    m_last_config = wxEmptyString;
     wxMenuBar*  m_menubar{ nullptr };
+    //AnkerMenuBar* m_menubar{ nullptr };
 
 #if 0
     wxMenuItem* m_menu_item_repeat { nullptr }; // doesn't used now
 #endif
     wxMenuItem* m_menu_item_reslice_now { nullptr };
-    wxSizer*    m_main_sizer{ nullptr };
-    AnkerLoginPanle* m_ankerloadialog{nullptr};
+    wxSizer*    m_main_sizer{ nullptr };    
     size_t      m_last_selected_tab;
+
+    // init tab panel
+    void initTabPanel();
 
     std::string     get_base_name(const wxString &full_name, const char *extension = nullptr) const;
     std::string     get_dir_name(const wxString &full_name) const;
 
     void on_presets_changed(SimpleEvent&);
     void on_value_changed(wxCommandEvent&);
+
+    void on_size(wxSizeEvent& event);
+    void on_move(wxMoveEvent& event);
+    void on_show(wxShowEvent& event);
+    void on_minimize(wxIconizeEvent& event);
+    void on_maximize(wxMaximizeEvent& event);
 
     void OnDocumentLoaded(wxWebViewEvent& evt);
 	void OnScriptMessage(wxCommandEvent& evt);
@@ -116,6 +143,8 @@ class MainFrame : public DPIFrame
     bool can_delete_all() const;
     bool can_reslice() const;
     void bind_diff_dialog();
+    // add by allen for ankerCfgDlg
+    void bind_diff_dialog_ankertab();
 
     // MenuBar items changeable in respect to printer technology 
     enum MenuItems
@@ -149,10 +178,18 @@ protected:
     virtual void on_dpi_changed(const wxRect &suggested_rect) override;
     virtual void on_sys_color_changed() override;
 
-    
+    void ShowLoginedMenu();
+    void ShowUnLoginMenu();
+    void ClearLoingiMenu();
+    void onLogOut();
+    void OnMove(wxMoveEvent& event);
+    void OnOtaTimer(wxTimerEvent& event);
+
 public:
     MainFrame(const int font_point_size);
     ~MainFrame();// = default;
+    void createAnkerCfgDlg();
+    void ShowAnkerWebView();
     void update_layout();
     void update_mode_markers();
     void setUrl(std::string webUrl = std::string());
@@ -161,13 +198,18 @@ public:
     Plater*     plater() { return m_plater; }
     GalleryDialog* gallery_dialog();
 
+    void        selectLanguage(GUI_App::AnkerLanguageType language);
+    static bool        languageIsJapanese();
+
     void        update_title();
 
     void        init_tabpanel();
-
+    void        getwebLoginDataBack();
     void        create_preset_tabs();
     void        add_created_tab(Tab* panel, const std::string& bmp_name = "");
     bool        is_active_and_shown_tab(Tab* tab);
+    // add by allen for ankerCfgDlg
+    bool        isActiveAndShownAnkerTab(AnkerTab* tab);
     // Register Win32 RawInput callbacks (3DConnexion) and removable media insert / remove callbacks.
     // Called from wxEVT_ACTIVATE, as wxEVT_CREATE was not reliable (bug in wxWidgets?).
     void        register_win32_callbacks();
@@ -198,7 +240,12 @@ public:
     // Select tab in m_tabpanel
     // When tab == -1, will be selected last selected tab
     void        select_tab(Tab* tab);
+    // add by allen for ankerCfgDlg
+    void        selectAnkerTab(AnkerTab* tab);
     void        select_tab(size_t tab = size_t(-1));
+    TabMode get_current_tab_mode() { return m_currentTabMode; }
+    void        setTabMode(TabMode mode) { m_currentTabMode = mode; }
+    void        showAnkerCfgDlg();
     void        select_view(const std::string& direction);
     // Propagate changed configuration from the Tab to the Plater and save changes to the AppConfig
     void        on_config_changed(DynamicPrintConfig* cfg) const ;
@@ -213,8 +260,17 @@ public:
 
     PrintHostQueueDialog* printhost_queue_dlg() { return m_printhost_queue_dlg; }
 
+    // add by allen for ankerCfgDlg
+    AnkerTabPresetComboBox* GetAnkerTabPresetCombo(const Preset::Type type);
+
+    AnkerTab* openAnkerTabByPresetType(const Preset::Type type);
+
     Plater*               m_plater { nullptr };
     wxBookCtrlBase*       m_tabpanel { nullptr };
+    // add by allen for ankerCfgDlg
+    AnkerConfigDlg*       m_ankerCfgDlg{ nullptr };
+    TabMode m_currentTabMode{ TAB_COUNT };
+    wxBookCtrlBase*       m_printTabPanel{ nullptr };
     SettingsDialog        m_settings_dialog;
     DiffPresetDialog      diff_dialog;
     wxWindow*             m_plater_page{ nullptr };
@@ -224,12 +280,14 @@ public:
 //    std::shared_ptr<ProgressStatusBar>  m_statusbar;
     GalleryDialog*        m_gallery_dialog{ nullptr };
 
+    AnkerFunctionPanel*        m_pFunctionPanel;
+
+
 #ifdef __APPLE__
     std::unique_ptr<wxTaskBarIcon> m_taskbar_icon;
 #endif // __APPLE__
 
 wxMenu*             m_pLoginMenu {nullptr};
-AnkerDevice*        m_pDeviceWidget{ nullptr };
 
 ANKER_ENVIR         m_currentEnvir = EN_ENVIR;   
 wxString            m_loginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/#/login")};
@@ -239,6 +297,13 @@ wxString            m_backloginUrl = {wxString("https://community-qa.eufylife.co
     uint32_t  			m_ulSHChangeNotifyRegister { 0 };
 	static constexpr int WM_USER_MEDIACHANGED { 0x7FFF }; // WM_USER from 0x0400 to 0x7FFF, picking the last one to not interfere with wxWidgets allocation
 #endif // _WIN32
+    wxTimer* m_otaTimer = nullptr;
+    
+    bool m_bIsOpenWebview {false};
+    
+    mutable std::mutex m_ReadWriteMutex;
+    
+    
 };
 
 } // GUI

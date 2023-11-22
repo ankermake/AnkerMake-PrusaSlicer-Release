@@ -18,12 +18,20 @@
 #include <stack>
 #include <thread>
 
+class AnkerObjectBar;
+class AnkerObjectManipulator;
+class AnkerFloatingList;
 class wxMenuItem;
 class wxMenuBar;
 class wxTopLevelWindow;
 class wxDataViewCtrl;
 class wxBookCtrlBase;
 struct wxLanguageInfo;
+
+#define  AnkerSize(x, y) Slic3r::GUI::wxGetApp().getRealSize(wxSize(x, y))
+#define  AnkerRect(x, y, w, h) Slic3r::GUI::wxGetApp().getRealRect(wxRect(x, y, w, h))
+#define  AnkerPoint(x, y) Slic3r::GUI::wxGetApp().getRealPoint(wxPoint(x, y))
+#define  AnkerLength(x) Slic3r::GUI::wxGetApp().getRealLength(x)
 
 namespace Slic3r {
 
@@ -41,6 +49,9 @@ class RemovableDriveManager;
 class OtherInstanceMessageHandler;
 class MainFrame;
 class Sidebar;
+// add by allen for ankerCfgDlg
+class AnkerSidebarNew;
+class AnkerObjectLayers;
 class ObjectManipulation;
 class ObjectSettings;
 class ObjectList;
@@ -62,6 +73,7 @@ enum FileType
     FT_AMF,
     FT_3MF,
     FT_GCODE,
+    FT_ACODE,
     FT_MODEL,
     FT_PROJECT,
     FT_FONTS,
@@ -84,6 +96,8 @@ extern wxString file_wildcards(FileType file_type);
 #else
 extern wxString file_wildcards(FileType file_type, const std::string &custom_extension = std::string{});
 #endif // ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
+
+extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& lineLength);
 
 enum ConfigMenuIDs {
     ConfigMenuWizard,
@@ -115,7 +129,10 @@ enum ANKER_ENVIR
     QA_ENVIR = 2
 };
 
+// add by allen for ankerCfgDlg
+class AnkerTab;
 class Tab;
+
 class ConfigWizard;
 
 static wxString dots("…", wxConvUTF8);
@@ -192,7 +209,7 @@ public:
 
     explicit GUI_App(EAppMode mode = EAppMode::Editor);
     ~GUI_App() override;
-
+    void set_app_mode(EAppMode mode = EAppMode::Editor) { m_app_mode = mode; }
     EAppMode get_app_mode() const { return m_app_mode; }
     bool is_editor() const { return m_app_mode == EAppMode::Editor; }
     bool is_gcode_viewer() const { return m_app_mode == EAppMode::GCodeViewer; }
@@ -256,6 +273,10 @@ public:
     const wxFont&   code_font()             { return m_code_font; }
     const wxFont&   link_font()             { return m_link_font; }
     int             em_unit() const         { return m_em_unit; }
+    wxSize          getRealSize(const wxSize& windowSize);
+    wxRect          getRealRect(const wxRect& windowRect);
+    wxPoint          getRealPoint(const wxPoint& windowPoint);
+    int          getRealLength(const int windowsLen);
     bool            tabs_as_menu() const;
     wxSize          get_min_size() const;
     float           toolbar_icon_scale(const bool is_limited = false) const;
@@ -275,10 +296,21 @@ public:
     void            persist_window_geometry(wxTopLevelWindow *window, bool default_maximized = false);
     void            update_ui_from_settings();
 
+    enum AnkerLanguageType {
+        AnkerLanguageType_Unknown = -1,
+        AnkerLanguageType_English = 5,
+        AnkerLanguageType_Japanese = 10,
+        AnkerLanguageType_Chinese = 1
+    };
     bool            switch_language();
+    bool            switch_language(AnkerLanguageType language);
     bool            load_language(wxString language, bool initial);
+    int getCurrentLanguageType() const;
 
+    // add by allen for ankerCfgDlg
+    AnkerTab*   getAnkerTab(Preset::Type type);
     Tab*            get_tab(Preset::Type type);
+
     ConfigOptionMode get_mode();
     bool            save_mode(const /*ConfigOptionMode*/int mode) ;
     void            update_mode();
@@ -293,7 +325,11 @@ public:
     bool            check_and_keep_current_preset_changes(const wxString& caption, const wxString& header, int action_buttons, bool* postponed_apply_of_keeped_changes = nullptr);
     bool            can_load_project();
     bool            check_print_host_queue();
+    
     bool            checked_tab(Tab* tab);
+    // add by allen for ankerCfgDlg
+    bool            checkedAnkerTab(AnkerTab* tab);
+
     void            load_current_presets(bool check_printer_presets = true);
 
     wxString        current_language_code() const { return m_wxLocale->GetCanonicalName(); }
@@ -315,10 +351,16 @@ public:
 #endif /* __APPLE */
 
     Sidebar&             sidebar();
+    // add by allen for ankerCfgDlg
+    AnkerSidebarNew&             sidebarnew();
+    AnkerObjectBar*         objectbar();
+    AnkerFloatingList*      floatinglist();
     ObjectManipulation*  obj_manipul();
+    AnkerObjectManipulator*  aobj_manipul();
     ObjectSettings*      obj_settings();
-    ObjectList*          obj_list();
-    ObjectLayers*        obj_layers();
+    //ObjectList*          obj_list();
+    //ObjectLayers*        obj_layers();
+    AnkerObjectLayers*   obj_layers();
     Plater*              plater();
     const Plater*        plater() const;
     Model&      		 model();
@@ -338,10 +380,15 @@ public:
 	PresetUpdater*  get_preset_updater() { return preset_updater; }
 
     wxBookCtrlBase* tab_panel() const ;
+    // add by allen for ankerCfgDlg
+    wxBookCtrlBase* ankerTabPanel() const;
+
     int             extruders_cnt() const;
     int             extruders_edited_cnt() const;
-
-    std::vector<Tab *>      tabs_list;
+    
+    std::vector<Tab*>      tabs_list;
+    // add by allen for ankerCfgDlg
+    std::vector<AnkerTab*>      ankerTabsList;
 
 	RemovableDriveManager* removable_drive_manager() { return m_removable_drive_manager.get(); }
 	OtherInstanceMessageHandler* other_instance_message_handler() { return m_other_instance_message_handler.get(); }
@@ -351,6 +398,8 @@ public:
 	void        set_instance_hash (const size_t hash) { m_instance_hash_int = hash; m_instance_hash_string = std::to_string(hash); }
     std::string get_instance_hash_string ()           { return m_instance_hash_string; }
 	size_t      get_instance_hash_int ()              { return m_instance_hash_int; }
+
+    bool check_privacy_policy();
 
     ImGuiWrapper* imgui() { return m_imgui.get(); }
 
@@ -384,6 +433,9 @@ public:
     // URL download - AnkerStudio gets system call to open ankerstudio:// URL which should contain address of download
     void            start_download(std::string url);
 
+    
+    bool            select_language(AnkerLanguageType type);
+
 private:
     bool            on_init_inner();
 	void            init_app_config();
@@ -394,6 +446,8 @@ private:
     void            window_pos_restore(wxTopLevelWindow* window, const std::string &name, bool default_maximized = false);
     void            window_pos_sanitize(wxTopLevelWindow* window);
     bool            select_language();
+
+    
 
     bool            config_wizard_startup();
     // Returns true if the configuration is fine. 

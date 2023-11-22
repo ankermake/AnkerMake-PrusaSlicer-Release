@@ -203,9 +203,9 @@ bool Preview::init(wxWindow* parent, Bed3D& bed, Model* model)
     m_canvas->set_config(m_config);
     m_canvas->set_model(model);
     m_canvas->set_process(m_process);
-    m_canvas->enable_legend_texture(true);
+    //m_canvas->enable_legend_texture(true);
     m_canvas->enable_dynamic_background(true);
-
+    createGcodePreviewLayerToolbar();
     m_layers_slider_sizer = create_layers_slider_sizer();
 
     wxGetApp().UpdateDarkUI(m_bottom_toolbar_panel = new wxPanel(this));
@@ -234,8 +234,17 @@ bool Preview::init(wxWindow* parent, Bed3D& bed, Model* model)
     SetMinSize(GetSize());
     GetSizer()->SetSizeHints(this);
 
+#ifndef USE_ANKER_SLIDER
+    m_layers_slider_sizer->Hide((size_t)0);
+    bottom_toolbar_sizer->Hide((size_t)0);
+#else
+
+#endif
+
     bind_event_handlers();
-    
+
+
+
     return true;
 }
 
@@ -332,6 +341,11 @@ void Preview::msw_rescale()
 
     // rescale legend
     refresh_print();
+
+    if (toolbar) {
+        bool show = toolbar->IsShown();
+        showGcodeLayerToolbar(show);
+    }
 }
 
 void Preview::sys_color_changed()
@@ -353,6 +367,11 @@ void Preview::jump_layers_slider(wxKeyEvent& evt)
 void Preview::move_layers_slider(wxKeyEvent& evt)
 {
     if (m_layers_slider != nullptr) m_layers_slider->OnKeyDown(evt);
+}
+
+void Preview::move_sliders(wxKeyEvent& evt)
+{
+    if (toolbar) toolbar->OnKeyDown(evt);
 }
 
 void Preview::edit_layers_slider(wxKeyEvent& evt)
@@ -380,13 +399,164 @@ void Preview::move_moves_slider(wxKeyEvent& evt)
 void Preview::hide_layers_slider()
 {
     m_layers_slider_sizer->Hide((size_t)0);
+    if (toolbar) {
+        toolbar->Show(false);
+    }
     Layout();
 }
 
 void Preview::on_size(wxSizeEvent& evt)
-{
+{   
+    wxPoint mainWindowPos = GetPosition();
+    // update AnkerGcodePreviewLayerToolbar
+    if(toolbar)
+    {
+        CalGcodePreviewToolbarSize();
+
+        // calculate tool height 
+        toolbar->calculateLayoutAndResize();
+
+        if (toolbar->IsShown())
+            CalGcodePreviewToolbarPos();
+    }
+
     evt.Skip();
     Refresh();
+}
+
+void Preview::on_move(wxMoveEvent& evt)
+{
+    m_mainWindowClientPos = evt.GetPosition();
+ //   std::cout << "\n====Preview::on_move" << std::endl;
+    CalGcodePreviewToolbarPos(/*mainWindowClientX, mainWindowClientY*/);
+    evt.Skip();
+    Refresh();
+}
+
+void Preview::shutdown()
+{
+#ifdef USE_ANKER_SLIDER
+    if (toolbar)
+    {
+        toolbar->Hide();
+        delete toolbar;
+        toolbar = nullptr;
+    }
+#endif
+}
+
+wxWindow* Preview::GetGcodeLayerToolbar()
+{
+    return toolbar;
+}
+
+void Preview::showGcodeLayerToolbar(bool show)
+{
+    //ANKER_LOG_INFO << "prewiew toolbar current state:" << toolbar->IsShown()<<"  set state:"<<show;
+    if (toolbar) {
+        if (show) {
+            CalGcodePreviewToolbarSize();
+            toolbar->calculateLayoutAndResize();
+            CalGcodePreviewToolbarPos();
+        }
+        else {
+            toolbar->SetSize(wxSize(1, 1));
+            toolbar->SetPosition(wxPoint(0, 0));
+        }
+
+        toolbar->updateUI();
+        toolbar->Show(show);
+    }
+    Refresh();
+}
+
+void Preview::CalGcodePreviewToolbarPos(/*int mainWindowClientX, int mainWindowClientY*/)
+{
+    if (!toolbar)
+    {
+        return;
+    }
+
+   // int PlaterTabHeight = 0;        //toolbar->calculateLayoutAndResize();
+    int bottomMargin = 12;   // " slicing finish notification WindowHeight"
+    int xRel = 0, yRel = 0;
+
+    //wxRect FrameClinetRect = GetParent()->GetParent()->GetClientRect();
+    wxSize PreviewAreaSize = GetSize();              // client Rect of Preview 
+    // const Size cnv_size = wxGetApp().plater()->canvas_preview()->get_canvas_size();   // also , PreviewAreaSize is equal to  cnv_size
+   // PlaterTabHeight = FrameClinetRect.GetHeight() - PreviewAreaSize.GetHeight();
+
+    wxPoint PreviewLeftTopPos = GetScreenPosition();//m_mainWindowClientPos;  // "Plater Tab LeftTop  "
+    wxSize toolBarSize = toolbar->GetSize();
+
+    if (PreviewAreaSize.GetWidth() >= toolBarSize.GetWidth())
+    {
+        xRel = (PreviewAreaSize.GetWidth() - toolBarSize.GetWidth()) / 2;
+    }
+
+    if (PreviewAreaSize.GetHeight() >= toolBarSize.GetHeight())
+    {
+        yRel = (/*PlaterTabHeight +*/ PreviewAreaSize.GetHeight() - bottomMargin - toolBarSize.GetHeight());
+    }
+
+    int x = xRel + PreviewLeftTopPos.x;
+    int y = yRel + PreviewLeftTopPos.y;
+    toolbar->SetPosition(wxPoint(x, y));
+
+    //std::cout << "====Preview::CalGcodePreviewToolbarPos ,x,y:" << x << "," << y<< std::endl;
+
+    /*
+    std::cout <<"Preview::CalGcodePreviewToolbarPos, "<<
+        " PreviewLeftTopPos:"<< PreviewLeftTopPos.x
+        <<","<< PreviewLeftTopPos.y
+        <<"   " << PreviewAreaSize.GetWidth()
+        << "*" << PreviewAreaSize.GetHeight()
+
+        <<"  rel:"<< xRel
+        << "," << yRel
+        <<"   toolbar x,y:"<<x<<" , "<<y
+        <<"   w*h:"<<toolBarSize.GetWidth()<<"*"<<toolBarSize.GetHeight()
+
+        << std::endl;
+        */
+}
+
+
+void Preview::CalGcodePreviewToolbarSize()
+{
+    if (toolbar) {
+        int GcodeWindowWidth = 200;
+        int editor_PreviewIconWidth = 38 * 2 * 2;  // 2 icon and screen scale 200% at max 
+        int toolbarMaxWidth = 1000;
+        int windowDecorationSize_X = 8;
+        int windowDecorationSize_Y = 0;
+        wxRect mainWindowSize = GetSize();//GetClientRect();
+
+        int availableWidth = mainWindowSize.GetWidth() - (GcodeWindowWidth > editor_PreviewIconWidth ? GcodeWindowWidth : editor_PreviewIconWidth) * 2 - windowDecorationSize_X * 2;
+
+        // calculate tool width
+        wxSize toolBarSize = toolbar->GetSize();
+        int toolBarWidth = availableWidth > toolbarMaxWidth ? toolbarMaxWidth : availableWidth;
+        toolbar->SetSize(toolBarWidth, toolBarSize.GetHeight());
+        // ANKER_LOG_DEBUG << "====Preview::CalGcodePreviewToolbarSize, toolbar set size:" << toolBarWidth << " " << toolBarSize.GetHeight() << "  availableWidth:" << availableWidth   << "  mainWindowSize:" << mainWindowSize.GetWidth()<<","<< mainWindowSize.GetHeight() ;
+    }
+}
+
+
+void Preview::createGcodePreviewLayerToolbar()
+{
+    toolbar = new AnkerGcodePreviewLayerToolbar(this);
+    toolbar->SetBackgroundColour(wxColour(41, 42, 45));
+    //toolbar->SetMinSize(wxSize(1000, 200));
+    //toolbar->SetMaxSize(wxSize(1000, 200));
+    toolbar->SetSize(1000, 100);
+    toolbar->Show(false);
+
+    toolbar->Bind(EVT_GCODE_LAYER_SLIDER_VALUE_CHANGED, &Preview::on_layers_slider_scroll_changed, this);
+    toolbar->Bind(wxCUSTOMEVT_PAUSE_PRINT_LIST_CHANGE, &Preview::on_pausePrintList_changed, this);
+    toolbar->Bind(EVT_GCODE_MOVES_SLIDER_VALUE_CHANGED, &Preview::on_moves_slider_scroll_changed, this);
+
+    toolbar->setMovesSliderEnable(false);
 }
 
 wxBoxSizer* Preview::create_layers_slider_sizer()
@@ -468,20 +638,41 @@ void Preview::check_layers_slider_values(std::vector<CustomGCode::Item>& ticks_f
 
 void Preview::update_layers_slider(const std::vector<double>& layers_z, bool keep_z_range)
 {
+
+   // std::cout<< "=====update_layers_slider" << std::endl;
+#ifndef USE_ANKER_SLIDER
     // Save the initial slider span.
     double z_low = m_layers_slider->GetLowerValueD();
     double z_high = m_layers_slider->GetHigherValueD();
     bool   was_empty = m_layers_slider->GetMaxValue() == 0;
+#else
+    if (!toolbar) {
+        return;
+    }
+
+    double z_low = toolbar->GetLayerSliderLowerValueD();
+    double z_high = toolbar->GetLayerSliderHigherValueD();
+    bool was_empty = toolbar->GetLayerSliderMaxValue() == 0;
+#endif
 
     bool force_sliders_full_range = was_empty;
     if (!keep_z_range)
     {
+#ifndef USE_ANKER_SLIDER
         bool span_changed = layers_z.empty() || std::abs(layers_z.back() - m_layers_slider->GetMaxValueD()) > DoubleSlider::epsilon()/*1e-6*/;
+#else
+        bool span_changed = layers_z.empty() || std::abs(layers_z.back() - toolbar->GetLayerSliderMaxValueD()) > DoubleSlider::epsilon()/*1e-6*/;
+#endif
+
         force_sliders_full_range |= span_changed;
     }
+#ifndef USE_ANKER_SLIDER
     bool   snap_to_min = force_sliders_full_range || m_layers_slider->is_lower_at_min();
     bool   snap_to_max = force_sliders_full_range || m_layers_slider->is_higher_at_max();
-
+#else
+    bool snap_to_min = force_sliders_full_range || toolbar->LayerSliderIsLowerAtMin();
+    bool snap_to_max = force_sliders_full_range || toolbar->LayerSliderIsHigherAtMax();
+#endif
     // Detect and set manipulation mode for double slider
     update_layers_slider_mode();
 
@@ -496,13 +687,23 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
     check_layers_slider_values(ticks_info_from_model.gcodes, layers_z);
 
     //first of all update extruder colors to avoid crash, when we are switching printer preset from MM to SM
+#ifndef USE_ANKER_SLIDER
     m_layers_slider->SetExtruderColors(plater->get_extruder_colors_from_plater_config(wxGetApp().is_editor() ? nullptr : m_gcode_result));
     m_layers_slider->SetSliderValues(layers_z);
     assert(m_layers_slider->GetMinValue() == 0);
     m_layers_slider->SetMaxValue(layers_z.empty() ? 0 : layers_z.size() - 1);
+#else
+    toolbar->SetLayerSliderValues(layers_z);
+    assert(toolbar->GetLayerSliderMinValue() == 0);
+    toolbar->SetLayerSliderMaxValue(layers_z.empty() ? 0 : layers_z.size() - 1);
+#endif
 
     int idx_low = 0;
+#ifndef USE_ANKER_SLIDER
     int idx_high = m_layers_slider->GetMaxValue();
+#else
+    int idx_high = toolbar->GetLayerSliderMaxValue();
+#endif
     if (!layers_z.empty()) {
         if (!snap_to_min) {
             int idx_new = find_close_layer_idx(layers_z, z_low, DoubleSlider::epsilon()/*1e-6*/);
@@ -515,8 +716,13 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
                 idx_high = idx_new;
         }
     }
+#ifndef USE_ANKER_SLIDER
     m_layers_slider->SetSelectionSpan(idx_low, idx_high);
     m_layers_slider->SetTicksValues(ticks_info_from_model);
+#else
+    toolbar->SetLayerSliderSelectionSpan(idx_low, idx_high);
+    toolbar->SetLayerSliderGcodePauseCmdValues(ticks_info_from_model);
+#endif
 
     bool sla_print_technology = plater->printer_technology() == ptSLA;
     bool sequential_print = wxGetApp().preset_bundle->prints.get_edited_preset().config.opt_bool("complete_objects");
@@ -595,7 +801,16 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
         }
     }
 
+#ifndef USE_ANKER_SLIDER
     m_layers_slider_sizer->Show((size_t)0);
+#else
+    if (plater->IsShown()) {
+        CalGcodePreviewToolbarPos();
+        showGcodeLayerToolbar(true);
+    }
+#endif
+    
+
     Layout();
 }
 
@@ -650,13 +865,25 @@ void Preview::update_layers_slider_mode()
         }
     }
 
+#ifndef USE_ANKER_SLIDER
     m_layers_slider->SetModeAndOnlyExtruder(one_extruder_printed_model, only_extruder);
+#else
+    if (toolbar)
+        toolbar->SetLayerSliderModeAndOnlyExtruder(one_extruder_printed_model, only_extruder);
+#endif
 }
 
 void Preview::reset_layers_slider()
 {
+#ifndef USE_ANKER_SLIDER
     m_layers_slider->SetHigherValue(0);
     m_layers_slider->SetLowerValue(0);
+#else
+    if (toolbar) {
+        toolbar->SetLowerValue(0);
+        toolbar->SetHigherValue(0);
+    }
+#endif
 }
 
 void Preview::update_layers_slider_from_canvas(wxKeyEvent& event)
@@ -717,19 +944,34 @@ void Preview::update_moves_slider()
         alternate_values.emplace_back(static_cast<double>(view.gcode_ids[i]));
     }
 
+#ifndef USE_ANKER_SLIDER
     m_moves_slider->SetSliderValues(values);
     m_moves_slider->SetSliderAlternateValues(alternate_values);
     m_moves_slider->SetMaxValue(int(values.size()) - 1);
     m_moves_slider->SetSelectionSpan(values.front() - 1 - view.endpoints.first, values.back() - 1 - view.endpoints.first);
+#else
+    if (toolbar) {
+        toolbar->SetMovesSliderValues(values);
+        toolbar->SetMovesSliderAlternateValues(alternate_values);
+        toolbar->SetMovesSliderMaxValue(int(values.size()) - 1);
+        toolbar->SetMovesSliderMinValue(values.front() - 1 - view.endpoints.first);
+        toolbar->SetMovesSliderValue(values.back() - 1 - view.endpoints.first);
+    }
+#endif
 }
 
 void Preview::enable_moves_slider(bool enable)
 {
+    //std::cout << " ======== Preview::enable_moves_slider: enable = "<< enable << std::endl;
+#ifndef USE_ANKER_SLIDER
     bool render_as_disabled = !enable;
     if (m_moves_slider != nullptr && m_moves_slider->is_rendering_as_disabled() != render_as_disabled) {
         m_moves_slider->set_render_as_disabled(render_as_disabled);
         m_moves_slider->Refresh();
     }
+#else
+    toolbar->setMovesSliderEnable(enable);
+#endif
 }
 
 void Preview::load_print_as_fff(bool keep_z_range)
@@ -761,11 +1003,16 @@ void Preview::load_print_as_fff(bool keep_z_range)
             }
     }
 
+
     if (wxGetApp().is_editor() && !has_layers) {
         hide_layers_slider();
+#ifndef USE_ANKER_SLIDER
         m_left_sizer->Hide(m_bottom_toolbar_panel);
         m_left_sizer->Layout();
         Refresh();
+#else
+        toolbar->setMovesSliderEnable(false);
+#endif
         m_canvas_widget->Refresh();
         return;
     }
@@ -789,7 +1036,9 @@ void Preview::load_print_as_fff(bool keep_z_range)
         }
     }
     else if (gcode_preview_data_valid || gcode_view_type == GCodeViewer::EViewType::Tool) {
-        colors = wxGetApp().plater()->get_extruder_colors_from_plater_config(m_gcode_result);
+        // add by allen for fixing use filament_colour instead of extruder_colour
+        //colors = wxGetApp().plater()->get_extruder_colors_from_plater_config(m_gcode_result);
+        colors = wxGetApp().plater()->get_filament_colors_from_plater_config(m_gcode_result);
         color_print_values.clear();
     }
 
@@ -803,21 +1052,34 @@ void Preview::load_print_as_fff(bool keep_z_range)
             m_left_sizer->Layout();
             Refresh();
             zs = m_canvas->get_gcode_layers_zs();
-            if (!zs.empty())
+            if (!zs.empty()) {
+#ifndef USE_ANKER_SLIDER
                 m_left_sizer->Show(m_bottom_toolbar_panel);
+#else
+                toolbar->setMovesSliderEnable(true);
+#endif
+            }
             m_loaded = true;
         }
         else if (wxGetApp().is_editor()) {
             // Load the initial preview based on slices, not the final G-code.
             m_canvas->load_preview(colors, color_print_values);
+#ifndef USE_ANKER_SLIDER
             m_left_sizer->Hide(m_bottom_toolbar_panel);
             m_left_sizer->Layout();
+#else
+            toolbar->setMovesSliderEnable(false);
+#endif
             Refresh();
             zs = m_canvas->get_volumes_print_zs(true);
         }
         else {
+#ifndef USE_ANKER_SLIDER
             m_left_sizer->Hide(m_bottom_toolbar_panel);
             m_left_sizer->Layout();
+#else
+            toolbar->setMovesSliderEnable(false);
+#endif
             Refresh();
         }
 
@@ -835,6 +1097,7 @@ void Preview::load_print_as_fff(bool keep_z_range)
                 (number_extruders > 1) ? GCodeViewer::EViewType::Tool : GCodeViewer::EViewType::FeatureType;
             if (choice != gcode_view_type) {
                 m_canvas->set_gcode_view_preview_type(choice);
+                wxGetApp().plater()->update_current_ViewType(choice);
                 if (wxGetApp().is_gcode_viewer())
                     m_keep_current_preview_type = true;
                 refresh_print();
@@ -879,10 +1142,13 @@ void Preview::load_print_as_sla()
 
     if (IsShown()) {
         m_canvas->load_sla_preview();
+#ifndef USE_ANKER_SLIDER
         m_left_sizer->Hide(m_bottom_toolbar_panel);
         m_left_sizer->Layout();
+#else
+        toolbar->setMovesSliderEnable(false);
+#endif
         Refresh();
-
         if (n_layers > 0)
             update_layers_slider(zs);
 
@@ -890,8 +1156,10 @@ void Preview::load_print_as_sla()
     }
 }
 
+
 void Preview::on_layers_slider_scroll_changed(wxCommandEvent& event)
 {
+#ifndef USE_ANKER_SLIDER
     if (IsShown()) {
         PrinterTechnology tech = m_process->current_printer_technology();
         if (tech == ptFFF) {
@@ -905,11 +1173,48 @@ void Preview::on_layers_slider_scroll_changed(wxCommandEvent& event)
             m_canvas->render();
         }
     }
+#else
+    if (!toolbar)
+        return;
+    //std::cout << "======== on_layers_slider_scroll_changed" << std::endl;
+    if (IsShown()) {
+        PrinterTechnology tech = m_process->current_printer_technology();
+        if (tech == ptFFF) {
+            m_canvas->set_volumes_z_range({ toolbar->GetLayerSliderLowerValueD(), toolbar->GetLayerSliderHigherValueD() });
+            m_canvas->set_toolpaths_z_range({ static_cast<unsigned int>(toolbar->GetLayerSliderLowerValue()), static_cast<unsigned int>(toolbar->GetLayerSliderHigherValue()) });
+            m_canvas->set_as_dirty();
+        }
+        else if (tech == ptSLA) {
+            m_canvas->set_clipping_plane(0, ClippingPlane(Vec3d::UnitZ(), -toolbar->GetLayerSliderLowerValueD()));
+            m_canvas->set_clipping_plane(1, ClippingPlane(-Vec3d::UnitZ(), toolbar->GetLayerSliderHigherValueD()));
+            m_canvas->render();
+        }
+    }
+#endif
+}
+
+
+void Preview::on_pausePrintList_changed(wxCommandEvent& event)
+{
+    if (toolbar) {
+        Model& model = wxGetApp().plater()->model();
+        model.custom_gcode_per_print_z = toolbar->GettLayerSliderGcodePauseCmdValues();
+        m_schedule_background_process();
+        ANKER_LOG_INFO <<"custom_gcode cnt:"<< model.custom_gcode_per_print_z.gcodes.size();
+        m_keep_current_preview_type = false;
+        reload_print(false);
+    }
 }
 
 void Preview::on_moves_slider_scroll_changed(wxCommandEvent& event)
 {
+#ifndef USE_ANKER_SLIDER
     m_canvas->update_gcode_sequential_view_current(static_cast<unsigned int>(m_moves_slider->GetLowerValueD() - 1.0), static_cast<unsigned int>(m_moves_slider->GetHigherValueD() - 1.0));
+#else
+    int first = static_cast<unsigned int> (toolbar->GetMovesSliderMinValueD() - 1.0);
+    int last = static_cast<unsigned int>(toolbar->GetMovesSliderValueD() - 1.0);
+    m_canvas->update_gcode_sequential_view_current(first, last);
+#endif
     m_canvas->render();
 }
 

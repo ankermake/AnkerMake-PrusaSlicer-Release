@@ -87,7 +87,7 @@ void AppConfig::set_defaults()
             set("drop_project_action", "1");
 
         if (get("preset_update").empty())
-            set("preset_update", "1");
+            set("preset_update", "0");      // "1" -> "0"  change @2023-06-15 by ChunLian
 
         if (get("export_sources_full_pathnames").empty())
             set("export_sources_full_pathnames", "0");
@@ -96,7 +96,7 @@ void AppConfig::set_defaults()
         if (get("associate_3mf").empty())
             set("associate_3mf", "0");
         if (get("associate_stl").empty())
-            set("associate_stl", "0");
+            set("associate_stl", "1");      // "0" -> "1"  change @2023-06-15 by ChunLian
 
         if (get("tabs_as_menu").empty())
             set("tabs_as_menu", "0");
@@ -116,9 +116,21 @@ void AppConfig::set_defaults()
 #ifdef __APPLE__
                 "1"
 #else // __APPLE__
-                "0"
+                "1"
 #endif // __APPLE__
                 );
+
+        if (get("multi-language_enable").empty())
+            set("multi-language_enable",
+#ifdef __APPLE__
+                "0"
+#else // __APPLE__
+                "0"
+#endif // __APPLE__
+            );
+
+        if (get("mqtt_trace_enable").empty())
+            set("mqtt_trace_enable", "0");
 
         if (get("remember_output_path").empty())
             set("remember_output_path", "1");
@@ -166,6 +178,9 @@ void AppConfig::set_defaults()
 
         if (get("clear_undo_redo_stack_on_new_project").empty())
             set("clear_undo_redo_stack_on_new_project", "1");
+
+        if (get("translation_language").empty())
+            set("translation_language", "en");
     }
     else {
 #ifdef _WIN32
@@ -211,6 +226,18 @@ void AppConfig::set_defaults()
     if (get("sys_menu_enabled").empty())
         set("sys_menu_enabled", "1");
 #endif // _WIN32
+
+    // Use ESettingsLayout::Dlg mode
+    if (get("dlg_settings_layout_mode").empty())
+        set("dlg_settings_layout_mode", "1");
+
+    // Print check
+    if (!get_bool("Print Check", "machine_gcode_unmatched_nohint")) {
+        set("Print Check", "machine_gcode_unmatched_nohint", "0");
+    }
+    if (!get_bool("Print Check", "machine_type_nohint")) {
+        set("Print Check", "machine_type_nohint", "0");
+    }
 
     // Remove legacy window positions/sizes
     erase("", "main_frame_maximized");
@@ -397,17 +424,79 @@ std::string AppConfig::load(const std::string &path)
                 m_storage.erase(it_section);
         }
     }
-
+    
     // Override missing or keys with their defaults.
     this->set_defaults();
     m_dirty = false;
     return "";
 }
 
+void AppConfig::initDefaultPrinterList() {
+    //reset();
+   /* std::map<std::string, std::string> mapSection;
+    mapSection["Generic ABS @ANKER"] = "1";
+    mapSection["Generic ABS @Template"] = "1";
+    mapSection["Generic PETG @ANKER"] = "1";
+    mapSection["Generic PETG @Template"] = "1";
+    mapSection["Generic PLA @ANKER"] = "1";
+    mapSection["Generic PLA @Template"] = "1";
+    mapSection["Generic PLA+ @ANKER"] = "1";
+    mapSection["PLA+ AnkerMake-Green"] = "1";
+    mapSection["PLA+ Black"] = "1";
+    mapSection["PLA+ Blue"] = "1";
+    mapSection["PLA+ Green"] = "1";
+    mapSection["PLA+ Grey"] = "1";
+    mapSection["PLA+ Orange"] = "1";
+    mapSection["PLA+ Pink"] = "1";
+    mapSection["PLA+ Pruple"] = "1";
+    mapSection["PLA+ Red"] = "1";
+    mapSection["PLA+ While"] = "1";
+    mapSection["PLA+ Yellow"] = "1";
+
+    set_section("filaments", mapSection);
+
+    std::map<std::string, std::string> mapPresets;
+    mapPresets["filament"] = "PLA+ AnkerMake-Green";
+    mapPresets["physical_printer"] = "";
+    mapPresets["print"] = "0.20 mm NORMAL (0.4 mm nozzle) @ANKER";
+    mapPresets["printer"] = "AnkerMake M5 (0.4 mm nozzle)";
+    mapPresets["sla_material"] = "";
+    mapPresets["sla_print"] = "";
+    set_section("presets", mapPresets);*/
+
+    // add by allen for remove dirty filament preset  to avoid wrong filament show
+    if (has_section("filaments")) {
+        delete_section("filaments");
+    }
+
+    // see  //wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+    //if (!has_section("presets")) {
+    std::map<std::string, std::string> mapPresets;
+    mapPresets["filament"] = "AnkerMake PLA+ Basic (Black)";
+    mapPresets["print"] = "Normal - M5 0.4mm - PLA+ Basic";
+    mapPresets["printer"] = "AnkerMake M5 0.4 mm Nozzle";
+    set_section("presets", mapPresets);
+    //}
+
+    set_variant("Anker", "M5", "0.4", true);
+    set_variant("Anker", "M5", "0.2", true);
+    //set_variant("Anker", "M5", "0.6", true);
+    //set_variant("Anker", "M5", "0.8", true);
+    set_variant("Anker", "M5C", "0.4", true);
+    //set_variant("Anker", "M5C", "0.2", true);
+    //set_variant("Anker", "M5C", "0.6", true);
+    //set_variant("Anker", "M5C", "0.8", true);
+    set_variant("Anker", "M5_V6", "0.4", true);
+    set_variant("Anker", "M5C_V6", "0.4", true);
+    save();
+}
+
 std::string AppConfig::load()
 {
     return this->load(AppConfig::config_path());
 }
+
+
 
 void AppConfig::save()
 {
@@ -429,8 +518,8 @@ void AppConfig::save()
         config_ss << kvp.first << " = " << kvp.second << std::endl;
     // Write the other categories.
     for (const auto& category : m_storage) {
-    	if (category.first.empty())
-    		continue;
+        if (category.first.empty())
+            continue;
         config_ss << std::endl << "[" << category.first << "]" << std::endl;
         for (const auto& kvp : category.second)
             config_ss << kvp.first << " = " << kvp.second << std::endl;
@@ -515,6 +604,16 @@ bool AppConfig::clear_section(const std::string &section)
 { 
     if (auto it_section = m_storage.find(section); it_section != m_storage.end() && ! it_section->second.empty()) {
         it_section->second.clear();
+        m_dirty = true;
+        return true;
+    }
+    return false;
+}
+
+bool AppConfig::delete_section(const std::string& section)
+{
+    if (auto it_section = m_storage.find(section); it_section != m_storage.end() && !it_section->second.empty()) {
+        m_storage.erase(it_section);
         m_dirty = true;
         return true;
     }

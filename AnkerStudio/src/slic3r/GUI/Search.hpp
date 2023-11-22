@@ -131,6 +131,7 @@ public:
     const std::vector<FoundOption>& found_options() { return found; }
     const GroupAndCategory&         get_group_and_category (const std::string& opt_key) { return groups_and_categories[opt_key]; }
     std::string& search_string() { return search_line; }
+    void set_search_string(std::string str) { search_line = str; }
 
     void sort_options_by_key() {
         std::sort(options.begin(), options.end(), [](const Option& o1, const Option& o2) {
@@ -138,7 +139,7 @@ public:
     }
     void sort_options_by_label() { sort_options(); }
 
-    void show_dialog();
+    void show_dialog(wxString defaultSearchData = "");
     void dlg_sys_color_changed();
     void dlg_msw_rescale();
 };
@@ -180,7 +181,7 @@ public:
     SearchDialog(OptionsSearcher* searcher);
     ~SearchDialog() {}
 
-    void Popup(wxPoint position = wxDefaultPosition);
+    void Popup(wxPoint position = wxDefaultPosition, wxString setSearchData="");
     void ProcessSelection(wxDataViewItem selection);
 
     void msw_rescale();

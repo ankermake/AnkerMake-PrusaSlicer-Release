@@ -1,6 +1,8 @@
 #ifndef slic3r_GCodeViewer_hpp_
 #define slic3r_GCodeViewer_hpp_
 
+#include "libslic3r/AppConfig.hpp"
+#include "GUI_App.hpp"
 #include "3DScene.hpp"
 #include "libslic3r/ExtrusionRole.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
@@ -12,7 +14,7 @@
 #include <float.h>
 #include <set>
 #include <unordered_set>
-
+#include <bitset>
 namespace Slic3r {
 
 class Print;
@@ -486,6 +488,8 @@ class GCodeViewer
             for (uint32_t i = 0; i < uint32_t(GCodeExtrusionRole::Count); ++i) {
                 role_visibility_flags |= 1 << i;
             }
+
+            std::bitset<32> binary_role_visibility_flags(role_visibility_flags);
         }
 
         void reset_ranges() { ranges.reset(); }
@@ -698,6 +702,10 @@ public:
             }
 
             void toggle_visibility() { m_visible = !m_visible; }
+            void set_visibility(bool visible) {
+                m_visible = visible; 
+            }
+            bool get_visibility() { return m_visible; }
 
             void render(float top, float bottom, uint64_t curr_line_id) const;
 
@@ -819,28 +827,45 @@ public:
             type = EViewType::FeatureType;
 
         m_view_type = type;
+        wxString str = wxString::Format("%d", static_cast<int>(m_view_type));
+        Slic3r::GUI::wxGetApp().app_config->set("gcode_view_type", str.ToStdString());
     }
 
     bool is_toolpath_move_type_visible(EMoveType type) const;
     void set_toolpath_move_type_visible(EMoveType type, bool visible);
-    unsigned int get_toolpath_role_visibility_flags() const { return m_extrusions.role_visibility_flags; }
-    void set_toolpath_role_visibility_flags(unsigned int flags) { m_extrusions.role_visibility_flags = flags; }
+    unsigned int get_toolpath_role_visibility_flags() const { return m_extrusions.role_visibility_flags;}
+    void set_toolpath_role_visibility_flags(unsigned int flags) { m_extrusions.role_visibility_flags = flags; }  // dhf
     unsigned int get_options_visibility_flags() const;
     void set_options_visibility_from_flags(unsigned int flags);
     void set_layers_z_range(const std::array<unsigned int, 2>& layers_z_range);
-
+    //friva:change for render inter
+    void set_layers_z_range_inter(const std::array<unsigned int, 2>& layers_z_range);
     bool is_legend_enabled() const { return m_legend_enabled; }
-    void enable_legend(bool enable) { m_legend_enabled = enable; }
+    void enable_legend(bool enable) { 
+        m_legend_enabled = enable;
+        wxString str = wxString::Format("%d", static_cast<int>(m_legend_enabled));
+        Slic3r::GUI::wxGetApp().app_config->set("show_legend", str.ToStdString());
+    }
 
     void export_toolpaths_to_obj(const char* filename) const;
 
     void toggle_gcode_window_visibility() { m_sequential_view.gcode_window.toggle_visibility(); }
+    void set_gcode_window_visibility(bool visibility) {
+        m_sequential_view.gcode_window.set_visibility(visibility);
+        wxString str = wxString::Format("%d", static_cast<int>(visibility));
+        Slic3r::GUI::wxGetApp().app_config->set("show_gcode_win", str.ToStdString());
+    };
+    bool get_gcode_window_visibility() { return m_sequential_view.gcode_window.get_visibility(); };
 
     std::vector<CustomGCode::Item>& get_custom_gcode_per_print_z() { return m_custom_gcode_per_print_z; }
     size_t get_extruders_count() { return m_extruders_count; }
 
     void invalidate_legend() { m_legend_resizer.reset(); }
 
+    bool is_visible(GCodeExtrusionRole role) const { return role < GCodeExtrusionRole::Count && (m_extrusions.role_visibility_flags& (1 << int(role))) != 0; }
+
+    void set_role_visible(GCodeExtrusionRole role, bool visible);
+    void render_toolpaths_ext(double layer_y_pos, double layer_z_pos); //for ai pic only solide toolpath
 private:
     void load_toolpaths(const GCodeProcessorResult& gcode_result);
     void load_shells(const Print& print);
@@ -850,9 +875,7 @@ private:
 #if ENABLE_GCODE_VIEWER_STATISTICS
     void render_statistics();
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
-    bool is_visible(GCodeExtrusionRole role) const {
-        return role < GCodeExtrusionRole::Count && (m_extrusions.role_visibility_flags & (1 << int(role))) != 0;
-    }
+
     bool is_visible(const Path& path) const { return is_visible(path.role); }
     void log_memory_used(const std::string& label, int64_t additional = 0) const;
     ColorRGBA option_color(EMoveType move_type) const;

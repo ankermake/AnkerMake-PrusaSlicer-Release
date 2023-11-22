@@ -37,7 +37,8 @@ bool GLGizmoFlatten::on_mouse(const wxMouseEvent &mouse_event)
                 // Rotate the object so the normal points downward:
                 selection.flattening_rotate(m_planes[m_hover_id].normal);
                 m_parent.do_rotate(L("Gizmo-Place on Face"));
-                wxGetApp().obj_manipul()->set_dirty();
+                //wxGetApp().obj_manipul()->set_dirty();
+                wxGetApp().aobj_manipul()->set_dirty();
             }
             return true;
         }
@@ -75,6 +76,7 @@ bool GLGizmoFlatten::on_init()
 
 void GLGizmoFlatten::on_set_state()
 {
+    ANKER_LOG_INFO << "GLGizmoFlatten: " << m_state;
 }
 
 CommonGizmosDataID GLGizmoFlatten::on_get_requirements() const
@@ -82,9 +84,9 @@ CommonGizmosDataID GLGizmoFlatten::on_get_requirements() const
     return CommonGizmosDataID::SelectionInfo;
 }
 
-std::string GLGizmoFlatten::on_get_name() const
+std::string GLGizmoFlatten::on_get_name(bool i18n) const
 {
-    return _u8L("Place on face");
+    return i18n ? _u8L("Place on face") : "Place on face";
 }
 
 bool GLGizmoFlatten::on_is_activable() const

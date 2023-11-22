@@ -263,7 +263,7 @@ enum class Action {
 //------------------------------------------
 //          UnsavedChangesDialog
 //------------------------------------------
-class UnsavedChangesDialog : public DPIDialog
+class UnsavedChangesDialog : public AnkerDPIDialog
 {
     DiffViewCtrl*           m_tree          { nullptr };
     ScalableButton*         m_save_btn      { nullptr };
@@ -290,6 +290,8 @@ class UnsavedChangesDialog : public DPIDialog
     // additional action buttons used in dialog
     int m_buttons { ActionButtons::TRANSFER | ActionButtons::SAVE };
 
+    wxPanel* m_titlePanel{nullptr};
+    wxString m_strTitle;
 public:
 
     // show unsaved changes when preset is switching
@@ -326,6 +328,10 @@ public:
 protected:
     void on_dpi_changed(const wxRect& suggested_rect) override;
     void on_sys_color_changed() override;
+
+private:
+    void OnExitButtonClicked(wxCommandEvent& event);
+    
 };
 
 

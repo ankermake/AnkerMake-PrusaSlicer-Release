@@ -8,7 +8,8 @@
 #include <vector>
 #include <memory>
 #include <string_view>
-
+#include <iostream>
+#include <fstream>
 #include <boost/beast/core/detail/base64.hpp>
 
 namespace Slic3r::GCodeThumbnails {
@@ -22,6 +23,7 @@ struct CompressedImageBuffer
 };
 
 std::unique_ptr<CompressedImageBuffer> compress_thumbnail(const ThumbnailData &data, GCodeThumbnailsFormat format);
+std::unique_ptr<CompressedImageBuffer> compress_akpic(const post_gcode::picData &data);
 
 template<typename WriteToOutput, typename ThrowIfCanceledCallback>
 inline void export_thumbnails_to_file(ThumbnailsGeneratorCallback &thumbnail_cb, const std::vector<Vec2d> &sizes, GCodeThumbnailsFormat format, WriteToOutput output, ThrowIfCanceledCallback throw_if_canceled)
@@ -67,10 +69,63 @@ ImageType base64ToImage(const std::string& base64) {
     StreamType stream(binaryData.data(), binaryData.size());
 
     // Load image from stream
-    ImageType image(stream);
+    ImageType image;
+    if (ImageType::CanRead(stream))
+        image = ImageType(stream);
+
     return image;
 }
 
 } // namespace Slic3r::GCodeThumbnails
 
+
+namespace post_gcode {
+    using namespace std;
+
+    union fileHead {
+        char a[128] = { 0 };
+        struct {
+            unsigned int  magic;                
+            unsigned int  crc32;                
+            unsigned int  version_num;          
+            unsigned int  total_picture;        
+            unsigned int  total_layer;          
+            unsigned int  file_size;            
+            char relate_gcode_name[64];         
+        };
+    };
+
+
+    union imageHead {
+        char a[64] = { 0 };
+        struct {
+            float         percentage;        
+            unsigned int  layer_num;         
+            unsigned int  file_size;         
+            float         roi_info[4];       
+            char name[32];                   
+        };
+    };
+
+    struct imgInfo
+    {
+        char* data;
+        size_t size;
+    };
+
+    class processAiPicture
+    {
+        std::ofstream m_outFile;
+        fileHead m_head;
+    public:
+        processAiPicture(std::string fileName, std::string fullPath, unsigned int totalLayers, unsigned int total_picture);
+        ~processAiPicture();
+        void writeImage(imageHead iHead, imgInfo iInfo);
+
+    };
+
+}
+
+
 #endif // slic3r_GCodeThumbnails_hpp_
+

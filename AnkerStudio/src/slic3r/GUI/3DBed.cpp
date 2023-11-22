@@ -439,6 +439,14 @@ void Bed3D::render_model(const Transform3d& view_matrix, const Transform3d& proj
         m_model_offset = to_3d(m_build_volume.bounding_volume2d().center(), -0.03);
 
         // register for picking
+        const std::vector<std::shared_ptr<SceneRaycasterItem>>* const raycaster = wxGetApp().plater()->canvas3D()->get_raycasters_for_picking(SceneRaycaster::EType::Bed);
+        if (!raycaster->empty()) {
+            // The raycaster may have been set by the call to init_triangles() made from render_texture() if the printbed was
+            // changed while the camera was pointing upward.
+            // In this case we need to remove it before creating a new using the model geometry
+            wxGetApp().plater()->canvas3D()->remove_raycasters_for_picking(SceneRaycaster::EType::Bed);
+            m_model.mesh_raycaster.reset();
+        }
         register_raycasters_for_picking(m_model.model.get_geometry(), Geometry::translation_transform(m_model_offset));
 
         // update extended bounding box
@@ -455,7 +463,8 @@ void Bed3D::render_model(const Transform3d& view_matrix, const Transform3d& proj
             shader->set_uniform("projection_matrix", projection_matrix);
             const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
             shader->set_uniform("view_normal_matrix", view_normal_matrix);
-            m_model.model.render();
+            // Anker: hide the bed model
+            //m_model.model.render();
             shader->stop_using();
         }
     }

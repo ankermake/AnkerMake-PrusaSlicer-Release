@@ -50,6 +50,7 @@ void    msw_buttons_rescale(wxDialog* dlg, const int em_unit, const std::vector<
 int     em_unit(wxWindow* win);
 int     mode_icon_px_size();
 
+wxBitmapBundle* try_get_bmp_bundle(const std::string& bmp_name, int px_cnt = 16, const std::string& new_color_rgb = std::string());
 wxBitmapBundle* get_bmp_bundle(const std::string& bmp_name, int px_cnt = 16, const std::string& new_color_rgb = std::string());
 wxBitmapBundle* get_empty_bmp_bundle(int width, int height);
 wxBitmapBundle* get_solid_bmp_bundle(int width, int height, const std::string& color);
@@ -244,6 +245,9 @@ public:
     virtual void    sys_color_changed();
 
 private:
+    void initBindEvent();
+
+private:
     wxWindow*       m_parent { nullptr };
     std::string     m_current_icon_name;
     std::string     m_disabled_icon_name;
@@ -378,6 +382,8 @@ public:
     void    activate();
     void    blink();
 
+	void    setBitMap(ScalableBitmap newBitmap) { bmp = newBitmap;}
+
     const wxBitmapBundle& get_bmp() const { return bmp.bmp(); }
 
 private:
@@ -393,6 +399,8 @@ namespace Slic3r {
 namespace GUI {
 
 class OG_CustomCtrl;
+// add by dhf for ankerPage
+class Anker_OG_CustomCtrl;
 
 // Highlighter is used as an instrument to put attention to some UI control
 
@@ -432,6 +440,29 @@ public:
     void blink();
     void invalidate();
 };
+
+// add by dhf for ankerPage
+class AnkerHighlighterForWx : public Highlighter
+{
+    // There are 2 possible cases to use AnkerHighlighterForWx:
+    // - using a BlinkingBitmap. Change state of this bitmap
+    BlinkingBitmap* m_blinking_bitmap{ nullptr };
+    // - using OG_CustomCtrl where arrow will be rendered and flag indicated "show/hide" state of this arrow
+    Anker_OG_CustomCtrl* m_custom_ctrl{ nullptr };
+    bool* m_show_blink_ptr{ nullptr };
+
+public:
+    AnkerHighlighterForWx() {}
+    ~AnkerHighlighterForWx() {}
+
+    void bind_timer(wxWindow* owner) override;
+    void init(BlinkingBitmap* blinking_bitmap);
+    void init(std::pair<Anker_OG_CustomCtrl*, bool*>);
+    void blink();
+    void invalidate();
+};
+
+
 /*
 class HighlighterForImGUI : public Highlighter
 {

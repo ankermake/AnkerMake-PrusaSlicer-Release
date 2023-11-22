@@ -119,6 +119,9 @@ protected:
     virtual EnforcerBlockerType get_left_button_state_type() const { return EnforcerBlockerType::ENFORCER; }
     virtual EnforcerBlockerType get_right_button_state_type() const { return EnforcerBlockerType::BLOCKER; }
 
+    virtual bool get_left_button_enable() const { return true; }
+    virtual bool get_right_button_enable() const { return true; }
+
     float m_cursor_radius = 2.f;
     static constexpr float CursorRadiusMin  = 0.4f; // cannot be zero
     static constexpr float CursorRadiusMax  = 8.f;

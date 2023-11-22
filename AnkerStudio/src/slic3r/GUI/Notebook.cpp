@@ -90,8 +90,11 @@ void ButtonsListCtrl::OnPaint(wxPaintEvent&)
 
 void ButtonsListCtrl::UpdateMode()
 {
-    m_mode_sizer->SetMode(Slic3r::GUI::wxGetApp().get_mode());
+    if (m_mode_sizer) {
+        m_mode_sizer->SetMode(Slic3r::GUI::wxGetApp().get_mode());
+    }
 }
+   
 
 void ButtonsListCtrl::Rescale()
 {
@@ -109,7 +112,8 @@ void ButtonsListCtrl::OnColorsChanged()
     for (ScalableButton* btn : m_pageButtons)
         btn->sys_color_changed();
 
-    m_mode_sizer->sys_color_changed();
+    if (m_mode_sizer)
+        m_mode_sizer->sys_color_changed();
 
     m_sizer->Layout();
 }

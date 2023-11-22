@@ -962,6 +962,45 @@ static PrintObjectRegions* generate_print_object_regions(
     return out.release();
 }
 
+static void output_config_diff(const DynamicPrintConfig& config, const t_config_option_keys& diff)
+{
+    try
+    {
+        if (diff.size() < 1) {
+            return;
+        }
+
+        boost::filesystem::path filePath("ankerslicer_config_diff.txt");
+        boost::filesystem::ofstream fs;
+        fs.open(filePath, std::ios::app);
+
+        if (!fs.is_open()) {
+            std::cerr << "Failed to open the file." << std::endl;
+            return;
+        }
+
+        //write time
+        boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+        std::string str_now = boost::posix_time::to_simple_string(now);
+        fs << __func__ << "@write start time:" << str_now << std::endl;
+        fs << __func__ << "@diff key count:" << diff.size() << std::endl;
+
+        for (auto& key : diff)
+        {
+            fs << key << " = " << config.opt_serialize(key) << std::endl;
+        }
+
+        fs << __func__ << "@write end" << std::endl << std::endl;
+
+        fs.flush();
+        fs.close();
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << __func__ << " Exception." << e.what() << std::endl;
+    }
+}
+
 Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_config)
 {
 #ifdef _DEBUG
@@ -983,6 +1022,14 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     // see https://github.com/prusa3d/PrusaSlicer/issues/8800
     if (full_config_diff.size() == 1 && full_config_diff[0] == "physical_printer_settings_id")
         full_config_diff.clear();
+
+    //Add Preset diff output to file by Galen Xiao,2023/09/06
+    boost::filesystem::path test_flag_path("test.config");
+    //auto test_flag_full_path = boost::filesystem::absolute(test_flag_path);
+    if (boost::filesystem::exists(test_flag_path))
+    {
+        output_config_diff(new_full_config, full_config_diff);
+    }
 
     // Collect changes to object and region configs.
     t_config_option_keys object_diff      = m_default_object_config.diff(new_full_config);

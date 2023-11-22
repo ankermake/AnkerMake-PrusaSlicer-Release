@@ -2,6 +2,8 @@
 
 
 wxDEFINE_EVENT(wxCUSTOMEVT_EDIT_FINISHED, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_EDIT_ENTER, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_EDIT_FOCUS, wxCommandEvent);
 AnkerLineEdit::AnkerLineEdit(wxWindow* parent, 
 	wxWindowID id, 
 	const wxString& value /*= wxEmptyString*/,
@@ -10,14 +12,50 @@ AnkerLineEdit::AnkerLineEdit(wxWindow* parent,
 	long style /*= 0*/,
 	const wxValidator& validator /*= wxDefaultValidator*/,
 	const wxString& name /*= wxTextCtrlNameStr*/)
-	: wxTextCtrl(parent, id, value, pos, size, style, validator, name)
+	: wxRichTextCtrl(parent, id, value, pos, size, style, validator, name)
+	, m_background_color(wxColour(41, 42, 45)), m_text_color(wxColour(*wxWHITE))
 {
+	//EnableVerticalScrollbar(false);  //Do not do this, it will cause the program to crash
+	ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
+	SetTextColor(*wxWHITE);
+	Unbind(wxEVT_PAINT, &wxRichTextCtrl::OnPaint, this);
+
 	Bind(wxEVT_KILL_FOCUS, &AnkerLineEdit::OnKillFocus, this);
+	Bind(wxEVT_SET_FOCUS, &AnkerLineEdit::OnSetFocus, this);
+	Bind(wxEVT_KEY_DOWN, &AnkerLineEdit::OnKeyDown, this);
+	Bind(wxEVT_PAINT, &AnkerLineEdit::OnPaint, this);
 }
 
 AnkerLineEdit::~AnkerLineEdit()
 {
 
+}
+
+void AnkerLineEdit::SetTextColor(wxColour color)
+{
+	wxRichTextAttr attr{};
+	attr.SetTextColour(color);
+	SetBasicStyle(attr);
+	m_text_color = color;
+}
+
+void AnkerLineEdit::SetForegroundColour(wxColour color)
+{
+	SetTextColor(color);
+}
+
+void AnkerLineEdit::SetBackgroundColour(wxColour color)
+{
+	m_background_color = color;
+}
+
+wxString AnkerLineEdit::GetValue() const
+{
+	if (GetHint() == wxRichTextCtrl::GetValue()) {		
+		return "";
+	}
+
+	return wxRichTextCtrl::GetValue();
 }
 
 void AnkerLineEdit::OnKillFocus(wxFocusEvent& event)
@@ -27,4 +65,46 @@ void AnkerLineEdit::OnKillFocus(wxFocusEvent& event)
 	ProcessEvent(evt);
 	
 	event.Skip();
+}
+
+void AnkerLineEdit::OnSetFocus(wxFocusEvent& event)
+{
+	//clean hint text
+	if (GetHint() == wxRichTextCtrl::GetValue()) {
+		wxEventBlocker blocker(this, wxEVT_TEXT);
+		SetValue("");
+	}
+	SetInsertionPointEnd();
+	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_EDIT_FOCUS);
+	ProcessEvent(evt);
+	event.Skip();
+}
+
+void AnkerLineEdit::OnKeyDown(wxKeyEvent& event)
+{
+	int keycode = event.GetKeyCode();
+	if (keycode == WXK_RETURN || keycode == WXK_NUMPAD_ENTER)
+	{
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_EDIT_ENTER);
+		ProcessEvent(evt);
+
+		Navigate(); //trigger kill focus
+	}
+	else
+	{
+		event.Skip();
+	}
+}
+
+void AnkerLineEdit::OnPaint(wxPaintEvent& event)
+{
+	if (m_text_color != GetBasicStyle().GetTextColour()) {
+		wxRichTextAttr attr{};
+		attr.SetTextColour(m_text_color);
+		SetBasicStyle(attr);
+	}
+	if (m_background_color != GetBackgroundColour()) {
+		wxRichTextCtrl::SetBackgroundColour(m_background_color);
+	}
+	wxRichTextCtrl::OnPaint(event);
 }

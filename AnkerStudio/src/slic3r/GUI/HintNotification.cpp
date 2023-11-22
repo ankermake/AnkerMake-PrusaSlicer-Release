@@ -168,6 +168,7 @@ TagCheckResult tag_check_system(const std::string& tag)
 
 TagCheckResult tag_check_material(const std::string& tag)
 {
+#if SHOW_OLD_SETTING_DIALOG
 	if (const GUI::Tab* tab = wxGetApp().get_tab(Preset::Type::TYPE_FILAMENT)) {
 		// search PrintConfig filament_type to find if allowed tag
 		if (wxGetApp().app_config->get("filament_type").find(tag)) {
@@ -179,6 +180,19 @@ TagCheckResult tag_check_material(const std::string& tag)
 		}
 		return TagCheckNotCompatible;
 	}
+#endif
+    if (const GUI::AnkerTab* tab = wxGetApp().getAnkerTab(Preset::Type::TYPE_FILAMENT)) {
+        // search PrintConfig filament_type to find if allowed tag
+        if (wxGetApp().app_config->get("filament_type").find(tag)) {
+            const Preset& preset = tab->m_presets->get_edited_preset();
+            const auto* opt = preset.config.opt<ConfigOptionStrings>("filament_type");
+            if (opt->values[0] == tag)
+                return TagCheckAffirmative;
+            return TagCheckNegative;
+        }
+        return TagCheckNotCompatible;
+    }
+
 	/* TODO: SLA materials
 	else if (const GUI::Tab* tab = wxGetApp().get_tab(Preset::Type::TYPE_SLA_MATERIAL)) {
 		//if (wxGetApp().app_config->get("material_type").find(tag)) {
@@ -440,7 +454,8 @@ void HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
 					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link, []() {
 						// Deselect all objects, otherwise gallery wont show.
 						wxGetApp().plater()->canvas3D()->deselect_all();
-						wxGetApp().obj_list()->load_shape_object_from_gallery(); } 
+						//wxGetApp().obj_list()->load_shape_object_from_gallery(); 
+					} 
 					};
 					m_loaded_hints.emplace_back(hint_data);
 				} else if (dict["hypertext_type"] == "menubar") {
@@ -881,7 +896,7 @@ void NotificationManager::HintNotification::render_close_button(ImGuiWrapper& im
 
 
 	//render_right_arrow_button(imgui, win_size_x, win_size_y, win_pos_x, win_pos_y);
-	render_logo(imgui, win_size_x, win_size_y, win_pos_x, win_pos_y);
+	//render_logo(imgui, win_size_x, win_size_y, win_pos_x, win_pos_y);
 	render_preferences_button(imgui, win_pos_x, win_pos_y);
 	if (!m_documentation_link.empty() && !wxGetApp().app_config->get_bool("suppress_hyperlinks"))
 	{

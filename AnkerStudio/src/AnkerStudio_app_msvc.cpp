@@ -39,6 +39,17 @@ extern "C"
 #include <DbgHelp.h>
 #pragma comment(lib, "DbgHelp.lib")
 
+
+extern "C" {
+    typedef int(__stdcall* Slic3rMainFunc)(int argc, wchar_t** argv);
+    Slic3rMainFunc slic3r_main = nullptr;
+
+    //
+    typedef LONG(__stdcall* AnkerExceptionHandler)(EXCEPTION_POINTERS* pException);
+    AnkerExceptionHandler ankerExceptionHandler = nullptr;
+
+}
+
 void CreateDumpFile(LPCWSTR dumpFilePathName, EXCEPTION_POINTERS* pException) {
     HANDLE hDumpFile = CreateFileW(dumpFilePathName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     MINIDUMP_EXCEPTION_INFORMATION dumpInfo;
@@ -64,10 +75,15 @@ LONG ExceptionCrashHandler(EXCEPTION_POINTERS* pException) {
     SYSTEMTIME st;
     ::GetLocalTime(&st);
     WCHAR fileName[50] = L"\0";
-    wsprintfW(fileName, L"\\AnkerMake_Alpha_%d%02d%2d%_%02d%02d%02d.dmp", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+    wsprintfW(fileName, L"\\AnkerMake Studio_%d%02d%2d%_%02d%02d%02d.dmp", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     std::wstring wsDmpFile = wsDmpDir + fileName;
     printf("wsDmpDir:%S\n", wsDmpFile.c_str()); 
     CreateDumpFile(wsDmpFile.c_str(), pException);
+
+    if (ankerExceptionHandler != nullptr)
+    {
+        ankerExceptionHandler(pException);
+    }
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -250,10 +266,7 @@ protected:
 bool OpenGLVersionCheck::message_pump_exit = false;
 #endif /* SLIC3R_GUI */
 
-extern "C" {
-    typedef int (__stdcall *Slic3rMainFunc)(int argc, wchar_t **argv);
-    Slic3rMainFunc slic3r_main = nullptr;
-}
+
 
 extern "C" {
 #ifdef SLIC3R_WRAPPER_NOCONSOLE
@@ -326,8 +339,8 @@ int wmain(int argc, wchar_t **argv)
     if (load_mesa) {
         bool res = opengl_version_check.unload_opengl_dll();
         if (!res) {
-            MessageBox(nullptr, L"AnkerMake_alpha was unable to automatically switch to MESA OpenGL library\nPlease, try to run the application using the '--sw-renderer' option.\n",
-                L"AnkerMake_alpha Warning", MB_OK);
+            MessageBox(nullptr, L"AnkerMake Studio was unable to automatically switch to MESA OpenGL library\nPlease, try to run the application using the '--sw-renderer' option.\n",
+                L"AnkerMake Studio Warning", MB_OK);
             return -1;
         }
         else {
@@ -351,6 +364,20 @@ int wmain(int argc, wchar_t **argv)
     HINSTANCE hInstance_Slic3r = LoadLibraryExW(path_to_slic3r, nullptr, 0);
     if (hInstance_Slic3r == nullptr) {
         printf("AnkerStudio.dll was not loaded\n");
+        return -1;
+    }
+
+    // resolve function address here
+    ankerExceptionHandler = (AnkerExceptionHandler)GetProcAddress(hInstance_Slic3r,
+#ifdef _WIN64
+        // there is just a single calling conversion, therefore no mangling of the function name.
+        "AnkerExceptionHandler"
+#else	// stdcall calling convention declaration
+        "_slic3r_AnkerExceptionHandler@4"
+#endif
+    );
+    if (ankerExceptionHandler == nullptr) {
+        printf("could not locate the function ankerExceptionHandler in AnkerStudio.dll\n");
         return -1;
     }
 

@@ -1,4 +1,5 @@
 #include "AnkerHyperlink.hpp"
+#include "Common/AnkerGUIConfig.hpp"
 
 BEGIN_EVENT_TABLE(AnkerHyperlink, wxControl)
 EVT_LEFT_DOWN(AnkerHyperlink::OnClick)
@@ -14,13 +15,14 @@ AnkerHyperlink::AnkerHyperlink(wxWindow* parent,
 	wxWindowID winid /*= wxID_ANY*/,
 	const wxString& name /*= wxString("")*/,
 	const wxString& urlLink /*= wxString("")*/,
+	const wxColour& backgroudColor /*= wxColour("#1F2022")*/,
 	const wxPoint& pos /*= wxDefaultPosition*/,
 	const wxSize& size /*= wxDefaultSize*/)
 	: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 {
 	m_text = name;
 	m_link = urlLink;
-	SetBackgroundColour(wxColour("#1F2022"));
+	SetBackgroundColour(backgroudColor);
 }
 
 AnkerHyperlink::AnkerHyperlink()
@@ -60,6 +62,7 @@ void AnkerHyperlink::OnPaint(wxPaintEvent& event)
 		wxPen pen(wxColour("#62D361"));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
+		dc.SetFont(ANKER_FONT_NO_1);
 		dc.SetTextForeground(wxColour("#62D361"));
 		wxPoint textPoint = wxPoint(0, 0);
 		dc.DrawText(m_text, textPoint);

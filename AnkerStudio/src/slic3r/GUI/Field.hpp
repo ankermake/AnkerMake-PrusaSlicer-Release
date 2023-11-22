@@ -21,6 +21,8 @@
 
 #include "GUI.hpp"
 #include "wxExtensions.hpp"
+#include "AnkerCheckBox.hpp"
+#include "Common/AnkerLineEditUnit.hpp"
 
 #ifdef __WXMSW__
 #define wxMSW true
@@ -109,6 +111,7 @@ public:
 	bool					has_undo_ui()			const { return m_undo_ui.undo_bitmap != nullptr; }
 	const wxBitmapBundle&	undo_bitmap()			const { return m_undo_ui.undo_bitmap->bmp(); }
 	const wxString*			undo_tooltip()			const { return m_undo_ui.undo_tooltip; }
+	bool					has_undo_to_sys_ui()	const { return m_undo_ui.undo_to_sys_bitmap != nullptr; }
 	const wxBitmapBundle&	undo_to_sys_bitmap()	const { return m_undo_ui.undo_to_sys_bitmap->bmp(); }
 	const wxString*			undo_to_sys_tooltip()	const { return m_undo_ui.undo_to_sys_tooltip; }
 	const wxColour*			label_color()			const { return m_undo_ui.label_color; }
@@ -193,11 +196,13 @@ public:
     inline void			toggle(bool en) { en ? enable() : disable(); }
 
 	virtual wxString	get_tooltip_text(const wxString& default_string);
+	static void		modify_tooltip_text(std::string& opt_id, wxString& toolTip);
 
     void				field_changed() { on_change_field(); }
 
-    Field(const ConfigOptionDef& opt, const t_config_option_key& id) : m_opt(opt), m_opt_id(id) {}
-    Field(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : m_parent(parent), m_opt(opt), m_opt_id(id) {}
+    Field(const ConfigOptionDef& opt, const t_config_option_key& id) : m_opt(opt), m_opt_id(id){}
+	Field(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : m_parent(parent), m_opt(opt), m_opt_id(id) {}
+    Field(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id, wxString unit ) : m_parent(parent), m_opt(opt), m_opt_id(id), m_unit(unit) {}
     virtual ~Field();
 
     /// If you don't know what you are getting back, check both methods for nullptr. 
@@ -209,11 +214,11 @@ public:
 
     /// Factory method for generating new derived classes.
     template<class T>
-    static t_field Create(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id)// interface for creating shared objects
+    static t_field Create(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id, wxString unit = "")// interface for creating shared objects
     {
-        auto p = Slic3r::make_unique<T>(parent, opt, id);
+        auto p = Slic3r::make_unique<T>(parent, opt, id, unit);
         p->PostInitialize();
-		return std::move(p); //!p;
+        return std::move(p); //!p;
     }
 
     virtual void msw_rescale();
@@ -226,7 +231,7 @@ public:
 	static int def_width()			;
 	static int def_width_wider()	;
 	static int def_width_thinner()	;
-
+	static int def_width_8() ;
 protected:
 	// current value
 	boost::any			m_value;
@@ -236,6 +241,9 @@ protected:
     int                 m_em_unit;
 
     bool    bEnterPressed = false;
+
+	// for display sideText
+	wxString m_unit;  
     
 	friend class OptionsGroup;
 };
@@ -508,6 +516,150 @@ public:
 	wxSizer*		getSizer() override { return m_sizer; }
 	wxWindow*		getWindow() override { return dynamic_cast<wxWindow*>(m_slider); }
 };
+
+
+class AnkerTextCtrlField : public Field {
+	using Field::Field;
+#ifdef __WXGTK__
+	bool	bChangedValueEvent = true;
+	void    change_field_value(wxEvent& event);
+#endif //__WXGTK__
+
+public:
+	AnkerTextCtrlField(const ConfigOptionDef& opt, const t_config_option_key& id) : Field(opt, id) {}
+	AnkerTextCtrlField(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : Field(parent, opt, id) {}
+	AnkerTextCtrlField(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id, wxString unit) : Field(parent, opt, id, unit) {}
+	~AnkerTextCtrlField() {}
+
+	void BUILD() override;
+	bool value_was_changed();
+	// Propagate value from field to the OptionGroupe and Config after kill_focus/ENTER
+	void propagate_value();
+	wxWindow* window{ nullptr };
+
+	void	set_value(const std::string& value, bool change_event = false) {
+							m_disable_change_event = !change_event;
+							dynamic_cast<AnkerLineEditUnit*>(window)->SetValue(wxString(value));
+							m_disable_change_event = false;}
+
+	void	set_value(const boost::any& value, bool change_event = false) override;
+	void    set_last_meaningful_value() override;
+	void	set_na_value() override;
+
+	boost::any&		get_value() override;
+
+	void            msw_rescale() override;
+	void			enable() override;
+	void			disable() override;
+	wxWindow* getWindow() override { return window; }
+};
+
+class AnkerCheckBoxField : public Field {
+	using Field::Field;
+	bool            m_is_na_val{ false };
+public:
+	AnkerCheckBoxField(const ConfigOptionDef& opt, const t_config_option_key& id) : Field(opt, id) {}
+	AnkerCheckBoxField(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : Field(parent, opt, id) {}
+	~AnkerCheckBoxField() {}
+
+	wxWindow* window{ nullptr };
+	void			BUILD() override;
+
+	void			set_value(const bool value, bool change_event = false) {
+		m_disable_change_event = !change_event;
+		dynamic_cast<AnkerCheckBox*>(window)->SetValue(value);
+		m_disable_change_event = false;
+	}
+
+	void			set_value(const boost::any& value, bool change_event = false) override;
+	void            set_last_meaningful_value() override;
+	void            set_na_value() override;
+	boost::any& get_value() override;
+
+	void            msw_rescale() override;
+
+	void			enable() override { dynamic_cast<AnkerCheckBox*>(window)->Enable(); }
+	void			disable() override { dynamic_cast<AnkerCheckBox*>(window)->Disable(); }
+	wxWindow* getWindow() override { return window; }
+};
+
+//combobox
+class AnkerChoiceField : public Field {
+	using Field::Field;
+
+public:
+	AnkerChoiceField(const ConfigOptionDef& opt, const t_config_option_key& id) : Field(opt, id) {}
+	AnkerChoiceField(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : Field(parent, opt, id) {}
+	~AnkerChoiceField() {}
+
+	wxWindow* window{ nullptr };
+	void			BUILD() override;
+	// Propagate value from field to the OptionGroupe and Config after kill_focus/ENTER
+	void			propagate_value();
+
+	/* Under OSX: wxBitmapComboBox->GetWindowStyle() returns some weard value,
+	 * so let use a flag, which has TRUE value for a control without wxCB_READONLY style
+	 */
+	bool            m_is_editable{ false };
+	bool            m_is_dropped{ false };
+	bool            m_suppress_scroll{ false };
+	int             m_last_selected{ wxNOT_FOUND };
+
+	void			set_selection();
+	void			set_value(const std::string& value, bool change_event = false);
+	void			set_value(const boost::any& value, bool change_event = false) override;
+	void			set_values(const std::vector<std::string>& values);
+	void			set_values(const wxArrayString& values);
+	boost::any&		get_value() override;
+
+	void            msw_rescale() override;
+
+	void			enable() override;//{ dynamic_cast<wxBitmapComboBox*>(window)->Enable(); };
+	void			disable() override;//{ dynamic_cast<wxBitmapComboBox*>(window)->Disable(); };
+	wxWindow* getWindow() override { return window; }
+
+	void            suppress_scroll();
+};
+
+
+
+
+class AnkerSpinCtrl : public Field {
+	using Field::Field;
+private:
+	static const int UNDEF_VALUE = INT_MIN;
+
+public:
+	AnkerSpinCtrl(const ConfigOptionDef& opt, const t_config_option_key& id) : Field(opt, id), tmp_value(UNDEF_VALUE) {}
+	AnkerSpinCtrl(wxWindow* parent, const ConfigOptionDef& opt, const t_config_option_key& id) : Field(parent, opt, id), tmp_value(UNDEF_VALUE) {}
+	~AnkerSpinCtrl() {}
+
+	int				tmp_value;
+
+	wxWindow* window{ nullptr };
+	void			BUILD() override;
+	/// Propagate value from field to the OptionGroupe and Config after kill_focus/ENTER
+	void	        propagate_value();
+	/*
+		void			set_value(const std::string& value, bool change_event = false) {
+			m_disable_change_event = !change_event;
+			dynamic_cast<wxSpinCtrl*>(window)->SetValue(value);
+			m_disable_change_event = false;
+		}
+	*/
+	void            set_value(const boost::any& value, bool change_event = false) override;
+	void            set_last_meaningful_value() override;
+	void            set_na_value() override;
+
+	boost::any& get_value() override;
+
+	void            msw_rescale() override;
+
+	void			enable() override { dynamic_cast<AnkerSpinEdit*>(window)->Enable(); }
+	void			disable() override { dynamic_cast<AnkerSpinEdit*>(window)->Disable(); }
+	wxWindow* getWindow() override { return window; }
+};
+
 
 } // GUI
 } // Slic3r

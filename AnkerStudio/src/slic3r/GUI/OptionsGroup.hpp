@@ -109,7 +109,7 @@ public:
     size_t			label_width = 20 ;// {200};
     wxSizer*		sizer {nullptr};
 	OG_CustomCtrl*  custom_ctrl{ nullptr };
-	int				ctrl_horiz_alignment{ wxALIGN_LEFT};
+	int				ctrl_horiz_alignment{ wxALIGN_RIGHT };
     column_t		extra_column {nullptr};
     t_change		m_on_change { nullptr };
 	// To be called when the field loses focus, to assign a new initial value to the field.
@@ -139,7 +139,7 @@ public:
 	void		activate_line(Line& line);
 
 	// create all controls for the option group from the m_lines
-	bool		activate(std::function<void()> throw_if_canceled = [](){}, int horiz_alignment = wxALIGN_LEFT);
+	bool		activate(std::function<void()> throw_if_canceled = [](){}, int horiz_alignment = wxALIGN_RIGHT);
 	// delete all controls from the option group
 	void		clear(bool destroy_custom_ctrl = false);
 

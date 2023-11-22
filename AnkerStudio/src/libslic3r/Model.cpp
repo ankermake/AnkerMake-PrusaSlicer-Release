@@ -2254,7 +2254,7 @@ size_t ModelVolume::split(unsigned int max_extruders)
         this->object->volumes[ivolume]->center_geometry_after_creation();
         this->object->volumes[ivolume]->translate(offset);
         this->object->volumes[ivolume]->name = name + "_" + std::to_string(idx + 1);
-        this->object->volumes[ivolume]->config.set("extruder", auto_extruder_id(max_extruders, extruder_counter));
+        this->object->volumes[ivolume]->config.set("extruder", /*auto_extruder_id(max_extruders, extruder_counter)*/1);
         this->object->volumes[ivolume]->m_is_splittable = 0;
         ++ idx;
     }

@@ -131,8 +131,9 @@ ObjectManipulation::ObjectManipulation(wxWindow* parent) :
                 if (m_fix_throught_netfab_bitmap->GetBitmap().GetRefData() == wxNullBitmap.GetRefData())
                     return;
 
-                wxGetApp().obj_list()->fix_through_netfabb();
-                update_warning_icon_state(wxGetApp().obj_list()->get_mesh_errors_info());
+                wxGetApp().objectbar()->fix_through_netfabb();
+                // Anker: TODO
+                //update_warning_icon_state(wxGetApp().objectbar()->get_mesh_errors_info());
             });
 
     sizer->Add(m_fix_throught_netfab_bitmap);
@@ -157,7 +158,9 @@ ObjectManipulation::ObjectManipulation(wxWindow* parent) :
 
     // Add world local combobox
     m_word_local_combo = create_word_local_combo(parent);
-    m_word_local_combo->Bind(wxEVT_COMBOBOX, ([this](wxCommandEvent& evt) { this->set_coordinates_type(evt.GetString()); }), m_word_local_combo->GetId());
+    //m_word_local_combo->Bind(wxEVT_COMBOBOX, ([this](wxCommandEvent& evt) { this->set_coordinates_type(evt.GetString()); }), m_word_local_combo->GetId());
+    m_word_local_combo->Hide();
+    m_word_local_combo->Disable();
 
     // Small trick to correct layouting in different view_mode :
     // Show empty string of a same height as a m_word_local_combo, when m_word_local_combo is hidden
@@ -417,7 +420,7 @@ ObjectManipulation::ObjectManipulation(wxWindow* parent) :
         else
             return;
 
-        // Synchronize instances/volumes.
+        // Synchronize instances/volumes. 
         selection.synchronize_unselected_instances(Selection::SyncRotationType::GENERAL);
         selection.synchronize_unselected_volumes();
 
@@ -456,7 +459,8 @@ ObjectManipulation::ObjectManipulation(wxWindow* parent) :
     m_check_inch->SetValue(m_imperial_units);
     m_check_inch->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent&) {
         wxGetApp().app_config->set("use_inches", m_check_inch->GetValue() ? "1" : "0");
-        wxGetApp().sidebar().update_ui_from_settings();
+        //wxGetApp().sidebar().update_ui_from_settings();
+        wxGetApp().objectbar()->update_ui_from_settings();
     });
 
     m_main_grid_sizer->Add(m_check_inch, 1, wxEXPAND);
@@ -606,80 +610,81 @@ void ObjectManipulation::update_settings_value(const Selection& selection)
     m_new_rotate_label_string = L("Rotation");
     m_new_scale_label_string  = L("Scale factors");
 
-    ObjectList* obj_list = wxGetApp().obj_list();
-    if (selection.is_single_full_instance()) {
-        // all volumes in the selection belongs to the same instance, any of them contains the needed instance data, so we take the first one
-        const GLVolume* volume = selection.get_first_volume();
+    // Anker: TODO
+    //ObjectList* obj_list = wxGetApp().obj_list();
+    //if (selection.is_single_full_instance()) {
+    //    // all volumes in the selection belongs to the same instance, any of them contains the needed instance data, so we take the first one
+    //    const GLVolume* volume = selection.get_first_volume();
 
-        if (is_world_coordinates()) {
-            m_new_position = volume->get_instance_offset();
-            m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-            m_new_scale = m_new_size.cwiseQuotient(selection.get_unscaled_instance_bounding_box().size()) * 100.0;
-            m_new_rotate_label_string = L("Rotate (relative)");
-            m_new_rotation = Vec3d::Zero();
-        }
-        else {
-            m_new_move_label_string = L("Translate (relative) [World]");
-            m_new_rotate_label_string = L("Rotate (relative)");
-            m_new_position = Vec3d::Zero();
-            m_new_rotation = Vec3d::Zero();
-            m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-            m_new_scale = m_new_size.cwiseQuotient(selection.get_full_unscaled_instance_local_bounding_box().size()) * 100.0;
-        }
+    //    if (is_world_coordinates()) {
+    //        m_new_position = volume->get_instance_offset();
+    //        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //        m_new_scale = m_new_size.cwiseQuotient(selection.get_unscaled_instance_bounding_box().size()) * 100.0;
+    //        m_new_rotate_label_string = L("Rotate (relative)");
+    //        m_new_rotation = Vec3d::Zero();
+    //    }
+    //    else {
+    //        m_new_move_label_string = L("Translate (relative) [World]");
+    //        m_new_rotate_label_string = L("Rotate (relative)");
+    //        m_new_position = Vec3d::Zero();
+    //        m_new_rotation = Vec3d::Zero();
+    //        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //        m_new_scale = m_new_size.cwiseQuotient(selection.get_full_unscaled_instance_local_bounding_box().size()) * 100.0;
+    //    }
 
-        m_new_enabled  = true;
-    }
-    else if (selection.is_single_full_object() && obj_list->is_selected(itObject)) {
-        const BoundingBoxf3& box = selection.get_bounding_box();
-        m_new_position = box.center();
-        m_new_rotation = Vec3d::Zero();
-        m_new_scale    = Vec3d(100.0, 100.0, 100.0);
-        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-        m_new_rotate_label_string = L("Rotate");
-        m_new_scale_label_string  = L("Scale");
-        m_new_enabled  = true;
-    }
-    else if (selection.is_single_volume_or_modifier()) {
-        // the selection contains a single volume
-        const GLVolume* volume = selection.get_first_volume();
-        if (is_world_coordinates()) {
-            const Geometry::Transformation trafo(volume->world_matrix());
+    //    m_new_enabled  = true;
+    //}
+    //else if (selection.is_single_full_object() && obj_list->is_selected(itObject)) {
+    //    const BoundingBoxf3& box = selection.get_bounding_box();
+    //    m_new_position = box.center();
+    //    m_new_rotation = Vec3d::Zero();
+    //    m_new_scale    = Vec3d(100.0, 100.0, 100.0);
+    //    m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //    m_new_rotate_label_string = L("Rotate");
+    //    m_new_scale_label_string  = L("Scale");
+    //    m_new_enabled  = true;
+    //}
+    //else if (selection.is_single_volume_or_modifier()) {
+    //    // the selection contains a single volume
+    //    const GLVolume* volume = selection.get_first_volume();
+    //    if (is_world_coordinates()) {
+    //        const Geometry::Transformation trafo(volume->world_matrix());
 
-            const Vec3d& offset = trafo.get_offset();
+    //        const Vec3d& offset = trafo.get_offset();
 
-            m_new_position = offset;
-            m_new_rotate_label_string = L("Rotate (relative)");
-            m_new_scale_label_string = L("Scale");
-            m_new_scale = Vec3d(100.0, 100.0, 100.0);
-            m_new_rotation = Vec3d::Zero();
-            m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-        }
-        else if (is_local_coordinates()) {
-            m_new_move_label_string = L("Translate (relative) [World]");
-            m_new_rotate_label_string = L("Rotate (relative)");
-            m_new_position = Vec3d::Zero();
-            m_new_rotation = Vec3d::Zero();
-            m_new_scale = volume->get_volume_scaling_factor() * 100.0;
-            m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-        }
-        else {
-            m_new_position = volume->get_volume_offset();
-            m_new_rotate_label_string = L("Rotate (relative)");
-            m_new_rotation = Vec3d::Zero();
-            m_new_scale_label_string = L("Scale");
-            m_new_scale = Vec3d(100.0, 100.0, 100.0);
-            m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-        }
-        m_new_enabled = true;
-    }
-    else if (obj_list->is_connectors_item_selected() || obj_list->multiple_selection() || obj_list->is_selected(itInstanceRoot)) {
-        reset_settings_value();
-        m_new_move_label_string   = L("Translate");
-        m_new_rotate_label_string = L("Rotate");
-        m_new_scale_label_string  = L("Scale");
-        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
-        m_new_enabled  = true;
-    }
+    //        m_new_position = offset;
+    //        m_new_rotate_label_string = L("Rotate (relative)");
+    //        m_new_scale_label_string = L("Scale");
+    //        m_new_scale = Vec3d(100.0, 100.0, 100.0);
+    //        m_new_rotation = Vec3d::Zero();
+    //        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //    }
+    //    else if (is_local_coordinates()) {
+    //        m_new_move_label_string = L("Translate (relative) [World]");
+    //        m_new_rotate_label_string = L("Rotate (relative)");
+    //        m_new_position = Vec3d::Zero();
+    //        m_new_rotation = Vec3d::Zero();
+    //        m_new_scale = volume->get_volume_scaling_factor() * 100.0;
+    //        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //    }
+    //    else {
+    //        m_new_position = volume->get_volume_offset();
+    //        m_new_rotate_label_string = L("Rotate (relative)");
+    //        m_new_rotation = Vec3d::Zero();
+    //        m_new_scale_label_string = L("Scale");
+    //        m_new_scale = Vec3d(100.0, 100.0, 100.0);
+    //        m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //    }
+    //    m_new_enabled = true;
+    //}
+    //else if (obj_list->is_connectors_item_selected() || obj_list->multiple_selection() || obj_list->is_selected(itInstanceRoot)) {
+    //    reset_settings_value();
+    //    m_new_move_label_string   = L("Translate");
+    //    m_new_rotate_label_string = L("Rotate");
+    //    m_new_scale_label_string  = L("Scale");
+    //    m_new_size = selection.get_bounding_box_in_current_reference_system().first.size();
+    //    m_new_enabled  = true;
+    //}
 }
 
 void ObjectManipulation::update_if_dirty()
@@ -798,12 +803,12 @@ void ObjectManipulation::update_reset_buttons_visibility()
         m_skew_label->Show(show_skew);
 
         // Because of CallAfter we need to layout sidebar after Show/hide of reset buttons one more time
-        Sidebar& panel = wxGetApp().sidebar();
-        if (!panel.IsFrozen()) {
-            panel.Freeze();
-            panel.Layout();
-            panel.Thaw();
-        }
+        //Sidebar& panel = wxGetApp().sidebar();
+        //if (!panel.IsFrozen()) {
+        //    panel.Freeze();
+        //    panel.Layout();
+        //    panel.Thaw();
+        //}
     });
 }
 

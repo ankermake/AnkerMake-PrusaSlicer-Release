@@ -1,7 +1,7 @@
 ## AnkerStudio
 
 ## Overview
-AnkerMake_alpha is based on PrusaSlicer 2.6.0.alpha6
+AnkerMake Studio is based on PrusaSlicer 2.6.0.alpha6
 
 ## What are AnkerStudio's main features?
 

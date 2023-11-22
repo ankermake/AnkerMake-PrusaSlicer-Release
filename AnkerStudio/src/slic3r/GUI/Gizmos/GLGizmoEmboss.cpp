@@ -438,7 +438,7 @@ bool GLGizmoEmboss::on_init()
     return true;
 }
 
-std::string GLGizmoEmboss::on_get_name() const { return _u8L("Emboss"); }
+std::string GLGizmoEmboss::on_get_name(bool i18n) const { return i18n ? _u8L("Emboss") : "Emboss"; }
 
 void GLGizmoEmboss::on_render() {
     // no volume selected
@@ -678,7 +678,7 @@ void GLGizmoEmboss::on_set_state()
             get_model_volume(m_volume_id, m_parent.get_selection().get_model()->objects) == nullptr ) { 
             // reopen gizmo when new object is created
             GLGizmoBase::m_state = GLGizmoBase::Off;
-            if (wxGetApp().get_mode() == comSimple || wxGetApp().obj_list()->has_selected_cut_object())
+            if (wxGetApp().get_mode() == comSimple /*|| wxGetApp().obj_list()->has_selected_cut_object()*/)
                 // It's impossible to add a part in simple mode
                 return;
             // start creating new object 
@@ -2020,11 +2020,11 @@ void GLGizmoEmboss::draw_model_type()
 
         // inspiration in ObjectList::change_part_type()
         // how to view correct side panel with objects
-        ObjectList *obj_list = app.obj_list();
-        wxDataViewItemArray sel = obj_list->reorder_volumes_and_get_selection(
-            obj_list->get_selected_obj_idx(),
-            [volume = m_volume](const ModelVolume *vol) { return vol == volume; });
-        if (!sel.IsEmpty()) obj_list->select_item(sel.front());       
+        //ObjectList *obj_list = app.obj_list();
+        //wxDataViewItemArray sel = obj_list->reorder_volumes_and_get_selection(
+        //    obj_list->get_selected_obj_idx(),
+        //    [volume = m_volume](const ModelVolume *vol) { return vol == volume; });
+        //if (!sel.IsEmpty()) obj_list->select_item(sel.front());       
 
         // NOTE: on linux, function reorder_volumes_and_get_selection call GLCanvas3D::reload_scene(refresh_immediately = false)
         // which discard m_volume pointer and set it to nullptr also selection is cleared so gizmo is automaticaly closed

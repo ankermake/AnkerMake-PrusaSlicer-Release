@@ -1,10 +1,14 @@
 #ifndef NETWORK_DEVICE_OBJECT_H
 #define NETWORK_DEVICE_OBJECT_H
 
-#include "mqttprotocolbase.h"
+#include <jansson.h>
+#include "anker_net/business/mqttBusiness/mqttprotocolbase.h"
 #include "basetype.hpp"
 #include "MsgText.hpp"
 #include <boost/signals2.hpp>
+#include <mutex>
+
+
 
 DEF_PTR(DeviceObject)
 class DeviceObject
@@ -18,11 +22,8 @@ public:
     bool onlined = false; // Mqtt onlined from server/mqtt.
     bool is_command = false; // ctrl Permission From server.
     bool is_camera = false; 
-    mqtt_print_event_e deviceStatus = MQTT_PRINT_EVENT_IDLE; // Print status from mqtt.
-    mqtt_marlin_alert_event_e exceptionStatus = MQTT_MARLIN_ALERT_NOWARING;; // marlin exception status from mqtt.
-    mqtt_ai_alert_event_e aiWarningStatus = MQTT_AI_ALERT_MAX; // AI warning from mqtt.
 
-    MqttType::GeneralException2Gui generalException;
+    MqttType::GeneralException2Gui generalException = MqttType::GeneralException2Gui_No_Error;
 
     std::string fileName = ""; // Picked file name, from mqtt.
     std::string printFile = ""; // Picked print file, from mqtt.
@@ -31,14 +32,15 @@ public:
     int64_t time = 0; // Print remaining time is second, from mqtt.
     int64_t totalTime = 0; // Print accumulated time cost, from mqtt.
 
-    mqtt_device_type deviceType = DEVICE_V8111_TYPE; // Default Device is V8111, x5.0, from server.
+    mqtt_device_type deviceType = DEVICE_UNKNOWN_TYPE; 
+    mqtt_device_parts_type devicePartsType = DEVICE_PARTS_NO; // Default no device parts. 
 
     int speed = 0; //From mqtt.
     int nozzle[2] = { 0 }; // Nozzle current/target Temperature. From mqtt.
     int hotdBed[2] = { 0 }; // HotRed current/target Temperature. From mqtt.
 
     MqttType:: FileList deviceFileList; // From mqtt.
-
+    std::recursive_mutex m_deviceFileListMutex = {};
 
     int filamentUsed = 0; // Estimate the required material length for printing, in millimeters.  From mqtt.
     std::string filamentUnit = "mm"; // From mqtt.
@@ -55,7 +57,7 @@ public:
 
     int printRequestResult = 0; // 0: sucess, 1:failed, 2: need level, 3:print file not found, 4:printing, 5:no set mode     From mqtt.
     int autoLevelingValue = 0; // Auto leveling progress.    From mqtt.
-    MqttType::CustomDeviceStatus customDeviceStatus;
+    MqttType::CustomDeviceStatus customDeviceStatus = MqttType::CustomDeviceStatus_Max;
     int autoLevelingTotalValue = 49; // Auto leveling total progress
 
     std::string thumbnail = "";
@@ -65,18 +67,26 @@ public:
 
     int remainTime = 0;
     bool needLevel = false;
-    
-    
+   
     MqttType::MqttData* pMqttData = nullptr;
-    MqttType::mqtt_command_type_e currentCmdType;
+    MqttType::mqtt_command_type_e currentCmdType = MqttType::MQTT_CMD_MAX;
+
+    void initStatus();
+    void setDeviceFileList(const MqttType::FileList& files);
+    void sortDeviceFileList();
+    void clearDeviceFileList();
+    void appendDeviceFileList(const MqttType::FileList& files);
+    int getDeviceFileListSize();
+    MqttType::FileList getDeviceFileList();
+
+    void checkGeneralException2Gui();
 
 
-    void print();
 
-    virtual void checkGeneralException2Gui();
+    void printComputerLocalFile(const std::string& fullPath);
 
-
-    virtual void printComputerLocalFile(const std::string &fullPath);
+    MqttType::MuticolorSlotChangePtr getMuticolorSlotChangeNotice() const;
+    MqttType::MulticolorAccessoryBoxStatusPtr getMulticolorAccessoryBoxStatus()  const;
 
     MqttType::CustomDeviceStatus getCustomDeviceStatus();
 
@@ -87,123 +97,154 @@ public:
     MqttType::PrintingNoticeDataPtr getPrintingNotice();
 
     // Mqtt Query CMD.
-    virtual void querySystemFirmwareVersion();
-    virtual std::string getSystemFirmwareVersion();
-    virtual void        queryDeviceAllStatus();
-
+    void querySystemFirmwareVersion();
+    std::string getSystemFirmwareVersion();
+    void queryDeviceAllStatus();   
 
     // Mqtt Ctrl CMD.
-    virtual void             setDevicePrintBegin(const std::string &filepath);
-    virtual void             setDevicePrintPause(const std::string &filepath = "");
-    virtual void             setDevicePrintStop(const std::string &filepath = "");
-    virtual void             setDevicePrintResume(const std::string &filepath = "");
-    virtual void             setDevicePrintAgain(const std::string &filepath = "");
-    MqttType::PrintCtlResult getDeviceCtrlResult();
+    void setDevicePrintBegin(const std::string &filepath);
+    void setDevicePrintPause(const std::string& filepath = "");
+    void setDevicePrintStop(const std::string& filepath = "");
+    void setDevicePrintResume(const std::string& filepath = "");
+    void setDevicePrintAgain(const std::string& filepath = "");
 
-    virtual void             getDeviceLocalFileLists(MqttType::FileList data = MqttType::FileList());
-    virtual void             getDeviceUsbFileLists(MqttType::FileList data = MqttType::FileList());
-    virtual void             getDeviceFileLists(const MqttType::FileList &data);
-    virtual void             setBedTargetTemperature(int value);
+
+    void clearDeviceCtrlResult();
+    void resetDeviceIdel();
+
+    void clearRequestDeviceCmdType();
+    void getDeviceLocalFileLists(MqttType::FileList data = MqttType::FileList());
+    void getDeviceUsbFileLists(MqttType::FileList data = MqttType::FileList());
+    void getDeviceFileLists(const MqttType::FileList& data);
+    void setBedTargetTemperature(int value);
     MqttType::TemperaturePtr getBedTargetTemperature();
 
-    virtual void             setNozzleTargetTemperature(int value);
+    void setNozzleTargetTemperature(int value);
     MqttType::TemperaturePtr getNozzleTargetTemperature();
-    virtual void             setFanSpeed(int value); // eg: 25%
-    virtual int              getFanSpeed();
-    virtual void             setPrintingSpeed(int value);  
-    virtual int              getPrintingSpeed();
+    void setFanSpeed(int value); // eg: 25%
+    int getFanSpeed();
+    void setPrintingSpeed(int value);  
+    int getPrintingSpeed();
 
-    virtual void setPreheadtBegin(int nozzleValue, int heatbedValue);
-    virtual void setPreheadtStop();
-    virtual int  getPreheadtResult();
+    void setPreheadtBegin(int nozzleValue, int heatbedValue, int nozzelNum = -1);
+    void setPreheadtStop(int nozzelNum = -1);
+    int getPreheadtResult();
 
-    virtual void setLevelBegin();
-    virtual void setLevelStop();
-    virtual int  getLevelLocationValue();
+    void setCalibrationBegin();
+    void setCalibrationStop();
+    void setCalibrationQueryStatus();
+    MqttType::MulticolorCalibrationPtr getCalibrationInfo() const;
 
-    virtual void               setGCodeDownload(const MqttType::GcodeDownloadCtrl &data);
-    virtual int                getGCodeDownloadProcess();
-    virtual void               setZAxisCompensation(float value);
-    virtual float              getZAxisCompensationValue();
-    virtual void               setDischargeExtrusion(int stepLen, int temperature);
-    virtual void               setMaterialReturnExtrusion(int stepLen, int temperature);
-    virtual void               setStopExtrusion();
-    MqttType::ExtrusionInfoPtr getExtrusionInfo();
+    void setMultiColorConsumableEditing(const MqttType::MulticolorConsumableEditingCtrl& data);
+    MqttType::MulticolorConsumableEditingPtr getConsumableEditing() const;
 
-    virtual void           setRequestGCodeInfo(const std::string &filepath, int type = 0); //  type: 0(Select file.) , 1(Not select file.)
-    MqttType::GCodeInfoPtr getGcodeInfo();
+    void queryDeviceCanPrint();
 
-    virtual void setMoveStep(int value);
-    virtual int  getMoveStepResult();
+    void setAccessoriesIncubatorOn();
+    void setAccessoriesIncubatorOff();
 
-    virtual void setXAxisMove(int value);
-    virtual void setYAxisMove(int value);
-    virtual void setZAxisMove(int value);
+    void setAccessInstructionDefault();
+    void setAccessInstructionConnectedAndUninitialized();
+    void setAccessInstructionConnectedAndInitialized();
 
-    virtual void setXYMoveZero();
-    virtual void setZMoveZero();
-    virtual void setAllMoveZero();
+    void setLevelBegin();
+    void setLevelTightAlignmentBegin();
+    void setLevelCoarseBegin();
+    void setLevelStop();
+    MqttType::LevelProcessPtr getProgress() const;
+    int getLevelLocationValue();
 
-    virtual void setRestoreFactorySettings();
-    virtual void setResetNetwork();
+    void setGCodeDownload(const MqttType::GcodeDownloadCtrl& data);
+    int getGCodeDownloadProcess();
+    void setZAxisCompensation(float value);
+    float getZAxisCompensationValue();
+    void setDischargeExtrusion(int stepLen, int temperature, int nozzleNum = -1);
+    void setMaterialReturnExtrusion(int stepLen, int temperature, int nozzleNum = -1);
+    void setStopExtrusion();
+    MqttType::ExtrusionInfoPtr getExtrusionInfo() const;
 
-    virtual void setBroadcastOn();
-    virtual void setBroadcastOff();
+    void setRequestGCodeInfo(const std::string& filepath, int type = 0);   //  type: 0(Select file.) , 1(Not select file.)
+    MqttType::GCodeInfoPtr getGcodeInfo() const;
 
-    virtual void setDeleteDeviceFile(const std::string &filePath);
-    virtual void setResetGcodeParams();
+    void setMoveStep(int value);
+    int getMoveStepResult();
 
-    virtual void setDeviceName(const std::string &name);
+    void setXAxisMove(int value);
+    void setYAxisMove(int value);
+    void setZAxisMove(int value);
 
-    virtual void setUploadlog();
+    void setXYMoveZero();
+    void setZMoveZero();
+    void setAllMoveZero();
 
-    virtual void setModalOn();
-    virtual void setModalOff();
+    void setRestoreFactorySettings();
+    void setResetNetwork();
 
-    virtual void setMotorOn();
-    virtual void setMotorOff();
+    void setBroadcastOn();
+    void setBroadcastOff();
 
-    virtual void setStopTemperaturePreheating();
-    virtual void setStartTemperaturePreheating(int nozzle, int heatbed);
+    void setDeleteDeviceFile(const std::string& filePath);
+    void setResetGcodeParams();
 
-    virtual void setPowerOutageContinuationNo();
-    virtual void setPowerOutageContinuationYes();
-    virtual void setPowerOutageContinuationHave();
+    void setDeviceName(const std::string& name);
 
-    virtual void setDelayedVideoOn();
-    virtual void setDelayedVideoOff();
+    void setUploadlog();
 
-    virtual void setGcodeCmd(const std::string &cmd, int len);
+    void setModalOn();
+    void setModalOff();
 
-    virtual void setDeviceCheckSelfOn();
-    virtual void setDeviceCheckSelfOff();
-    virtual void setDeviceCheckSelfQueryRemainder();
+    void setMotorOn();
+    void setMotorOff();
 
-    virtual void setAIThreshold(const MqttType::ThresholdValueCtrl &value);
-    virtual void setAIWaringQuery(int id);
-    virtual void setLayerQuery();
-    virtual void setFileMaxSpeedQuery();
+    void setStopTemperaturePreheating();
+    void setStartTemperaturePreheating(int nozzle, int heatbed);
+    MqttType::TemperaturePreheatingPtr getTemperaturePreheating() const;
+
+    void setPowerOutageContinuationNo();
+    void setPowerOutageContinuationYes();
+    void setPowerOutageContinuationHave();
+
+    void setDelayedVideoOn();
+    void setDelayedVideoOff();
+
+    void setSwitchingNozzle(int value = 0);
+
+    void setGcodeCmd(const std::string& cmd, int len);
+
+    void setDeviceCheckSelfOn();
+    void setDeviceCheckSelfOff();
+    void setDeviceCheckSelfQueryRemainder();
+
+    void setAIThreshold(const MqttType::ThresholdValueCtrl& value);
+    void setAIWaringQuery(int id);
+    void setLayerQuery();
+    void setFileMaxSpeedQuery();
+
+    void clearDeviceExceptionInfo(); // M5C
 
 	// P2P video
-    virtual void setVideoPlay();
-    virtual void setVideoStop(int reason = 0);
-    virtual void setVideoMode(int mode); // 1: HD; 2:Smooth
-    virtual void setCameraLight(bool onOff);
-    virtual void videoStopSussSlot(const std::string &sn);
+	void setVideoPlay();
+	void setVideoStop(int reason = 0);
+	void setVideoMode(int mode);  // 1: HD; 2:Smooth
+	void setCameraLight(bool onOff);
+    void videoStopSussSlot(const std::string& sn);
+
+    void sendMsgSig();
 
     DeviceObject& operator=(const DeviceObject& info);
     bool operator==(const DeviceObject& info);
     bool operator!=(const DeviceObject& info);
 
 private:
+    MqttType::NozzleModuleSwitchTypePtr GetNozzleModuleSwitchInst();
+    void CheckExtrusionTemperature(int &temperature);
+
     void publishMessage(const std::string& topicStr, const std::string& str);
     std::string getUserId();
     std::string getNickName();
     std::string getUserName();
-    
 
-
-    void setAutoLevelStatus(int value); // 0: begin, 1: stop
+    void setAutoLevelStatus(int value, int mode = -1); // 0: begin, 1: stop
     void setPrintCtrl(const MqttType::PrintCtrlRequest& data);
     
     void setExtrusion(const MqttType::ExtrusionCtrl& data);
@@ -217,6 +258,14 @@ private:
     void setPowerOutageContinuation(int value);
     void setDelayedVideo(int value);
     void setDeviceCheckSelf(int value);
+
+    void setCalibration(int value = 0);
+    void setAccessoriesIncubator(int value = 0);
+    void setAccessInstruction(int value = 0);
+
+    void sendMsgSig(const NetworkMsgText::NetworkMsg& msg);
+    
+    std::queue<NetworkMsgText::NetworkMsg> m_msgs;
 
     boost::signals2::connection m_videoStopSussConnect;
 };

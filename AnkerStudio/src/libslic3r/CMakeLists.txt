@@ -157,6 +157,9 @@ set(SLIC3R_SOURCES
     GCode/WipeTower.hpp
     GCode/GCodeProcessor.cpp
     GCode/GCodeProcessor.hpp
+    GCode/ProcessCommand.hpp
+    GCode/PostProcessExt.hpp
+	GCode/UntilString.h
     GCode/AvoidCrossingPerimeters.cpp
     GCode/AvoidCrossingPerimeters.hpp
     GCode.cpp

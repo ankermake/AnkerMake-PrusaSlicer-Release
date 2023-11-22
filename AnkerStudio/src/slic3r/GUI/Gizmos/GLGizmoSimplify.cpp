@@ -172,9 +172,9 @@ void GLGizmoSimplify::add_simplify_suggestion_notification(
     }
 }
 
-std::string GLGizmoSimplify::on_get_name() const
+std::string GLGizmoSimplify::on_get_name(bool i18n) const
 {
-    return _u8L("Simplify");
+    return i18n ? _u8L("Simplify") : "Simplify";
 }
 
 void GLGizmoSimplify::on_render_input_window(float x, float y, float bottom_limit)
@@ -546,7 +546,7 @@ void GLGizmoSimplify::apply_simplify() {
                                                                       "removed after simplifying the mesh."));
     // After removing custom supports, seams, and multimaterial painting, we have to update info about the object to remove information about
     // custom supports, seams, and multimaterial painting in the right panel.
-    wxGetApp().obj_list()->update_info_items(selection.get_object_idx());
+    //wxGetApp().obj_list()->update_info_items(selection.get_object_idx());
 
     for (const auto &item: m_state.result) {
         const ObjectID &id = item.first;
@@ -566,7 +566,7 @@ void GLGizmoSimplify::apply_simplify() {
     int object_idx = selection.get_object_idx();
     plater->changed_mesh(object_idx);
     // Fix warning icon in object list
-    wxGetApp().obj_list()->update_item_error_icon(object_idx, -1);
+    //wxGetApp().obj_list()->update_item_error_icon(object_idx, -1);
     close();
 }
 

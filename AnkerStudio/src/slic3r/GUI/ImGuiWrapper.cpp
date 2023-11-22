@@ -1615,6 +1615,10 @@ void ImGuiWrapper::init_font(bool compress)
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
 
+    //force use chinese, this would case text wrong when render other language
+    m_glyph_ranges = ImGui::GetIO().Fonts->GetGlyphRangesChineseFull();
+    m_font_cjk = true;
+
     // Create ranges of characters from m_glyph_ranges, possibly adding some OS specific special characters.
 	ImVector<ImWchar> ranges;
     ImFontGlyphRangesBuilder builder;

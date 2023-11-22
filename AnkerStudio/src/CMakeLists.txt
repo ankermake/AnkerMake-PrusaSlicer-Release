@@ -15,6 +15,7 @@ add_subdirectory(hints)
 add_subdirectory(qoi)
 add_subdirectory(libnest2d)
 
+
 find_package(Qhull 7.2 REQUIRED)
 add_library(qhull INTERFACE)
 if(SLIC3R_STATIC)
@@ -50,9 +51,9 @@ if (SLIC3R_GUI)
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set (wxWidgets_CONFIG_OPTIONS "--toolkit=gtk${SLIC3R_GTK}")
         if (SLIC3R_WX_STABLE)
-            find_package(wxWidgets 3.0 REQUIRED COMPONENTS base core adv html gl webview)
+            find_package(wxWidgets 3.0 REQUIRED COMPONENTS base core adv html gl webview richtext)
         else ()
-            find_package(wxWidgets 3.1 QUIET COMPONENTS base core adv html gl webview)
+            find_package(wxWidgets 3.1 QUIET COMPONENTS base core adv html gl webview richtext)
 
             if (NOT wxWidgets_FOUND)
                 message(FATAL_ERROR "\nCould not find wxWidgets 3.1.\n"
@@ -62,7 +63,7 @@ if (SLIC3R_GUI)
 
         include(${wxWidgets_USE_FILE})
     else ()
-        find_package(wxWidgets 3.2 CONFIG REQUIRED COMPONENTS html adv gl core base webview)
+        find_package(wxWidgets 3.2 CONFIG REQUIRED COMPONENTS html adv gl core base webview richtext)
         slic3r_remap_configs(wx::wxhtml wx::wxadv wx::wxgl wx::wxcore wx::wxbase RelWithDebInfo Release)
         # find_package(wxWidgets 3.1 COMPONENTS html adv gl core base webview)
         # if (NOT wxWidgets_FOUND)
@@ -134,7 +135,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/msw/AnkerStudio-gcodeviewer.
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/msw/AnkerStudio.manifest.in ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.manifest @ONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/osx/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/Info.plist @ONLY)
 if (WIN32)
-    add_library(AnkerStudio SHARED AnkerStudio.cpp AnkerStudio.hpp)
+    add_library(AnkerStudio SHARED AnkerStudio.cpp AnkerStudio.hpp exception_handle/AnkerStackWalker.hpp)
 else ()
     add_executable(AnkerStudio AnkerStudio.cpp AnkerStudio.hpp)
 endif ()
@@ -147,7 +148,7 @@ endif (MINGW)
 
 if (NOT WIN32 AND NOT APPLE)
     # Binary name on unix like systems (Linux, Unix)
-    set_target_properties(AnkerStudio PROPERTIES OUTPUT_NAME "ankermake_alpha")
+    set_target_properties(AnkerStudio PROPERTIES OUTPUT_NAME "ankermake studio")
 endif ()
 
 target_link_libraries(AnkerStudio libslic3r libcereal)
@@ -204,7 +205,7 @@ if (WIN32)
     endif()
     target_compile_definitions(AnkerStudio_app_gui PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE)
     add_dependencies(AnkerStudio_app_gui AnkerStudio)
-    set_target_properties(AnkerStudio_app_gui PROPERTIES OUTPUT_NAME "ankermake_alpha")
+    set_target_properties(AnkerStudio_app_gui PROPERTIES OUTPUT_NAME "ankermake studio")
     target_link_libraries(AnkerStudio_app_gui PRIVATE boost_headeronly)
 
     add_executable(AnkerStudio_app_console AnkerStudio_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
@@ -214,7 +215,7 @@ if (WIN32)
     endif ()
     target_compile_definitions(AnkerStudio_app_console PRIVATE -DSLIC3R_WRAPPER_CONSOLE)
     add_dependencies(AnkerStudio_app_console AnkerStudio)
-    set_target_properties(AnkerStudio_app_console PROPERTIES OUTPUT_NAME "ankermake_alpha-console")
+    set_target_properties(AnkerStudio_app_console PROPERTIES OUTPUT_NAME "ankermake studio-console")
     target_link_libraries(AnkerStudio_app_console PRIVATE boost_headeronly)
 
     add_executable(AnkerStudio_app_gcodeviewer WIN32 AnkerStudio_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio-gcodeviewer.rc)
@@ -262,15 +263,15 @@ else ()
     if (APPLE)
         # On OSX, the name of the binary matches the name of the Application.
         add_custom_command(TARGET AnkerStudio POST_BUILD
-            COMMAND ln -sf AnkerStudio ankermake_alpha
+            COMMAND ln -sf AnkerStudio "ankermake studio"
             COMMAND ln -sf AnkerStudio anker-gcodeviewer
             COMMAND ln -sf AnkerStudio AnkerGCodeViewer
             WORKING_DIRECTORY "$<TARGET_FILE_DIR:AnkerStudio>"
-            COMMENT "Symlinking the G-code viewer to AnkerStudio, symlinking to ankermake_alpha and anker-gcodeviewer"
+            COMMENT "Symlinking the G-code viewer to AnkerStudio, symlinking to ankermake studio and anker-gcodeviewer"
             VERBATIM)
     else ()
         add_custom_command(TARGET AnkerStudio POST_BUILD
-            COMMAND ln -sf ankermake_alpha anker-gcodeviewer
+            COMMAND ln -sf "ankermake studio" anker-gcodeviewer
             WORKING_DIRECTORY "$<TARGET_FILE_DIR:AnkerStudio>"
             COMMENT "Symlinking the G-code viewer to AnkerStudio"
             VERBATIM)
@@ -299,7 +300,7 @@ else ()
     install(TARGETS AnkerStudio RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
     # Install the symlink for gcodeviewer
-    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ankermake_alpha anker-gcodeviewer WORKING_DIRECTORY \$ENV{DESTDIR}/${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})")
+    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ankermake studio anker-gcodeviewer WORKING_DIRECTORY \$ENV{DESTDIR}/${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})")
 endif ()
 
 

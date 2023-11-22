@@ -93,7 +93,7 @@ public:
         : wxDialog(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxCAPTION)
     {
         auto* text = new wxStaticText(this, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL);
-        auto* btn = new wxButton(this, wxID_CANCEL, _L("Cancel"));
+        auto* btn = new wxButton(this, wxID_CANCEL, _L("common_button_cancel"));
         auto* vsizer = new wxBoxSizer(wxVERTICAL);
         auto *top_sizer = new wxBoxSizer(wxVERTICAL);
         vsizer->Add(text, 1, wxEXPAND);
@@ -597,7 +597,7 @@ SendSystemInfoDialog::SendSystemInfoDialog(wxWindow* parent)
            "to identify you later. To detect duplicate entries, a unique number derived "
            "from your system is sent, but the source information cannot be reconstructed. "
            "Apart from that, only general data about your OS, hardware and OpenGL "
-           "installation are sent. AnkerMake_alpha is open source, if you want to "
+           "installation are sent. AnkerMake Studio is open source, if you want to "
            "inspect the code actually performing the communication, see %1%."),
            std::string("<i>") + filename + "</i>");
 

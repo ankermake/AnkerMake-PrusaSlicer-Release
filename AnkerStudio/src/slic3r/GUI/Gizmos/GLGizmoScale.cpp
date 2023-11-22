@@ -22,6 +22,8 @@ GLGizmoScale3D::GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filen
     , m_base_color(DEFAULT_BASE_COLOR)
     , m_drag_color(DEFAULT_DRAG_COLOR)
     , m_highlight_color(DEFAULT_HIGHLIGHT_COLOR)
+    , m_panelVisibleFlag(false)
+    , m_pInputWindowSizer(nullptr)
 {
     m_grabber_connections[0].grabber_indices = { 0, 1 };
     m_grabber_connections[1].grabber_indices = { 2, 3 };
@@ -66,9 +68,9 @@ bool GLGizmoScale3D::on_mouse(const wxMouseEvent &mouse_event)
         if (m_dragging) {
             // Apply new temporary scale factors
             TransformationType transformation_type;
-            if (wxGetApp().obj_manipul()->is_local_coordinates())
+            if (wxGetApp()./*obj_manipul()*/aobj_manipul()->is_local_coordinates())
                 transformation_type.set_local();
-            else if (wxGetApp().obj_manipul()->is_instance_coordinates())
+            else if (wxGetApp()./*obj_manipul()*/aobj_manipul()->is_instance_coordinates())
                 transformation_type.set_instance();
 
             transformation_type.set_relative();
@@ -101,7 +103,13 @@ void GLGizmoScale3D::enable_ununiversal_scale(bool enable)
 
 void GLGizmoScale3D::data_changed()
 {
+    //Selection& selection = m_parent.get_selection();
+    //double xScale = get_selected_volume(selection)->get_transformation().get_scaling_factor(Axis::X);
+    //double yScale = get_selected_volume(selection)->get_transformation().get_scaling_factor(Axis::Y);
+    //double zScale = get_selected_volume(selection)->get_transformation().get_scaling_factor(Axis::Z);
+
     set_scale(Vec3d::Ones());
+    //set_scale(Vec3d(xScale, yScale, zScale));
 }
 
 bool GLGizmoScale3D::on_init()
@@ -114,15 +122,23 @@ bool GLGizmoScale3D::on_init()
     return true;
 }
 
-std::string GLGizmoScale3D::on_get_name() const
+std::string GLGizmoScale3D::on_get_name(bool i18n) const
 {
-    return _u8L("Scale");
+    return i18n ? _u8L("Scale") : "Scale";
 }
 
 bool GLGizmoScale3D::on_is_activable() const
 {
     const Selection& selection = m_parent.get_selection();
     return !selection.is_any_cut_volume() && !selection.is_any_connector() && !selection.is_empty() && !selection.is_wipe_tower();
+}
+
+void GLGizmoScale3D::on_set_state()
+{
+    if (m_state == On)
+        set_input_window_state(true);
+    else
+        set_input_window_state(false);
 }
 
 void GLGizmoScale3D::on_start_dragging()
@@ -394,9 +410,13 @@ void GLGizmoScale3D::do_scale_along_axis(Axis axis, const UpdateData& data)
 
 void GLGizmoScale3D::do_scale_uniform(const UpdateData & data)
 {
+    std::cout << "m_scale1 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
+
     const double ratio = calc_ratio(data);
     if (ratio > 0.0)
         m_scale = m_starting.scale * ratio;
+
+    std::cout << "m_scale2 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
 }
 
 double GLGizmoScale3D::calc_ratio(const UpdateData& data) const
@@ -471,6 +491,67 @@ void GLGizmoScale3D::update_render_data()
     for (int i = 0; i < 10; ++i) {
         m_grabbers[i].matrix = m_grabbers_transform;
     }
+}
+
+void GLGizmoScale3D::set_input_window_state(bool on)
+{
+    if (wxGetApp().plater() == nullptr)
+        return;
+    
+    ANKER_LOG_INFO << "GLGizmoScale3D: " << on;
+    wxGetApp().plater()->sidebarnew().Freeze();
+
+    std::string panelFlag = get_name(true, false);
+    if (on)
+    {        
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+
+        if (m_pInputWindowSizer == nullptr)
+        {
+            m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+            wxGetApp().aobj_manipul()->Show(true);
+            m_pInputWindowSizer->Add(wxGetApp().aobj_manipul(), 1, wxEXPAND, 0);
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                event.Skip();
+
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+        }
+
+        auto returnFunc = [this]() {
+            wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+        };
+        wxGetApp().aobj_manipul()->setReturnFunc(returnFunc);
+
+        wxGetApp().aobj_manipul()->set_dirty();
+        wxGetApp().aobj_manipul()->update_if_dirty();
+
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+    else
+    {
+        if (m_panelVisibleFlag)
+        {
+            m_panelVisibleFlag = false;    
+            wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+
+			wxGetApp().aobj_manipul()->Show(false);
+			wxGetApp().aobj_manipul()->setReturnFunc(nullptr);
+        }
+    }
+    wxGetApp().plater()->sidebarnew().Thaw();
 }
 
 } // namespace GUI

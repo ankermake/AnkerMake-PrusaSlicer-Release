@@ -134,7 +134,7 @@ public:
     void load(cereal::BinaryInputArchive& ar) { m_state = On; on_load(ar); }
     void save(cereal::BinaryOutputArchive& ar) const { on_save(ar); }
 
-    std::string get_name(bool include_shortcut = true) const;
+    std::string get_name(bool i18n = true, bool include_shortcut = true) const;
 
     EState get_state() const { return m_state; }
     void set_state(EState state) { m_state = state; on_set_state(); }
@@ -194,7 +194,7 @@ protected:
     virtual bool on_init() = 0;
     virtual void on_load(cereal::BinaryInputArchive& ar) {}
     virtual void on_save(cereal::BinaryOutputArchive& ar) const {}
-    virtual std::string on_get_name() const = 0;
+    virtual std::string on_get_name(bool i18n = true) const = 0;
     virtual void on_set_state() {}
     virtual void on_set_hover_id() {}
     virtual bool on_is_activable() const { return true; }

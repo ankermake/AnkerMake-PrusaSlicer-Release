@@ -640,6 +640,11 @@ std::vector<coordf_t> generate_object_layers(
         out.push_back(print_z);
         print_z += height;
         slice_z = print_z + 0.5 * slicing_params.min_layer_height;
+        if (print_z > slicing_params.object_print_z_height())
+        {
+            out.pop_back();
+            break;
+        }   
         out.push_back(print_z);
     }
 

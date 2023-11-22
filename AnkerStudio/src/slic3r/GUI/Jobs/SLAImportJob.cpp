@@ -169,8 +169,8 @@ void SLAImportJob::finalize(bool canceled, std::exception_ptr &eptr)
 
     if (!p->mesh.empty()) {
         bool is_centered = false;
-        p->plater->sidebar().obj_list()->load_mesh_object(TriangleMesh{std::move(p->mesh)},
-                                                          name, is_centered);
+        //p->plater->objectbar().getObjectList()->load_mesh_object(TriangleMesh{std::move(p->mesh)},
+        //                                                  name, is_centered);
     } else if (p->sel == Sel::modelOnly || p->sel == Sel::modelAndProfile) {
         p->plater->get_notification_manager()->push_notification(
             NotificationType::CustomNotification,

@@ -275,8 +275,208 @@ private:
 
 };
 
+// add by allen for ankerCfgDlg and AnkerSavePresetDialog
+template<class P> class AnkerDPIAware : public P
+{
+public:
+    AnkerDPIAware(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos = wxDefaultPosition,
+        const wxSize& size = wxDefaultSize, long style = wxBORDER_SIMPLE, const wxString& name = wxFrameNameStr, const int font_point_size = -1)
+        : P(parent, id, title, pos, size, style, name)
+    {
+        int dpi = get_dpi_for_window(this);
+        m_scale_factor = (float)dpi / (float)DPI_DEFAULT;
+        m_prev_scale_factor = m_scale_factor;
+        m_normal_font = get_default_font_for_dpi(this, dpi);
+
+        if (font_point_size > 0)
+            m_normal_font.SetPointSize(font_point_size);
+
+        /* Because of default window font is a primary display font,
+         * We should set correct font for window before getting em_unit value.
+         */
+#ifndef __WXOSX__ // Don't call SetFont under OSX to avoid name cutting in ObjectList 
+        this->SetFont(m_normal_font);
+#endif
+        this->CenterOnParent();
+#ifdef _WIN32
+        //update_dark_ui(this);
+#endif
+
+        // Linux specific issue : get_dpi_for_window(this) still doesn't responce to the Display's scale in new wxWidgets(3.1.3).
+        // So, calculate the m_em_unit value from the font size, as before
+#if !defined(__WXGTK__)
+        m_em_unit = std::max<size_t>(10, 10.0f * m_scale_factor);
+#else
+        // initialize default width_unit according to the width of the one symbol ("m") of the currently active font of this window.
+        m_em_unit = std::max<size_t>(10, this->GetTextExtent("m").x - 1);
+#endif // __WXGTK__
+
+        //        recalc_font();
+
+#ifndef __WXOSX__
+#if wxVERSION_EQUAL_OR_GREATER_THAN(3,1,3)
+        this->Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent& evt) {
+            m_scale_factor = (float)evt.GetNewDPI().x / (float)DPI_DEFAULT;
+            m_new_font_point_size = get_default_font_for_dpi(this, evt.GetNewDPI().x).GetPointSize();
+            if (m_can_rescale && (m_force_rescale || is_new_scale_factor()))
+                rescale(wxRect());
+            });
+#else
+        this->Bind(EVT_DPI_CHANGED_SLICER, [this](const DpiChangedEvent& evt) {
+            m_scale_factor = (float)evt.dpi / (float)DPI_DEFAULT;
+
+            m_new_font_point_size = get_default_font_for_dpi(this, evt.dpi).GetPointSize();
+
+            if (!m_can_rescale)
+                return;
+
+            if (m_force_rescale || is_new_scale_factor())
+                rescale(evt.rect);
+            });
+#endif // wxVERSION_EQUAL_OR_GREATER_THAN
+#endif // no __WXOSX__
+
+        this->Bind(wxEVT_MOVE_START, [this](wxMoveEvent& event)
+            {
+                event.Skip();
+
+                // Suppress application rescaling, when a MainFrame moving is not ended
+                m_can_rescale = false;
+            });
+
+        this->Bind(wxEVT_MOVE_END, [this](wxMoveEvent& event)
+            {
+                event.Skip();
+
+                m_can_rescale = is_new_scale_factor();
+
+                // If scale factor is different after moving of MainFrame ...
+                if (m_can_rescale)
+                    // ... rescale application
+                    rescale(event.GetRect());
+                else
+                    // set value to _true_ in purpose of possibility of a display dpi changing from System Settings
+                    m_can_rescale = true;
+            });
+
+        this->Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent& event)
+            {
+                event.Skip();
+                on_sys_color_changed();
+            });
+    }
+
+    virtual ~AnkerDPIAware() {}
+
+    float   scale_factor() const { return m_scale_factor; }
+    float   prev_scale_factor() const { return m_prev_scale_factor; }
+
+    int     em_unit() const { return m_em_unit; }
+    //    int     font_size() const           { return m_font_size; }
+    const wxFont& normal_font() const { return m_normal_font; }
+    void enable_force_rescale() { m_force_rescale = true; }
+
+#ifdef _WIN32
+    void force_color_changed()
+    {
+        update_dark_ui(this);
+        on_sys_color_changed();
+    }
+#endif
+
+protected:
+    virtual void on_dpi_changed(const wxRect& suggested_rect) = 0;
+    virtual void on_sys_color_changed() {};
+
+private:
+    float m_scale_factor;
+    int m_em_unit;
+    //    int m_font_size;
+
+    wxFont m_normal_font;
+    float m_prev_scale_factor;
+    bool  m_can_rescale{ true };
+    bool m_force_rescale{ false };
+
+    int   m_new_font_point_size;
+
+    //    void recalc_font()
+    //    {
+    //        wxClientDC dc(this);
+    //        const auto metrics = dc.GetFontMetrics();
+    //        m_font_size = metrics.height;
+    //         m_em_unit = metrics.averageWidth;
+    //    }
+
+        // check if new scale is differ from previous
+    bool    is_new_scale_factor() const { return fabs(m_scale_factor - m_prev_scale_factor) > 0.001; }
+
+    // function for a font scaling of the window
+    void    scale_win_font(wxWindow* window, const int font_point_size)
+    {
+        wxFont new_font(window->GetFont());
+        new_font.SetPointSize(font_point_size);
+        window->SetFont(new_font);
+    }
+
+    // recursive function for scaling fonts for all controls in Window
+    void    scale_controls_fonts(wxWindow* window, const int font_point_size)
+    {
+        auto children = window->GetChildren();
+
+        for (auto child : children) {
+            scale_controls_fonts(child, font_point_size);
+            scale_win_font(child, font_point_size);
+        }
+
+        window->Layout();
+    }
+
+    void    rescale(const wxRect& suggested_rect)
+    {
+        this->Freeze();
+
+        m_force_rescale = false;
+#if !wxVERSION_EQUAL_OR_GREATER_THAN(3,1,3)
+        // rescale fonts of all controls
+        scale_controls_fonts(this, m_new_font_point_size);
+        // rescale current window font
+        scale_win_font(this, m_new_font_point_size);
+#endif // wxVERSION_EQUAL_OR_GREATER_THAN
+
+        // set normal application font as a current window font
+        m_normal_font = this->GetFont();
+
+        // update em_unit value for new window font
+        m_em_unit = std::max<int>(10, 10.0f * m_scale_factor);
+
+        // rescale missed controls sizes and images
+        on_dpi_changed(suggested_rect);
+
+        this->Layout();
+        this->Thaw();
+
+        // reset previous scale factor from current scale factor value
+        m_prev_scale_factor = m_scale_factor;
+    }
+
+#if 0 //#ifdef _WIN32  // #ysDarkMSW - Allow it when we deside to support the sustem colors for application 
+    bool HandleSettingChange(WXWPARAM wParam, WXLPARAM lParam) override
+    {
+        update_dark_ui(this);
+        on_sys_color_changed();
+
+        // let the system handle it
+        return false;
+    }
+#endif
+
+};
+
 typedef DPIAware<wxFrame> DPIFrame;
 typedef DPIAware<wxDialog> DPIDialog;
+// add by allen for ankerCfgDlg and AnkerSavePresetDialog
+typedef AnkerDPIAware<wxDialog> AnkerDPIDialog;
 
 
 class EventGuard

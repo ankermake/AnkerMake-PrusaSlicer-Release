@@ -57,6 +57,7 @@ public:
     std::string toolchange_prefix() const;
     std::string toolchange(unsigned int extruder_id);
     std::string set_speed(double F, const std::string &comment = std::string(), const std::string &cooling_marker = std::string()) const;
+    std::string set_speed_withE(double F, const std::string& comment = std::string(), const std::string& cooling_marker = std::string()) const;
     std::string travel_to_xy(const Vec2d &point, const std::string &comment = std::string());
     std::string travel_to_xyz(const Vec3d &point, const std::string &comment = std::string());
     std::string travel_to_z(double z, const std::string &comment = std::string());
@@ -90,6 +91,8 @@ public:
     // Keeping the state is left to the CoolingBuffer, which runs asynchronously on another thread.
     std::string set_fan(unsigned int speed) const;
 
+    void set_is_first_layer(bool bval) { m_is_first_layer = bval; }
+
 private:
 	// Extruders are sorted by their ID, so that binary search is possible.
     std::vector<Extruder> m_extruders;
@@ -107,6 +110,7 @@ private:
     bool            m_last_bed_temperature_reached;
     double          m_lifted;
     Vec3d           m_pos = Vec3d::Zero();
+    bool            m_is_first_layer = true;
 
     enum class Acceleration {
         Travel,

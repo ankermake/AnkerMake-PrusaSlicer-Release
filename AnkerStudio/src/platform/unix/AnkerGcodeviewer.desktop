@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Anker GCode viewer
-Exec=ankermake_alpha --gcodeviewer %F
+Exec=ankermake studio --gcodeviewer %F
 Icon=AnkerStudio-gcodeviewer
 Terminal=false
 Type=Application

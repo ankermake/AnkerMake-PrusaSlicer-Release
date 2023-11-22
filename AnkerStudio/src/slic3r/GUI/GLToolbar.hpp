@@ -8,6 +8,7 @@
 #include "GLTexture.hpp"
 #include "Event.hpp"
 #include "libslic3r/Point.hpp"
+#include "libslic3r/Color.hpp"
 
 class wxEvtHandler;
 
@@ -91,6 +92,7 @@ public:
         std::string tooltip;
         std::string additional_tooltip;
         unsigned int sprite_id;
+
         // mouse left click
         Option left;
         // mouse right click
@@ -226,6 +228,7 @@ public:
         float top;
         float left;
         float border;
+        float border_outer;
         float separator_size;
         float gap_size;
         float icons_size;
@@ -247,6 +250,7 @@ private:
     GLTexture m_icons_texture;
     bool m_icons_texture_dirty;
     BackgroundTexture m_background_texture;
+    ColorRGBA m_background_color;
     GLTexture m_arrow_texture;
     Layout m_layout;
 
@@ -273,7 +277,7 @@ public:
     ~GLToolbar();
 
     bool init(const BackgroundTexture::Metadata& background_texture);
-
+    bool init(Slic3r::ColorRGBA backgroundColor);
     bool init_arrow(const std::string& filename);
 
     Layout::EType get_layout_type() const;
@@ -285,6 +289,7 @@ public:
 
     void set_position(float top, float left);
     void set_border(float border);
+    void set_border_outer(float borderOuter);
     void set_separator_size(float size);
     void set_gap_size(float size);
     void set_icons_size(float size);
@@ -306,12 +311,16 @@ public:
     bool is_item_visible(const std::string& name) const;
 
     bool is_any_item_pressed() const;
+    bool is_any_item_toggled() const { return m_pressed_toggable_id >= 0; }
+    int get_item_id_toggled() const { return m_pressed_toggable_id; }
 
     unsigned int get_items_count() const { return (unsigned int)m_items.size(); }
     int get_item_id(const std::string& name) const;
 
     void force_left_action(int item_id, GLCanvas3D& parent) { do_action(GLToolbarItem::Left, item_id, parent, false); }
     void force_right_action(int item_id, GLCanvas3D& parent) { do_action(GLToolbarItem::Right, item_id, parent, false); }
+    void toggled_action(int item_id, GLCanvas3D& parent);
+    void reset_all_toggled_state(GLCanvas3D& parent);
 
     std::string get_tooltip() const;
 

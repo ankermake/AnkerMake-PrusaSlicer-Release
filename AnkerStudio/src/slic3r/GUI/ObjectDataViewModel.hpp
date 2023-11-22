@@ -34,8 +34,8 @@ enum ItemType {
 enum ColumnNumber
 {
     colName         = 0,    // item name
-    colPrint           ,    // printable property
-    colExtruder        ,    // extruder selection
+    colPrint,    // printable property
+    colExtruder,    // extruder selection
     colEditing         ,    // item editing
 };
 
@@ -74,7 +74,8 @@ class ObjectDataViewModelNode
     ItemType				        m_type;
     int                             m_idx = -1;
     bool					        m_container = false;
-    wxString				        m_extruder = "default";
+    wxString				        m_extruder = /*"default"*/"1";
+    wxColour                      m_extruder_color;
     wxBitmapBundle                  m_extruder_bmp;
     wxBitmapBundle				    m_action_icon;
     PrintIndicator                  m_printable {piUndef};
@@ -184,6 +185,7 @@ public:
     bool            SetValue(const wxVariant &variant, unsigned int col);
     void            SetVolumeType(ModelVolumeType type) { m_volume_type = type; }
     void            SetBitmap(const wxBitmapBundle &icon) { m_bmp = icon; }
+    void            SetExtruderColor(const wxColour color) { m_extruder_color = color; }
     void            SetExtruder(const wxString &extruder) { m_extruder = extruder; }
     void            SetWarningIconName(const std::string& warning_icon_name) { m_warning_icon_name = warning_icon_name; }
     void            SetLock(bool has_lock)                                   { m_has_lock = has_lock; }

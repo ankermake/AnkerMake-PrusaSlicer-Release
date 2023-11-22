@@ -19,40 +19,75 @@ typedef uint64_t UINT64;
 
 // public server address
 #define SERVER_ADDRESS_PUBLIC_QA ""
+#define SERVER_ADDRESS_PUBLIC_CI ""
 #define SERVER_ADDRESS_PUBLIC_US ""
 #define SERVER_ADDRESS_PUBLIC_EU ""
 
 // API address
 #define API_ADDRESS_QA ""
+#define API_ADDRESS_CI ""
 #define API_ADDRESS_US ""
 #define API_ADDRESS_EU ""
 
 // MQTT address
 #define MQTT_ADDRESS_QA ""
+#define MQTT_ADDRESS_CI ""
 #define MQTT_ADDRESS_US ""
 #define MQTT_ADDRESS_EU ""
 
+// FAQ address
+#define FAQ_ADDRESS_QA ""
+#define FAQ_ADDRESS_CI ""
+#define FAQ_ADDRESS_US ""
+#define FAQ_ADDRESS_EU ""
+
 // MQTT certificate
 #define MQTT_CERTIFICATE_QA ""
+#define MQTT_CERTIFICATE_CI ""
 #define MQTT_CERTIFICATE_US ""
 #define MQTT_CERTIFICATE_EU ""
 
 // HTTPS certificate
 #define HTTPS_CERTIFICATE_QA ""
+#define HTTPS_CERTIFICATE_CI ""
 #define HTTPS_CERTIFICATE_PEM_US ""
-#define HTTPS_CERTIFICATE_CER_EU ""
+#define HTTPS_CERTIFICATE_PEM_US2 ""
+#define HTTPS_CERTIFICATE_CER_EU HTTPS_CERTIFICATE_PEM_US
+#define HTTPS_CERTIFICATE_CER_EU2 HTTPS_CERTIFICATE_PEM_US2
 
-#define MQTT_CONNECT_PORT 1000
+// AWS S3 certificate 
+#define AWS_S3_CERTIFICATE_QA HTTPS_CERTIFICATE_PEM_US
+#define AWS_S3_CERTIFICATE_QA2 HTTPS_CERTIFICATE_PEM_US2
+#define AWS_S3_CERTIFICATE_CI ""
+#define AWS_S3_CERTIFICATE_US HTTPS_CERTIFICATE_PEM_US
+#define AWS_S3_CERTIFICATE_US2 HTTPS_CERTIFICATE_PEM_US2
+#define AWS_S3_CERTIFICATE_EU HTTPS_CERTIFICATE_PEM_US
+#define AWS_S3_CERTIFICATE_EU2 HTTPS_CERTIFICATE_PEM_US2
+#define MQTT_CONNECT_PORT 0
 
 
 // Query DeviceList
 #define QUERY_DEVICELIST_FROM_BK ""
+#define QUERY_MULTI_COLOR_DEVICELIST_FROM_BK ""
+
+// Post Machine Info Collect.
+#define POST_MACHINE_INFO_COLLECT_BK ""
+
+// Post feedback
+#define POST_FEEDBACK_BK ""
+// Post upload log.
+#define POST_UPLOAD_LOG_BK ""
 
 // Query DSK
 #define QUERY_DSK_FROM_BK ""
 
 // Query User info
 #define QUERY_USER_INFO_FROM_BK ""
+// Query OTA info
+#define QUERY_OTA_INFO_FROM_BK ""
+
+
+
 
 typedef int (*AsynMQTTClientCallback) (void* context, char* topicName, int topiclen);
 
@@ -137,8 +172,9 @@ namespace P2pType {
 
 	typedef enum {
 	   P2P_IDLE = 0,
-	   P2P_TRANSFER_FILE = 1,
-	   P2P_TRANSFER_VIDEO_STREAM = 2
+	   P2P_TRANSFER_LOCAL_FILE = 1,
+	   P2P_TRANSFER_VIDEO_STREAM = 2,
+	   P2P_TRANSFER_PREVIEW_FILE = 3,
 	}P2POperationType;
 
 	enum P2P_File_Transfer_Code{
@@ -224,7 +260,6 @@ typedef struct _header_info
 }HeaderInfo;
 
 /*********************************************************************************************************/
-
 typedef struct _LOGIN_DATA
 {
 	std::string captcha_id = std::string();
@@ -283,7 +318,6 @@ typedef struct _PRINT_MACHINE_PARAMS
 	int status = 0;
 
 }PRINT_MACHINE_PARAMS, * pPRINT_MACHINE_PARAMS;
-
 
 typedef struct _PRINT_MACHINE
 {
@@ -375,6 +409,7 @@ typedef struct _PRINT_MACHINE
 }PRINT_MACHINE, * pPRINT_MACHINE;
 typedef std::vector<PRINT_MACHINE> PRINT_MACHINE_LIST;
 typedef std::vector<PRINT_MACHINE*> pPRINT_MACHINE_LIST;
+
 
 typedef struct _DSK_CFG
 {
@@ -545,7 +580,6 @@ typedef struct _COUNTRY_INFO
 	std::string code = std::string();
 
 }COUNTRY_INFO, * pCOUNTRY_INFO;
-
 
 typedef struct _USER_INFO
 {
@@ -738,10 +772,11 @@ namespace MqttType{
 		GeneralException2Gui_Nozzle_Temp_Too_High,  // Temp Too High.The current print job has stopped. Please go to support.ankermake.com to troubleshoot or contact support@ankermake.com for help.
 		GeneralException2Gui_HotBed_Temp_Too_High,
 		GeneralException2Gui_Nozzle_Heating_Error, // Heating Error.The current print job has stopped. Please go to support.ankermake.com to troubleshoot or contact support@ankermake.com for help.
-		GeneralException2Gui_HotBed_Heating_Error,
+		GeneralException2Gui_HotBed_Heating_Error, 
 		GeneralException2Gui_Filament_Broken,	// Filament Broken.Filament transfer interrupted. Printing has paused. Please resume printing after checking.
 		GeneralException2Gui_Type_C_Transmission_Error,	// Data Transmission Error.Check if the USB-C cable is connected properly.
 		GeneralException2Gui_Auto_Level_Error, //Auto-Level Error. Leveling failed, please try again. If the problem persists, please email support@ankermake.com to contact customer service for assistance.
+		GeneralException2Gui_Auto_Level_Anomalies, //The heatbed could not be leveled. Try cleaning the nozzle and heatbed, then attempt again. If the problem persists, please email support@ankermake.com to contact customer service for assistance.
 		GeneralException2Gui_System_Error,	 // Data Transmission Error. The system error, please try again.
 		GeneralException2Gui_Advance_Pause, // A Gcode pause command has been executed. Check your print.
 		GeneralException2Gui_Bed_Adhesion_Failure, // Bed Adhesion Failure
@@ -750,6 +785,7 @@ namespace MqttType{
 		GeneralException2Gui_Break_Point, // No notice.
 		GeneralException2Gui_Level_100_Times, // Before printing, we recommend using auto-level for better results. The process will take about 10 minutes.
 		GeneralException2Gui_LowTemperature, // Low Temperature. For best results, we recommend printing in a location with an ambient temperature between 15°C - 35°C.
+	
 	};
 
 
@@ -826,6 +862,14 @@ enum mqtt_command_type_e
 	MQTT_CMD_MAX,
 };
 
+enum  mqtt_command_reply_type_e
+{
+	MQTT_CMD_REPLY_UNKNOWN,
+	MQTT_CMD_REPLIED,
+	MQTT_CMD_REPLYING,
+	MQTT_CMD_REPLY_TIMEOUT,
+};
+
 
 DEF_PTR(CmdType)
 class CmdType
@@ -835,18 +879,9 @@ public:
 };
 
 typedef std::map<mqtt_command_type_e, CmdTypePtr> MqttData;
-typedef std::shared_ptr <std::map<std::string/*sn*/, std::map<mqtt_command_type_e, CmdTypePtr>>>  MqttDataMap;
-typedef std::shared_ptr<std::map<std::string/*sn*/, std::map<mqtt_command_type_e/*cmd*/, CmdTypePtr>>> MqttDataMapPtr;
+typedef std::shared_ptr <std::map<std::string/*sn*/, std::map<mqtt_command_type_e/*cmd*/, CmdTypePtr>>> MqttDataMapPtr;
 #define CREATE_MQTT_DATAMAP_PTR (std::make_shared<std::map<std::string, std::map<mqtt_command_type_e, CmdTypePtr>>>())
 
-
-struct AiContext {
-	std::string url = "";
-	std::string aiId = "";
-	int type = 1;
-	unsigned long time;
-	int aiImproving = 0;
-};
 
 DEF_PTR(NoticeData)
 class NoticeData : public CmdType
@@ -859,27 +894,7 @@ DEF_PTR(PrintingNoticeData)
 class PrintingNoticeData : public CmdType
 {
 public:
-	int time = -1;
-	int proccess = -1;
-	std::string name = "";
-	std::string img = "";
-	int modelId = -1;
-	int totalTime = -1;
-	int filamentUsed = -1;
-	std::string filamentUnit = "";
-	int aiFlag = -1;
-	int modelType = 1;
-	int startLeftTime = 0;
-	int saveTime = -1;
 
-	int AIValue = 0;
-	int AIAmbientLight = 0;
-	int AIMaterialColor = 0;
-	int AISwitch = 0;
-	int AISensitivity = 0;
-	int AIPausePrint = 0;
-	int AIJoinImproving = 0;
-	int AICameraValue = 0;
 };
 
 DEF_PTR(Temperature)
@@ -905,12 +920,13 @@ class Cmd2Value : public CmdType
 
 };
 
-//"commandType" : 1028
+
 DEF_PTR(Online)
 class Online  : public Cmd2Value
 {
 	
 };
+
 
 DEF_PTR(AiCalibration)
 class AiCalibration  : public Cmd2Value
@@ -918,10 +934,13 @@ class AiCalibration  : public Cmd2Value
 public:
 };
 
+
 DEF_PTR(Thumb)
 class Thumb: public CmdType
 {
+
 };
+
 
 DEF_PTR(BreakPointNotice)
 class BreakPointNotice : public Cmd2Value
@@ -943,11 +962,13 @@ class FanSpeed : public Cmd2Value
 
 };
 
+
 DEF_PTR(PrintSpeed)
 class PrintSpeed : public Cmd2Value
 {
 
 };
+
 
 
 DEF_PTR(LevelProcess)
@@ -956,32 +977,44 @@ class LevelProcess : public Cmd2Value
 
 };
 
+DEF_PTR(LevelProcessCtrl)
+class LevelProcessCtrl : public Cmd2Value
+{
+public:
+
+};
+
+
 enum PrintCtlResult {
-	PrintCtlResult_Succeed,
-	PrintCtlResult_Failed,
-	PrintCtlResult_Reminder_leveling,
-	PrintCtlResult_Print_no_file,
-	PrintCtlResult_Printing,
-	PrintCtlResult_No_set_mode
+
+};
+
+struct GFileNozzle {
+
+};
+
+struct NozzleInfo : public 	GFileNozzle {
+
 };
 
 DEF_PTR(PrintCtl)
 class PrintCtl : public Cmd2Value
 {
+public:
 
 };
+
 
 DEF_PTR(PrintCtrlRequest)
 class PrintCtrlRequest : public Cmd2Value
 {
+public:
 
 };
 
 
 struct FileInfo {
-	std::string name = ""; // "short.gcode"
-	std::string path = ""; // "/tmp/udisk1/9/short.gcode"
-	unsigned long long timestamp = 0; //  1645272982
+
 };
 
 #define QUEST_FILELIST_NUM 47
@@ -989,53 +1022,7 @@ DEF_PTR(FileList)
 class FileList : public  Cmd2Value
 {
 public:
-	//std::map<unsigned long long, FileInfo> files;
-	std::list<FileInfo> files;
-	int isFirst = 1;
-	int index = 1;
-	int num = QUEST_FILELIST_NUM;
 
-	inline void append(const FileList& fileList) {
-		//files.insert(fileList.files.begin(), fileList.files.end());
-		files.insert(files.end(), fileList.files.begin(), fileList.files.end());
-		isFirst = fileList.isFirst;
-		index = fileList.index;
-		num = fileList.num;
-		type = fileList.type;
-	}
-
-	static bool compare_timestamp(const FileInfo& a, const FileInfo& b) {
-		return a.timestamp > b.timestamp;
-	}
-
-	inline void sortList() {
-		files.sort(&FileList::compare_timestamp);
-	}
-
-	inline void clear() {
-		files.clear();
-		int isFirst = 1;
-		int index = 1;
-		int num = QUEST_FILELIST_NUM;
-		int count = 0;
-	}
-
-	inline FileList& operator=(const FileList& info) {
-		type = info.type;
-		num = info.num;
-		isFirst = info.isFirst;
-		index = info.index;
-		files = info.files;
-		return *this;
-	}
-
-	inline bool operator==(const FileList& info) {
-		return true;
-	}
-
-	inline bool operator!=(const FileList& info) {
-		return !(*this == info);
-	}
 };
 
 
@@ -1043,26 +1030,9 @@ DEF_PTR(GCodeInfo)
 class GCodeInfo : public CmdType
 {
 public:
-	int normal = 0;
-	std::string fileName = "";
-	int panel = 0;
-	int nozzel = 0;
-	int speed = 0;
-	int speedType = 0;
-	int fans = 0;
-	std::string completeUrl = "";
-	int leftTime = 0;
-	int displacement = 0;
-	int filamentUsed = 0;
-	std::string filamentUnit = "mm";
-	int modelType = 1;
-	int aiFlag = 0;
-	int reply = 0;
 
-	//20230426 add
-	int printmode = 0; // 	PRINT_WORK_NORMAL(0), PRINT_WORK_FAST(1),  PRINT_WORK_FINE_K(2), PRINT_WORK_FINE_S(3), PRINT_WORK_MAX(4)
-	int exceedDeviceSize = 0; //Whether the model size exceeds the equipment size.
 };
+
 
 
 
@@ -1076,25 +1046,35 @@ class GcodeDownloadProcess : public Cmd2Value
 DEF_PTR(GcodeDownloadCtrl)
 class GcodeDownloadCtrl : public Cmd2Value
 {
+public:
+
 };
+
 
 
 DEF_PTR(ZAxisCompensation)
 class ZAxisCompensation : public Cmd2Value
 {
+public:
 
 };
+
 
 
 DEF_PTR(ExtrusionInfo)
 class ExtrusionInfo : public Cmd2Value
 {
+public:
+
 };
 
 DEF_PTR(ExtrusionCtrl)
 class ExtrusionCtrl : public CmdType
 {
+public:
+
 };
+
 
 DEF_PTR(MoveStep)
 class MoveStep : public Cmd2Value
@@ -1102,11 +1082,13 @@ class MoveStep : public Cmd2Value
 
 };
 
+
 DEF_PTR(AxisMove)
 class AxisMove : public Cmd2Value
 {
 
 };
+
 
 DEF_PTR(Move2Zero)
 class Move2Zero : public Cmd2Value
@@ -1114,10 +1096,14 @@ class Move2Zero : public Cmd2Value
 
 };
 
+
 DEF_PTR(GCodeResetParam)
 class GCodeResetParam : public CmdType
 {
+public:
+
 };
+
 
 DEF_PTR(MotorMutex)
 class MotorMutex : public Cmd2Value
@@ -1129,55 +1115,260 @@ class MotorMutex : public Cmd2Value
 DEF_PTR(TemperaturePreheating)
 class TemperaturePreheating : public  Cmd2Value
 {
+public:
 
 };
 
 DEF_PTR(TemperaturePreheatingCtrl)
 class TemperaturePreheatingCtrl : public  Cmd2Value
 {
+public:
+
 };
+
 
 
 DEF_PTR(GcodeCmdApi)
 class GcodeCmdApi : public CmdType
 {
+public:
+
 };
+
 
 DEF_PTR(DeviceSelfCheck)
 class DeviceSelfCheck : public CmdType
 {
+public:
+
 };
 
 
 DEF_PTR(ThresholdValue)
 class ThresholdValue : public CmdType
 {
+public:
+	
 };
 
 DEF_PTR(ThresholdValueCtrl)
 class ThresholdValueCtrl : public ThresholdValue
 {
+public:
+
 };
 
 
 DEF_PTR(AiWarningInfo)
 class AiWarningInfo : public CmdType
-{	  	
+{	  
+public:
+		
 };
 
 
 DEF_PTR(PliesValue)
 class PliesValue : public CmdType
 {
+public:
+
 };
 
 
 DEF_PTR(FileMaxSpeed)
 class FileMaxSpeed : public CmdType
 {
+public:
+
+};
+
+
+
+
+
+DEF_PTR(MulticolorAccess)
+class MulticolorAccess : public CmdType
+{
+public:
+
+};
+
+DEF_PTR(MulticolorAccessCtrl)
+class MulticolorAccessCtrl : public  CmdType
+{
+public:
+
+};
+
+
+struct MulticolorSlotData {
+
+};
+
+DEF_PTR(MuticolorSlotChange)
+class MuticolorSlotChange : public CmdType
+{
+public:
+
+};
+
+DEF_PTR(MulticolorAccessoryBoxStatus)
+class MulticolorAccessoryBoxStatus	: public  CmdType
+{
+public:
+
+};
+
+
+DEF_PTR(MulticolorCalibration)
+class MulticolorCalibration	 : public CmdType
+{
+public:
+
+};
+
+DEF_PTR(MulticolorCalibrationCtrl)
+class MulticolorCalibrationCtrl : public CmdType
+{
+public:
+	int value = 0;
+};
+
+
+DEF_PTR(MulticolorConsumableEditing)
+class MulticolorConsumableEditing : public CmdType
+{
+public:
+	int reply = 0;
+};
+
+DEF_PTR(MulticolorConsumableEditingCtrl)
+class MulticolorConsumableEditingCtrl : public CmdType
+{
+public:
+
+};
+
+
+DEF_PTR(MultiColorAccessoriesIncubatorSwitch)
+class MultiColorAccessoriesIncubatorSwitch : public CmdType
+{
+public:
+	int reply = 0;
+};
+
+DEF_PTR(MultiColorAccessoriesIncubatorSwitchCtrl)
+class MultiColorAccessoriesIncubatorSwitchCtrl : public CmdType
+{
+public:
+	int value = 0;
+};
+
+
+DEF_PTR(MultiColorSwitchingNozzle)
+class MultiColorSwitchingNozzle : public  CmdType
+{
+public:
+	int reply = 0;
+};
+
+DEF_PTR(MultiColorSwitchingNozzleCtrl)
+class MultiColorSwitchingNozzleCtrl : public  CmdType
+{
+public:
+
+};
+
+
+DEF_PTR(MultiColorSurplusContinuePrinting)
+class MultiColorSurplusContinuePrinting : public Cmd2Value
+{
+};
+
+
+DEF_PTR(MultiColorTheSameMaterialContinuePrinting)
+class MultiColorTheSameMaterialContinuePrinting : public Cmd2Value
+{
+
+};
+
+
+
+
+DEF_PTR(MultiColorQueryPrinterConditions)
+class MultiColorQueryPrinterConditions : public CmdType
+{
+public:
+
+};
+
+
+DEF_PTR(MultiColorCutOffCondition)
+class MultiColorCutOffCondition : public Cmd2Value
+{
+
+};
+
+
+DEF_PTR(MultiColorCloggingCondition)
+class MultiColorCloggingCondition : public Cmd2Value
+{
+	
+};
+
+
+DEF_PTR(NozzleModuleSwitchType)
+class NozzleModuleSwitchType : public Cmd2Value
+{
+	
 };
 
 };
+
+namespace HttpsType {
+	typedef struct _MultiColorMachine
+	{
+		int device_id = 0;
+		bool is_init_complete = false;
+		std::string device_sn = "";
+		std::string device_name = "";
+		std::string device_model = "";
+		std::string time_zone = "";
+		int device_type = 2;
+		int device_channel = 0;
+		std::string station_sn = "";
+		std::string schedule = "";
+		std::string schedulex = "";
+		std::string main_sw_version = "";
+		int sector_id = 0;
+		int event_num = 0;
+		std::string  wifi_ssid = "";
+		std::string  ip_addr = "";
+		long main_sw_time = 0;
+		long  bind_time = 0;
+		std::string local_ip = "";
+		std::string language = "";
+		std::string sku_number = "";
+		std::string lot_number = "";
+		long create_time = 0;
+		long update_time = 0;
+		int status = 1;
+		std::string svr_domain = "";
+		int svr_port = 0;
+
+		MqttType::MuticolorSlotChange slotsData;
+
+	}MultiColor_MACHINE, * pMultiColor_MACHINE;
+	typedef std::vector<MultiColor_MACHINE>	MultiColor_MACHINE_LIST;
+
+	typedef struct _FeedBackInfo {
+		std::string content = "";
+		std::string email = "";
+		bool sendLogs = false;
+		std::string logZipPath = "";
+	}FeedBackInfo;
+};
+
 
 #endif // !ANKER_NET_BASETYPE_HPP
 

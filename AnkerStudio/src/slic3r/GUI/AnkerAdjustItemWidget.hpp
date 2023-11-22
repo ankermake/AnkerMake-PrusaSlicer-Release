@@ -32,7 +32,7 @@ private:
 	wxString m_logo;
 	wxString m_title;
 	wxString m_content;
-
+	wxString m_arrowStatusImg;
 	bool	 m_status = true;
 };
 

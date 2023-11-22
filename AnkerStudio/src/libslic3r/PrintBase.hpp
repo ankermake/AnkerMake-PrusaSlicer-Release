@@ -59,6 +59,7 @@ public:
     struct StateWithTimeStamp
     {
         State       state { State::Fresh };
+        void setState(State _state) { state = _state; }
         TimeStamp   timestamp { 0 };
         bool        enabled { true };
 
@@ -135,9 +136,16 @@ public:
         return this->state_with_timestamp(step, mtx).state == State::Done;
     }
 
+    void clearState(StepType step, std::mutex& mtx) {   
+        std::scoped_lock<std::mutex> lock(mtx);
+        StateWithWarnings& state = m_state[step];
+        state.setState(State::Canceled);
+    }
+
     StateWithTimeStamp state_with_timestamp_unguarded(StepType step) const { 
         return m_state[step];
     }
+
 
     bool is_started_unguarded(StepType step) const {
         return this->state_with_timestamp_unguarded(step).state == State::Started;
@@ -518,6 +526,7 @@ public:
 	void                       restart() { m_cancel_status = NOT_CANCELED; }
     // Returns true if the last step was finished with success.
     virtual bool               finished() const = 0;
+    virtual void                clearGCodeSliceState() {};
 
     const PlaceholderParser&   placeholder_parser() const { return m_placeholder_parser; }
     const DynamicPrintConfig&  full_print_config() const { return m_full_print_config; }
@@ -581,6 +590,7 @@ public:
     PrintBaseWithState() = default;
 
     bool            is_step_done(PrintStepEnum step) const { return m_state.is_done(step, this->state_mutex()); }
+    void            clear_step_done(PrintStepEnum step) { m_state.clearState(step, this->state_mutex()); }
 	PrintStateBase::StateWithTimeStamp step_state_with_timestamp(PrintStepEnum step) const { return m_state.state_with_timestamp(step, this->state_mutex()); }
     PrintStateBase::StateWithWarnings  step_state_with_warnings(PrintStepEnum step) const { return m_state.state_with_warnings(step, this->state_mutex()); }
 

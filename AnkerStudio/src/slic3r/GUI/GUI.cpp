@@ -126,8 +126,8 @@ void change_opt_value(DynamicPrintConfig& config, const t_config_option_key& opt
 			config.set_key_value(opt_key, new ConfigOptionPercent(boost::any_cast<double>(value)));
 			break;
 		case coFloat:{
-			double& val = config.opt_float(opt_key);
-			val = boost::any_cast<double>(value);
+			//double& val = config.opt_float(opt_key); val = boost::any_cast<double>(value);
+			config.set_key_value(opt_key, new ConfigOptionFloat(boost::any_cast<double>(value)));
 			break;
 		}
 		case coFloatsOrPercents:{
@@ -314,7 +314,7 @@ static void add_config_substitutions(const ConfigSubstitutions& conf_substitutio
 static wxString substitution_message(const wxString& changes)
 {
 	return
-		_L("Most likely the configuration was produced by a newer version of AnkerMake_alpha or by some AnkerMake_alpha fork.") + " " +
+		_L("Most likely the configuration was produced by a newer version of AnkerMake Studio or by some AnkerMake Studio fork.") + " " +
 		_L("The following values were substituted:") + "\n" + changes + "\n\n" +
 		_L("Review the substitutions and adjust them if needed.");
 }

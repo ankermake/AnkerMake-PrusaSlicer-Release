@@ -169,7 +169,12 @@ public:
         return      { Preset::TYPE_PRINTER, Preset::TYPE_SLA_PRINT, Preset::TYPE_SLA_MATERIAL };
     }
 
+    // mod by allen for Change the interaction for switching print and filament presets.
+    std::map<std::string, std::vector<std::string>> getInCompatibleFilamentsByPrint();
 private:
+    // mod by allen for Change the interaction for switching print and filament presets.
+    std::map<std::string, std::vector<std::string>> m_inCompatibleFilamentsByPrint;
+
     std::pair<PresetsConfigSubstitutions, std::string> load_system_presets(ForwardCompatibilitySubstitutionRule compatibility_rule);
     // Merge one vendor's presets with the other vendor's presets, report duplicates.
     std::vector<std::string>    merge_presets(PresetBundle &&other);

@@ -664,6 +664,7 @@ static size_t avoid_perimeters(const AvoidCrossingPerimeters::Boundary &boundary
     std::vector<TravelPoint> path;
     size_t num_intersections = avoid_perimeters_inner(boundary, start, end, layer, path);
     result_out = to_polyline(path);
+    result_out.simplify(scaled<double>(0.001));
 
 #ifdef AVOID_CROSSING_PERIMETERS_DEBUG_OUTPUT
     {

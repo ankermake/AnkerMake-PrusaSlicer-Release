@@ -599,7 +599,7 @@ RENDER_AGAIN:
         m_enable_hollowing = static_cast<const ConfigOptionBool*>(opts[0].first)->value;
         if (m_imgui->checkbox(m_desc["enable"], m_enable_hollowing)) {
             mo->config.set("hollowing_enable", m_enable_hollowing);
-            wxGetApp().obj_list()->update_and_show_object_settings_item();
+            //wxGetApp().obj_list()->update_and_show_object_settings_item();
             config_changed = true;
         }
     }
@@ -656,7 +656,7 @@ RENDER_AGAIN:
         mo->config.set("hollowing_quality", quality);
         mo->config.set("hollowing_closing_distance", closing_d);
         if (slider_released) {
-            wxGetApp().obj_list()->update_and_show_object_settings_item();
+            //wxGetApp().obj_list()->update_and_show_object_settings_item();
             config_changed = true;
         }
     }
@@ -808,6 +808,9 @@ RENDER_AGAIN:
 
 bool GLGizmoHollow::on_is_activable() const
 {
+    // Anker: unavalible
+    return false;
+
     const Selection& selection = m_parent.get_selection();
 
     if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA
@@ -828,9 +831,9 @@ bool GLGizmoHollow::on_is_selectable() const
     return (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptSLA);
 }
 
-std::string GLGizmoHollow::on_get_name() const
+std::string GLGizmoHollow::on_get_name(bool i18n) const
 {
-    return _u8L("Hollow and drill");
+    return i18n ? _u8L("Hollow and drill") : "Hollow and drill";
 }
 
 void GLGizmoHollow::on_set_state()

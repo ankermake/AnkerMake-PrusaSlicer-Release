@@ -20,7 +20,7 @@
 #include "SavePresetDialog.hpp"
 #include "MainFrame.hpp"
 #include "MsgDialog.hpp"
-
+#include "common/AnkerGUIConfig.hpp"
 #include "PresetComboBoxes.hpp"
 
 using boost::optional;
@@ -38,7 +38,12 @@ namespace GUI {
 wxDEFINE_EVENT(EVT_DIFF_DIALOG_TRANSFER,        SimpleEvent);
 wxDEFINE_EVENT(EVT_DIFF_DIALOG_UPDATE_PRESETS,  SimpleEvent);
 
-
+// add by allen for UnsavedChangesDialog
+#ifndef __APPLE__
+#define ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR  wxColour("#333438")
+#else
+#define ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR  wxColour("#292A2D")
+#endif
 // ----------------------------------------------------------------------------
 //                  ModelNode: a node inside DiffModel
 // ----------------------------------------------------------------------------
@@ -789,15 +794,17 @@ static std::string none{"none"};
 
 UnsavedChangesDialog::UnsavedChangesDialog(const wxString& caption, const wxString& header, 
                                            const std::string& app_config_key, int act_buttons)
-    : DPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, caption + ": " + _L("Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+    : AnkerDPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, caption + ": " + _L("Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE),
     m_app_config_key(app_config_key),
-    m_buttons(act_buttons)
+    m_buttons(act_buttons),
+    m_strTitle(caption + ": " + _L("Unsaved Changes"))
 {
     build(Preset::TYPE_INVALID, nullptr, "", header);
 
     const std::string& def_action = m_app_config_key.empty() ? none : wxGetApp().app_config->get(m_app_config_key);
     if (def_action == none)
-        this->CenterOnScreen();
+        //this->CenterOnScreen();
+        this->CenterOnParent();
     else {
         m_exit_action = def_action == ActTransfer   ? Action::Transfer  :
                         def_action == ActSave       ? Action::Save      : Action::Discard;
@@ -807,7 +814,8 @@ UnsavedChangesDialog::UnsavedChangesDialog(const wxString& caption, const wxStri
 }
 
 UnsavedChangesDialog::UnsavedChangesDialog(Preset::Type type, PresetCollection* dependent_presets, const std::string& new_selected_preset)
-    : DPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, _L("Switching Presets: Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+    : AnkerDPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, _L("Switching Presets: Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE)
+    , m_strTitle(_L("Switching Presets: Unsaved Changes"))
 {
     m_app_config_key = "default_action_on_select_preset";
 
@@ -817,7 +825,8 @@ UnsavedChangesDialog::UnsavedChangesDialog(Preset::Type type, PresetCollection* 
     if (def_action == none) {
         if (wxGetApp().mainframe->is_dlg_layout() && wxGetApp().mainframe->m_settings_dialog.HasFocus())
             this->SetPosition(wxGetApp().mainframe->m_settings_dialog.GetPosition());
-        this->CenterOnScreen();
+        /*this->CenterOnScreen();*/
+        this->CenterOnParent();
     }
     else {
         m_exit_action = def_action == ActTransfer   ? Action::Transfer  :
@@ -841,6 +850,9 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection* dependent_
     this->SetFont(wxGetApp().normal_font());
 #endif // __WXMSW__
 
+    // add by allen for ankerCfgDlg UnsavedChangesDialog
+    SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
+
     int border = 10;
     int em = em_unit();
 
@@ -852,7 +864,8 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection* dependent_
 
     m_action_line = new wxStaticText(this, wxID_ANY, "");
 //    m_action_line->SetFont(wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT).Bold());
-    m_action_line->SetFont(wxGetApp().bold_font());
+    m_action_line->SetFont(/*wxGetApp().bold_font()*/ANKER_BOLD_FONT_NO_1);
+    m_action_line->SetForegroundColour(wxColor("#FFFFFF"));
 
     m_tree = new DiffViewCtrl(this, wxSize(em * (add_new_value_column ? 80 : 60), em * 30));
     m_tree->AppendToggleColumn_(L"\u2714"      , DiffModel::colToggle, wxLinux ? 9 : 6);
@@ -885,16 +898,17 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection* dependent_
         (*btn)->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& e) { show_info_line(Action::Undef); e.Skip(); });
     };
 
-    // "Transfer" / "Keep" button
-    if (ActionButtons::TRANSFER & m_buttons) {
-        const PresetCollection* switched_presets = type == Preset::TYPE_INVALID ? nullptr : wxGetApp().get_tab(type)->get_presets();
-        if (dependent_presets && switched_presets && (type == dependent_presets->type() ?
-            dependent_presets->get_edited_preset().printer_technology() == dependent_presets->find_preset(new_selected_preset)->printer_technology() :
-            switched_presets->get_edited_preset().printer_technology() == switched_presets->find_preset(new_selected_preset)->printer_technology()))
-            add_btn(&m_transfer_btn, m_move_btn_id, "paste_menu", Action::Transfer, switched_presets->get_edited_preset().name == new_selected_preset ? _L("Keep") : _L("Transfer"));
-    }
-    if (!m_transfer_btn && (ActionButtons::KEEP & m_buttons))
-        add_btn(&m_transfer_btn, m_move_btn_id, "paste_menu", Action::Transfer, _L("Keep"));
+    // mod by allen,20230903, comment for not show keep/transfer btn
+    //// "Transfer" / "Keep" button
+    //if (ActionButtons::TRANSFER & m_buttons) {
+    //    const PresetCollection* switched_presets = type == Preset::TYPE_INVALID ? nullptr : wxGetApp().get_tab(type)->get_presets();
+    //    if (dependent_presets && switched_presets && (type == dependent_presets->type() ?
+    //        dependent_presets->get_edited_preset().printer_technology() == dependent_presets->find_preset(new_selected_preset)->printer_technology() :
+    //        switched_presets->get_edited_preset().printer_technology() == switched_presets->find_preset(new_selected_preset)->printer_technology()))
+    //        add_btn(&m_transfer_btn, m_move_btn_id, "paste_menu", Action::Transfer, switched_presets->get_edited_preset().name == new_selected_preset ? _L("Keep") : _L("Transfer"));
+    //}
+    //if (!m_transfer_btn && (ActionButtons::KEEP & m_buttons))
+    //    add_btn(&m_transfer_btn, m_move_btn_id, "paste_menu", Action::Transfer, _L("Keep"));
 
     { // "Don't save" / "Discard" button
         std::string btn_icon    = (ActionButtons::DONT_SAVE & m_buttons) ? "" : (dependent_presets || (ActionButtons::KEEP & m_buttons)) ? "switch_presets" : "exit";
@@ -913,34 +927,75 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection* dependent_
 
     m_info_line = new wxStaticText(this, wxID_ANY, "");
 //    m_info_line->SetFont(wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT).Bold());
-    m_info_line->SetFont(wxGetApp().bold_font());
+    m_info_line->SetFont(ANKER_BOLD_FONT_NO_1/*wxGetApp().bold_font()*/);
+    m_info_line->SetForegroundColour(wxColour("#FFFFFF"));
     m_info_line->Hide();
 
-    if (!m_app_config_key.empty()) {
-        m_remember_choice = new wxCheckBox(this, wxID_ANY, _L("Remember my choice"));
-        m_remember_choice->SetValue(wxGetApp().app_config->get(m_app_config_key) != none);
-        m_remember_choice->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent& evt)
-        {
-            if (!evt.IsChecked())
-                return;
-            wxString preferences_item = m_app_config_key == "default_action_on_new_project"     ? _L("Ask for unsaved changes in presets when creating new project") :
-                                        m_app_config_key == "default_action_on_select_preset"   ? _L("Ask for unsaved changes in presets when selecting new preset") :
-                                                                                                  _L("Ask to save unsaved changes in presets when closing the application or when loading a new project") ;
-            wxString action = m_app_config_key == "default_action_on_new_project"   ? _L("You will not be asked about the unsaved changes in presets the next time you create new project") : 
-                              m_app_config_key == "default_action_on_select_preset" ? _L("You will not be asked about the unsaved changes in presets the next time you switch a preset") :
-                                                                                      _L("You will not be asked about the unsaved changes in presets the next time you: \n"
-						                                                                    "- Closing AnkerMake_alpha while some presets are modified,\n"
-						                                                                    "- Loading a new project while some presets are modified") ;
-            wxString msg = _L("AnkerMake_alpha will remember your action.") + "\n\n" + action + "\n\n" +
-                           format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto be asked about unsaved changes again."), preferences_item);
-    
-            MessageDialog dialog(nullptr, msg, _L("AnkerMake_alpha: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
-            if (dialog.ShowModal() == wxID_CANCEL)
-                m_remember_choice->SetValue(false);
-        });
-    }
+    //by Samuel,20230828, comment remind me checkbox logic to avoid popping don't asking me dialog 
+    //if (!m_app_config_key.empty()) {
+    //    m_remember_choice = new wxCheckBox(this, wxID_ANY, _L("Remember my choice"));
+    //    m_remember_choice->SetValue(wxGetApp().app_config->get(m_app_config_key) != none);
+    //    m_remember_choice->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent& evt)
+    //    {
+    //        if (!evt.IsChecked())
+    //            return;
+    //        wxString preferences_item = m_app_config_key == "default_action_on_new_project"     ? _L("Ask for unsaved changes in presets when creating new project") :
+    //                                    m_app_config_key == "default_action_on_select_preset"   ? _L("Ask for unsaved changes in presets when selecting new preset") :
+    //                                                                                              _L("Ask to save unsaved changes in presets when closing the application or when loading a new project") ;
+    //        wxString action = m_app_config_key == "default_action_on_new_project"   ? _L("You will not be asked about the unsaved changes in presets the next time you create new project") : 
+    //                          m_app_config_key == "default_action_on_select_preset" ? _L("You will not be asked about the unsaved changes in presets the next time you switch a preset") :
+    //                                                                                  _L("You will not be asked about the unsaved changes in presets the next time you: \n"
+				//		                                                                    "- Closing AnkerMake Studio while some presets are modified,\n"
+				//		                                                                    "- Loading a new project while some presets are modified") ;
+    //        wxString msg = _L("AnkerMake Studio will remember your action.") + "\n\n" + action + "\n\n" +
+    //                       format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto be asked about unsaved changes again."), preferences_item);
+    //
+    //        MessageDialog dialog(nullptr, msg, _L("AnkerMake Studio: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
+    //        if (dialog.ShowModal() == wxID_CANCEL)
+    //            m_remember_choice->SetValue(false);
+    //    });
+    //}
 
     wxBoxSizer* topSizer = new wxBoxSizer(wxVERTICAL);
+    // titleHSizer
+    {
+        m_titlePanel = new wxPanel(this);
+       
+        m_titlePanel->SetSize(AnkerSize(this->GetSize().GetWidth(), 40));
+        topSizer->Add(m_titlePanel, 0, wxEXPAND | wxALL, 0);
+
+        wxBoxSizer* titleHSizer = new wxBoxSizer(wxHORIZONTAL);
+        m_titlePanel->SetSizer(titleHSizer);
+
+       
+        titleHSizer->AddStretchSpacer(1);
+
+        // title text
+        auto titleText = new wxStaticText(m_titlePanel, wxID_ANY, m_strTitle);
+        titleText->SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
+        titleText->SetForegroundColour(wxColour("#FFFFFF"));
+        titleText->SetFont(ANKER_BOLD_FONT_NO_1);
+        titleText->SetSize(AnkerSize(250, -1));
+        titleHSizer->Add(titleText, 0, wxALIGN_CENTER_VERTICAL, 0);
+
+        titleHSizer->AddStretchSpacer(1);
+
+        // exit button
+        auto exitBtn = new ScalableButton(m_titlePanel, wxID_ANY, "ankerConfigDialogExit", "", wxSize(20, 20));
+        exitBtn->SetWindowStyleFlag(wxBORDER_NONE);
+        exitBtn->SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
+        exitBtn->SetForegroundColour(wxColour("#FFFFFF"));
+        exitBtn->Bind(wxEVT_BUTTON, &UnsavedChangesDialog::OnExitButtonClicked, this);
+        titleHSizer->Add(exitBtn, 0, wxEXPAND | wxTOP | wxBOTTOM, 10);
+        titleHSizer->AddSpacer(AnkerLength(15));
+
+        // split line
+        wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+        splitLineCtrl->SetBackgroundColour(wxColour("#545863"));
+        splitLineCtrl->SetMaxSize(wxSize(1000, 1));
+        splitLineCtrl->SetMinSize(wxSize(400, 1));
+        topSizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
+    }
 
     topSizer->Add(m_action_line,0, wxEXPAND | wxLEFT | wxTOP | wxRIGHT, border);
     topSizer->Add(m_tree,       1, wxEXPAND | wxLEFT | wxTOP | wxRIGHT, border);
@@ -1015,7 +1070,7 @@ bool UnsavedChangesDialog::save(PresetCollection* dependent_presets, bool show_s
 
         // for system/default/external presets we should take an edited name
         if (preset.is_system || preset.is_default || preset.is_external) {
-            SavePresetDialog save_dlg(this, { preset.type });
+            AnkerSavePresetDialog save_dlg(this, { preset.type });
             if (save_dlg.ShowModal() != wxID_OK) {
                 m_exit_action = Action::Discard;
                 return false;
@@ -1032,7 +1087,16 @@ bool UnsavedChangesDialog::save(PresetCollection* dependent_presets, bool show_s
 
         PrinterTechnology printer_technology = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
 
-        for (Tab* tab : wxGetApp().tabs_list)
+      /*  for (Tab* tab : wxGetApp().tabs_list)
+            if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty()) {
+                const Preset& preset = tab->get_presets()->get_edited_preset();
+                if (preset.is_system || preset.is_default || preset.is_external)
+                    types_for_save.emplace_back(preset.type);
+
+                names_and_types.emplace_back(make_pair(preset.name, preset.type));
+            }*/
+
+        for (AnkerTab* tab : wxGetApp().ankerTabsList)
             if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty()) {
                 const Preset& preset = tab->get_presets()->get_edited_preset();
                 if (preset.is_system || preset.is_default || preset.is_external)
@@ -1043,7 +1107,7 @@ bool UnsavedChangesDialog::save(PresetCollection* dependent_presets, bool show_s
 
 
         if (show_save_preset_dialog && !types_for_save.empty()) {
-            SavePresetDialog save_dlg(this, types_for_save);
+            AnkerSavePresetDialog save_dlg(this, types_for_save);
             if (save_dlg.ShowModal() != wxID_OK) {
                 m_exit_action = Action::Discard;
                 return false;
@@ -1084,6 +1148,12 @@ static wxString get_string_value(std::string opt_key, const DynamicPrintConfig& 
 {
     size_t opt_idx = get_id_from_opt_key(opt_key);
     opt_key = get_pure_opt_key(opt_key);
+
+    if (config.option(opt_key) == nullptr)
+    {
+        ANKER_LOG_ERROR << "not found opt_key: " << opt_key;
+        return _L("N/A");
+    }
 
     if (config.option(opt_key)->is_nil())
         return _L("N/A");
@@ -1233,7 +1303,11 @@ void UnsavedChangesDialog::update(Preset::Type type, PresetCollection* dependent
     if (type == Preset::TYPE_INVALID) {
         PrinterTechnology printer_technology = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
         int presets_cnt = 0;
-        for (Tab* tab : wxGetApp().tabs_list)
+       /* for (Tab* tab : wxGetApp().tabs_list)
+            if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
+                presets_cnt++;*/
+
+        for (AnkerTab* tab : wxGetApp().ankerTabsList)
             if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
                 presets_cnt++;
         m_action_line->SetLabel((header.IsEmpty() ? "" : header + "\n\n") + 
@@ -1259,9 +1333,12 @@ void UnsavedChangesDialog::update(Preset::Type type, PresetCollection* dependent
 
 void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* presets_, const std::string& new_selected_preset)
 {
+    // add by allen for ankerCfgDlg search
     // update searcher befofre update of tree
-    wxGetApp().sidebar().check_and_update_searcher();
-    Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();
+  /*  wxGetApp().sidebar().check_and_update_searcher();
+    Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();*/
+    wxGetApp().sidebarnew().check_and_update_searcher();
+    Search::OptionsSearcher& searcher = wxGetApp().sidebarnew().get_searcher();
     searcher.sort_options_by_key();
 
     // list of the presets with unsaved changes
@@ -1270,7 +1347,11 @@ void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* pres
     {
         PrinterTechnology printer_technology = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
 
-        for (Tab* tab : wxGetApp().tabs_list)
+        /* for (Tab* tab : wxGetApp().tabs_list)
+             if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
+                 presets_list.emplace_back(tab->get_presets());*/
+
+        for (AnkerTab* tab : wxGetApp().ankerTabsList)
             if (tab->supports_printer_technology(printer_technology) && tab->current_preset_is_dirty())
                 presets_list.emplace_back(tab->get_presets());
     }
@@ -1286,8 +1367,10 @@ void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* pres
         const DynamicPrintConfig& new_config = m_tree->has_new_value_column() ? presets->find_preset(new_selected_preset, false, false)->config : mod_config;
         type = presets->type();
 
+#if SHOW_OLD_SETTING_DIALOG
         const std::map<wxString, std::string>& category_icon_map = wxGetApp().get_tab(type)->get_category_icon_map();
-
+#endif
+        const std::map<wxString, std::string>& category_icon_map = wxGetApp().getAnkerTab(type)->get_category_icon_map();
         m_tree->model->AddPreset(type, from_u8(presets->get_edited_preset().name), old_pt, from_u8(new_selected_preset));
 
         // Collect dirty options.
@@ -1355,6 +1438,10 @@ void UnsavedChangesDialog::on_sys_color_changed()
     Refresh();
 }
 
+void  UnsavedChangesDialog::OnExitButtonClicked(wxCommandEvent& event) {
+    Hide();
+    this->EndModal(wxID_CLOSE);
+}
 
 //------------------------------------------
 //          FullCompareDialog
@@ -1785,9 +1872,12 @@ void DiffPresetDialog::update_bottom_info(wxString bottom_info)
 
 void DiffPresetDialog::update_tree()
 {
+    // add by allen for ankerCfgDlg search
     // update searcher before update of tree
-    wxGetApp().sidebar().check_and_update_searcher(); 
-    Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();
+    /*  wxGetApp().sidebar().check_and_update_searcher();
+    Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();*/
+    wxGetApp().sidebarnew().check_and_update_searcher();
+    Search::OptionsSearcher& searcher = wxGetApp().sidebarnew().get_searcher();
     searcher.sort_options_by_key();
 
     m_tree->Clear();
@@ -1847,8 +1937,10 @@ void DiffPresetDialog::update_tree()
                                                "Click this button to select the same preset for the right and left preset."));
 
         m_tree->model->AddPreset(type, "\"" + from_u8(left_preset->name) + "\" vs \"" + from_u8(right_preset->name) + "\"", left_pt);
-
+#if SHOW_OLD_SETTING_DIALOG
         const std::map<wxString, std::string>& category_icon_map = wxGetApp().get_tab(type)->get_category_icon_map();
+#endif
+        const std::map<wxString, std::string>& category_icon_map = wxGetApp().getAnkerTab(type)->get_category_icon_map();
 
         // process changes of extruders count
         if (type == Preset::TYPE_PRINTER && left_pt == ptFFF &&
@@ -2019,7 +2111,7 @@ bool DiffPresetDialog::is_save_confirmed()
     }
 
     if (!types_for_save.empty()) {
-        SavePresetDialog save_dlg(this, types_for_save, _u8L("Modified"), m_preset_bundle_right.get());
+        AnkerSavePresetDialog save_dlg(this, types_for_save, _u8L("Modified"), m_preset_bundle_right.get());
         if (save_dlg.ShowModal() != wxID_OK)
             return false;
 

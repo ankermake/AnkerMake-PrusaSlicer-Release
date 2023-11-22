@@ -961,6 +961,8 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
 
     // Create GCode on heap, it has quite a lot of data.
     std::unique_ptr<GCode> gcode(new GCode);
+    //friva change for acode export
+    gcode->set_ai_creat_file(isCreatAiFile);
     gcode->do_export(this, path.c_str(), result, thumbnail_cb);
     return path.c_str();
 }

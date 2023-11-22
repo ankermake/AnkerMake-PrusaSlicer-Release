@@ -18,6 +18,7 @@
 #include "BitmapComboBox.hpp"
 #include "libslic3r/Utils.hpp"
 #include "OG_CustomCtrl.hpp"
+#include "Anker_OG_CustomCtrl.hpp"
 #include "format.hpp"
 
 #include "libslic3r/Color.hpp"
@@ -439,6 +440,29 @@ wxBitmapBundle* get_bmp_bundle(const std::string& bmp_name_in, int px_cnt/* = 16
     return bmp;
 }
 
+
+wxBitmapBundle* try_get_bmp_bundle(const std::string& bmp_name_in, int px_cnt/* = 16*/, const std::string& new_color/* = std::string()*/)
+{
+#ifdef __WXGTK2__
+    px_cnt *= scale();
+#endif // __WXGTK2__
+
+    static Slic3r::GUI::BitmapCache cache;
+
+    std::string bmp_name = bmp_name_in;
+    boost::replace_last(bmp_name, ".png", "");
+
+    // Try loading an SVG first, then PNG if SVG is not found:
+    wxBitmapBundle* bmp = cache.from_svg(bmp_name, px_cnt, px_cnt, Slic3r::GUI::wxGetApp().dark_mode(), new_color);
+    if (bmp == nullptr) {
+        bmp = cache.from_png(bmp_name, px_cnt, px_cnt);
+        if (!bmp)
+            // Neither SVG nor PNG has been found
+            return nullptr;
+    }
+    return bmp;
+}
+
 wxBitmapBundle* get_empty_bmp_bundle(int width, int height)
 {
     static Slic3r::GUI::BitmapCache cache;
@@ -463,7 +487,8 @@ std::vector<wxBitmapBundle*> get_extruder_color_icons(bool thin_icon/* = false*/
 {
     // Create the bitmap with color bars.
     std::vector<wxBitmapBundle*> bmps;
-    std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    //std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_extruder_colors_from_plater_config();
+    std::vector<std::string> colors = Slic3r::GUI::wxGetApp().plater()->get_filament_colors_from_plater_config();
 
     if (colors.empty())
         return bmps;
@@ -515,9 +540,10 @@ void apply_extruder_selector(Slic3r::GUI::BitmapComboBox** ctrl,
             ++i;
         }
 
-        (*ctrl)->Append(use_full_item_name
-                        ? Slic3r::GUI::from_u8((boost::format("%1% %2%") % str % i).str())
-                        : wxString::Format("%d", i), *bmp);
+        // not need text
+        //(*ctrl)->Append(use_full_item_name
+        //                ? Slic3r::GUI::from_u8((boost::format("%1% %2%") % str % i).str())
+        //                : wxString::Format("%d", i), *bmp);
         ++i;
     }
     (*ctrl)->SetSelection(0);
@@ -827,6 +853,8 @@ ScalableButton::ScalableButton( wxWindow *          parent,
         m_width = size.x/em;
         m_height= size.y/em;
     }
+
+    initBindEvent();
 }
 
 
@@ -844,6 +872,17 @@ ScalableButton::ScalableButton( wxWindow *          parent,
     Slic3r::GUI::wxGetApp().UpdateDarkUI(this);
 
     SetBitmap(bitmap.bmp());
+
+    initBindEvent();
+}
+
+void ScalableButton::initBindEvent() {
+    Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& event) {
+        SetCursor(wxCursor(wxCURSOR_HAND));
+        });
+    Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {
+        SetCursor(wxCursor(wxCURSOR_NONE));
+        });
 }
 
 void ScalableButton::SetBitmap_(const ScalableBitmap& bmp)
@@ -1017,6 +1056,73 @@ void HighlighterForWx::blink()
 
     Highlighter::blink();
 }
+
+
+
+
+void AnkerHighlighterForWx::bind_timer(wxWindow* owner)
+{
+    owner->Bind(wxEVT_TIMER, [this](wxTimerEvent&) {
+        blink();
+        });
+}
+
+// using Anker_OG_CustomCtrl where arrow will be rendered and flag indicated "show/hide" state of this arrow
+void AnkerHighlighterForWx::init(std::pair<Anker_OG_CustomCtrl*, bool*> params)
+{
+    invalidate();
+    if (!Highlighter::init(!params.first && !params.second))
+        return;
+
+    m_custom_ctrl = params.first;
+    m_show_blink_ptr = params.second;
+
+    *m_show_blink_ptr = true;
+    m_custom_ctrl->Refresh();
+}
+
+// - using a BlinkingBitmap. Change state of this bitmap
+void AnkerHighlighterForWx::init(BlinkingBitmap* blinking_bmp)
+{
+    invalidate();
+    if (!Highlighter::init(!blinking_bmp))
+        return;
+
+    m_blinking_bitmap = blinking_bmp;
+    m_blinking_bitmap->activate();
+}
+
+void AnkerHighlighterForWx::invalidate()
+{
+    Highlighter::invalidate();
+
+    if (m_custom_ctrl && m_show_blink_ptr) {
+        *m_show_blink_ptr = false;
+        m_custom_ctrl->Refresh();
+        m_show_blink_ptr = nullptr;
+        m_custom_ctrl = nullptr;
+    }
+    else if (m_blinking_bitmap) {
+        m_blinking_bitmap->invalidate();
+        m_blinking_bitmap = nullptr;
+    }
+}
+
+void AnkerHighlighterForWx::blink()
+{
+    if (m_custom_ctrl && m_show_blink_ptr) {
+        *m_show_blink_ptr = !*m_show_blink_ptr;
+        m_custom_ctrl->Refresh();
+    }
+    else if (m_blinking_bitmap)
+        m_blinking_bitmap->blink();
+    else
+        return;
+
+    Highlighter::blink();
+}
+
+
 
 }// GUI
 }//Slicer

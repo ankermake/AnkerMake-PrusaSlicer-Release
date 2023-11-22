@@ -48,6 +48,7 @@
 #include "GUI_App.hpp"
 #include "GUI_Utils.hpp"
 #include "GUI_ObjectManipulation.hpp"
+#include "AnkerObjectManipulator.hpp"
 #include "Field.hpp"
 #include "DesktopIntegrationDialog.hpp"
 #include "slic3r/Config/Snapshot.hpp"
@@ -120,16 +121,22 @@ BundleMap BundleMap::load()
     const auto rsrc_vendor_dir = (boost::filesystem::path(resources_dir()) / "profiles").make_preferred();
 
     // Load anker bundle from the datadir/vendor directory or from datadir/cache/vendor (archive) or from resources/profiles.
-    auto anker_bundle_path = (vendor_dir / PresetBundle::PreferredVendorBundle).replace_extension(".ini");
-    BundleLocation anker_bundle_loc = BundleLocation::IN_VENDOR;
-    if (! boost::filesystem::exists(anker_bundle_path)) {
-        anker_bundle_path = (archive_dir / PresetBundle::PreferredVendorBundle).replace_extension(".ini");
-        anker_bundle_loc = BundleLocation::IN_ARCHIVE;
-    }
+    boost::filesystem::path anker_bundle_path;
+    BundleLocation anker_bundle_loc;
+    //  Change the order @2023-06-15 by ChunLian
     if (!boost::filesystem::exists(anker_bundle_path)) {
         anker_bundle_path = (rsrc_vendor_dir / PresetBundle::PreferredVendorBundle).replace_extension(".ini");
         anker_bundle_loc = BundleLocation::IN_RESOURCES;
     }
+    if (!boost::filesystem::exists(anker_bundle_path)){
+        anker_bundle_path = (vendor_dir / PresetBundle::PreferredVendorBundle).replace_extension(".ini");
+        anker_bundle_loc = BundleLocation::IN_VENDOR;
+    }
+    if (!boost::filesystem::exists(anker_bundle_path)) {
+        anker_bundle_path = (archive_dir / PresetBundle::PreferredVendorBundle).replace_extension(".ini");
+        anker_bundle_loc = BundleLocation::IN_ARCHIVE;
+    }
+
     {
         Bundle anker_bundle;
         if (anker_bundle.load(std::move(anker_bundle_path), anker_bundle_loc, true))
@@ -1584,7 +1591,7 @@ PageFilesAssociation::PageFilesAssociation(ConfigWizard* parent)
 PageMode::PageMode(ConfigWizard *parent)
     : ConfigWizardPage(parent, _L("View mode"), _L("View mode"))
 {
-    append_text(_L("AnkerMake_alpha's user interfaces comes in three variants:\nSimple, Advanced, and Expert.\n"
+    append_text(_L("AnkerMake Studio's user interfaces comes in three variants:\nSimple, Advanced, and Expert.\n"
         "The Simple mode shows only the most frequently used settings relevant for regular 3D printing. "
         "The other two offer progressively more sophisticated fine-tuning, "
         "they are suitable for advanced and expert users, respectively."));
@@ -1593,7 +1600,7 @@ PageMode::PageMode(ConfigWizard *parent)
     radio_advanced = new wxRadioButton(this, wxID_ANY, _L("Advanced mode"));
     radio_expert = new wxRadioButton(this, wxID_ANY, _L("Expert mode"));
 
-    std::string mode { "simple" };
+    std::string mode{ "expert" };   // { "simple" }; change @2023-06-15 by ChunLian
     wxGetApp().app_config->get("", "view_mode", mode);
 
     if (mode == "advanced") { radio_advanced->SetValue(true); }
@@ -3327,7 +3334,7 @@ ConfigWizard::ConfigWizard(wxWindow *parent)
     p->btn_prev = new wxButton(this, wxID_ANY, _L("< &Back"));
     p->btn_next = new wxButton(this, wxID_ANY, _L("&Next >"));
     p->btn_finish = new wxButton(this, wxID_APPLY, _L("&Finish"));
-    p->btn_cancel = new wxButton(this, wxID_CANCEL, _L("Cancel"));   // Note: The label needs to be present, otherwise we get accelerator bugs on Mac
+    p->btn_cancel = new wxButton(this, wxID_CANCEL, _L("common_button_cancel"));   // Note: The label needs to be present, otherwise we get accelerator bugs on Mac
     p->btnsizer->AddStretchSpacer();
     p->btnsizer->Add(p->btn_prev, 0, wxLEFT, BTN_SPACING);
     p->btnsizer->Add(p->btn_next, 0, wxLEFT, BTN_SPACING);
@@ -3490,7 +3497,8 @@ bool ConfigWizard::run(RunReason reason, StartPage start_page)
 
         app.app_config->set_legacy_datadir(false);
         app.update_mode();
-        app.obj_manipul()->update_ui_from_settings();
+        //app.obj_manipul()->update_ui_from_settings();
+        app.aobj_manipul()->update_ui_from_settings();
         BOOST_LOG_TRIVIAL(info) << "ConfigWizard applied";
         return true;
     } else {

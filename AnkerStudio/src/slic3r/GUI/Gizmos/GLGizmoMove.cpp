@@ -3,11 +3,13 @@
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/GUI_ObjectManipulation.hpp"
 #include "slic3r/GUI/Plater.hpp"
+#include "slic3r/GUI/AnkerObjectManipulator.hpp"
 #include "libslic3r/Model.hpp"
 
 #include <GL/glew.h>
 
 #include <wx/utils.h> 
+
 
 namespace Slic3r {
 namespace GUI {
@@ -16,6 +18,8 @@ const double GLGizmoMove3D::Offset = 10.0;
 
 GLGizmoMove3D::GLGizmoMove3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id)
     : GLGizmoBase(parent, icon_filename, sprite_id)
+    , m_pInputWindowSizer(nullptr)
+    , m_panelVisibleFlag(false)
 {}
 
 std::string GLGizmoMove3D::get_tooltip() const
@@ -53,9 +57,9 @@ bool GLGizmoMove3D::on_init()
     return true;
 }
 
-std::string GLGizmoMove3D::on_get_name() const
+std::string GLGizmoMove3D::on_get_name(bool i18n) const
 {
-    return _u8L("Move");
+    return i18n ? _u8L("Move") : "Move";
 }
 
 bool GLGizmoMove3D::on_is_activable() const
@@ -64,13 +68,21 @@ bool GLGizmoMove3D::on_is_activable() const
     return !selection.is_any_cut_volume() && !selection.is_any_connector() && !selection.is_empty();
 }
 
+void GLGizmoMove3D::on_set_state()
+{
+    if (m_state == On)
+        set_input_window_state(true);
+    else
+        set_input_window_state(false);
+}
+
 void GLGizmoMove3D::on_start_dragging()
 {
     assert(m_hover_id != -1);
 
     m_displacement = Vec3d::Zero();
     const Selection& selection = m_parent.get_selection();
-    const ECoordinatesType coordinates_type = wxGetApp().obj_manipul()->get_coordinates_type();
+    const ECoordinatesType coordinates_type = wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type();
     if (coordinates_type == ECoordinatesType::World)
         m_starting_drag_position = m_center + m_grabbers[m_hover_id].center;
     else if (coordinates_type == ECoordinatesType::Local && selection.is_single_volume_or_modifier()) {
@@ -104,7 +116,7 @@ void GLGizmoMove3D::on_dragging(const UpdateData& data)
     Selection &selection = m_parent.get_selection();
     TransformationType trafo_type;
     trafo_type.set_relative();
-    switch (wxGetApp().obj_manipul()->get_coordinates_type())
+    switch (wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type())
     {
     case ECoordinatesType::Instance: { trafo_type.set_instance(); break; }
     case ECoordinatesType::Local: { trafo_type.set_local(); break; }
@@ -279,14 +291,73 @@ double GLGizmoMove3D::calc_projection(const UpdateData& data) const
 Transform3d GLGizmoMove3D::local_transform(const Selection& selection) const
 {
     Transform3d ret = Geometry::translation_transform(m_center);
-    if (!wxGetApp().obj_manipul()->is_world_coordinates()) {
+    if (!wxGetApp()./*obj_manipul()*/aobj_manipul()->is_world_coordinates()) {
         const GLVolume& v = *selection.get_first_volume();
         Transform3d orient_matrix = v.get_instance_transformation().get_rotation_matrix();
-        if (selection.is_single_volume_or_modifier() && wxGetApp().obj_manipul()->is_local_coordinates())
+        if (selection.is_single_volume_or_modifier() && wxGetApp()./*obj_manipul()*/aobj_manipul()->is_local_coordinates())
             orient_matrix = orient_matrix * v.get_volume_transformation().get_rotation_matrix();
         ret = ret * orient_matrix;
     }
     return ret;
+}
+
+void GLGizmoMove3D::set_input_window_state(bool on)
+{
+    if (wxGetApp().plater() == nullptr)
+        return;
+
+    ANKER_LOG_INFO << "GLGizmoMove3D: " << on;
+
+    std::string panelFlag = get_name(false, false);
+    if (on)
+    {
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+
+        if (m_pInputWindowSizer == nullptr)
+        {
+            m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+            wxGetApp().aobj_manipul()->Show(true);
+            m_pInputWindowSizer->Add(wxGetApp().aobj_manipul(), 1, wxEXPAND, 0);
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                event.Skip();
+
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+        }
+    
+        auto returnFunc = [this]() {
+            wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+        };
+        wxGetApp().aobj_manipul()->setReturnFunc(returnFunc);
+
+        wxGetApp().aobj_manipul()->set_dirty();
+        wxGetApp().aobj_manipul()->update_if_dirty();
+
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+    else
+    {
+        if (m_panelVisibleFlag)
+        {
+            m_panelVisibleFlag = false; 
+            wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+
+			wxGetApp().aobj_manipul()->Show(false);
+			wxGetApp().aobj_manipul()->setReturnFunc(nullptr);
+        }
+    }
 }
 
 } // namespace GUI

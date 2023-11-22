@@ -694,7 +694,7 @@ RENDER_AGAIN:
             Plater::TakeSnapshot snapshot(wxGetApp().plater(), _L("Support parameter change"));
             mo->config.set("support_points_minimal_distance", minimal_point_distance);
             mo->config.set("support_points_density_relative", (int)density);
-            wxGetApp().obj_list()->update_and_show_object_settings_item();
+            //wxGetApp().obj_list()->update_and_show_object_settings_item();
         }
 
         bool generate = m_imgui->button(m_desc.at("auto_generate"));
@@ -779,6 +779,9 @@ RENDER_AGAIN:
 
 bool GLGizmoSlaSupports::on_is_activable() const
 {
+    // Anker: unavalible
+    return false;
+
     const Selection& selection = m_parent.get_selection();
 
     if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA
@@ -799,9 +802,9 @@ bool GLGizmoSlaSupports::on_is_selectable() const
     return (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptSLA);
 }
 
-std::string GLGizmoSlaSupports::on_get_name() const
+std::string GLGizmoSlaSupports::on_get_name(bool i18n) const
 {
-    return _u8L("SLA Support Points");
+    return i18n ? _u8L("SLA Support Points") : "SLA Support Points";
 }
 
 void GLGizmoSlaSupports::ask_about_changes_call_after(std::function<void()> on_yes, std::function<void()> on_no)

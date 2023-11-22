@@ -263,7 +263,8 @@ bool GLGizmoBase::use_grabbers(const wxMouseEvent &mouse_event) {
 
             on_dragging(data);
 
-            wxGetApp().obj_manipul()->set_dirty();
+            //wxGetApp().obj_manipul()->set_dirty();
+            wxGetApp().aobj_manipul()->set_dirty();
             m_parent.set_as_dirty();
             return true;
         }
@@ -291,7 +292,8 @@ void GLGizmoBase::do_stop_dragging(bool perform_mouse_cleanup)
     // Should be fixed.
     m_parent.get_gizmos_manager().update_data();
 
-    wxGetApp().obj_manipul()->set_dirty();
+    //wxGetApp().obj_manipul()->set_dirty();
+    wxGetApp().aobj_manipul()->set_dirty();
 
     // Let the plater know that the dragging finished, so a delayed
     // refresh of the scene with the background processing data should
@@ -328,9 +330,9 @@ void GLGizmoBase::render_input_window(float x, float y, float bottom_limit)
 
 
 
-std::string GLGizmoBase::get_name(bool include_shortcut) const
+std::string GLGizmoBase::get_name(bool i18n, bool include_shortcut) const
 {
-    std::string out = on_get_name();
+    std::string out = on_get_name(i18n);
     if (!include_shortcut) return out;
 
     int key = get_shortcut_key();

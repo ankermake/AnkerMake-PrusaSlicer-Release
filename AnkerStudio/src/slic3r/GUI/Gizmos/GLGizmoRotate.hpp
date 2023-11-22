@@ -90,7 +90,7 @@ public:
 
 protected:
     bool on_init() override;
-    std::string on_get_name() const override { return ""; }
+    std::string on_get_name(bool i18n = true) const override { return ""; }
     void on_start_dragging() override;
     void on_dragging(const UpdateData &data) override;
     void on_render() override;
@@ -115,6 +115,9 @@ private:
 class GLGizmoRotate3D : public GLGizmoBase
 {
     std::array<GLGizmoRotate, 3> m_gizmos;
+
+    bool m_panelVisibleFlag;
+    wxBoxSizer* m_pInputWindowSizer;
 
 public:
     GLGizmoRotate3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
@@ -141,10 +144,15 @@ public:
     void data_changed() override;
 protected:
     bool on_init() override;
-    std::string on_get_name() const override;
+    std::string on_get_name(bool i18n = true) const override;
     void on_set_state() override {
         for (GLGizmoRotate& g : m_gizmos)
             g.set_state(m_state);
+
+        if (m_state == On)
+            set_input_window_state(true);
+        else
+            set_input_window_state(false);
     }
     void on_set_hover_id() override {
         for (int i = 0; i < 3; ++i)
@@ -159,6 +167,7 @@ protected:
             m_gizmos[id].disable_grabber();
     }
     bool on_is_activable() const override;
+
     void on_start_dragging() override;
     void on_stop_dragging() override;
     void on_dragging(const UpdateData &data) override;
@@ -168,6 +177,9 @@ protected:
     virtual void on_unregister_raycasters_for_picking() override;
 
     void on_render_input_window(float x, float y, float bottom_limit) override;
+
+    // Anker
+    void set_input_window_state(bool on);
 
 private:
 

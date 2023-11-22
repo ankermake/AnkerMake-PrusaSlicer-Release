@@ -41,7 +41,7 @@ protected:
 		HORIZ_SPACING = 5,
 	};
 
-	MsgDialog(wxWindow *parent, const wxString &title, const wxString &headline, long style = wxOK, wxBitmap bitmap = wxNullBitmap);
+	MsgDialog(wxWindow *parent, const wxString &title, const wxString &headline, long style = wxOK | wxSTAY_ON_TOP, wxBitmap bitmap = wxNullBitmap);
 	// returns pointer to created button
 	wxButton* add_button(wxWindowID btn_id, bool set_focus = false, const wxString& label = wxString());
 	// returns pointer to found button or NULL
@@ -81,7 +81,7 @@ public:
 	WarningDialog(	wxWindow *parent,
 		            const wxString& message,
 		            const wxString& caption = wxEmptyString,
-		            long style = wxOK);
+		            long style = wxOK | wxSTAY_ON_TOP);
 	WarningDialog(WarningDialog&&) = delete;
 	WarningDialog(const WarningDialog&) = delete;
 	WarningDialog &operator=(WarningDialog&&) = delete;
@@ -117,7 +117,7 @@ public:
 	MessageDialog(	wxWindow *parent,
 		            const wxString& message,
 		            const wxString& caption = wxEmptyString,
-		            long style = wxOK);
+		            long style = wxOK | wxSTAY_ON_TOP);
 	MessageDialog(MessageDialog&&) = delete;
 	MessageDialog(const MessageDialog&) = delete;
 	MessageDialog &operator=(MessageDialog&&) = delete;
@@ -137,7 +137,7 @@ public:
 	RichMessageDialog(	wxWindow *parent,
 						const wxString& message,
 						const wxString& caption = wxEmptyString,
-						long style = wxOK);
+						long style = wxOK | wxSTAY_ON_TOP);
 	RichMessageDialog(RichMessageDialog&&) = delete;
 	RichMessageDialog(const RichMessageDialog&) = delete;
 	RichMessageDialog &operator=(RichMessageDialog&&) = delete;
@@ -285,7 +285,7 @@ public:
 	MessageDialog(wxWindow* parent,
 		const wxString& message,
 		const wxString& caption = wxEmptyString,
-		long style = wxOK)
+		long style = wxOK | wxSTAY_ON_TOP)
     : wxMessageDialog(parent, get_wraped_wxString(message), caption, style) {}
 	~MessageDialog() {}
 };
@@ -297,7 +297,7 @@ public:
 	RichMessageDialog(wxWindow* parent,
 		const wxString& message,
 		const wxString& caption = wxEmptyString,
-		long style = wxOK)
+		long style = wxOK | wxSTAY_ON_TOP)
     : wxRichMessageDialog(parent, get_wraped_wxString(message), caption, style) {
 		this->SetEscapeId(wxID_CANCEL);
 	}
@@ -309,7 +309,7 @@ public:
 class InfoDialog : public MsgDialog
 {
 public:
-	InfoDialog(wxWindow *parent, const wxString &title, const wxString &msg, bool is_marked = false, long style = wxOK| wxICON_INFORMATION);
+	InfoDialog(wxWindow *parent, const wxString &title, const wxString &msg, bool is_marked = false, long style = wxOK | wxICON_INFORMATION | wxSTAY_ON_TOP);
 	InfoDialog(InfoDialog&&) = delete;
 	InfoDialog(const InfoDialog&) = delete;
 	InfoDialog&operator=(InfoDialog&&) = delete;

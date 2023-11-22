@@ -168,7 +168,8 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
     // every tile needs to have a 1px border around it to avoid artifacts when linear sampling on its edges
     unsigned int sprite_size_px_ex = sprite_size_px + 1;
 
-    m_width = 1 + (int)(sprite_size_px_ex * states.size());
+    // Anker: avoid the highlight edge on the right
+    m_width = /*1 + */(int)(sprite_size_px_ex * states.size());
     m_height = 1 + (int)(sprite_size_px_ex * filenames.size());
 
     int n_pixels = m_width * m_height;
@@ -184,6 +185,7 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
     std::vector<unsigned char> data(n_pixels * 4, 0);
     std::vector<unsigned char> sprite_data(sprite_bytes, 0);
     std::vector<unsigned char> sprite_white_only_data(sprite_bytes, 0);
+    std::vector<unsigned char> sprite_white_bg_data(sprite_bytes, 0);
     std::vector<unsigned char> sprite_gray_only_data(sprite_bytes, 0);
     std::vector<unsigned char> output_data(sprite_bytes, 0);
 
@@ -220,12 +222,48 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
                 ::memset((void*)&sprite_white_only_data.data()[offset], 255, 3);
         }
 
+        // makes white bg copy of the sprite
+        ::memcpy((void*)sprite_white_bg_data.data(), (const void*)sprite_data.data(), sprite_bytes);
+        for (int i = 0; i < sprite_n_pixels; ++i) {
+            int offset = i * 4;
+            if (sprite_white_bg_data.data()[offset] != 0)
+            {
+                ::memset((void*)&sprite_white_bg_data.data()[offset], 255, 3);
+                if (sprite_white_bg_data.data()[offset + 3] < 30)
+                    sprite_white_bg_data.data()[offset + 3] = 30;
+            }
+            else
+            {
+                sprite_white_bg_data.data()[offset] = 255;
+                sprite_white_bg_data.data()[offset + 1] = 255;
+                sprite_white_bg_data.data()[offset + 2] = 255;
+                sprite_white_bg_data.data()[offset + 3] = 30;
+            }
+        }
+
         // makes gray only copy of the sprite
         ::memcpy((void*)sprite_gray_only_data.data(), (const void*)sprite_data.data(), sprite_bytes);
         for (int i = 0; i < sprite_n_pixels; ++i) {
             int offset = i * 4;
             if (sprite_gray_only_data.data()[offset] != 0)
-                ::memset((void*)&sprite_gray_only_data.data()[offset], 128, 3);
+                ::memset((void*)&sprite_gray_only_data.data()[offset], 106, 3);
+        }
+
+        // makes green bg for the sprite
+        for (int i = 0; i < sprite_n_pixels; ++i) {
+            int offset = i * 4;
+            if (sprite_data.data()[offset] != 0)
+            {
+                if (sprite_data.data()[offset + 3] < 30)
+                    sprite_data.data()[offset + 3] = 30;
+            }
+            else
+            {
+                sprite_data.data()[offset] = 98;
+                sprite_data.data()[offset + 1] = 211;
+                sprite_data.data()[offset + 2] = 97;
+                sprite_data.data()[offset + 3] = 30;
+            }
         }
 
         int sprite_offset_px = sprite_id * (int)sprite_size_px_ex * m_width;
@@ -237,8 +275,10 @@ bool GLTexture::load_from_svg_files_as_sprites_array(const std::vector<std::stri
             std::vector<unsigned char>* src = nullptr;
             switch (state.first)
             {
+            case 0:  { src = &sprite_data; break; }
             case 1:  { src = &sprite_white_only_data; break; }
             case 2:  { src = &sprite_gray_only_data; break; }
+            case 3:  { src = &sprite_white_bg_data; break; }
             default: { src = &sprite_data; break; }
             }
 

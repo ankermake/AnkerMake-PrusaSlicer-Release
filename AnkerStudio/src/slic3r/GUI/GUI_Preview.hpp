@@ -9,6 +9,10 @@
 #include <string>
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 
+#include "AnkerGcodePreviewToolBar.hpp"
+
+#define USE_ANKER_SLIDER 1 
+
 class wxGLCanvas;
 class wxBoxSizer;
 class wxStaticText;
@@ -99,9 +103,13 @@ class Preview : public wxPanel
 
     bool m_loaded { false };
 
+    bool m_isImportGCode{ false };
+
     DoubleSlider::Control* m_layers_slider{ nullptr };
     DoubleSlider::Control* m_moves_slider{ nullptr };
 
+    AnkerGcodePreviewLayerToolbar* toolbar{ nullptr };
+    wxPoint m_mainWindowClientPos;
 public:
     enum class OptionType : unsigned int
     {
@@ -141,8 +149,13 @@ public:
     void jump_layers_slider(wxKeyEvent& evt);
     void move_layers_slider(wxKeyEvent& evt);
     void edit_layers_slider(wxKeyEvent& evt);
+    void move_sliders(wxKeyEvent& evt);
 
     bool is_loaded() const { return m_loaded; }
+    void setLoadStatus(bool loaded) { m_loaded = loaded; }
+
+    bool is_GcodeImported() const { return m_isImportGCode; }
+    void setGCodeImportType(bool isImport) { m_isImportGCode = isImport; }
 
     void update_moves_slider();
     void enable_moves_slider(bool enable);
@@ -151,13 +164,20 @@ public:
 
     void set_keep_current_preview_type(bool value) { m_keep_current_preview_type = value; }
 
+    void createGcodePreviewLayerToolbar();
+    wxWindow* GetGcodeLayerToolbar();
+    void showGcodeLayerToolbar(bool show);
+    void on_size(wxSizeEvent& evt);
+    void on_move(wxMoveEvent& evt);
+    void shutdown();
 private:
     bool init(wxWindow* parent, Bed3D& bed, Model* model);
 
     void bind_event_handlers();
     void unbind_event_handlers();
 
-    void on_size(wxSizeEvent& evt);
+    void CalGcodePreviewToolbarPos();
+    void CalGcodePreviewToolbarSize();
 
     // Create/Update/Reset double slider on 3dPreview
     wxBoxSizer* create_layers_slider_sizer();
@@ -173,6 +193,7 @@ private:
     void load_print_as_sla();
 
     void on_layers_slider_scroll_changed(wxCommandEvent& event);
+    void on_pausePrintList_changed(wxCommandEvent& event);
     void on_moves_slider_scroll_changed(wxCommandEvent& event);
 };
 

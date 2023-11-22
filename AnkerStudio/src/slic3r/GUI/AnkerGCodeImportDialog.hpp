@@ -6,24 +6,27 @@
 
 #include <boost/bind.hpp>
 #include <boost/signals2/connection.hpp>
+#include "Common/AnkerBaseCtls.h"
+
 
 
 wxDECLARE_EVENT(wxCUSTOMEVT_FILEITEM_CLICKED, wxCommandEvent);
 class AnkerBtn;
 class AnkerLoadingMask;
+class AnkerTitledPanel;
 class AnkerGCodeFileItem : public wxControl
 {
 public:
 	AnkerGCodeFileItem(wxWindow* parent);
 	~AnkerGCodeFileItem();
 
-	void setFileName(std::string filename);
-	void setFilePath(std::string filepath);
-	void setFileTimeStr(std::string time);
+	void setFileName(wxString filename);
+	void setFilePath(wxString filepath);
+	void setFileTimeStr(wxString time);
 
-	std::string getFileName();
-	std::string getFilePath();
-	std::string getFileTimeStr();
+	wxString getFileName();
+	wxString getFilePath();
+	wxString getFileTimeStr();
 
 private:
 	void initUI();
@@ -36,9 +39,10 @@ private:
 private:
 	bool m_enterChildFlag;
 
-	std::string m_fileName;
-	std::string m_filePath;
-	std::string m_fileTimeInfo;
+	wxString m_fileName;
+	wxString m_filePath;
+	wxString m_filePathRenderStr;
+	wxString m_fileTimeInfo;
 	wxImage m_fileImage;
 
 	wxStaticText* m_pFileNameText;
@@ -62,10 +66,31 @@ public:
 		std::string m_fileName;
 		std::string m_filePath;
 
-		std::string m_speedStr;
-		std::string m_filamentStr;
-		int m_timeSecond;
+		std::string m_speedStr = "--";
+		std::string m_filamentStr = "--";
+		int m_timeSecond = 0;
 		wxImage m_previewImage;
+	};
+
+	struct filamentInfo
+	{
+		wxString strfilamentColor;
+		wxString strFilamentName;
+
+		bool operator<(const filamentInfo& rhs) const
+		{
+			if (strFilamentName < rhs.strFilamentName)
+				return true;
+			else
+				return false;
+		}
+	};
+
+	struct  printFilamentInfo
+	{
+		int iIndex;
+		filamentInfo infoDetail;
+		bool bCanReplace;
 	};
 
 public:
@@ -85,12 +110,13 @@ public:
 	void switch2FileInfo(std::string filepath, std::string strTitleName="");
 	void switch2PrintFinished(bool success, GCodeImportResult& result);
 
-	void requestCallback();
+	void requestCallback(int type = -1);
 
 	GCodeImportResult& getImportResult() { return m_importResult; }
 
 private:
 	void initUI();
+	void SimulateData();
 	bool initFSComputerSizer(wxWindow* parent);
 	bool initFSEmptySizer(wxWindow* parent);
 	bool initFSListSizer(wxWindow* parent);
@@ -99,7 +125,6 @@ private:
 
 	void switch2FSMode(FileSelectMode mode);
 	void setLoadingVisible(bool visible);
-	void startRequestTimer();
 
 	void OnComputerBtn(wxCommandEvent& event);
 	void OnStorageBtn(wxCommandEvent& event);
@@ -112,7 +137,8 @@ private:
 	void OnSearchTextEnter(wxCommandEvent& event);
 	void OnFileItemClicked(wxMouseEvent& event);
 	void OnShow(wxShowEvent& event);
-	void OnTimer(wxTimerEvent& event);
+	void OnLoadingTimeout(wxCommandEvent& event);
+	void OnMove(wxMoveEvent& event);
 
 private:
 	bool m_gcodePreviewWaiting;
@@ -124,11 +150,12 @@ private:
 	wxColour m_textDarkColor;
 	wxColour m_btnFocusColor;
 	wxColour m_btnFocusTextColor;
+	wxColour m_splitLineColor;
 
 	FileSelectMode m_currentMode;
-	wxButton* m_pComputerBtn;
-	wxButton* m_pStorageBtn;
-	wxButton* m_pUSBBtn;
+    AnkerBtn* m_pComputerBtn;
+    AnkerBtn* m_pStorageBtn;
+    AnkerBtn* m_pUSBBtn;
 	wxStaticBitmap* m_pPreviewImage;
 	wxStaticText* m_pSpeedText;
 	wxStaticText* m_pFilamentText;
@@ -139,9 +166,10 @@ private:
 	wxScrolledWindow* m_pFSStorageListWidget;
 	wxScrolledWindow* m_pFSUSBListWidget;
 
-	wxSizer* m_pFileSelectVSizer;
-	wxSizer* m_pFileInfoVSizer;
-	wxSizer* m_pFinishedVSizer;
+	AnkerTitledPanel* m_pTitledPanel;
+	wxPanel* m_pFileSelectPanel;
+	wxPanel* m_pFileInfoPanel;
+	wxPanel* m_pFinishedPanel;
 
 	// finish sizer
 	AnkerBtn* m_pPrintBtn;
@@ -158,13 +186,15 @@ private:
 	GCodeImportResult m_importResult;
 	bool m_fileListUpdateReq;
 	bool m_gcodeInfoReq;
-	wxTimer* m_pRequestTimer;
 	std::string m_gcodeInfoFilePath;
 	MqttType::FileList m_remoteFileList;
 	boost::signals2::connection m_connect;
 
 	wxTextCtrl* m_pSearchTextCtrl;
 	std::vector<AnkerGCodeFileItem*> m_gfItemList;
+
+	std::map<filamentInfo, printFilamentInfo> filamentMap;
+	std::vector<printFilamentInfo> m_PrinterFilamentVec;
 };
 
 #endif // _ANKER_GCODE_IMPORT_DIALOG_H_

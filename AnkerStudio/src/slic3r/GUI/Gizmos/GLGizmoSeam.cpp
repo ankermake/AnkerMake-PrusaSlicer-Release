@@ -8,21 +8,21 @@
 #include "slic3r/GUI/ImGuiWrapper.hpp"
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/AnkerBtn.hpp"
+#include "slic3r/GUI/Common/AnkerTitledPanel.hpp"
+#include "slic3r/GUI/Common/AnkerGUIConfig.hpp"
+#include "slic3r/GUI/Common/AnkerSplitCtrl.hpp"
+#include "slic3r/GUI/Common/AnkerSliderCtrl.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 
+#include <wx/valnum.h>
 #include <GL/glew.h>
+
+#define BTN_PRESSED "pressed"
+#define BTN_NORMAL "normal"
 
 
 namespace Slic3r::GUI {
-
-
-
-void GLGizmoSeam::on_shutdown()
-{
-    m_parent.toggle_model_objects_visibility(true);
-}
-
-
 
 bool GLGizmoSeam::on_init()
 {
@@ -47,9 +47,9 @@ bool GLGizmoSeam::on_init()
 
 
 
-std::string GLGizmoSeam::on_get_name() const
+std::string GLGizmoSeam::on_get_name(bool i18n) const
 {
-    return _u8L("Seam painting");
+    return i18n ? _u8L("Seam painting") : "Seam painting";
 }
 
 void GLGizmoSeam::render_painter_gizmo()
@@ -68,7 +68,21 @@ void GLGizmoSeam::render_painter_gizmo()
     glsafe(::glDisable(GL_BLEND));
 }
 
+void GLGizmoSeam::clearSeam()
+{
+    Plater::TakeSnapshot snapshot(wxGetApp().plater(), _L("Reset selection"), UndoRedo::SnapshotType::GizmoAction);
+    ModelObject* mo = m_c->selection_info()->model_object();
+    int                  idx = -1;
+    for (ModelVolume* mv : mo->volumes)
+        if (mv->is_model_part()) {
+            ++idx;
+            m_triangle_selectors[idx]->reset();
+            m_triangle_selectors[idx]->request_update_render_data();
+        }
 
+    update_model_object();
+    m_parent.set_as_dirty();
+}
 
 void GLGizmoSeam::on_render_input_window(float x, float y, float bottom_limit)
 {
@@ -202,7 +216,8 @@ void GLGizmoSeam::update_model_object() const
 
     if (updated) {
         const ModelObjectPtrs& mos = wxGetApp().model().objects;
-        wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
+        //wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
+        wxGetApp().objectbar()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin(), AnkerObjectItem::ITYPE_SEAM);
 
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
     }
@@ -253,5 +268,315 @@ wxString GLGizmoSeam::handle_snapshot_action_name(bool shift_down, GLGizmoPainte
     }
     return action_name;
 }
+
+
+void GLGizmoSeam::on_opening()
+{
+    set_input_window_state(true);
+}
+
+void GLGizmoSeam::on_shutdown()
+{
+    m_parent.toggle_model_objects_visibility(true);
+
+    set_input_window_state(false);
+}
+
+void GLGizmoSeam::set_input_window_state(bool on)
+{
+    if (wxGetApp().plater() == nullptr)
+        return;
+
+    ANKER_LOG_INFO << "GLGizmoSeam: " << on;
+
+    std::string panelFlag = get_name(true, false);
+
+    if (on)
+    {
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+        
+		if (m_pInputWindowSizer == nullptr)
+		{
+			double brushInitSize = 2.0;
+			double brushSizeMin = 0.4;
+			double brushSizeMax = 8.0;
+			double sliderMultiple = 10;
+			m_cursor_radius = brushInitSize;
+			m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+			container->setTitle(/*wxString::FromUTF8(get_name(true, false))*/_("common_slice_toolpannel_seampaint"));
+			container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
+			int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
+			int clearBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("reset.png")), false);
+            m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
+
+			wxPanel* zeamPanel = new wxPanel(container);
+			wxBoxSizer* zeamPanelSizer = new wxBoxSizer(wxVERTICAL);
+			zeamPanel->SetSizer(zeamPanelSizer);
+			container->setContentPanel(zeamPanel);
+
+			wxBoxSizer* modeSizer = new wxBoxSizer(wxHORIZONTAL);
+			zeamPanelSizer->Add(modeSizer, 0, wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+
+			wxImage enforcerImage = wxImage(wxString::FromUTF8(Slic3r::var("zeam_enforcer.png")), wxBITMAP_TYPE_PNG);
+			enforcerImage.Rescale(46, 46);
+			wxImage enforcerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("zeam_enforcer_pressed.png")), wxBITMAP_TYPE_PNG);
+			enforcerImagePressed.Rescale(46, 46);
+			wxButton* enforcerButton = new wxButton(zeamPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			enforcerButton->SetBitmap(enforcerImagePressed);
+			enforcerButton->SetBitmapHover(enforcerImagePressed);
+			enforcerButton->SetMinSize(enforcerImage.GetSize());
+			enforcerButton->SetMaxSize(enforcerImage.GetSize());
+			enforcerButton->SetSize(enforcerImage.GetSize());
+			enforcerButton->SetName(BTN_PRESSED);
+			enforcerButton->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			modeSizer->Add(enforcerButton, 0, wxALIGN_LEFT | wxTOP, 16);
+
+			wxImage blockerImage = wxImage(wxString::FromUTF8(Slic3r::var("zeam_blocker.png")), wxBITMAP_TYPE_PNG);
+			blockerImage.Rescale(46, 46);
+			wxImage blockerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("zeam_blocker_pressed.png")), wxBITMAP_TYPE_PNG);
+			blockerImagePressed.Rescale(46, 46);
+			wxButton* blockerButton = new wxButton(zeamPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			blockerButton->SetBitmap(blockerImage);
+			blockerButton->SetBitmapHover(blockerImagePressed);
+			blockerButton->SetMinSize(blockerImage.GetSize());
+			blockerButton->SetMaxSize(blockerImage.GetSize());
+			blockerButton->SetSize(blockerImage.GetSize());
+			blockerButton->SetName(BTN_NORMAL);
+			blockerButton->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			modeSizer->Add(blockerButton, 0, wxALIGN_LEFT | wxTOP | wxLEFT, 16);
+
+			modeSizer->AddStretchSpacer(1);
+
+
+			AnkerSplitCtrl* splitCtrl = new AnkerSplitCtrl(zeamPanel);
+			zeamPanelSizer->Add(splitCtrl, 0, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, 20);
+
+
+			wxStaticText* brushTitleText = new wxStaticText(zeamPanel, wxID_ANY, /*L"Brush Thickness"*/_("common_slice_toolpannelseam_title1"), wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+            brushTitleText->SetFont(ANKER_FONT_NO_1);
+			brushTitleText->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			brushTitleText->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+			zeamPanelSizer->Add(brushTitleText, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT, 20);
+
+
+			wxBoxSizer* valueHSizer = new wxBoxSizer(wxHORIZONTAL);
+			zeamPanelSizer->Add(valueHSizer, 0, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT, 18);
+
+			//wxSlider* valueSlider = new wxSlider(zeamPanel, wxID_ANY, brushInitSize * sliderMultiple, brushSizeMin * sliderMultiple, brushSizeMax * sliderMultiple, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+			//valueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			//valueSlider->SetForegroundColour(wxColour(ANKER_RGB_INT));
+			
+            AnkerSlider* valueSlider = new AnkerSlider(zeamPanel);
+            valueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+            valueSlider->SetMinSize(AnkerSize(40, 40));
+            valueSlider->SetMaxSize(AnkerSize(1000, 40));
+            valueSlider->setRange(brushSizeMin, brushSizeMax, 0.01);
+            valueSlider->setCurrentValue(brushInitSize);
+            valueSlider->setTooltipVisible(false);
+            
+            valueHSizer->Add(valueSlider, 1, wxEXPAND | wxALIGN_CENTER | wxALIGN_LEFT, 0);
+
+            valueHSizer->AddSpacer(6);
+
+            wxFloatingPointValidator<double> doubleValidator;
+            doubleValidator.SetMin(0.0);
+            doubleValidator.SetMax(brushSizeMax);
+            doubleValidator.SetPrecision(2);
+			char text[5];
+			sprintf(text, "%.2f", brushInitSize); 
+			wxTextCtrl* valueTextCtrl = new wxTextCtrl(zeamPanel, wxID_ANY, text, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE | wxTE_CENTER | wxTE_PROCESS_ENTER);
+			valueTextCtrl->SetMinSize(AnkerSize(40, 23));
+			valueTextCtrl->SetMaxSize(AnkerSize(40, 23));
+			valueTextCtrl->SetSize(AnkerSize(40, 23));
+            valueTextCtrl->SetFont(ANKER_FONT_NO_1);
+			valueTextCtrl->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+			valueTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+            //valueTextCtrl->SetValidator(doubleValidator);
+
+            valueHSizer->Add(valueTextCtrl, 0, wxALIGN_CENTER | wxALIGN_RIGHT, 0);
+
+			zeamPanelSizer->AddStretchSpacer(1);
+
+
+			container->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, returnBtnID, clearBtnID](wxCommandEvent& event) {
+				int btnID = event.GetInt();
+				if (btnID == returnBtnID)
+				{
+					wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+				}
+				else if (btnID == clearBtnID)
+				{
+                    clearSeam();
+				}
+				});
+
+			enforcerButton->Bind(wxEVT_BUTTON, [this, enforcerButton, blockerButton, container](wxCommandEvent& event) {
+                if (enforcerButton->GetName() == BTN_PRESSED)
+                    return;
+
+				m_currentType = EnforcerBlockerType::ENFORCER;
+
+				wxImage enforcerImage = wxImage(wxString::FromUTF8(Slic3r::var("zeam_enforcer.png")), wxBITMAP_TYPE_PNG);
+				enforcerImage.Rescale(46, 46);
+				wxImage enforcerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("zeam_enforcer_pressed.png")), wxBITMAP_TYPE_PNG);
+				enforcerImagePressed.Rescale(46, 46);
+				enforcerButton->SetBitmap(enforcerButton->GetName() == BTN_PRESSED ? enforcerImage : enforcerImagePressed);
+				enforcerButton->SetBitmapHover(enforcerImagePressed);
+				enforcerButton->SetName(enforcerButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+				wxImage blockerImage = wxImage(wxString::FromUTF8(Slic3r::var("zeam_blocker.png")), wxBITMAP_TYPE_PNG);
+				blockerImage.Rescale(46, 46);
+				wxImage blockerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("zeam_blocker_pressed.png")), wxBITMAP_TYPE_PNG);
+				blockerImagePressed.Rescale(46, 46);
+				blockerButton->SetBitmap(enforcerButton->GetName() == BTN_PRESSED ? blockerImage : blockerImagePressed);
+				blockerButton->SetBitmapHover(blockerImagePressed);
+				blockerButton->SetName(enforcerButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+				container->Refresh();
+				});
+            enforcerButton->Bind(wxEVT_ENTER_WINDOW, [enforcerButton](wxMouseEvent& event) {enforcerButton->SetCursor(wxCursor(wxCURSOR_HAND)); });
+            enforcerButton->Bind(wxEVT_LEAVE_WINDOW, [enforcerButton](wxMouseEvent& event) {enforcerButton->SetCursor(wxCursor(wxCURSOR_NONE)); });
+
+			blockerButton->Bind(wxEVT_BUTTON, [this, enforcerButton, blockerButton, container](wxCommandEvent& event) {
+                if (blockerButton->GetName() == BTN_PRESSED)
+                    return;
+                
+                m_currentType = EnforcerBlockerType::BLOCKER;
+
+				wxImage enforcerImage = wxImage(wxString::FromUTF8(Slic3r::var("zeam_enforcer.png")), wxBITMAP_TYPE_PNG);
+				enforcerImage.Rescale(46, 46);
+				wxImage enforcerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("zeam_enforcer_pressed.png")), wxBITMAP_TYPE_PNG);
+				enforcerImagePressed.Rescale(46, 46);
+				enforcerButton->SetBitmap(enforcerButton->GetName() == BTN_PRESSED ? enforcerImage : enforcerImagePressed);
+				enforcerButton->SetBitmapHover(enforcerImagePressed);
+				enforcerButton->SetName(enforcerButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+				wxImage blockerImage = wxImage(wxString::FromUTF8(Slic3r::var("zeam_blocker.png")), wxBITMAP_TYPE_PNG);
+				blockerImage.Rescale(46, 46);
+				wxImage blockerImagePressed = wxImage(wxString::FromUTF8(Slic3r::var("zeam_blocker_pressed.png")), wxBITMAP_TYPE_PNG);
+				blockerImagePressed.Rescale(46, 46);
+				blockerButton->SetBitmap(enforcerButton->GetName() == BTN_PRESSED ? blockerImage : blockerImagePressed);
+				blockerButton->SetBitmapHover(blockerImagePressed);
+				blockerButton->SetName(enforcerButton->GetName() == BTN_PRESSED ? BTN_NORMAL : BTN_PRESSED);
+
+				container->Refresh();
+				});
+            blockerButton->Bind(wxEVT_ENTER_WINDOW, [blockerButton](wxMouseEvent& event) {blockerButton->SetCursor(wxCursor(wxCURSOR_HAND)); });
+            blockerButton->Bind(wxEVT_LEAVE_WINDOW, [blockerButton](wxMouseEvent& event) {blockerButton->SetCursor(wxCursor(wxCURSOR_NONE)); });
+
+			valueSlider->Bind(wxANKEREVT_SLIDER_VALUE_CHANGED, [this, valueTextCtrl, valueSlider, container](wxCommandEvent& event) {
+                if (m_editFlag)
+                    return;
+
+                m_editFlag = true;
+                
+                double currentValue = valueSlider->getCurrentValue();
+				//double value = currentValue * 1.0 / 10.0;
+
+				m_cursor_radius = currentValue;
+
+				char text[5];
+				sprintf(text, "%.2f", currentValue);
+				valueTextCtrl->SetValue(text);
+
+				//container->Refresh();
+
+                m_editFlag = false;
+				});
+            valueTextCtrl->Bind(/*wxEVT_TEXT*/wxEVT_TEXT_ENTER, [this, valueSlider, valueTextCtrl, container, brushSizeMin, brushSizeMax](wxCommandEvent& event) {
+                if (m_editFlag)
+                    return;
+
+                m_editFlag = true;
+                
+                double newValue = 10.0;
+				wxString newValueStr = valueTextCtrl->GetLineText(0);
+				bool success = newValueStr.ToDouble(&newValue);
+				if (success && newValue >= brushSizeMin && newValue <= brushSizeMax)
+				{
+					m_cursor_radius = newValue;
+					valueSlider->setCurrentValue(newValue);
+					
+				}
+                else
+                {
+                    double currentValue = valueSlider->getCurrentValue();
+
+                    m_cursor_radius = currentValue;
+
+                    char text[5];
+                    sprintf(text, "%.2f", currentValue);
+                    valueTextCtrl->SetValue(text);
+                }
+
+                container->Refresh();
+
+                m_editFlag = false;
+				});
+            valueTextCtrl->Bind(wxEVT_KILL_FOCUS, [this, valueSlider, valueTextCtrl, container, brushSizeMin, brushSizeMax](wxFocusEvent& event) {
+                if (m_editFlag)
+                    return;
+
+                m_editFlag = true;
+
+                double newValue = 10.0;
+                wxString newValueStr = valueTextCtrl->GetLineText(0);
+                bool success = newValueStr.ToDouble(&newValue);
+                if (success && newValue >= brushSizeMin && newValue <= brushSizeMax)
+                {
+                    m_cursor_radius = newValue;
+                    valueSlider->setCurrentValue(newValue);
+
+                }
+                else
+                {
+                    double currentValue = valueSlider->getCurrentValue();
+
+                    m_cursor_radius = currentValue;
+
+                    char text[5];
+                    sprintf(text, "%.2f", currentValue);
+                    valueTextCtrl->SetValue(text);
+                }
+
+                container->Refresh();
+
+                m_editFlag = false;
+
+                event.Skip();
+                });
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                event.Skip();
+
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+		}
+
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+    else
+    {
+    m_panelVisibleFlag = false;
+    if (wxGetApp().plater()->sidebarnew().getSizerFlags() == panelFlag)
+    {
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+    }
+    }
+}
+
+
 
 } // namespace Slic3r::GUI

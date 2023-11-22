@@ -786,7 +786,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("end_gcode", coString);
     def->label = L("End G-code");
     def->tooltip = L("This end procedure is inserted at the end of the output file. "
-                   "Note that you can use placeholder variables for all AnkerMake_alpha settings.");
+                   "Note that you can use placeholder variables for all AnkerMake Studio settings.");
     def->multiline = true;
     def->full_width = true;
     def->height = 12;
@@ -797,7 +797,7 @@ void PrintConfigDef::init_fff_params()
     def->label = L("End G-code");
     def->tooltip = L("This end procedure is inserted at the end of the output file, before the printer end gcode (and "
                    "before any toolchange from this filament in case of multimaterial printers). "
-                   "Note that you can use placeholder variables for all AnkerMake_alpha settings. "
+                   "Note that you can use placeholder variables for all AnkerMake Studio settings. "
                    "If you have multiple extruders, the gcode is processed in extruder order.");
     def->multiline = true;
     def->full_width = true;
@@ -845,6 +845,15 @@ void PrintConfigDef::init_fff_params()
     def->max_literal = 50;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("external_perimeter_flow_ratio", coFloat);
+    def->label = L("External perimeter flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for external perimeter. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
 
     def = this->add("external_perimeter_speed", coFloatOrPercent);
     def->label = L("External perimeters");
@@ -982,6 +991,24 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("This is only used in the Slic3r interface as a visual help.");
     def->gui_type = ConfigOptionDef::GUIType::color;
     def->set_default_value(new ConfigOptionStrings { "#29B2B2" });
+
+    // add by allen for add anker_filament_id and anker_colour_id
+    def = this->add("anker_filament_id", coStrings);
+    def->label = L("Anker filament id");
+    def->tooltip = L("This is only used in the Slic3r interface as a visual help.");
+    //def->gui_type = ConfigOptionDef::GUIType::color;
+    def->cli = ConfigOptionDef::nocli;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionStrings{ "" });
+
+    // add by allen for add anker_filament_id and anker_colour_id
+    def = this->add("anker_colour_id", coStrings);
+    def->label = L("Anker colour id");
+    def->tooltip = L("This is only used in the Slic3r interface as a visual help.");
+    //def->gui_type = ConfigOptionDef::GUIType::color;
+    def->cli = ConfigOptionDef::nocli;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionStrings{ "" });
 
     def = this->add("filament_notes", coStrings);
     def->label = L("Filament notes");
@@ -1126,9 +1153,11 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("The filament material type for use in custom G-codes.");
     def->gui_flags = "show_value";
     def->set_enum_values(ConfigOptionDef::GUIType::select_open, {
+        "PLA+",
         "PLA", 
-        "PET",
+        "TPU",
         "ABS",
+        "PETG",
         "ASA",
         "FLEX", 
         "HIPS",
@@ -1148,7 +1177,7 @@ void PrintConfigDef::init_fff_params()
         "SCAFF"
     });
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionStrings { "PLA" });
+    def->set_default_value(new ConfigOptionStrings { "PLA+" });
 
     def = this->add("filament_soluble", coBools);
     def->label = L("Soluble material");
@@ -1286,6 +1315,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(200, true));
 
+    def = this->add("first_layer_flow_ratio", coFloat);
+    def->label = L("First layer flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for first layer. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
+
     def = this->add("first_layer_height", coFloatOrPercent);
     def->label = L("First layer height");
     def->category = L("Layers and Perimeters");
@@ -1306,6 +1344,14 @@ void PrintConfigDef::init_fff_params()
     def->max_literal = 20;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(30, false));
+
+    def = this->add("first_layer_travel_speed", coFloat);
+    def->label = L("First layer travel speed");
+    def->tooltip = L("This speed will be applied to travel of the first layer.");
+    def->sidetext = L("mm/s");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(130));
 
     def = this->add("first_layer_speed_over_raft", coFloatOrPercent);
     def->label = L("Speed of object first layer over raft interface");
@@ -1387,6 +1433,146 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(20));
 
+    //================Jerk Control Add By Galen.Xiao 2023/0918 start
+    def = this->add("jerk_enable", coBool);
+    def->label = L("jerk_enable");       
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_enable");
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("jerk_travel", coFloat);
+    def->label = L("jerk_travel");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_travel");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_print", coFloat);
+    def->label = L("jerk_print");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_print");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_infill", coFloat);
+    def->label = L("jerk_infill");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_infill");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_outer_wall", coFloat);
+    def->label = L("jerk_e_outer_wall");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_outer_wall");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_inner_wall", coFloat);
+    def->label = L("jerk_inner_wall");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_inner_wall");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_top_bottom", coFloat);
+    def->label = L("jerk_top_bottom");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_top_bottom");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_skirt_brim", coFloat);
+    def->label = L("jerk_skirt_brim");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_skirt_brim");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_enable", coBool);
+    def->label = L("jerk_e_enable");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_enable");
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("jerk_e_print", coFloat);
+    def->label = L("jerk_e_print");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_print");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_infill", coFloat);
+    def->label = L("jerk_e_infill");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_infill");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_outer_wall", coFloat);
+    def->label = L("jerk_e_infill");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_infill");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_inner_wall", coFloat);
+    def->label = L("jerk_e_inner_wall");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_inner_wall");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_skin", coFloat);
+    def->label = L("jerk_e_skin");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_skin");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_support", coFloat);
+    def->label = L("jerk_e_support");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_support");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_e_skirt_brim", coFloat);
+    def->label = L("jerk_e_skirt_brim");
+    def->category = L("Jerk Control");
+    def->tooltip = L("jerk_e_skirt_brim");
+    def->sidetext = L("mm/s");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+    //================Jerk Control Add By Galen.Xiao 2023/0918 end
+
     def = this->add("gcode_comments", coBool);
     def->label = L("Verbose G-code");
     def->tooltip = L("Enable this to get a commented G-code file, with each line explained by a descriptive text. "
@@ -1399,7 +1585,7 @@ void PrintConfigDef::init_fff_params()
     def->label = L("G-code flavor");
     def->tooltip = L("Some G/M-code commands, including temperature control and others, are not universal. "
                    "Set this option to your printer's firmware to get a compatible output. "
-                   "The \"No extrusion\" flavor prevents AnkerMake_alpha from exporting any extrusion value at all.");
+                   "The \"No extrusion\" flavor prevents AnkerMake Studio from exporting any extrusion value at all.");
     def->set_enum<GCodeFlavor>({
         { "reprap",         "RepRap/Sprinter" },
         { "reprapfirmware", "RepRapFirmware" },
@@ -1492,7 +1678,7 @@ void PrintConfigDef::init_fff_params()
     def->category = L("Advanced");
     def->tooltip = L("Connect an infill line to an internal perimeter with a short segment of an additional perimeter. "
                      "If expressed as percentage (example: 15%) it is calculated over infill extrusion width. "
-                     "AnkerMake_alpha tries to connect two close infill lines to a short perimeter segment. If no such perimeter segment "
+                     "AnkerMake Studio tries to connect two close infill lines to a short perimeter segment. If no such perimeter segment "
                      "shorter than infill_anchor_max is found, the infill line is connected to a perimeter segment at just one side "
                      "and the length of the perimeter segment taken is limited to this parameter, but no longer than anchor_length_max. "
                      "Set this parameter to zero to disable anchoring perimeters connected to a single infill line.");
@@ -1515,7 +1701,7 @@ void PrintConfigDef::init_fff_params()
     def->category    = def_infill_anchor_min->category;
     def->tooltip = L("Connect an infill line to an internal perimeter with a short segment of an additional perimeter. "
                      "If expressed as percentage (example: 15%) it is calculated over infill extrusion width. "
-                     "AnkerMake_alpha tries to connect two close infill lines to a short perimeter segment. If no such perimeter segment "
+                     "AnkerMake Studio tries to connect two close infill lines to a short perimeter segment. If no such perimeter segment "
                      "shorter than this parameter is found, the infill line is connected to a perimeter segment at just one side "
                      "and the length of the perimeter segment taken is limited to infill_anchor, but no longer than this parameter. "
                      "Set this parameter to zero to disable anchoring.");
@@ -1553,6 +1739,15 @@ void PrintConfigDef::init_fff_params()
     def->max_literal = 50;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("infill_flow_ratio", coFloat);
+    def->label = L("Infill flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for infill. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
 
     def = this->add("infill_first", coBool);
     def->label = L("Infill before perimeters");
@@ -2054,6 +2249,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
+    def = this->add("perimeter_flow_ratio", coFloat);
+    def->label = L("Perimeter flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for perimeter. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
+
     def = this->add("perimeter_speed", coFloat);
     def->label = L("Perimeters");
     def->category = L("Speed");
@@ -2441,6 +2645,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
 
+    def = this->add("solid_infill_flow_ratio", coFloat);
+    def->label = L("Solid infill flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for solid infill. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
+
     def = this->add("solid_infill_speed", coFloatOrPercent);
     def->label = L("Solid infill");
     def->category = L("Speed");
@@ -2491,15 +2704,15 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("autoemit_temperature_commands", coBool);
     def->label = L("Emit temperature commands automatically");
-    def->tooltip = L("When enabled, AnkerMake_alpha will check whether your Custom Start G-Code contains M104 or M190. "
+    def->tooltip = L("When enabled, AnkerMake Studio will check whether your Custom Start G-Code contains M104 or M190. "
                      "If so, the temperatures will not be emitted automatically so you're free to customize "
                      "the order of heating commands and other custom actions. Note that you can use "
-                     "placeholder variables for all AnkerMake_alpha settings, so you can put "
+                     "placeholder variables for all AnkerMake Studio settings, so you can put "
                      "a \"M109 S[first_layer_temperature]\" command wherever you want.\n"
                      "If your Custom Start G-Code does NOT contain M104 or M190, "
-                     "AnkerMake_alpha will execute the Start G-Code after bed reached its target temperature "
+                     "AnkerMake Studio will execute the Start G-Code after bed reached its target temperature "
                      "and extruder just started heating.\n\n"
-                     "When disabled, AnkerMake_alpha will NOT emit commands to heat up extruder and bed, "
+                     "When disabled, AnkerMake Studio will NOT emit commands to heat up extruder and bed, "
                      "leaving both to Custom Start G-Code.");
     def->mode = comExpert;
     def->set_default_value(new ConfigOptionBool(true));
@@ -2518,11 +2731,11 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Start G-code");
     def->tooltip = L("This start procedure is inserted at the beginning, after any printer start gcode (and "
                    "after any toolchange to this filament in case of multi-material printers). "
-                   "This is used to override settings for a specific filament. If AnkerMake_alpha detects "
+                   "This is used to override settings for a specific filament. If AnkerMake Studio detects "
                    "M104, M109, M140 or M190 in your custom codes, such commands will "
                    "not be prepended automatically so you're free to customize the order "
                    "of heating commands and other custom actions. Note that you can use placeholder variables "
-                   "for all AnkerMake_alpha settings, so you can put a \"M109 S[first_layer_temperature]\" command "
+                   "for all AnkerMake Studio settings, so you can put a \"M109 S[first_layer_temperature]\" command "
                    "wherever you want. If you have multiple extruders, the gcode is processed "
                    "in extruder order.");
     def->multiline = true;
@@ -2709,6 +2922,15 @@ void PrintConfigDef::init_fff_params()
     def->max_literal = 50;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("support_material_flow_ratio", coFloat);
+    def->label = L("Support material flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for support. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
 
     def = this->add("support_material_interface_contact_loops", coBool);
     def->label = L("Interface loops");
@@ -3006,9 +3228,9 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("toolchange_gcode", coString);
     def->label = L("Tool change G-code");
-    def->tooltip = L("This custom code is inserted before every toolchange. Placeholder variables for all AnkerMake_alpha settings "
+    def->tooltip = L("This custom code is inserted before every toolchange. Placeholder variables for all AnkerMake Studio settings "
                      "as well as {toolchange_z}, {previous_extruder} and {next_extruder} can be used. When a tool-changing command "
-                     "which changes to the correct extruder is included (such as T{next_extruder}), AnkerMake_alpha will emit no other such command. "
+                     "which changes to the correct extruder is included (such as T{next_extruder}), AnkerMake Studio will emit no other such command. "
                      "It is therefore possible to script custom behaviour both before and after the toolchange.");
     def->multiline = true;
     def->full_width = true;
@@ -3028,6 +3250,15 @@ void PrintConfigDef::init_fff_params()
     def->max_literal = 50;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(0, false));
+
+    def = this->add("top_infill_flow_ratio", coFloat);
+    def->label = L("Top infill flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects the amount of plastic for top infill. ");
+    def->min = 0;
+    def->max = 2;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1));
 
     def = this->add("top_solid_infill_speed", coFloatOrPercent);
     def->label = L("Top solid infill");
@@ -4381,7 +4612,7 @@ std::string DynamicPrintConfig::validate()
 {
     // Full print config is initialized from the defaults.
     const ConfigOption *opt = this->option("printer_technology", false);
-    auto printer_technology = (opt == nullptr) ? ptFFF : static_cast<PrinterTechnology>(dynamic_cast<const ConfigOptionEnumGeneric*>(opt)->value);
+    auto printer_technology = (opt == nullptr) ? ptFFF : static_cast<PrinterTechnology>(int(dynamic_cast<const ConfigOptionEnumGeneric*>(opt)->value));
     switch (printer_technology) {
     case ptFFF:
     {
@@ -4818,8 +5049,8 @@ CLIMiscConfigDef::CLIMiscConfigDef()
 
     def = this->add("config_compatibility", coEnum);
     def->label = L("Forward-compatibility rule when loading configurations from config files and project files (3MF, AMF).");
-    def->tooltip = L("This version of AnkerMake_alpha may not understand configurations produced by the newest AnkerMake_alpha versions. "
-                     "For example, newer AnkerMake_alpha may extend the list of supported firmware flavors. One may decide to "
+    def->tooltip = L("This version of AnkerMake Studio may not understand configurations produced by the newest AnkerMake Studio versions. "
+                     "For example, newer AnkerMake Studio may extend the list of supported firmware flavors. One may decide to "
                      "bail out or to substitute an unknown value with a default silently or verbosely.");
     def->set_enum<ForwardCompatibilitySubstitutionRule>({
         { "disable",        L("Bail out on unknown configuration values") },
@@ -4839,8 +5070,8 @@ CLIMiscConfigDef::CLIMiscConfigDef()
 
     def = this->add("single_instance", coBool);
     def->label = L("Single instance mode");
-    def->tooltip = L("If enabled, the command line arguments are sent to an existing instance of GUI AnkerMake_alpha, "
-                     "or an existing AnkerMake_alpha window is activated. "
+    def->tooltip = L("If enabled, the command line arguments are sent to an existing instance of GUI AnkerMake Studio, "
+                     "or an existing AnkerMake Studio window is activated. "
                      "Overrides the \"single_instance\" configuration value from application preferences.");
 
     def = this->add("datadir", coString);
