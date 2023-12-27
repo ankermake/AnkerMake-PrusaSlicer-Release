@@ -17,10 +17,11 @@ AnkerMake Studio is based on PrusaSlicer 2.6.0.alpha6
 	1. cd deps;mkdir deps_build;cd deps_build;
 	2. cmake  -DCMAKE_BUILD_TYPE=Debug -S .. -G "Visual Studio 16 2019";
 	3. Open the project and build the dependency library: {path}/AnkerStudio/deps/deps_build/destdir;
-	4. Set system environment variables:  THIRD_PART_ROOT = {path}/AnkerStudio/deps/deps_build/destdir;
-	5. mkdir AnkerStudio/build && AnkerStudio/build;
-	6. cmake -DCMAKE_BUILD_TYPE=Debug -S .. -G "Visual Studio 16 2019";
-	7. Open the project and build;
+	4. Install some other dependency library: jansson;
+	5. Set system environment variables:  THIRD_PART_ROOT = {path}/AnkerStudio/deps/deps_build/destdir;
+	6. mkdir AnkerStudio/build && AnkerStudio/build;
+	7. cmake -DCMAKE_BUILD_TYPE=Debug -S .. -G "Visual Studio 16 2019";
+	8. Open the project and build;
 	
 # Building projects on Mac platform:
 	1. cd deps;mkdir deps_build;cd deps_build;
