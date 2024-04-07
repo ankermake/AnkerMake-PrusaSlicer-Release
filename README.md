@@ -11,6 +11,10 @@ eufyMake Studio is based on [PrusaSlicer](https://github.com/prusa3d/PrusaSlicer
 Key features are:
 
 - Basic slicing features & GCode viewer;
+<<<<<<< HEAD
+=======
+- Multiple plates management;
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 - Remote control & monitoring;
 - multi-platform (Win/Mac) support;
 
@@ -19,10 +23,15 @@ Following platforms are currently supported to compile:
 - Windows 64-bit, [Compile Guide](AnkerStudio/doc/Windows_build.md)
 - Mac 64-bit, [Compile Guide](AnkerStudio/doc/MacOs_build.md)
 
+<<<<<<< HEAD
 You can add an issue to the if there is a problem compiling or running.
 
 # Report issue
 You can add an issue to the [github tracker](https://github.com/ankermake/AnkerMake-PrusaSlicer-Release/issues) if there are any questions.
+=======
+# Report issue
+You can add an issue to the [github tracker](https://github.com/ankermake/AnkerMake-PrusaSlicer-Release/issues) if **it isn't already present.**
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 
 ## License
 	

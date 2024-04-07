@@ -2415,6 +2415,269 @@ void GLGizmoMeasure::update_input_window()
     }
 }
 
+void GLGizmoMeasure::set_input_window_state(bool on)
+{
+
+    if (wxGetApp().plater() == nullptr)
+        return;
+
+    ANKER_LOG_INFO << "GLGizmoMeasure: " << on;
+
+    std::string panelFlag = "GLGizmoMeasure";
+    if (on)
+    {
+        wxGetApp().plater()->sidebarnew().setMainSizer();
+
+        if (m_pInputWindowSizer == nullptr)
+        {
+            m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
+
+            AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+            container->setTitle(wxString::FromUTF8(get_name(true, false))/*_("common_slice_toolpannelcut_button")*/);
+            container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
+            int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
+            container->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, returnBtnID](wxCommandEvent& event) {
+                int btnID = event.GetInt();
+                if (btnID == returnBtnID)
+                {
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+            m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
+
+            wxPanel* measurePanel = new wxPanel(container);
+            wxBoxSizer* measureSizer = new wxBoxSizer(wxVERTICAL);
+            measurePanel->SetSizer(measureSizer);
+            container->setContentPanel(measurePanel);
+            measureSizer->AddSpacer(30);
+
+            {
+                // selection 1
+                wxBoxSizer* selectionSizer1 = new wxBoxSizer(wxHORIZONTAL);
+                measureSizer->Add(selectionSizer1, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                wxString text1 = _L("common_right_panel_measure_selection") + " 1 ";
+                wxStaticText* selectionText1 = new wxStaticText(measurePanel, wxID_ANY, text1);
+                selectionText1->SetFont(ANKER_FONT_NO_1);
+                selectionText1->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+                selectionSizer1->Add(selectionText1, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+                selectionSizer1->AddStretchSpacer(1);
+                // selection 1 type
+                m_firstSelectedType = new wxStaticText(measurePanel, wxID_ANY, _L("common_right_panel_measure_selection_none"));
+                //selectionText1type->SetLabel();
+                m_firstSelectedType->SetFont(ANKER_BOLD_FONT_NO_1);
+                m_firstSelectedType->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+                selectionSizer1->Add(m_firstSelectedType, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
+                measureSizer->AddSpacer(10);
+
+            }
+
+            {
+                // selection 2
+                wxBoxSizer* selectionSizer2 = new wxBoxSizer(wxHORIZONTAL);
+                measureSizer->Add(selectionSizer2, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                wxString text2 = _L("common_right_panel_measure_selection") + " 2 ";
+                wxStaticText* selectionText2 = new wxStaticText(measurePanel, wxID_ANY, text2);
+                selectionText2->SetFont(ANKER_FONT_NO_1);
+                selectionText2->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+                selectionSizer2->Add(selectionText2, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+                selectionSizer2->AddStretchSpacer(1);
+                // selection 2 type
+                m_secondSelectedType = new wxStaticText(measurePanel, wxID_ANY, _L("common_right_panel_measure_selection_none"));
+                m_secondSelectedType->SetFont(ANKER_BOLD_FONT_NO_1);
+                m_secondSelectedType->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+                selectionSizer2->Add(m_secondSelectedType, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
+                measureSizer->AddSpacer(10);
+
+            }
+
+            {
+                // restart selection
+                bool hasSelected = m_selected_features.first.feature.has_value();
+                AnkerBtn* restartButton = new AnkerBtn(measurePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+                restartButton->SetMinSize(AnkerSize(180, 34));
+                restartButton->SetMaxSize(AnkerSize(180, 34));
+                restartButton->SetText(_L("common_right_panel_measure_restart_button"));
+                restartButton->SetBackgroundColour(wxColor(PANEL_BACK_RGB_INT));
+                restartButton->SetRadius(4);
+                restartButton->SetTextColor(wxColor(ANKER_RGB_INT));
+                restartButton->SetFont(ANKER_BOLD_FONT_NO_1);
+                restartButton->Bind(wxEVT_ENTER_WINDOW, [restartButton, hasSelected](wxMouseEvent& event) {
+                    restartButton->SetBackgroundColour(hasSelected ? wxColour("#324435") : wxColor(58, 59, 63));
+                    restartButton->Refresh();
+                    });
+                restartButton->Bind(wxEVT_LEAVE_WINDOW, [restartButton,hasSelected](wxMouseEvent& event) {
+                    restartButton->SetBackgroundColour(hasSelected ? wxColour("#333438") : wxColor(PANEL_BACK_RGB_INT));
+                    restartButton->Refresh();
+                    });
+                restartButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
+                    m_selected_features.reset();
+                    m_selected_sphere_raycasters.clear();
+                    m_parent.request_extra_frame();
+                    update_input_window();
+                    });
+                measureSizer->Add(restartButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_TOP | wxTOP, AnkerSize(12, 0).GetWidth());
+                measureSizer->AddSpacer(10);
+            }
+
+            AnkerSplitCtrl* splitCtrl = new AnkerSplitCtrl(measurePanel);
+            splitCtrl->SetMaxSize(AnkerSize(100000, 1));
+            splitCtrl->SetMinSize(AnkerSize(1, 1));
+            measureSizer->Add(splitCtrl, 0, wxEXPAND | wxALIGN_CENTER | wxTOP | wxBOTTOM, 10);
+
+            {
+                // Measure
+                wxBoxSizer* measureTextSizer = new wxBoxSizer(wxHORIZONTAL);
+                measureSizer->Add(measureTextSizer, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT,20);
+                wxStaticText* measureText4 = new wxStaticText(measurePanel, wxID_ANY, _L("common_right_panel_measure_title"));
+                measureText4->SetFont(ANKER_FONT_NO_1);
+                measureText4->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+                measureTextSizer->Add(measureText4, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+                measureSizer->AddSpacer(10);
+
+                // Measure result
+                wxBoxSizer* resultSizer1 = new wxBoxSizer(wxHORIZONTAL);
+                measureSizer->Add(resultSizer1, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                m_firstResultType = new wxStaticText(measurePanel, wxID_ANY, L"");
+                m_firstResultType->SetFont(ANKER_FONT_NO_1);
+                m_firstResultType->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+                resultSizer1->Add(m_firstResultType, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+                resultSizer1->AddStretchSpacer(1);
+                m_firstResultValue = new wxStaticText(measurePanel, wxID_ANY, L"");
+                m_firstResultValue->SetFont(ANKER_BOLD_FONT_NO_1);
+                m_firstResultValue->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+                resultSizer1->Add(m_firstResultValue,0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
+                measureSizer->AddSpacer(10);
+
+                wxBoxSizer* resultSizer2 = new wxBoxSizer(wxHORIZONTAL);
+                measureSizer->Add(resultSizer2, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                m_secondResultType = new wxStaticText(measurePanel, wxID_ANY, L"");
+                m_secondResultType->SetFont(ANKER_FONT_NO_1);
+                m_secondResultType->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+                resultSizer2->Add(m_secondResultType, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+                resultSizer2->AddStretchSpacer(1);
+                m_secondResultValue = new wxStaticText(measurePanel, wxID_ANY, L"");
+                m_secondResultValue->SetFont(ANKER_BOLD_FONT_NO_1);
+                m_secondResultValue->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+                resultSizer2->Add(m_secondResultValue, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
+            }
+            measurePanel->Layout();
+
+            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
+                event.Skip();
+
+                if (!m_panelVisibleFlag)
+                    return;
+
+                std::string flag = wxGetApp().plater()->sidebarnew().getSizerFlags().ToStdString();
+                if (flag != panelFlag)
+                {
+                    m_panelVisibleFlag = false;
+
+                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                }
+                });
+        }
+
+        wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
+        m_panelVisibleFlag = true;
+    }
+    else
+    {
+        m_panelVisibleFlag = false;
+        if (wxGetApp().plater()->sidebarnew().getSizerFlags() == panelFlag)
+        {
+            m_panelVisibleFlag = false;
+            wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
+        }
+    }
+}
+
+void GLGizmoMeasure::update_input_window()
+{
+    const int max_measure_row_count = 2;
+    const bool use_inches = wxGetApp().app_config->get_bool("use_inches");
+    const std::string units = use_inches ? _u8L(" in") : _u8L(" mm");
+    auto format_item_text = [this, use_inches, &units](const SelectedFeatures::Item& item) {
+        if (!item.feature.has_value())
+            return (_L("common_right_panel_measure_selection_none").ToStdString());
+
+        std::string text = (item.source == item.feature) ? surface_feature_type_as_string(item.feature->get_type()) :
+            item.is_center ? center_on_feature_type_as_string(item.source->get_type()) : point_on_feature_type_as_string(item.source->get_type(), m_hover_id);
+        if (item.feature.has_value() && item.feature->get_type() == Measure::SurfaceFeatureType::Circle) {
+            auto [center, radius, normal] = item.feature->get_circle();
+            const Vec3d on_circle = center + radius * Measure::get_orthogonal(normal, true);
+            radius = (on_circle - center).norm();
+            if (use_inches)
+                radius = ObjectManipulation::mm_to_in * radius;
+            text += " (" + _u8L("Diameter") + ": " + format_double(2.0 * radius) + units + ")";
+        }
+        else if (item.feature.has_value() && item.feature->get_type() == Measure::SurfaceFeatureType::Edge) {
+            auto [start, end] = item.feature->get_edge();
+            double length = (end - start).norm();
+            if (use_inches)
+                length = ObjectManipulation::mm_to_in * length;
+            text += " (" + (_L("common_right_panel_measure_selection_length_of_edge")).ToStdString() + ": " + format_double(length) + units + ")";
+        }
+        return text;
+    };
+
+    if (m_pInputWindowSizer)
+    {
+        m_firstSelectedType->SetLabel(format_item_text(m_selected_features.first));
+        m_firstSelectedType->GetParent()->Layout();
+        m_secondSelectedType->SetLabel(format_item_text(m_selected_features.second));
+        m_secondSelectedType->GetParent()->Layout();
+        std::map<std::string, wxString>  measureData;
+        m_firstResultType->SetLabel(L"");
+        m_secondResultType->SetLabel(L"");
+        m_firstResultValue->SetLabel(L"");
+        m_secondResultValue->SetLabel(L"");
+        if (m_selected_features.second.feature.has_value()) {
+            const Measure::MeasurementResult& measure = m_measurement_result;
+            if (measure.angle.has_value()) {
+                measureData[(_L("common_right_panel_measure_type_angle")).ToStdString()] = format_double(Geometry::rad2deg(measure.angle->angle)) + wxT("\u00B0");
+            }
+
+            const bool show_strict = measure.distance_strict.has_value() &&
+                (!measure.distance_infinite.has_value() || std::abs(measure.distance_strict->dist - measure.distance_infinite->dist) > EPSILON);
+
+            if (measure.distance_infinite.has_value()) {
+                double distance = measure.distance_infinite->dist;
+                if (use_inches)
+                    distance = ObjectManipulation::mm_to_in * distance;
+                measureData[ show_strict ? _u8L("common_right_panel_measure_type_perpendicular_distance") : _u8L("Distance")] = format_double(distance) + units ;
+            }
+            if (show_strict) {
+                double distance = measure.distance_strict->dist;
+                if (use_inches)
+                    distance = ObjectManipulation::mm_to_in * distance;
+                measureData[_u8L("common_right_panel_measure_type_direct_distance")] = format_double(distance) + units;
+            }
+            if (measure.distance_xyz.has_value() && measure.distance_xyz->norm() > EPSILON) {
+                Vec3d distance = *measure.distance_xyz;
+                if (use_inches)
+                    distance = ObjectManipulation::mm_to_in * distance;
+                measureData[_u8L("common_right_panel_measure_type_distance_xyz")] = format_vec3(distance);
+            }
+            if (measureData.size() > 0)
+            {
+                m_firstResultType->SetLabel(measureData.begin()->first);
+                m_firstResultValue->SetLabel(measureData.begin()->second);
+                m_firstResultType->GetParent()->Layout();
+                m_firstResultValue->GetParent()->Layout();
+            }
+            if (measureData.size() == 2)
+            {
+                auto lastElementIt = std::prev(measureData.end());
+                m_secondResultType->SetLabel(lastElementIt->first);
+                m_secondResultValue->SetLabel(lastElementIt->second);
+                m_secondResultType->GetParent()->Layout();
+                m_secondResultValue->GetParent()->Layout();
+            }
+        } 
+    }
+}
+
 void GLGizmoMeasure::on_register_raycasters_for_picking()
 {
     // the features are rendered on top of the scene, so the raytraced picker should take it into account

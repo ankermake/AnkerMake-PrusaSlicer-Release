@@ -2419,7 +2419,6 @@ void MainFrame::InitAnkerDevice()
     Bind(wxCUSTOMEVT_DEVICE_LIST_UPDATE, [this](wxCommandEvent& event) {
         m_pDeviceWidget->loadDeviceList(true);
         });
-
     Bind(wxCUSTOMEVT_UPDATE_MACHINE, [this](wxCommandEvent& event) {
         wxVariant* pData = (wxVariant*)(event.GetClientData());
         if (pData)

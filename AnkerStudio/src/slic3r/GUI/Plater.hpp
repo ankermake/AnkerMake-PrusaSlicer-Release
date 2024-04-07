@@ -120,6 +120,22 @@ namespace Slic3r {
             PrinterHintType
         };
 
+        enum RightSidePanelUpdateReason {
+            REASON_NONE = 0,
+            LOAD_GCODE_FILE_FOR_PREVIEW,
+            LOAD_ACODE_FILE_FOR_PREVIEW,
+            EXPORT_START,
+            EXPORT_ACODE_COMPLETE,
+            EXPORT_ACODE_CANCEL,
+            PROCCESS_GCODE_COMPLETE,
+            SLICING_CANCEL,
+            GCODE_INVALID,
+            SELECT_VIEW_MODE_PREVIEW,
+            PLATER_TAB_HIDE,
+            DELETE_ALL_OBJECT,
+            CONFIG_CHANGE,
+        };
+
         class Sidebar : public wxPanel
         {
             ConfigOptionMode    m_mode{ ConfigOptionMode::comSimple };

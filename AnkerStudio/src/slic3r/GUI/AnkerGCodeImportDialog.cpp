@@ -962,6 +962,8 @@ bool AnkerGCodeImportDialog::initFSListSizer(wxWindow* parent)
 
 bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 {
+
+
 	m_pFileInfoPanel = new wxPanel(parent);
 	wxBoxSizer* pFileInfoVSizer = new wxBoxSizer(wxVERTICAL);
 	m_pFileInfoPanel->SetSizer(pFileInfoVSizer);
