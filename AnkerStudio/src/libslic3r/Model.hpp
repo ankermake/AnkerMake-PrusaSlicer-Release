@@ -1380,12 +1380,15 @@ public:
     // static members store extruder parameters and speed map of all models
     static std::map<size_t, ExtruderParams> extruderParamsMap;
     static GlobalSpeedMap printSpeedMap;
+<<<<<<< HEAD
 
     // Extensions for color print
 // CustomGCode::Info custom_gcode_per_print_z;
 //BBS: replace model custom gcode with current plate custom gcode
     int curr_plate_index{ 0 };
     std::map<int, CustomGCode::Info> plates_custom_gcodes; //map<plate_index, CustomGCode::Info>
+=======
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
     
     // Extensions for color print
     CustomGCode::Info custom_gcode_per_print_z;

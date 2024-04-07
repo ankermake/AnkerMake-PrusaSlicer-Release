@@ -131,10 +131,13 @@ private:
     Vec3d           m_pos = Vec3d::Zero();
     bool            m_is_first_layer = true;
     double          m_current_speed;
+<<<<<<< HEAD
 
     //BBS: x, y offset for gcode generated
     double          m_x_offset{ 0 };
     double          m_y_offset{ 0 };
+=======
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 
     enum class Acceleration {
         Travel,

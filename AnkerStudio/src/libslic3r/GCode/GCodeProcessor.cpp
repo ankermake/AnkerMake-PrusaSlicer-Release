@@ -1199,8 +1199,13 @@ void GCodeProcessor::process_file_ext(const std::string& filename, GCodeProcesso
 
             //producer fillter
             if (m_producer  == EProducer::AnkerMake || m_producer == EProducer::AnkerStudio || m_producer == EProducer::PrusaSlicer || m_producer == EProducer::Cura) {
+<<<<<<< HEAD
                 //if tast_flag = ox111_1111 = 127 , quit parse
                 if (task_flag >= 127) {
+=======
+                //if tast_flag = ox11111 = 31 , quit parse
+                if (task_flag >= 31) {
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
                     m_parser.quit_parsing();
                 }
 
@@ -1237,11 +1242,16 @@ void GCodeProcessor::process_file_ext(const std::string& filename, GCodeProcesso
                     return;
                 }
 
+<<<<<<< HEAD
                 if (begin != end && search_for_filament_cost_target(std::string_view(begin, end - begin), out.filament_used_cost)) {    // total filament cost
+=======
+                if (begin != end && search_for_obj_size(std::string_view(begin, end - begin), out.boxSize)) {
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
                     task_flag = task_flag | (1 << 4);
                     return;
                 }
 
+<<<<<<< HEAD
                 if (begin != end && search_for_print_time_target(std::string_view(begin, end - begin), out.print_time)){        //estimated printing time (normal mode) = 
                     task_flag = task_flag | (1 << 5);
                     return;
@@ -1252,6 +1262,8 @@ void GCodeProcessor::process_file_ext(const std::string& filename, GCodeProcesso
                     return;
                 }
 
+=======
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
                 return;
             }
             else {
@@ -5096,7 +5108,11 @@ bool Slic3r::GCodeProcessor::search_for_obj_size(std::string_view line_str, std:
     return false;
 }
 
+<<<<<<< HEAD
 bool Slic3r::GCodeProcessor::search_for_filament_weight_target(std::string_view line_str, std::string& filament_cost)
+=======
+bool Slic3r::GCodeProcessor::search_for_filament_cost_target(std::string_view line_str, std::string& filament_cost)
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 {
     std::string search_string = "Filament weight:";
     if (m_producer == EProducer::AnkerMake) {

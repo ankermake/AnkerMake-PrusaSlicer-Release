@@ -21,6 +21,9 @@
 #define CONFIG_EXTRUDER_KEY "extruder"
 #define CONFIG_LAYER_HEIGHT_KEY "layer_height"
 
+#define CONFIG_EXTRUDER_KEY "extruder"
+#define CONFIG_LAYER_HEIGHT_KEY "layer_height"
+
 
 static const Slic3r::GUI::Selection& scene_selection()
 {

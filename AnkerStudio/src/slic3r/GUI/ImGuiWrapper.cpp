@@ -2340,7 +2340,7 @@ void ImGuiWrapper::init_font(bool compress)
     builder.AddRanges(ImGui::GetIO().Fonts->GetGlyphRangesChineseFull());
     m_font_cjk = true;
 
-    builder.AddChar(ImWchar(0x2026)); // 
+    builder.AddChar(ImWchar(0x2026)); // бн
 
     if (m_font_cjk) {
         // This is a temporary fix of https://github.com/prusa3d/PrusaSlicer/issues/8171. The translation

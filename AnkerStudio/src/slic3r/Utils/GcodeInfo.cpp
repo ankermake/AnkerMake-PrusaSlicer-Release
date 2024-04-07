@@ -396,7 +396,7 @@ std::string GcodeInfo::GetFilamentName(const std::string& filamentStr)
 {
 	std::string filamentName;
 	static std::vector<std::string> types = {
-		"PLA", //(PLA + )¡¢
+		"PLA", //(PLA + )ï¿½ï¿½
 		"TPU",
 		"ABS",
 		"PETG",

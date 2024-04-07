@@ -427,7 +427,11 @@ static std::vector<std::string> s_Preset_print_options {
     "seam_position","staggered_inner_seams", "wall_sequence", "external_perimeters_first", "fill_density", "fill_pattern", "top_fill_pattern", "bottom_fill_pattern",
     "top_solid_infill_angle", "top_solid_infill_overlap","bridge_infill_density", "bridge_infill_overlap",
     "infill_every_layers", /*"infill_only_where_needed",*/ "solid_infill_every_layers", "solid_infill_toolchange_wipe", "detect_narrow_internal_solid_infill","fill_angle", "bridge_angle",
+<<<<<<< HEAD
     "solid_infill_below_area", "only_retract_when_crossing_perimeters", "infill_first", "bridge_wall_first",
+=======
+    "solid_infill_below_area", "only_retract_when_crossing_perimeters", "infill_first","bridge_wall_first",
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
     "ironing", "ironing_type", "ironing_pattern","ironing_flowrate", "ironing_speed", "ironing_spacing","ironing_angle",
     "max_print_speed", "max_volumetric_speed", "avoid_crossing_perimeters_max_detour",
     "fuzzy_skin", "fuzzy_skin_thickness", "fuzzy_skin_point_dist",
@@ -437,7 +441,11 @@ static std::vector<std::string> s_Preset_print_options {
     "top_solid_infill_speed", "support_material_speed", "support_material_xy_spacing", "support_material_interface_speed",
     "bridge_speed", "gap_fill_speed", "gap_fill_enabled", "filter_out_gap_fill", "travel_speed", "travel_speed_z", "first_layer_speed", "first_layer_travel_speed", "first_layer_speed_over_raft", "perimeter_acceleration", "infill_acceleration",
     "external_perimeter_acceleration", "top_solid_infill_acceleration", "solid_infill_acceleration", "travel_acceleration",
+<<<<<<< HEAD
     "bridge_acceleration", "first_layer_acceleration", "first_layer_acceleration_over_raft", "default_acceleration", "skirts", "skirt_speed", "skirt_distance", "skirt_height", "draft_shield",
+=======
+    "bridge_acceleration", "first_layer_acceleration", "first_layer_acceleration_over_raft", "default_acceleration", "skirts", "skirt_distance", "skirt_height", "draft_shield",
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
     "min_skirt_length", "brim_width", "brim_separation", "brim_type","brim_smart_ordering", "brim_ears_max_angle", "brim_ears_detection_length", "support_material", "support_material_auto", "support_material_threshold","support_remove_small_overhang", "support_material_enforce_layers",
     "raft_layers", "raft_first_layer_density", "raft_first_layer_expansion", "raft_contact_distance", "raft_expansion",
     "support_material_pattern", "support_material_with_sheath", "support_material_spacing", "support_material_closing_radius", "support_material_style",
@@ -456,16 +464,28 @@ static std::vector<std::string> s_Preset_print_options {
     "wipe_tower_width", "wipe_tower_cone_angle", "wipe_tower_rotation_angle", "wipe_tower_brim_width", "wipe_tower_bridging", "single_extruder_multi_material_priming", "mmu_segmented_region_max_width",
     "wipe_tower_no_sparse_layers", "wipe_tower_extra_spacing", "compatible_printers", "compatible_printers_condition", "inherits",
     "perimeter_generator", "wall_transition_length", "wall_transition_filter_deviation", "wall_transition_angle",
+<<<<<<< HEAD
     "wall_distribution_count", "min_feature_size", "min_bead_width", "first_layer_min_bead_width", "seam_gap",
     "jerk_enable", "jerk_travel", "jerk_first_layer", "jerk_top_surface", "jerk_print", "jerk_infill", "jerk_e_outer_wall", "jerk_outer_wall", "jerk_inner_wall", "jerk_top_bottom", "jerk_skirt_brim",
     "jerk_e_enable", "jerk_e_print", "jerk_e_infill", "jerk_e_outer_wall", "jerk_e_inner_wall", "jerk_e_skin", "jerk_e_support", "jerk_e_skirt_brim","only_one_wall_first_layer",
     "first_layer_flow_ratio","perimeter_flow_ratio","external_perimeter_flow_ratio","infill_flow_ratio","solid_infill_flow_ratio","top_infill_flow_ratio", 
     "optimize_wall_printing_order","precise_outer_wall","inter_ext_perimeter_spacing","hole_offset", "overhangPerimeters_flow_ratio", "slowdown_external_perimeters","wipe_speed","role_based_wipe_speed", "wipe_on_loops",
+=======
+    "wall_distribution_count", "min_feature_size", "min_bead_width", "seam_gap",
+    "jerk_enable", "jerk_travel", "jerk_print", "jerk_infill", "jerk_e_outer_wall", "jerk_outer_wall", "jerk_inner_wall", "jerk_top_bottom", "jerk_skirt_brim",
+    "jerk_e_enable", "jerk_e_print", "jerk_e_infill", "jerk_e_outer_wall", "jerk_e_inner_wall", "jerk_e_skin", "jerk_e_support", "jerk_e_skirt_brim",
+    "first_layer_flow_ratio","perimeter_flow_ratio","external_perimeter_flow_ratio","infill_flow_ratio","solid_infill_flow_ratio","top_infill_flow_ratio", 
+    "optimize_wall_printing_order","precise_outer_wall","inter_ext_perimeter_spacing","slowdown_external_perimeters","wipe_speed","move_inward",
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 	// Retract and temperature overrides in print
 	"print_retract_length", "print_retract_lift", "print_retract_lift_above", "print_retract_lift_below", "print_retract_speed", "print_deretract_speed", "print_retract_restart_extra", "print_retract_before_travel",
 	"print_retract_layer_change", "print_wipe", "print_retract_before_wipe","print_temperature", "print_first_layer_temperature", "print_bed_temperature", "print_first_layer_bed_temperature", "print_slowdown_below_layer_time", "print_min_print_speed",
     //overhang printable
+<<<<<<< HEAD
     "make_overhang_printable", "make_overhang_printable_angle", "make_overhang_printable_hole_size", "slowdown_for_curled_perimeters", "slow_down_layers","print_flow_ratio"
+=======
+    "make_overhang_printable", "make_overhang_printable_angle", "make_overhang_printable_hole_size", "slowdown_for_curled_perimeters", "slow_down_layers",
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 };
 
 static std::vector<std::string> s_Preset_filament_options {

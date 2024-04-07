@@ -695,9 +695,14 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "only_one_wall_first_layer"
             || opt_key == "infill_overlap"
             || opt_key == "seam_gap"
+<<<<<<< HEAD
             || opt_key == "role_based_wipe_speed"
             || opt_key == "wipe_on_loops"
             || opt_key == "wipe_speed"
+=======
+            || opt_key == "wipe_speed"
+            || opt_key == "move_inward"
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
             || opt_key == "external_perimeters_first") {
             steps.emplace_back(posPerimeters);
         } else if (

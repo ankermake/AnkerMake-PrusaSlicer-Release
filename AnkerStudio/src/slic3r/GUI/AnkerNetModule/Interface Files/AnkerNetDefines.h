@@ -13,9 +13,8 @@
 #include <string>
 #include <vector>
 #include <list>
-#include <map>
 
-#define MappingVersion 1052402
+#define MappingVersion 1052209
 
 #define DEF_PTR(className) class className; typedef std::shared_ptr<className> className##Ptr;
 
@@ -29,7 +28,7 @@
             const std::string strFuncName, const unsigned int lineNumber)>
 
 #define NormalCallBack std::function<void ()>
-#define CommentFlagsCallBack std::function<void (std::vector<std::string> dataList)>
+#define ConmentFlagsCallBack std::function<void (std::vector<std::string> dataList)>
 
 //webview
 #define PrivayChoiceCb std::function<void(const std::string&)>
@@ -37,11 +36,6 @@
 
 
 #define CallBack_OtaInfoRecv std::function<void (OtaInfo info)>
-#define CallBack_MsgCenterCfg std::function<void (std::map<std::string, MsgCenterConfig> dataMap)>
-#define CallBack_MsgCenterErrCodeInfo std::function<void (std::vector<MsgErrCodeInfo> dataList)>
-#define CallBack_MsgCenterStatus std::function<void (int officicalNews, int printNews)>
-#define CallBack_MsgCenterRecords std::function<void (std::vector<MsgCenterItem>)>
-
 
 typedef size_t(*CallBackFunction)(char* dest, size_t size, size_t nmemb, void* userp);
 
@@ -78,13 +72,6 @@ typedef enum
     VIDEO_CLOSE_BY_UI_TIMEOUT = 5,
     VIDEO_CLOSE_BY_OFF_LINE = 6
 } VideoCloseReasonType;
-
-enum class eUserParams {
-    DEVICE_SORT = 10000,
-    DEVICE_SORT_LASTTIME = 100001,
-    DATA_SHARE_SWITCH = 20001,
-    USERS_EXPER_IMPROVE_SWITCH = 20002
-};
 
 
 enum class AKNMT_LOG_LEVEL {
@@ -175,49 +162,7 @@ struct OtaInfo
     bool noUpdate = false;//add by tab,means data is null
 };
 
-//msg center config
-
-struct MsgCenterConfig 
-{
-    int id = 0;
-    std::string error_code = "";
-    std::string error_level = "";
-    int code_source = 0;
-    std::string originMsg = "";
-    struct ArticleInfo {
-        std::string language = "";
-        std::string article_url = "";
-        std::string article_title = "";
-    };
-
-    std::vector<ArticleInfo> article_info;
-};
-
-struct MsgErrCodeInfo
-{
-    std::string language = "";
-    std::string version = "";
-    std::string release_version = "";
-    std::string originMsg = "";
-    std::map<std::string, std::string> errorCodeUrlMap;
-};
-
-
-struct MsgCenterItem
-{
-    int msgID = 0;
-    std::string msgTitle = "";
-    std::string msgContent = "";
-    std::string msgUrl = "";
-    std::string msgCreateTime = "";
-    std::string msgErrorCode = "";    
-    std::string msgLevel = "";
-    int alarm_type = 0;
-    int ai_alarm_type = 0;
-    bool msgIsNew = true;    
-};
-
-struct StarCommentData {
+struct StarConmentData {
     std::string       reviewNameID = "";
     std::string       reviewName = "";
     std::string       appVersion = "";
@@ -258,36 +203,6 @@ struct PrintStopReasonInfo
 };
 using PrintStopReasons = std::vector<PrintStopReasonInfo>;
 
-struct SliceTip
-{
-    std::string tip_title = "";
-    std::string tip_value = "-1";
-    bool support_japan = true;
-    std::string language = "en";
-    int weight = 0;
-    std::string image_url = "";
-    std::string help_desc = "";
-    std::string help_desc_light = "";
-    std::string help_link = "";
-
-    void reset() {
-        tip_title = "";
-        tip_value = "-1";
-        support_japan = true;
-        language = "en";
-        weight = 0;
-        image_url = "";
-        help_desc = "";
-        help_desc_light = "";
-        help_link = "";
-    }
-    bool isValid() {
-        return !tip_title.empty() && tip_value != "-1";
-    }
-};
-using SliceTips = std::vector<SliceTip>;
-
-
 // http request result.
 // Mainly to solve the problem of http status code return and the problem of http content being returned multiple times.
 // add by tab wang
@@ -327,7 +242,7 @@ enum HttpError
     NoError = 0,
     UserNotIdentified = -2,//HTTP_USER_AUTHENTICATION_FAILED
     ResolveHostError = -3,//curl could not resolve host
-    ContentInvalid = -4,//content is not json    
+    ContentInvalid = -4,//content is not json
 };
 typedef struct _FeedBackInfo {
     std::string content = "";
@@ -361,7 +276,7 @@ typedef struct _LOGIN_DATA
     int privilege = 0;
     std::string phone = std::string();
     std::string phone_code = std::string();
-    int test_flag = 1;
+
     void clearData()
     {
         captcha_id = std::string();
@@ -382,7 +297,6 @@ typedef struct _LOGIN_DATA
         privilege = 0;
         phone = std::string();
         phone_code = std::string();
-        test_flag = 1;
     }
 }LOGIN_DATA, * pLOGIN_DATA;
 
