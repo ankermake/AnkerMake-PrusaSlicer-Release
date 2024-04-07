@@ -51,16 +51,16 @@ namespace Slic3r {
 			void InitUi();
 			void OnPaint(wxPaintEvent& event);
 			void SetState(ROUND_STATE newState) { m_CurState = newState; }
-			void SetInnerText(std::string strNewText) { m_InnnerText = strNewText; }
+			ROUND_STATE GetState() { return m_CurState;}
+			void SetInnerText(wxString strNewText) { m_InnnerText = strNewText; }
 			void OnBtnPressed(wxMouseEvent& event);
 
 		protected:
 			ROUND_STATE m_CurState;
-			std::string m_InnnerText;
+			wxString m_InnnerText;
 	
 			DECLARE_EVENT_TABLE()
 		};
-
 
 		class AnkerStateRoundTextPanel:public AnkerBasePanel
 		{
@@ -68,6 +68,8 @@ namespace Slic3r {
 			AnkerStateRoundTextPanel(wxWindow* parent);
 			~AnkerStateRoundTextPanel();
 			void InitUi();
+			AnkerStateRoundPanel* getInnnerRoundPanel() {return m_RoundPanel;}
+			ROUND_STATE GetState() { return m_CurState; }
 			void SetState(ROUND_STATE newState)
 			{
 				if (m_RoundPanel != nullptr)
@@ -83,14 +85,14 @@ namespace Slic3r {
 					m_RoundPanel->SetRoundColor(newColor);
 				}
 			}
-			void SetInnerText(std::string strNewText)
+			void SetInnerText(wxString strNewText)
 			{ 
 				if (m_RoundPanel != nullptr)
 				{
 					m_RoundPanel->SetInnerText(strNewText);
 				}
 			}
-			void SetDescText(std::string strNewText) 
+			void SetDescText(wxString strNewText)
 			{
 				m_strDesc = strNewText;
 				if (m_pTextCtrl != nullptr)
@@ -104,10 +106,12 @@ namespace Slic3r {
 
 		
 		protected:
-			std::string m_strDesc;
+			wxString m_strDesc;
 			AnkerStateRoundPanel* m_RoundPanel;
 			AnkerStaicText* m_pTextCtrl;
 			int m_iTextSpan; //the span between the round panel and teh decribe text
+			ROUND_STATE m_CurState;
+			DECLARE_EVENT_TABLE()
 		};
 	}
 }

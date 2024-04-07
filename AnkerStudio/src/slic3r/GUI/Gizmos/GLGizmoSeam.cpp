@@ -289,7 +289,7 @@ void GLGizmoSeam::set_input_window_state(bool on)
 
     ANKER_LOG_INFO << "GLGizmoSeam: " << on;
 
-    std::string panelFlag = get_name(true, false);
+    std::string panelFlag = "GLGizmoSeam";
 
     if (on)
     {

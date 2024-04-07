@@ -32,10 +32,21 @@ public:
     void rotate(double cos_angle, double sin_angle);
     void rotate(double angle, const Point &center);
     void reverse() { std::reverse(this->points.begin(), this->points.end()); }
+    inline void simplify_only_front(const double tolerance) {
+        if (points.size() < 3) return;
+
+        double tolerance_sq = tolerance * tolerance;
+        double dist_sq = Line::distance_to_squared(points.front(), points[1], points.back());
+
+        if (dist_sq <= tolerance_sq) {
+            points.erase(points.begin());
+        }
+    }
 
     const Point& front() const { return this->points.front(); }
     const Point& back() const { return this->points.back(); }
     const Point& first_point() const { return this->front(); }
+    virtual Lines lines() const = 0;
     size_t size() const { return points.size(); }
     bool   empty() const { return points.empty(); }
     bool   is_valid() const { return this->points.size() >= 2; }

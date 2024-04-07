@@ -53,14 +53,13 @@ bool AnkerOptionsGroup::sidetext_is_unit(wxString sideText)
         || sideText == _L("g/cm³")
 
         || sideText == _L("%")
-        || sideText == _L("layers")
-
-        || sideText == _L("money/kg")
         || sideText == _L("∆°C")
         || sideText == _L("ml")
         || sideText == _L("kg")
         || sideText == _L("g/ml")
-        || sideText == _L("money/bottle");
+        /* || sideText == _L("layers")
+        || sideText == _L("money/kg")
+        || sideText == _L("money/bottle")*/;
 }
 
 //#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStrartup")

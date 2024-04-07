@@ -175,8 +175,9 @@ void AnkerObjectManipulator::initUI()
     objectModifySizer->AddSpacer(20);
 
     auto applyFunc = [this](wxTextCtrl* textCtrl, EditorType editType, EditorAxisType axisType) {
-        if (m_textUpdating)
-            return;
+        try {
+            if (m_textUpdating)
+                return;
 
         double validMin = -1, validMax = 1;
         switch (editType)
@@ -210,16 +211,22 @@ void AnkerObjectManipulator::initUI()
             {
                 this->OnTextEdit(editType, axisType, newValue);
                 return;
+                }
             }
-        }
-        
-        {
-            // TODO: warning msg dialog
-            //std::string levelReminder = "Invalid numeric input! "/*_("common_print_popup_printstop").ToStdString()*/;
-            //std::string title = "Warning"/*_("common_print_controlbutton_stop").ToStdString()*/;
-            //AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, levelReminder, title, true);
-            //if (result != AnkerMsgDialog::MSG_OK)
-            //    return;
+            else
+            {
+                ANKER_LOG_INFO<<"convert value fail";
+            }
+            
+            
+            
+            {
+                // TODO: warning msg dialog
+                //std::string levelReminder = "Invalid numeric input! "/*_("common_print_popup_printstop").ToStdString()*/;
+                //std::string title = "Warning"/*_("common_print_controlbutton_stop").ToStdString()*/;
+                //AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, levelReminder, title, true);
+                //if (result != AnkerMsgDialog::MSG_OK)
+                //    return;
 
             double originValue = -1.0;
             if (editType == EDITOR_SCALE_SIZE)
@@ -231,6 +238,9 @@ void AnkerObjectManipulator::initUI()
             else if (editType == EDITOR_ROTATE)
                 originValue = m_cache.rotation((int)axisType);
             textCtrl->SetValue(wxString::Format(wxT("%.2f"), originValue));
+            }
+        } catch (...) {
+            ANKER_LOG_INFO<<"catch error 2";
         }
     };
     // A name used to call handle_sidebar_focus_event()
@@ -238,12 +248,16 @@ void AnkerObjectManipulator::initUI()
     std::string axes[3] = {"x", "y", "z"};
     auto focusFunc = [this, opts, axes](wxTextCtrl* textCtrl, EditorType editType, EditorAxisType axisType)
     {
-        if (textCtrl == nullptr)
-            return;
+        try {
+            if (textCtrl == nullptr)
+                return;
 
         // needed to show the visual hints in 3D scene
         std::string opt_name = opts[editType] + "_" + axes[axisType];
         wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event(opt_name, textCtrl->HasFocus());
+        } catch (...) {
+            ANKER_LOG_INFO<<"catch error 03";
+        }
     };
     wxFloatingPointValidator<double> translateValidator;
     translateValidator.SetMin(-1000);
@@ -331,11 +345,17 @@ void AnkerObjectManipulator::initUI()
         xLocationTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
         xLocationTextCtrl->SetValidator(translateValidator);
         //xLocationTextCtrl->Bind(wxEVT_TEXT, [this, xLocationTextCtrl, applyFunc](wxCommandEvent& event) { applyFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); });
-        xLocationTextCtrl->Bind(wxEVT_TEXT_ENTER, [this, xLocationTextCtrl, applyFunc](wxCommandEvent& event) { applyFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); });
-        xLocationTextCtrl->Bind(wxEVT_KILL_FOCUS, [this, xLocationTextCtrl, applyFunc](wxFocusEvent& event) { applyFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); event.Skip(); });
-        xLocationTextCtrl->Bind(wxEVT_SET_FOCUS, [this, xLocationTextCtrl, focusFunc](wxFocusEvent& event) { focusFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); event.Skip(); });
-        xLocationTextCtrl->Bind(wxEVT_KILL_FOCUS, [this, xLocationTextCtrl, focusFunc](wxFocusEvent& event) { focusFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); event.Skip(); });
-        locationSizer->Add(xLocationTextCtrl, 0, wxALIGN_RIGHT | wxRIGHT, 4);
+        
+        try {
+            xLocationTextCtrl->Bind(wxEVT_TEXT_ENTER, [this, xLocationTextCtrl, applyFunc](wxCommandEvent& event) { applyFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); });
+            xLocationTextCtrl->Bind(wxEVT_KILL_FOCUS, [this, xLocationTextCtrl, applyFunc](wxFocusEvent& event) { applyFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); event.Skip(); });
+            xLocationTextCtrl->Bind(wxEVT_SET_FOCUS, [this, xLocationTextCtrl, focusFunc](wxFocusEvent& event) { focusFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); event.Skip(); });
+            xLocationTextCtrl->Bind(wxEVT_KILL_FOCUS, [this, xLocationTextCtrl, focusFunc](wxFocusEvent& event) { focusFunc(xLocationTextCtrl, EDITOR_TRANSLATE, EDITOR_X); event.Skip(); });
+            locationSizer->Add(xLocationTextCtrl, 0, wxALIGN_RIGHT | wxRIGHT, 4);
+        } catch (...) {
+            ANKER_LOG_INFO<<"catch error";
+        }
+        
         m_editor[EDITOR_TRANSLATE][EDITOR_X] = xLocationTextCtrl;
 
         sprintf(text, "%d", 90);

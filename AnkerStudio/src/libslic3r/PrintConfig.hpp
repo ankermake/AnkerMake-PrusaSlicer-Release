@@ -65,10 +65,25 @@ enum InfillPattern : int {
     ipCount,
 };
 
+enum class SinglePerimeterType {
+    None,
+    TopSurfaces,
+    TopmostOnly,
+    Count,
+};
+
 enum class IroningType {
+    NoIroning,
     TopSurfaces,
     TopmostOnly,
     AllSolid,
+    Count,
+};
+
+enum class WallSequence {
+    InnerOuter,
+    OuterInner,
+    InnerOuterInner,
     Count,
 };
 
@@ -115,6 +130,8 @@ using SLASupportTreeType = sla::SupportTreeType;
 using SLAPillarConnectionMode = sla::PillarConnectionMode;
 
 enum BrimType {
+    btAutoBrim, 
+    btEar,
     btNoBrim,
     btOuterOnly,
     btInnerOnly,
@@ -138,6 +155,12 @@ enum class GCodeThumbnailsFormat {
     PNG, JPG, QOI
 };
 
+enum LiftType {
+    ltNormalLift,
+    ltSpiralLift,
+    ltLazyLift
+};
+
 #define CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NAME) \
     template<> const t_config_enum_names& ConfigOptionEnum<NAME>::get_enum_names(); \
     template<> const t_config_enum_values& ConfigOptionEnum<NAME>::get_enum_values();
@@ -159,10 +182,13 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLADisplayOrientation)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLAPillarConnectionMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SLASupportTreeType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(BrimType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WallSequence)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(DraftShield)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(GCodeThumbnailsFormat)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(ForwardCompatibilitySubstitutionRule)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PerimeterGeneratorType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(LiftType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SinglePerimeterType)
 
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
@@ -182,16 +208,23 @@ public:
     // The extruder retract keys could be overidden by the same values defined at the Filament level
     // (then the key is further prefixed with the "filament_" prefix).
     const std::vector<std::string>& extruder_retract_keys() const { return m_extruder_retract_keys; }
+	// Options defining the filament properties. 
+	// The filament keys could be overidden by the same values defined at the print level
+	// (then the key is further prefixed with the "print_" prefix).
+    const std::vector<std::string>& print_neededOverrides_Infilament_keys() const { return m_needed_overrides_filament_keys; }
 
 private:
     void init_common_params();
     void init_fff_params();
     void init_extruder_option_keys();
+    void init_neededOverrides_Infilament_keys();
     void init_sla_params();
     void init_sla_support_params(const std::string &method_prefix);
 
     std::vector<std::string>    m_extruder_option_keys;
     std::vector<std::string>    m_extruder_retract_keys;
+
+    std::vector<std::string>    m_needed_overrides_filament_keys;//
 };
 
 // The one and only global definition of SLic3r configuration options.
@@ -486,10 +519,12 @@ protected: \
 
 PRINT_CONFIG_CLASS_DEFINE(
     PrintObjectConfig,
-
     ((ConfigOptionFloat,               brim_separation))
     ((ConfigOptionEnum<BrimType>,      brim_type))
     ((ConfigOptionFloat,               brim_width))
+	((ConfigOptionFloat,               brim_ears_detection_length))
+	((ConfigOptionFloat,               brim_ears_max_angle))
+	((ConfigOptionBool,                brim_smart_ordering))
     ((ConfigOptionBool,                dont_support_bridges))
     ((ConfigOptionFloat,               elefant_foot_compensation))
     ((ConfigOptionFloatOrPercent,      extrusion_width))
@@ -550,6 +585,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt,                 support_material_threshold))
     ((ConfigOptionBool,                support_material_with_sheath))
     ((ConfigOptionFloatOrPercent,      support_material_xy_spacing))
+    ((ConfigOptionBool,                support_remove_small_overhang))
     // Tree supports
     ((ConfigOptionFloat,               support_tree_angle))
     ((ConfigOptionFloat,               support_tree_angle_slow))
@@ -561,17 +597,30 @@ PRINT_CONFIG_CLASS_DEFINE(
     // The rest
     ((ConfigOptionBool,                thick_bridges))
     ((ConfigOptionFloat,               xy_size_compensation))
+    ((ConfigOptionFloat,               xy_hole_compensation))
     ((ConfigOptionBool,                wipe_into_objects))
+    //orca overhang printable
+    ((ConfigOptionFloat,               make_overhang_printable_angle))
+    ((ConfigOptionFloat,               make_overhang_printable_hole_size))
+    ((ConfigOptionEnum<WallSequence>, wall_sequence))
 )
 
 PRINT_CONFIG_CLASS_DEFINE(
     PrintRegionConfig,
-
     ((ConfigOptionFloat,                bridge_angle))
+    //bridge parameter private begin
+    ((ConfigOptionPercent,              bridge_infill_density))
+    ((ConfigOptionFloatOrPercent,       bridge_infill_overlap))
+    //bridge parameter private end
+    //Skin parameter private begin
+    ((ConfigOptionFloat,                top_solid_infill_angle))
+    ((ConfigOptionFloatOrPercent,       top_solid_infill_overlap))
+    //Skin parameter private end
     ((ConfigOptionInt,                  bottom_solid_layers))
     ((ConfigOptionFloat,                bottom_solid_min_thickness))
     ((ConfigOptionFloat,                bridge_flow_ratio))
     ((ConfigOptionFloat,                bridge_speed))
+    ((ConfigOptionBool, ensure_vertical_shell_thickness))
     ((ConfigOptionEnum<InfillPattern>,  top_fill_pattern))
     ((ConfigOptionEnum<InfillPattern>,  bottom_fill_pattern))
     ((ConfigOptionFloatOrPercent,       external_perimeter_extrusion_width))
@@ -583,8 +632,10 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       overhang_speed_2))
     ((ConfigOptionFloatOrPercent,       overhang_speed_3))
     ((ConfigOptionBool,                 external_perimeters_first))
+    ((ConfigOptionBool,                 optimize_wall_printing_order))
     ((ConfigOptionBool,                 extra_perimeters))
     ((ConfigOptionBool,                 extra_perimeters_on_overhangs))
+    ((ConfigOptionFloatOrPercent,       seam_gap))
     ((ConfigOptionFloat,                fill_angle))
     ((ConfigOptionPercent,              fill_density))
     ((ConfigOptionEnum<InfillPattern>,  fill_pattern))
@@ -604,24 +655,32 @@ PRINT_CONFIG_CLASS_DEFINE(
     // Ironing options
     ((ConfigOptionBool,                 ironing))
     ((ConfigOptionEnum<IroningType>,    ironing_type))
+    ((ConfigOptionEnum<InfillPattern>,  ironing_pattern))
+    ((ConfigOptionFloat,                ironing_direction))
+    ((ConfigOptionFloat,                ironing_angle))
     ((ConfigOptionPercent,              ironing_flowrate))
     ((ConfigOptionFloat,                ironing_spacing))
     ((ConfigOptionFloat,                ironing_speed))
     // Detect bridging perimeters
     ((ConfigOptionBool,                 overhangs))
+    ((ConfigOptionBool,                 slowdown_for_curled_perimeters))
     ((ConfigOptionInt,                  perimeter_extruder))
     ((ConfigOptionFloatOrPercent,       perimeter_extrusion_width))
     ((ConfigOptionFloat,                perimeter_flow_ratio))
     ((ConfigOptionFloat,                perimeter_speed))
     // Total number of perimeters.
     ((ConfigOptionInt,                  perimeters))
+    ((ConfigOptionEnum<SinglePerimeterType>, top_surface_single_perimeter))
     ((ConfigOptionFloatOrPercent,       small_perimeter_speed))
+    ((ConfigOptionFloat,                small_perimeter_radius))
     ((ConfigOptionFloat,                solid_infill_below_area))
     ((ConfigOptionInt,                  solid_infill_extruder))
     ((ConfigOptionFloatOrPercent,       solid_infill_extrusion_width))
     ((ConfigOptionFloat,                solid_infill_flow_ratio))
     ((ConfigOptionInt,                  solid_infill_every_layers))
     ((ConfigOptionFloatOrPercent,       solid_infill_speed))
+    ((ConfigOptionBool,                 solid_infill_toolchange_wipe))
+    ((ConfigOptionBool,                 detect_narrow_internal_solid_infill))
     // Detect thin walls.
     ((ConfigOptionBool,                 thin_walls))
     ((ConfigOptionFloatOrPercent,       top_infill_extrusion_width))
@@ -630,6 +689,11 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                top_solid_min_thickness))
     ((ConfigOptionFloatOrPercent,       top_solid_infill_speed))
     ((ConfigOptionBool,                 wipe_into_infill))
+
+	((ConfigOptionBool,                 precise_outer_wall))
+	((ConfigOptionFloat,                inter_ext_perimeter_spacing))
+    //orca overhang printable
+    ((ConfigOptionBool,                 make_overhang_printable))
 )
 
 PRINT_CONFIG_CLASS_DEFINE(
@@ -757,6 +821,8 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionStrings,            anker_colour_id))
     ((ConfigOptionBool,               avoid_crossing_curled_overhangs))
     ((ConfigOptionBool,               avoid_crossing_perimeters))
+    ((ConfigOptionBool,               avoid_crossing_perimeters_via_lift_z))
+    ((ConfigOptionEnum<LiftType>,     lift_type))
     ((ConfigOptionFloatOrPercent,     avoid_crossing_perimeters_max_detour))
     ((ConfigOptionPoints,             bed_shape))
     ((ConfigOptionInts,               bed_temperature))
@@ -770,6 +836,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionBool,               complete_objects))
     ((ConfigOptionFloats,             colorprint_heights))
     ((ConfigOptionBools,              cooling))
+    ((ConfigOptionBool,              slowdown_external_perimeters))
     ((ConfigOptionFloat,              default_acceleration))
     ((ConfigOptionInts,               disable_fan_first_layers))
     ((ConfigOptionEnum<DraftShield>,  draft_shield))
@@ -794,6 +861,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionInts,               full_fan_speed_layer))
     ((ConfigOptionFloat,              infill_acceleration))
     ((ConfigOptionBool,               infill_first))
+    ((ConfigOptionBool,               bridge_wall_first))
     ((ConfigOptionInts,               max_fan_speed))
     ((ConfigOptionFloats,             max_layer_height))
     ((ConfigOptionInts,               min_fan_speed))
@@ -829,6 +897,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              top_solid_infill_acceleration))
     ((ConfigOptionFloat,              travel_acceleration))
     ((ConfigOptionBools,              wipe))
+    ((ConfigOptionFloatOrPercent,     wipe_speed))
     ((ConfigOptionBool,               wipe_tower))
     ((ConfigOptionFloat,              wipe_tower_x))
     ((ConfigOptionFloat,              wipe_tower_y))
@@ -841,6 +910,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              wipe_tower_bridging))
     ((ConfigOptionFloats,             wiping_volumes_matrix))
     ((ConfigOptionFloats,             wiping_volumes_extruders))
+    ((ConfigOptionBool,               move_inward))
     ((ConfigOptionFloat,              z_offset))
     //Jerk Control(X&Y)
     ((ConfigOptionBool,               jerk_enable))
@@ -860,6 +930,11 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              jerk_e_skin))
     ((ConfigOptionFloat,              jerk_e_support))
     ((ConfigOptionFloat,              jerk_e_skirt_brim))
+     //add by galen,G2/G3 support
+    ((ConfigOptionBool,               enable_arc_fitting))
+     //bbs
+     ((ConfigOptionInt,               slow_down_layers))
+
 )
 
 PRINT_CONFIG_CLASS_DERIVED_DEFINE0(
@@ -1309,7 +1384,7 @@ public:
     // Return an optional timestamp of this object.
     // If the timestamp returned is non-zero, then the serialization framework will
     // only save this object on the Undo/Redo stack if the timestamp is different
-    // from the timestmap of the object at the top of the Undo / Redo stack.
+    // from the timestamp of the object at the top of the Undo / Redo stack.
     virtual uint64_t    timestamp() const throw() { return m_timestamp; }
     bool                timestamp_matches(const ModelConfig &rhs) const throw() { return m_timestamp == rhs.m_timestamp; }
     // Not thread safe! Should not be called from other than the main thread!

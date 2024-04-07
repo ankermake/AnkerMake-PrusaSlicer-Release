@@ -202,8 +202,7 @@ bool GLGizmosManager::check_gizmos_closed_except(EType type) const
         wxGetApp().plater()->get_notification_manager()->push_notification(
                     NotificationType::CustomSupportsAndSeamRemovedAfterRepair,
                     NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
-                    _u8L("ERROR: Please close all manipulators available from "
-                         "the left toolbar first"));
+                    _u8L("common_slicepopup_toolconflict"));
         return false;
     }
     return true;
@@ -993,12 +992,13 @@ bool GLGizmosManager::is_in_editing_mode(bool error_notification) const
     if (m_current != SlaSupports || ! dynamic_cast<GLGizmoSlaSupports*>(get_current())->is_in_editing_mode())
         return false;
 
-    if (error_notification)
-        wxGetApp().plater()->get_notification_manager()->push_notification(
-                    NotificationType::QuitSLAManualMode,
-                    NotificationManager::NotificationLevel::ErrorNotificationLevel,
-                    _u8L("You are currently editing SLA support points. Please, "
-                         "apply or discard your changes first."));
+    //comment by Samuel 20231106, Discarded  unused notification text
+    //if (error_notification)
+    //    wxGetApp().plater()->get_notification_manager()->push_notification(
+    //                NotificationType::QuitSLAManualMode,
+    //                NotificationManager::NotificationLevel::ErrorNotificationLevel,
+    //                _u8L("You are currently editing SLA support points. Please, "
+    //                     "apply or discard your changes first."));
 
     return true;
 }

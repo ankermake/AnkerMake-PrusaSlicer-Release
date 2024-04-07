@@ -178,7 +178,7 @@ protected:
     Preset::Type        m_type;
 	std::string			m_name;
 	const wxString		m_title;
-	TabPresetComboBox*	m_presets_choice;
+	AnkerTabPresetComboBox* m_presets_choice{nullptr};
 	ScalableButton*		m_search_btn;
 	ScalableButton*		m_btn_compare_preset;
 	ScalableButton*		m_btn_save_preset;
@@ -340,8 +340,10 @@ public:
 	void		rebuild_page_buttons();
 	void		change_page(wxString page_Tab_text);
 	void		clear_page_buttons();
+	int			get_page_title_gap(bool is_selected_page = false);
     void		update_btns_enabling();
     void		update_preset_choice();
+	void		get_current_preset_name(std::string& strPresetName);
     // Select a new preset, possibly delete the current one.
 	void		select_preset(std::string preset_name = "", bool delete_current = false, const std::string& last_selected_ph_printer_name = "");
 	bool		may_discard_current_dirty_preset(PresetCollection* presets = nullptr, const std::string& new_printer_name = "");

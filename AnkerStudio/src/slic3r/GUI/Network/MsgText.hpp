@@ -3,30 +3,51 @@
 
 #include <utility>
 #include <string>
-#include "basetype.hpp"
 #include "../slic3r/GUI/I18N.hpp"
+#include "AnkerNetDefines.h"
+using namespace AnkerNet;
+
+enum NetworkMsgLevel
+{
+    LEVEL_URGENCY = 0,
+    LEVEL_NORMAL1 = 1,
+};
+
+struct NetworkMsg
+{
+    bool haveCancel = false;
+    NetworkMsgLevel level = LEVEL_NORMAL1;  // NetworkMsgLevel
+    bool clear = false;
+    GeneralException2Gui type = GeneralException2Gui::GeneralException2Gui_No_Error;
+    std::string sn;
+    std::string title = "";
+    std::string context = "";
+    std::string btn1Text = "";
+    std::string btn2Text = "";
+
+    bool operator==(const NetworkMsg& other) const {
+        return haveCancel == other.haveCancel &&
+            level == other.level &&
+            clear == other.clear &&
+            type == other.type &&
+            sn == other.sn &&
+            title == other.title &&
+            context == other.context &&
+            btn1Text == other.btn1Text &&
+            btn2Text == other.btn2Text;
+    }
+};
 
 namespace NetworkMsgText {
-    struct NetworkMsg {
-        std::string title = "";
-        std::string context = "";
-        int btnNum;
-        int id;
-        std::string btn1Text = "";
-        std::string btn2Text = "";
-        int level;
-    };
-
     inline NetworkMsg getGeneralException2Gui_One_Mos_Msg_Text(const std::string& deviceName) {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_warning").c_str();
         wxString tmpStr;
         tmpStr.Printf(_L("common_popup_content_1mos"), deviceName);
-        msg.context = tmpStr.c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_One_Mos;
+        msg.context = tmpStr.c_str();      
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 0;
+        msg.level = LEVEL_URGENCY;
+        msg.clear = true;
         return msg;
     }
 
@@ -36,10 +57,9 @@ namespace NetworkMsgText {
         wxString tmpStr;
         tmpStr.Printf(_L("common_popup_content_2mos"), deviceName);
         msg.context = tmpStr.c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Two_Mos;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 0;
+        msg.level = LEVEL_URGENCY;
+        msg.clear = true;
         return msg;
     }
 
@@ -47,10 +67,8 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_temptohigh").c_str();
         msg.context = _L("common_popup_content_temptohigh").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Nozzle_Temp_Too_High;
-        msg.btn1Text = _L("OK").c_str();
-        msg.level = 1;
+        msg.btn1Text = _L("OK").c_str();        
+        msg.clear = true;
         return msg;
     }
 
@@ -58,10 +76,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_temptohigh").c_str();
         msg.context = _L("common_popup_content_temptohigh").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_HotBed_Temp_Too_High;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 1;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -69,10 +86,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_heatingerror").c_str();
         msg.context = _L("common_popup_content_temptohigh").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Nozzle_Heating_Error;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -80,10 +96,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_heatingerror").c_str();
         msg.context = _L("common_popup_content_temptohigh").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_HotBed_Heating_Error;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -91,10 +106,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_titlenotice").c_str();
         msg.context = _L("common_print_popup_filamentbroken").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Filament_Broken;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -102,10 +116,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_levelerror").c_str();
         msg.context = _L("common_popup_content_levelerror").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Auto_Level_Error;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -113,10 +126,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_levelfailed").c_str();
         msg.context = _L("common_popup_content_levelfailed").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Auto_Level_Anomalies;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -124,10 +136,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_datatranserror").c_str();
         msg.context = _L("common_popup_content_sysdataerror").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_System_Error;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -135,10 +146,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_datatranserror").c_str();
         msg.context = _L("common_popup_content_typecdataerror").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Type_C_Transmission_Error;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -146,10 +156,9 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_m601pasued").c_str();
         msg.context = _L("common_popup_content_m601pasued").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Advance_Pause;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
+        msg.clear = true;
         return msg;
     }
 
@@ -157,10 +166,8 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popupai_title_adhesionfailure").c_str();
         msg.context = _L("common_popupai_content").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Bed_Adhesion_Failure;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
         return msg;
     }
 
@@ -168,10 +175,8 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popupai_title_spaghettimess").c_str();
         msg.context = _L("common_popupai_content").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_Spaghetti_Mess;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
         return msg;
     }
 
@@ -179,10 +184,8 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_homingfail").c_str();
         msg.context = _L("common_popup_content_homingfail").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_HomingFailed;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
         return msg;
     }
 
@@ -190,11 +193,10 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_levelerror").c_str();
         msg.context = _L("common_print_popup_levelnotice").c_str();
-        msg.btnNum = 2;
-        msg.id = (int)MqttType::GeneralException2Gui_Level_100_Times;
+        msg.haveCancel = true;
         msg.btn1Text = _L("OK").c_str();
         msg.btn2Text = _L("Cancel").c_str();
-        msg.level = 2;
+        
         return msg;
     }
 
@@ -202,10 +204,8 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_lowtemp").c_str();
         msg.context = _L("common_popup_content_lowtemp").c_str();
-        msg.btnNum = 1;
-        msg.id = (int)MqttType::GeneralException2Gui_LowTemperature;
         msg.btn1Text = _L("OK").c_str();
-        msg.level = 2;
+        
         return msg;
     }
 }

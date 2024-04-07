@@ -168,6 +168,36 @@ bool ExPolygon::overlaps(const ExPolygon &other) const
            other.contains(this->contour.points.front());
 }
 
+Point projection_onto(const ExPolygons& polygons, const Point& from)
+{
+    Point projected_pt;
+    double min_dist = std::numeric_limits<double>::max();
+
+    for (const auto& poly : polygons) {
+        for (int i = 0; i < poly.num_contours(); i++) {
+            Point p = from.projection_onto(poly.contour_or_hole(i));
+            double dist = (from - p).cast<double>().squaredNorm();
+            if (dist < min_dist) {
+                projected_pt = p;
+                min_dist = dist;
+            }
+        }
+    }
+
+    return projected_pt;
+}
+
+bool overlaps(const ExPolygons& expolys1, const ExPolygons& expolys2)
+{
+	for (const ExPolygon& expoly1 : expolys1) {
+		for (const ExPolygon& expoly2 : expolys2) {
+			if (expoly1.overlaps(expoly2))
+				return true;
+		}
+	}
+	return false;
+}
+
 void ExPolygon::simplify_p(double tolerance, Polygons* polygons) const
 {
     Polygons pp = this->simplify_p(tolerance);

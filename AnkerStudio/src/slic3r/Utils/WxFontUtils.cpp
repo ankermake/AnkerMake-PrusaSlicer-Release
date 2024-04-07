@@ -360,7 +360,9 @@ void WxFontUtils::setText_wrap(wxStaticText* context, int width, const wxString&
     else
     {
         wxString wrapStr = "";
+        wxFont curFont = context->GetFont();
         wxClientDC dc(context);
+        dc.SetFont(curFont);
         int tmpWidth = 0;
         for (size_t i = 0; i < text.length(); i++) {
             wxSize tmpSize = dc.GetTextExtent(text[i]);

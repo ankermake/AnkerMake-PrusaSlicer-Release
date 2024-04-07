@@ -1,7 +1,7 @@
 #pragma once
 #include  <wx/sizer.h>
 #include "../wxExtensions.hpp"
-#include "AnkerStaticText.hpp"
+
 
 namespace Slic3r {
 	namespace GUI {

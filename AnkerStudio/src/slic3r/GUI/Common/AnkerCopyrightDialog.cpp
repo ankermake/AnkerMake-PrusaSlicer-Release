@@ -35,10 +35,10 @@ AnkerCopyrightDiaogPanel::AnkerCopyrightDiaogPanel(wxWindow* parent, const wxStr
     m_mainSizer->Add(hListSizer, 0);
 
 	wxBoxSizer* textSizer = new wxBoxSizer(wxHORIZONTAL); 
-    wxString copyrightText = _AnkerL("Copyright©2023 Anker Innovations Limited");
+    wxString copyrightText = _AnkerL("Copyright (C) 2024 Anker Innovations All Rights Reserved");
     int textIntal = 10;
     wxPoint textPos(textLeftIntal, m_list->GetPosition().y + m_list->GetSize().GetHeight() + textIntal);
-    wxSize textSize = AnkerSize(300, 21);
+    wxSize textSize = AnkerSize(400, 21);
 	wxStaticText* text = new wxStaticText(this, wxID_ANY, copyrightText, textPos, textSize);
     wxFont tmpFont = ANKER_FONT_NO_2;
 	text->SetFont(tmpFont);

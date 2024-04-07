@@ -22,7 +22,15 @@
 #include <boost/locale.hpp>
 #include <boost/log/trivial.hpp>
 
+#include <boost/format.hpp>
 
+#include <locale>
+#include <codecvt>
+
+#include <filesystem>
+#include <vector>
+#include <regex>
+#include <sstream>
 // Store the print/filament/printer presets into a "presets" subdirectory of the Slic3rPE config dir.
 // This breaks compatibility with the upstream Slic3r if the --datadir is used to switch between the two versions.
 // #define SLIC3R_PROFILE_USE_PRESETS_SUBDIR
@@ -339,19 +347,21 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
 
     // Here the vendor specific read only Config Bundles are stored.
     //boost::filesystem::path     dir = (boost::filesystem::path(data_dir()) / "vendor").make_preferred();
-    boost::filesystem::path     dir = (boost::filesystem::path(Slic3r::resources_dir()) / "profiles").make_preferred();
+    boost::filesystem::path     dir = (boost::filesystem::path(Slic3r::resources_dir()) / "profiles" / "Anker-ini").make_preferred();
     PresetsConfigSubstitutions  substitutions;
     std::string                 errors_cummulative;
     bool                        first = true;
     for (auto &dir_entry : boost::filesystem::directory_iterator(dir))
         if (Slic3r::is_ini_file(dir_entry)) {
-            std::string name = dir_entry.path().filename().string();
+            std::string vendor_name = dir_entry.path().filename().string();
             // Remove the .ini suffix.
-            name.erase(name.size() - 4);
+            vendor_name.erase(vendor_name.size() - 4);
             try {
                 // Load the config bundle, flatten it.
                 if (first) {
                     // Reset this PresetBundle and load the first vendor config.
+                    //combine configs to temp
+                    
                     append(substitutions, this->load_configbundle(dir_entry.path().string(), PresetBundle::LoadSystem, compatibility_rule).first);
                     first = false;
                 } else {
@@ -361,7 +371,7 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
                     append(substitutions, other.load_configbundle(dir_entry.path().string(), PresetBundle::LoadSystem, compatibility_rule).first);
                     std::vector<std::string> duplicates = this->merge_presets(std::move(other));
                     if (! duplicates.empty()) {
-                        errors_cummulative += "Vendor configuration file " + name + " contains the following presets with names used by other vendors: ";
+                        errors_cummulative += "Vendor configuration file " + vendor_name + " contains the following presets with names used by other vendors: ";
                         for (size_t i = 0; i < duplicates.size(); ++ i) {
                             if (i > 0)
                                 errors_cummulative += ", ";
@@ -966,19 +976,34 @@ void PresetBundle::load_config_file_config(const std::string &name_or_path, bool
     // 2) If the loading succeeded, split and load the config into print / filament / printer settings.
     // First load the print and printer presets.
 
+    // AnkerMake M5 All-Metal Hotend 0.4 mm Nozzle before ankermake studio 1.5.15 
+    // because of adapter the version less than 1.5.15 can correct open 3mf file 
+    auto original_name = [&](const std::string& name) {
+        std::string cur_original_name = name;
+        if (cur_original_name == std::string("AnkerMake M5 All-Metal Hotend 0.4 mm Nozzle")) {
+            if (cur_original_name.find("-") != std::string::npos) {
+                cur_original_name.replace(cur_original_name.find('-'), 1, " ");
+            }
+        }
+
+        return cur_original_name;
+    };
+
 	auto load_preset = 
 		[&config, &inherits, &inherits_values, 
          &compatible_printers_condition, &compatible_printers_condition_values, 
          &compatible_prints_condition, &compatible_prints_condition_values, 
-         is_external, &name, &name_or_path]
+         is_external, &name, &name_or_path, &original_name]
 		(PresetCollection &presets, size_t idx, const std::string &key) {
 		// Split the "compatible_printers_condition" and "inherits" values one by one from a single vector to the print & printer profiles.
 		inherits = inherits_values[idx];
 		compatible_printers_condition = compatible_printers_condition_values[idx];
         if (idx > 0 && idx - 1 < compatible_prints_condition_values.size())
             compatible_prints_condition = compatible_prints_condition_values[idx - 1];
-		if (is_external)
-			presets.load_external_preset(name_or_path, name, config.opt_string(key, true), config);
+        if (is_external) {
+            //presets.load_external_preset(name_or_path, name, config.opt_string(key, true), config);
+            presets.load_external_preset(name_or_path, name, original_name(config.opt_string(key, true)), config);
+        }
 		else
 			presets.load_preset(presets.path_from_name(name), name, config).save();
 	};
@@ -1302,8 +1327,14 @@ static void flatten_configbundle_hierarchy(boost::property_tree::ptree &tree, co
 // Load a config bundle file, into presets and store the loaded presets into separate files
 // of the local configuration directory.
 std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
-    const std::string &path, LoadConfigBundleAttributes flags, ForwardCompatibilitySubstitutionRule compatibility_rule)
+    const std::string& pathList, LoadConfigBundleAttributes flags, ForwardCompatibilitySubstitutionRule compatibility_rule)
 {
+    boost::filesystem::path path(pathList);
+
+    std::string vendor_name;
+    vendor_name = path.stem().string();
+    boost::filesystem::path dir = path.parent_path();
+    
     // Enable substitutions for user config bundle, throw an exception when loading a system profile.
     ConfigSubstitutionContext  substitution_context { compatibility_rule };
     PresetsConfigSubstitutions substitutions;
@@ -1314,7 +1345,123 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
 
     // 1) Read the complete config file into a boost::property_tree.
     namespace pt = boost::property_tree;
+#if 0
+    //Solution 1:Find all configuration file paths that conform to the naming conventions of the configuration files.
+    //deal nozzles 
+    auto find_config_files = [](const std::string& root, const std::string& pattern_start, const std::string& pattern_end) ->std::vector <std::string> {
+        //std::vector <boost::filesystem::path> config_files;
+        std::vector <std::string> config_files;
+        boost::filesystem::path root_path(root);
+        boost::filesystem::recursive_directory_iterator end_itr; // Default construction yields past-the-end
+
+        for (boost::filesystem::recursive_directory_iterator itr(root_path); itr != end_itr; ++itr) {
+            if (boost::filesystem::is_regular_file(itr->status())) {
+                const auto& path = itr->path();
+
+                if (path.filename().string().find(pattern_start) == 0) {
+                    if (path.filename().string().find(pattern_end) != std::string::npos) {
+                        config_files.push_back(path.string());
+                    }
+                }
+
+            }
+        }
+        return config_files;
+        };
+
+    const std::string pattern_end = ".ini";
+    std::string pattern_start = "";
+    const std::string root = path;
+    auto config_files = find_config_files(root, pattern_start, pattern_end);
+#else
+    //Solution 2:o retrieve all the configuration file paths, one simply needs to read the Anker.ini file where All configuration file paths are stored 
+    //get all paths in anker.ini
+
+    if (!boost::filesystem::exists(path))
+        throw std::runtime_error("File not found: " + path.string());
+
+    auto readPathFromConfig = [dir](const boost::filesystem::path& filePath)->std::vector<boost::filesystem::path> {
+        //std::wifstream file(filePath.wstring());
+        boost::nowide::ifstream file(filePath.string(), std::ios::binary);
+        std::string line;
+        std::string currentSection;
+        bool inPathSection = false;
+        std::vector<boost::filesystem::path> config_files;
+        while (std::getline(file, line)) {
+            // Ignore blank lines and comments
+            if (line.empty() || line[0] == ';' || line[0] == '#') continue;
+
+            // Check if it is a section line.   
+            if (boost::starts_with(line,"[Path:")) {
+                currentSection = line.substr(1, line.size() - 2);
+                inPathSection = currentSection.find("Path") != std::string::npos;
+            }
+            else if (inPathSection) {
+                // Parse key-value pairs.
+                std::istringstream is_line(line);
+                std::string key;
+                if (std::getline(is_line, key, '=')) {
+                    std::string value;
+                    if (std::getline(is_line, value)) {
+                        boost::erase_all(value, "\r");
+                        boost::filesystem::path full_path = dir / value;
+                        full_path.make_preferred();
+                        config_files.push_back(full_path);
+                    }
+                }
+            }
+        }
+        return config_files;
+        };
+    auto config_files = readPathFromConfig(path);
+#endif
+    auto check_Config = [](const boost::filesystem::path& filename)
+        {
+            pt::ptree temp_tree;
+            std::ostringstream combined_content;
+            boost::nowide::ifstream ifs(filename.string(), std::ios::binary);
+            if (ifs) {
+                combined_content << ifs.rdbuf();
+                ifs.close();
+            }
+            else {
+                BOOST_LOG_TRIVIAL(error) << boost::format("Config file: `%1%`: failed combine .") % filename.string();
+            }
+            std::istringstream combined_stream(combined_content.str());
+            try {
+                pt::read_ini(combined_stream, temp_tree);
+            }
+            catch (const boost::property_tree::ini_parser::ini_parser_error& err) {
+                throw Slic3r::RuntimeError(format("Failed loading config bundle \"%1%\"\nError: \"%2%\" at line %3% ", filename.string(), err.message(), err.line()).c_str());
+            }
+        };
+    std::ostringstream combined_content;
     pt::ptree tree;
+    {
+        for (boost::filesystem::path& pathEle : config_files) {
+            pathEle = pathEle.make_preferred();
+            if (!boost::filesystem::exists(pathEle)) {
+                throw std::runtime_error("File not found: " + pathEle.string());
+            }
+            check_Config(pathEle);
+            boost::nowide::ifstream ifs(pathEle.string(), std::ios::binary);
+            if (ifs) {
+                combined_content << ifs.rdbuf();
+                ifs.close();
+            }
+            else {
+                BOOST_LOG_TRIVIAL(error) << boost::format("Config file: `%1%`: failed combine .") % pathEle.string();
+            }
+        }
+    }
+    std::istringstream combined_stream(combined_content.str());
+    try {
+        pt::read_ini(combined_stream, tree);
+    }
+    catch (const boost::property_tree::ini_parser::ini_parser_error& err) {
+        throw Slic3r::RuntimeError(format("Failed loading config bundle \"%1%\"\nError: \"%2%\" ", path, err.message()).c_str());
+    }
+    /*pt::ptree tree;
     {
         boost::nowide::ifstream ifs(path);
         try {
@@ -1322,16 +1469,29 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
         } catch (const boost::property_tree::ini_parser::ini_parser_error &err) {
             throw Slic3r::RuntimeError(format("Failed loading config bundle \"%1%\"\nError: \"%2%\" at line %3%", path, err.message(), err.line()).c_str());
         }
-    }
-
+    }*/
+    
     const VendorProfile *vendor_profile = nullptr;
     if (flags.has(LoadConfigBundleAttribute::LoadSystem) || flags.has(LoadConfigBundleAttribute::LoadVendorOnly)) {
-        VendorProfile vp = VendorProfile::from_ini(tree, path);
-        if (vp.models.size() == 0 && !vp.templates_profile) {
-            BOOST_LOG_TRIVIAL(error) << boost::format("Vendor bundle: `%1%`: No printer model defined.") % path;
+        VendorProfile vp;
+        if (!config_files.size())
+        {
             return std::make_pair(PresetsConfigSubstitutions{}, 0);
-        } else if (vp.num_variants() == 0 && !vp.templates_profile) {
-            BOOST_LOG_TRIVIAL(error) << boost::format("Vendor bundle: `%1%`: No printer variant defined") % path;
+        }
+        else
+        {
+            vp = VendorProfile::from_ini(tree, config_files[0]);
+            vp.id = vendor_name;
+        }
+
+        std::string vpPath = boost::filesystem::path(dir.string() + "/AnkerMake base/base.ini").make_preferred().string();
+
+        if (vp.models.size() == 0 && !vp.templates_profile) {
+            BOOST_LOG_TRIVIAL(error) << boost::format("Vendor bundle: `%1%`: No printer model defined.") % vpPath;
+            return std::make_pair(PresetsConfigSubstitutions{}, 0);
+        }
+        else if (vp.num_variants() == 0 && !vp.templates_profile) {
+            BOOST_LOG_TRIVIAL(error) << boost::format("Vendor bundle: `%1%`: No printer variant defined") % vpPath;
             return std::make_pair(PresetsConfigSubstitutions{}, 0);
         }
         vendor_profile = &this->vendors.insert({vp.id, vp}).first->second;

@@ -4,11 +4,13 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <iostream>
+#include <tchar.h>
 #include <shellapi.h>
 #include <wchar.h>
+#include <Map>
 
-
-
+#pragma comment(lib, "version.lib")
 #ifdef SLIC3R_GUI
 extern "C"
 {
@@ -31,14 +33,36 @@ extern "C"
 
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <string>
 
-#include <stdio.h>
+using namespace boost;
+using namespace boost::asio;
 
 // Capture windows exceptions to generate dump files
 #ifdef WIN32
 #include <DbgHelp.h>
+#include <windef.h>
 #pragma comment(lib, "DbgHelp.lib")
 
+#ifndef OPEN_SOURCE_MODE
+#include "sentry.h"
+#endif
+#include "AnkerComFunction.hpp"
+
+#ifdef _WIN32
+#include <windows.h>
+#include <netlistmgr.h>
+#include <atlbase.h>
+#include <Iphlpapi.h>
+#pragma comment(lib, "iphlpapi.lib")
+#elif __APPLE__
+#import <IOKit/IOKitLib.h>
+#include <CoreFoundation/CoreFoundation.h>
+#else // Linux/BSD
+#include <charconv>
+#endif
 
 extern "C" {
     typedef int(__stdcall* Slic3rMainFunc)(int argc, wchar_t** argv);
@@ -46,9 +70,36 @@ extern "C" {
 
     //
     typedef LONG(__stdcall* AnkerExceptionHandler)(EXCEPTION_POINTERS* pException);
-    AnkerExceptionHandler ankerExceptionHandler = nullptr;
-
+    AnkerExceptionHandler ankerExceptionHandler = nullptr;    
 }
+
+#ifndef OPEN_SOURCE_MODE
+static sentry_value_t
+on_crash_callback(
+    const sentry_ucontext_t* uctx, sentry_value_t event, void* closure)
+{
+    (void)uctx;
+    (void)closure;
+    //report: crash info
+    std::string errorCode = std::string("-1");
+    std::string errorMsg = std::string();
+#ifndef __APPLE__
+    errorMsg = std::string("windows occur crash and the crash info please check server");
+#else
+    errorMsg = std::string("mac occur crash and the crash info please check server");
+#endif
+
+    //report: report crash info
+    std::map<std::string, std::string> map;
+    map.insert(std::make_pair(c_cr_error_code, errorCode));
+    map.insert(std::make_pair(c_cr_error_msg, errorMsg));
+    initBuryPoint();
+    reportBuryEvent(e_crash_report, map, true);
+         
+    // tell the backend to retain the event
+    return event;
+}
+#endif
 
 void CreateDumpFile(LPCWSTR dumpFilePathName, EXCEPTION_POINTERS* pException) {
     HANDLE hDumpFile = CreateFileW(dumpFilePathName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -266,7 +317,127 @@ protected:
 bool OpenGLVersionCheck::message_pump_exit = false;
 #endif /* SLIC3R_GUI */
 
+std::string getVersinInfo()
+{
+    std::string ret = "0.0.0";
 
+    //get exe path
+    TCHAR productPath[MAX_PATH] = { 0 };
+    if (GetModuleFileName(nullptr, productPath, sizeof(productPath) / sizeof(char)) == 0)
+    {
+        std::cout << "get exe info fail about " << GetLastError() << std::endl;
+        return ret;
+    }
+
+    // get version
+    uint32_t size = 0;
+    size = GetFileVersionInfoSize(productPath, NULL);
+    if (size == 0)
+    {
+        std::cout << "get version info fail about " << GetLastError() << std::endl;
+        return ret;
+    }
+
+    // load version info
+    BYTE* pData = new BYTE[size];
+    if (!GetFileVersionInfo(productPath, NULL, size, (LPVOID)pData)) {
+        std::cout << "load version info fail about " << GetLastError() << std::endl;
+        return ret;
+    }
+
+    // get product name version info
+    LPVOID lpBuffer;
+    UINT uLength;
+    DWORD dwVerMS;
+    DWORD dwVerLS;
+
+    if (VerQueryValue((LPVOID)pData, _T("\\"), &lpBuffer, &uLength)) {
+        dwVerMS = ((VS_FIXEDFILEINFO*)lpBuffer)->dwProductVersionMS;
+        dwVerLS = ((VS_FIXEDFILEINFO*)lpBuffer)->dwProductVersionLS;
+    }
+    else {
+        std::cout << "get version info fail about "<< GetLastError() << std::endl;
+        return ret;
+    }
+
+    ret = std::to_string(dwVerMS >> 16) + "." + std::to_string(dwVerMS & 0xFFFF) + "."
+        + std::to_string(dwVerLS >> 16);
+    return ret;
+
+}
+
+//add sentry by alves
+#ifdef WIN32
+void initSentry()
+{
+#ifndef OPEN_SOURCE_MODE
+    sentry_options_t* options = sentry_options_new();
+    {
+#ifdef WIN32
+        std::string dsn = std::string("");
+        getSentryDsn(dsn);
+        
+        sentry_options_set_dsn(options, dsn.c_str());
+
+        wchar_t exeDir[MAX_PATH];
+        ::GetModuleFileNameW(nullptr, exeDir, MAX_PATH);
+        std::wstring wsExeDir(exeDir);
+        int nPos = wsExeDir.find_last_of('\\');
+        std::wstring  wsDmpDir = wsExeDir.substr(0, nPos + 1);
+
+        std::wstring handlerDir = wsDmpDir + L"crashpad_handler.exe";
+        wsDmpDir += L"dump";
+
+        auto wstringTostring = [](std::wstring wTmpStr) -> std::string {
+            std::string resStr = std::string();
+            int len = WideCharToMultiByte(CP_UTF8, 0, wTmpStr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+
+            if (len <= 0)
+                return std::string();
+            std::string desStr(len, 0);
+
+            WideCharToMultiByte(CP_UTF8, 0, wTmpStr.c_str(), -1, &desStr[0], len, nullptr, nullptr);
+
+            resStr = desStr;
+
+            return resStr;
+        };
+
+        std::string desDir = wstringTostring(handlerDir);
+        if (!desDir.empty())
+            sentry_options_set_handler_path(options, desDir.c_str());
+        desDir = wstringTostring(wsDmpDir);
+        if (!desDir.empty())
+            sentry_options_set_database_path(options, desDir.c_str());
+#endif        
+        std::string softVersion = "AnkerStudio " + getVersinInfo();
+        sentry_options_set_release(options, softVersion.c_str());
+
+#if defined(_DEBUG) || !defined(NDEBUG)
+        sentry_options_set_debug(options, 1);
+#else
+        sentry_options_set_debug(options, 0);
+#endif
+        //release version environment(Testing/production/development/Staging)
+        sentry_options_set_environment(options, "production");
+        sentry_options_set_auto_session_tracking(options, false);
+        sentry_options_set_symbolize_stacktraces(options, true);
+        sentry_options_set_on_crash(options, on_crash_callback, NULL);
+        sentry_init(options);
+        sentry_start_session();
+
+        DWORD processID = GetCurrentProcessId();
+        sentry_set_tag("PID", std::to_string(processID).c_str());
+
+        auto pcName = getPcName();
+        auto macAddress = getMacAddress();
+
+        sentry_set_tag("computer_name", pcName.c_str());
+        sentry_set_tag("mac_address", macAddress.c_str());
+    }
+#endif
+}
+#endif
 
 extern "C" {
 #ifdef SLIC3R_WRAPPER_NOCONSOLE
@@ -282,12 +453,33 @@ int wmain(int argc, wchar_t **argv)
     // Without this call, the seemingly same message box is being opened by the abort() function, but that is too late and
     // the application will be killed even if "Ignore" button is pressed.
     _set_error_mode(_OUT_TO_MSGBOX);
+    
+    initBuryPoint();
+    //report start soft
+    std::string errorCode = std::string("0");
+    std::string errorMsg = std::string("start soft");
 
-#ifdef WIN32
-    // Catch Exception
+    std::map<std::string, std::string> map;
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+
+    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+    long long timestamp = now_ms.count();
+
+    std::string strDuration = std::to_string(timestamp);
+    map.insert(std::make_pair(c_ss_status, "start"));
+    map.insert(std::make_pair(c_ss_time, strDuration));
+    map.insert(std::make_pair(c_ss_error_code, errorCode));
+    map.insert(std::make_pair(c_ss_error_msg, errorMsg));
+
+    reportBuryEvent(e_start_soft, map);
+#if defined(_DEBUG) || !defined(NDEBUG)
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)ExceptionCrashHandler);
-#endif
-
+#else
+    initSentry();
+#endif    
+    
     std::vector<wchar_t*> argv_extended;
     argv_extended.emplace_back(argv[0]);
 
@@ -360,10 +552,14 @@ int wmain(int argc, wchar_t **argv)
     wchar_t path_to_slic3r[MAX_PATH + 1] = { 0 };
     wcscpy(path_to_slic3r, path_to_exe);
     wcscat(path_to_slic3r, L"AnkerStudio.dll");
-//	printf("Loading Slic3r library: %S\n", path_to_slic3r);
     HINSTANCE hInstance_Slic3r = LoadLibraryExW(path_to_slic3r, nullptr, 0);
     if (hInstance_Slic3r == nullptr) {
-        printf("AnkerStudio.dll was not loaded\n");
+        DWORD error = GetLastError();
+        printf("AnkerStudio.dll was not loaded, error: %d\n", error);
+#ifndef OPEN_SOURCE_MODE
+        sentry_end_session();
+        sentry_shutdown();
+#endif
         return -1;
     }
 
@@ -378,6 +574,10 @@ int wmain(int argc, wchar_t **argv)
     );
     if (ankerExceptionHandler == nullptr) {
         printf("could not locate the function ankerExceptionHandler in AnkerStudio.dll\n");
+#ifndef OPEN_SOURCE_MODE
+        sentry_end_session();
+        sentry_shutdown();
+#endif
         return -1;
     }
 
@@ -392,10 +592,20 @@ int wmain(int argc, wchar_t **argv)
         );
     if (slic3r_main == nullptr) {
         printf("could not locate the function slic3r_main in AnkerStudio.dll\n");
+#ifndef OPEN_SOURCE_MODE
+        sentry_end_session();
+        sentry_shutdown();
+#endif
         return -1;
     }
 
     // argc minus the trailing nullptr of the argv
-    return slic3r_main((int)argv_extended.size() - 1, argv_extended.data());
+    auto res = slic3r_main((int)argv_extended.size() - 1, argv_extended.data());
+
+#ifndef OPEN_SOURCE_MODE
+    sentry_end_session();
+    sentry_shutdown();
+#endif
+    return res;
 }
 }

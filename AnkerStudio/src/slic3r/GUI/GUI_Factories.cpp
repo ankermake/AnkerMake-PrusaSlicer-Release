@@ -622,7 +622,7 @@ wxMenuItem* MenuFactory::append_menu_item_settings(wxMenu* menu_)
 
     // ANKER TODO
 //    const wxString menu_name = _L("Add settings");
-//    // Delete old items from settings popupmenu
+//    // Delete old items from settings pop up menu
 //    auto settings_id = menu->FindItem(menu_name);
 //    if (settings_id != wxNOT_FOUND)
 //        menu->Destroy(settings_id);
@@ -835,7 +835,7 @@ wxMenuItem* MenuFactory::append_menu_item_simplify(wxMenu* menu)
 
 void MenuFactory::append_menu_item_export_stl(wxMenu* menu)
 {
-    append_menu_item(menu, wxID_ANY, _L("Export as STL/OBJ") + dots, "",
+    append_menu_item(menu, wxID_ANY, _L("common_slice_rightmemu_exportas") + dots, "",
         [](wxCommandEvent&) { plater()->export_stl_obj(false, true); }, "", nullptr,
         []() {
             const Selection& selection = plater()->canvas3D()->get_selection();

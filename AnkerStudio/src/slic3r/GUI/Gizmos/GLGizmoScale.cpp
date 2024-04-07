@@ -410,13 +410,13 @@ void GLGizmoScale3D::do_scale_along_axis(Axis axis, const UpdateData& data)
 
 void GLGizmoScale3D::do_scale_uniform(const UpdateData & data)
 {
-    std::cout << "m_scale1 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
+    //std::cout << "m_scale1 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
 
     const double ratio = calc_ratio(data);
     if (ratio > 0.0)
         m_scale = m_starting.scale * ratio;
 
-    std::cout << "m_scale2 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
+    //std::cout << "m_scale2 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
 }
 
 double GLGizmoScale3D::calc_ratio(const UpdateData& data) const
@@ -501,7 +501,7 @@ void GLGizmoScale3D::set_input_window_state(bool on)
     ANKER_LOG_INFO << "GLGizmoScale3D: " << on;
     wxGetApp().plater()->sidebarnew().Freeze();
 
-    std::string panelFlag = get_name(true, false);
+    std::string panelFlag = "GLGizmoScale3D";
     if (on)
     {        
         wxGetApp().plater()->sidebarnew().setMainSizer();

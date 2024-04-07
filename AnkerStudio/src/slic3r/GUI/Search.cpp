@@ -353,24 +353,24 @@ void OptionsSearcher::append_preferences_option(const GUI::Line& opt_line)
 
 void OptionsSearcher::append_preferences_options(const std::vector<GUI::Line>& opt_lines)
 {
-    //Preset::Type type = Preset::TYPE_PREFERENCES;
+    Preset::Type type = Preset::TYPE_PREFERENCES;
     for (const GUI::Line& line : opt_lines) {
         if (line.is_separator())
             continue;
         append_preferences_option(line);
-        //wxString label = line.label;
-        //if (label.IsEmpty())
-        //    continue;
+        wxString label = line.label;
+        if (label.IsEmpty())
+            continue;
 
-        //std::string key = get_key(line.get_options().front().opt_id, type);        
-        //const GroupAndCategory& gc = groups_and_categories[key];
-        //if (gc.group.IsEmpty() || gc.category.IsEmpty())
-        //    continue;        
-        //
-        //preferences_options.emplace_back(Search::Option{ boost::nowide::widen(key), type,
-        //                            label.ToStdWstring(), _(label).ToStdWstring(),
-        //                            gc.group.ToStdWstring(), _(gc.group).ToStdWstring(),
-        //                            gc.category.ToStdWstring(), _(gc.category).ToStdWstring() });
+        std::string key = get_key(line.get_options().front().opt_id, type);
+        const GroupAndCategory& gc = groups_and_categories[key];
+        if (gc.group.IsEmpty() || gc.category.IsEmpty())
+            continue;
+
+        preferences_options.emplace_back(Search::Option{ boost::nowide::widen(key), type,
+                                    label.ToStdWstring(), _(label).ToStdWstring(),
+                                    gc.group.ToStdWstring(), _(gc.group).ToStdWstring(),
+                                    gc.category.ToStdWstring(), _(gc.category).ToStdWstring() });
     }
 }
 

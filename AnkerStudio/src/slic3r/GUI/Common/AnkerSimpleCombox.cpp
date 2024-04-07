@@ -1,5 +1,6 @@
 #include "AnkerSimpleCombox.hpp"
 #include "AnkerGUIConfig.hpp"
+#include "../Common/AnkerFont.hpp"
 // AnkerSimpleCombox::AnkerSimpleCombox(wxWindow* parent,
 // 									wxWindowID id,
 // 									const wxString& value /*= wxEmptyString*/,
@@ -80,7 +81,7 @@ void AnkerSimpleCombox::OnDrawItem(wxDC& dc, const wxRect& rect, int item, int f
         dc.DrawRectangle(newRec);
         // Get text colour as pen colour
         dc.SetPen(wxPen(m_textColor));
-        dc.SetFont(ANKER_FONT_NO_1);
+        dc.SetFont(Head_14);
         dc.SetTextForeground(m_textColor);
 	}
 	else {
@@ -95,7 +96,7 @@ void AnkerSimpleCombox::OnDrawItem(wxDC& dc, const wxRect& rect, int item, int f
             dc.DrawRectangle(rect);
             // Get text colour as pen colour
             dc.SetPen(wxPen("#FFFFFF"));
-            dc.SetFont(ANKER_FONT_NO_1);
+            dc.SetFont(Head_14);
             dc.SetTextForeground(wxColour("#FFFFFF"));
         }
         else {
@@ -108,7 +109,7 @@ void AnkerSimpleCombox::OnDrawItem(wxDC& dc, const wxRect& rect, int item, int f
 
             // Get text colour as pen colour
             dc.SetPen(wxPen(m_textColor));
-            dc.SetFont(ANKER_FONT_NO_1);
+            dc.SetFont(Head_14);
             dc.SetTextForeground(m_textColor);
         }
 	}

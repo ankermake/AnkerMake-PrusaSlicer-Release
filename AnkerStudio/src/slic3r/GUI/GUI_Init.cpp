@@ -1,6 +1,13 @@
 #include "libslic3r/Technologies.hpp"
 #include "GUI_Init.hpp"
 
+
+#include <string>
+#ifdef _WIN32
+#include <codecvt>
+#include <xlocbuf>
+#endif
+
 #include "libslic3r/AppConfig.hpp" 
 
 #include "slic3r/GUI/GUI.hpp"
@@ -32,6 +39,48 @@ const std::vector<std::string> OpenGLVersions::precore_str = { "2.0", "2.1", "3.
 const std::vector<std::pair<int, int>> OpenGLVersions::core    = { {3,2}, {3,3}, {4,0}, {4,1}, {4,2}, {4,3}, {4,4}, {4,5}, {4,6} };
 const std::vector<std::pair<int, int>> OpenGLVersions::precore = { {2,0}, {2,1}, {3,0}, {3,1} };
 
+void write_url_file(const std::string &url) 
+{
+    if (url.empty()) {
+        ANKER_LOG_INFO << "download url is empty";
+        return;
+    }
+
+    boost::filesystem::path tempPath(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+    ANKER_LOG_INFO << "tempGcodePath is " << tempPath.string().c_str();
+    bool bExists = boost::filesystem::exists(tempPath);
+    if (!bExists) {
+        ANKER_LOG_INFO << "write url file failed " << tempPath.string().c_str() << " is not exist";
+        return;
+    }
+
+    auto generatePath = []() {
+        boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+        temp_path /= boost::format("download_url.txt").str();
+        return temp_path.string();
+    };
+
+    std::ofstream file;
+    file.open(generatePath(), std::ios::out | std::ios::trunc);
+    if (file.is_open()) { 
+        file << url;
+        file.close();
+    }
+    else {
+        ANKER_LOG_INFO << "file open failed to write" ;
+    }
+}
+
+void delete_file()
+{
+    boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+    temp_path /= boost::format("download_url.txt").str();
+    if (boost::filesystem::exists(temp_path)) {
+        boost::filesystem::remove(temp_path);
+    }
+}
+
+
 int GUI_Run(GUI_InitParams &params)
 {
     ANKER_LOG_INFO << "start run  ui ";
@@ -47,6 +96,7 @@ int GUI_Run(GUI_InitParams &params)
     signal(SIGCHLD, SIG_DFL);
 #endif // __APPLE__
 
+    delete_file();
     ANKER_LOG_INFO << "Single instance detection before startup";
     try {
         GUI::GUI_App* gui = new GUI::GUI_App(params.start_as_gcodeviewer ? GUI::GUI_App::EAppMode::GCodeViewer : GUI::GUI_App::EAppMode::Editor);
@@ -54,6 +104,7 @@ int GUI_Run(GUI_InitParams &params)
             // G-code viewer is currently not performing instance check, a new G-code viewer is started every time.
             bool gui_single_instance_setting = gui->app_config->get_bool("single_instance");
             if (Slic3r::instance_check(params.argc, params.argv, true)) {
+                write_url_file(params.download_url);  //write url
                 //TODO: do we have delete gui and other stuff?
                 ANKER_LOG_INFO << "The software is configured in single instance mode and a running instance already exists,just exit this instance";
                 return -1;
@@ -63,7 +114,23 @@ int GUI_Run(GUI_InitParams &params)
         GUI::GUI_App::SetInstance(gui);
         gui->init_params = &params;
         ANKER_LOG_INFO << "wxEntry call";
+
+#ifdef WIN32
+        std::vector<wchar_t*> wptr;
+        std::vector<std::wstring> 	argv_narrow;
+        for (int i = 0 ; i < params.argc ; i++)
+        {
+            std::string str = params.argv[i];
+            std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+            argv_narrow.push_back(converter.from_bytes(str));
+            wptr.push_back(argv_narrow[i].data());
+        }
+        return wxEntry(params.argc, wptr.data());
+
+#else
         return wxEntry(params.argc, params.argv);
+#endif
+
     } catch (const Slic3r::Exception &ex) {
         boost::nowide::cerr << ex.what() << std::endl;
         wxMessageBox(boost::nowide::widen(ex.what()), _L("AnkerMake Studio GUI initialization failed"), wxICON_STOP);

@@ -100,7 +100,7 @@ BackgroundSlicingProcess::BackgroundSlicingProcess()
     // boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
     // temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
 	// m_temp_output_path = temp_path.string();
-	update_temp_output_path();
+	set_temp_output_path();
 }
 
 BackgroundSlicingProcess::~BackgroundSlicingProcess() 
@@ -110,14 +110,14 @@ BackgroundSlicingProcess::~BackgroundSlicingProcess()
 	boost::nowide::remove(m_temp_output_path.c_str());
 }
 
-void BackgroundSlicingProcess::update_temp_output_path(bool createAiFile)
+void BackgroundSlicingProcess::set_temp_output_path(bool createAiFile)
 {
-	boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
-	if (createAiFile)
-		temp_path /= (boost::format(".%1%.acode") % get_current_pid()).str();
-	else
-		temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
-	m_temp_output_path = temp_path.string();
+	//auto wstr = wxStandardPaths::Get().GetUserLocalDataDir() + "\\..\\Temp\\." + std::to_string(get_current_pid()) + ".gcode";
+
+	auto wstr_temp = wxStandardPaths::Get().GetTempDir();
+	auto wstr = wstr_temp + "\\." + std::to_string(get_current_pid()) + ".gcode";
+
+	m_temp_output_path = wstr.ToStdString(wxConvUTF8);
 }
 
 std::string BackgroundSlicingProcess::get_temp_output_path()
@@ -173,9 +173,10 @@ void BackgroundSlicingProcess::process_fff()
 	}
 	
 	m_fff_print->export_gcode(m_temp_output_path, m_gcode_result, [this](const ThumbnailsParams& params) { return this->render_thumbnails(params); });
-	if (GUI::wxGetApp().plater()) {
-		GUI::wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(m_gcode_result->filename);
-	}	if (this->set_step_started(bspsGCodeFinalize)) {
+	//if (GUI::wxGetApp().plater()) {
+	//	GUI::wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(m_gcode_result->filename);
+	//}	
+	if (this->set_step_started(bspsGCodeFinalize)) {
 	    if (! m_export_path.empty()) {
 			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, new wxCommandEvent(m_event_export_began_id));
 			finalize_gcode();

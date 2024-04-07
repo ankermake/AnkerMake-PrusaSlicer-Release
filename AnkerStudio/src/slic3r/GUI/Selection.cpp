@@ -461,15 +461,14 @@ void Selection::clear()
 
     // this happens while the application is closing
     //if (wxGetApp().obj_manipul() == nullptr)
-    if (wxGetApp().aobj_manipul() == nullptr)
-        return;
+    if (wxGetApp().aobj_manipul() != nullptr) {
+        // resets the cache in the sidebar
+        //wxGetApp().obj_manipul()->reset_cache();
+        wxGetApp().aobj_manipul()->reset_cache();
 
-    // resets the cache in the sidebar
-    //wxGetApp().obj_manipul()->reset_cache();
-    wxGetApp().aobj_manipul()->reset_cache();
-
-    // #et_FIXME fake KillFocus from sidebar
-    wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event("", false);
+        // #et_FIXME fake KillFocus from sidebar
+        wxGetApp().plater()->canvas3D()->handle_sidebar_focus_event("", false);
+    }
 }
 
 // Update the selection based on the new instance IDs.

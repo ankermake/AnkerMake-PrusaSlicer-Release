@@ -103,6 +103,7 @@ wxDEFINE_EVENT(EVT_SLIC3R_EXPERIMENTAL_VERSION_ONLINE, wxCommandEvent);
 wxDEFINE_EVENT(EVT_SLIC3R_APP_DOWNLOAD_PROGRESS, wxCommandEvent);
 wxDEFINE_EVENT(EVT_SLIC3R_APP_DOWNLOAD_FAILED, wxCommandEvent);
 wxDEFINE_EVENT(EVT_SLIC3R_APP_OPEN_FAILED, wxCommandEvent);
+wxDEFINE_EVENT(EVT_DOWNLOAD_URL_FILE, wxCommandEvent);
 
 // priv handles all operations in separate thread
 // 1) download version file and parse it.

@@ -232,6 +232,7 @@ public:
 	static int def_width_wider()	;
 	static int def_width_thinner()	;
 	static int def_width_8() ;
+	static int def_width_16();
 protected:
 	// current value
 	boost::any			m_value;

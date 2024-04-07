@@ -161,6 +161,14 @@ struct indexed_triangle_set
 		return sizeof(*this) + sizeof(stl_triangle_vertex_indices) * indices.size() + sizeof(stl_vertex) * vertices.size();
 	}
 
+    stl_vertex get_vertex(int facet_idx, int vertex_idx) const {
+        return vertices[indices[facet_idx][vertex_idx]];
+    }
+    float facet_area(int facet_idx) const {
+        return std::abs((get_vertex(facet_idx, 0) - get_vertex(facet_idx, 1))
+            .cross(get_vertex(facet_idx, 0) - get_vertex(facet_idx, 2)).norm()) / 2;
+    }
+
 	std::vector<stl_triangle_vertex_indices> 	indices;
     std::vector<stl_vertex>       				vertices;
 

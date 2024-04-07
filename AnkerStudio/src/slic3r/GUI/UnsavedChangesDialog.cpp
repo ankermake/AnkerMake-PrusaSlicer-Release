@@ -20,7 +20,7 @@
 #include "SavePresetDialog.hpp"
 #include "MainFrame.hpp"
 #include "MsgDialog.hpp"
-#include "common/AnkerGUIConfig.hpp"
+
 #include "PresetComboBoxes.hpp"
 
 using boost::optional;
@@ -794,7 +794,7 @@ static std::string none{"none"};
 
 UnsavedChangesDialog::UnsavedChangesDialog(const wxString& caption, const wxString& header, 
                                            const std::string& app_config_key, int act_buttons)
-    : AnkerDPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, caption + ": " + _L("Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE),
+    : AnkerDPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, caption + ": " + _L("Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE),
     m_app_config_key(app_config_key),
     m_buttons(act_buttons),
     m_strTitle(caption + ": " + _L("Unsaved Changes"))
@@ -814,7 +814,7 @@ UnsavedChangesDialog::UnsavedChangesDialog(const wxString& caption, const wxStri
 }
 
 UnsavedChangesDialog::UnsavedChangesDialog(Preset::Type type, PresetCollection* dependent_presets, const std::string& new_selected_preset)
-    : AnkerDPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, _L("Switching Presets: Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE)
+    : AnkerDPIDialog(static_cast<wxWindow*>(wxGetApp().mainframe), wxID_ANY, _L("Switching Presets: Unsaved Changes"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE)
     , m_strTitle(_L("Switching Presets: Unsaved Changes"))
 {
     m_app_config_key = "default_action_on_select_preset";
@@ -870,8 +870,8 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection* dependent_
     m_tree = new DiffViewCtrl(this, wxSize(em * (add_new_value_column ? 80 : 60), em * 30));
     m_tree->AppendToggleColumn_(L"\u2714"      , DiffModel::colToggle, wxLinux ? 9 : 6);
     m_tree->AppendBmpTextColumn(""             , DiffModel::colIconText, 28);
-    m_tree->AppendBmpTextColumn(_L("Original Value"), DiffModel::colOldValue, 12);
-    m_tree->AppendBmpTextColumn(_L("Modified Value"), DiffModel::colModValue, 12);
+    m_tree->AppendBmpTextColumn(_L("common_popup_savepreset_title2"), DiffModel::colOldValue, 12);
+    m_tree->AppendBmpTextColumn(_L("common_popup_savepreset_title3"), DiffModel::colModValue, 12);
     if (add_new_value_column)
         m_tree->AppendBmpTextColumn(_L("New Value"), DiffModel::colNewValue, 12);
 
@@ -957,45 +957,46 @@ void UnsavedChangesDialog::build(Preset::Type type, PresetCollection* dependent_
     //}
 
     wxBoxSizer* topSizer = new wxBoxSizer(wxVERTICAL);
+    // Use the native title bar to maintain consistency with the Mac style
     // titleHSizer
-    {
-        m_titlePanel = new wxPanel(this);
-       
-        m_titlePanel->SetSize(AnkerSize(this->GetSize().GetWidth(), 40));
-        topSizer->Add(m_titlePanel, 0, wxEXPAND | wxALL, 0);
+    //{
+    //    m_titlePanel = new wxPanel(this);
+    //   
+    //    m_titlePanel->SetSize(AnkerSize(this->GetSize().GetWidth(), 40));
+    //    topSizer->Add(m_titlePanel, 0, wxEXPAND | wxALL, 0);
 
-        wxBoxSizer* titleHSizer = new wxBoxSizer(wxHORIZONTAL);
-        m_titlePanel->SetSizer(titleHSizer);
+    //    wxBoxSizer* titleHSizer = new wxBoxSizer(wxHORIZONTAL);
+    //    m_titlePanel->SetSizer(titleHSizer);
 
-       
-        titleHSizer->AddStretchSpacer(1);
+    //   
+    //    titleHSizer->AddStretchSpacer(1);
 
-        // title text
-        auto titleText = new wxStaticText(m_titlePanel, wxID_ANY, m_strTitle);
-        titleText->SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
-        titleText->SetForegroundColour(wxColour("#FFFFFF"));
-        titleText->SetFont(ANKER_BOLD_FONT_NO_1);
-        titleText->SetSize(AnkerSize(250, -1));
-        titleHSizer->Add(titleText, 0, wxALIGN_CENTER_VERTICAL, 0);
+    //    // title text
+    //    auto titleText = new wxStaticText(m_titlePanel, wxID_ANY, m_strTitle);
+    //    titleText->SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
+    //    titleText->SetForegroundColour(wxColour("#FFFFFF"));
+    //    titleText->SetFont(ANKER_BOLD_FONT_NO_1);
+    //    titleText->SetSize(AnkerSize(250, -1));
+    //    titleHSizer->Add(titleText, 0, wxALIGN_CENTER_VERTICAL, 0);
 
-        titleHSizer->AddStretchSpacer(1);
+    //    titleHSizer->AddStretchSpacer(1);
 
-        // exit button
-        auto exitBtn = new ScalableButton(m_titlePanel, wxID_ANY, "ankerConfigDialogExit", "", wxSize(20, 20));
-        exitBtn->SetWindowStyleFlag(wxBORDER_NONE);
-        exitBtn->SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
-        exitBtn->SetForegroundColour(wxColour("#FFFFFF"));
-        exitBtn->Bind(wxEVT_BUTTON, &UnsavedChangesDialog::OnExitButtonClicked, this);
-        titleHSizer->Add(exitBtn, 0, wxEXPAND | wxTOP | wxBOTTOM, 10);
-        titleHSizer->AddSpacer(AnkerLength(15));
+    //    // exit button
+    //    auto exitBtn = new ScalableButton(m_titlePanel, wxID_ANY, "ankerConfigDialogExit", "", wxSize(20, 20));
+    //    exitBtn->SetWindowStyleFlag(wxBORDER_NONE);
+    //    exitBtn->SetBackgroundColour(ANKER_UNSAVED_CHANGES_DIALOG_BACKGROUD_COLOUR);
+    //    exitBtn->SetForegroundColour(wxColour("#FFFFFF"));
+    //    exitBtn->Bind(wxEVT_BUTTON, &UnsavedChangesDialog::OnExitButtonClicked, this);
+    //    titleHSizer->Add(exitBtn, 0, wxEXPAND | wxTOP | wxBOTTOM, 10);
+    //    titleHSizer->AddSpacer(AnkerLength(15));
 
-        // split line
-        wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-        splitLineCtrl->SetBackgroundColour(wxColour("#545863"));
-        splitLineCtrl->SetMaxSize(wxSize(1000, 1));
-        splitLineCtrl->SetMinSize(wxSize(400, 1));
-        topSizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
-    }
+    //    // split line
+    //    wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+    //    splitLineCtrl->SetBackgroundColour(wxColour("#545863"));
+    //    splitLineCtrl->SetMaxSize(wxSize(1000, 1));
+    //    splitLineCtrl->SetMinSize(wxSize(400, 1));
+    //    topSizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
+    //}
 
     topSizer->Add(m_action_line,0, wxEXPAND | wxLEFT | wxTOP | wxRIGHT, border);
     topSizer->Add(m_tree,       1, wxEXPAND | wxLEFT | wxTOP | wxRIGHT, border);
@@ -1364,7 +1365,11 @@ void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* pres
         const DynamicPrintConfig& old_config = presets->get_selected_preset().config;
         const PrinterTechnology&  old_pt     = presets->get_selected_preset().printer_technology();
         const DynamicPrintConfig& mod_config = presets->get_edited_preset().config;
-        const DynamicPrintConfig& new_config = m_tree->has_new_value_column() ? presets->find_preset(new_selected_preset, false, false)->config : mod_config;
+
+        // add by louis for modify preset crash  
+        // it will not found presst by its name when new_selected_preset has suffix name, so it will trigger crash
+        // const DynamicPrintConfig& new_config = m_tree->has_new_value_column() ? presets->find_preset(new_selected_preset, false, false)->config : mod_config;
+        const DynamicPrintConfig& new_config = m_tree->has_new_value_column() ? presets->find_preset(Preset::remove_suffix_modified(new_selected_preset), false, false)->config : mod_config;
         type = presets->type();
 
 #if SHOW_OLD_SETTING_DIALOG

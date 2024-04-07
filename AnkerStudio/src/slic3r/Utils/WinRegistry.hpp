@@ -15,6 +15,7 @@ namespace Slic3r {
 // https://hg.mozilla.org/mozilla-central/rev/e928b3e95a6c3b7257d0ba475fc2303bfbad1874
 // https://hg.mozilla.org/releases/mozilla-release/diff/7e775ce432b599c6daf7ac379aa42f1e9b3b33ed/browser/components/shell/WindowsUserChoice.cpp
 void associate_file_type(const std::wstring& extension, const std::wstring& prog_id, const std::wstring& prog_desc, bool set_as_default);
+void associate_files();
 
 } // namespace Slic3r
 

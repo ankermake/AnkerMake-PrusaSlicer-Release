@@ -16,14 +16,12 @@ public:
 	~AnkerAdjustItemWidget();
 
 	void setLogo(const std::string& logo);
-	void setTitle(const std::string& title);
-	void setContent(const std::string& content);
+	void setTitle(const wxString& title);
+	void setContent(const wxString& content);
 
 	void setStatus(bool isDisabel);
-
-	virtual void OnEnter(wxMouseEvent& event);
-	virtual void OnSize(wxSizeEvent& event);
-	virtual void OnLeave(wxMouseEvent& event);
+	
+	virtual void OnSize(wxSizeEvent& event);	
 	virtual void OnPressed(wxMouseEvent& event);
 	virtual void OnClick(wxMouseEvent& event);
 protected:

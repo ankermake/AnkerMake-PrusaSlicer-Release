@@ -200,11 +200,22 @@ static bool custom_per_printz_gcodes_tool_changes_differ(const std::vector<Custo
 static t_config_option_keys print_config_diffs(
     const PrintConfig        &current_config,
     const DynamicPrintConfig &new_full_config,
-    DynamicPrintConfig       &filament_overrides)
+    DynamicPrintConfig       &filament_overrides, DynamicPrintConfig& print_overrides)
 {
     const std::vector<std::string> &extruder_retract_keys = print_config_def.extruder_retract_keys();
-    const std::string               filament_prefix       = "filament_";
+    //print_overrides
     t_config_option_keys            print_diff;
+    const std::vector<std::string> print_tempterature_keys = print_config_def.print_neededOverrides_Infilament_keys();
+    std::vector<std::string> print_overriders_keys = const_cast<std::vector<std::string>&>(extruder_retract_keys);
+    for (auto element : print_tempterature_keys)
+    {
+        print_overriders_keys.push_back(element);
+    }
+    std::sort(print_overriders_keys.begin(), print_overriders_keys.end());
+
+    const std::string               print_prefix = "print_";
+    const std::string               filament_prefix       = "filament_";
+
     for (const t_config_option_key &opt_key : current_config.keys()) {
         const ConfigOption *opt_old = current_config.option(opt_key);
         assert(opt_old != nullptr);
@@ -213,29 +224,103 @@ static t_config_option_keys print_config_diffs(
         if (opt_new == nullptr)
             //FIXME This may happen when executing some test cases.
             continue;
+        const ConfigOption* opt_new_print = std::binary_search(print_overriders_keys.begin(), print_overriders_keys.end(), opt_key) ? new_full_config.option(print_prefix + opt_key) : nullptr;
         const ConfigOption *opt_new_filament = std::binary_search(extruder_retract_keys.begin(), extruder_retract_keys.end(), opt_key) ? new_full_config.option(filament_prefix + opt_key) : nullptr;
-        if (opt_new_filament != nullptr && ! opt_new_filament->is_nil()) {
-            // An extruder retract override is available at some of the filament presets.
-            bool overriden = opt_new->overriden_by(opt_new_filament);
-            if (overriden || *opt_old != *opt_new) {
-                auto opt_copy = opt_new->clone();
-                opt_copy->apply_override(opt_new_filament);
-                bool changed = *opt_old != *opt_copy;
-                if (changed)
-                    print_diff.emplace_back(opt_key);
-                if (changed || overriden) {
-                    // filament_overrides will be applied to the placeholder parser, which layers these parameters over full_print_config.
-                    filament_overrides.set_key_value(opt_key, opt_copy);
-                } else
-                    delete opt_copy;
+        
+        bool filament_override = opt_new_filament != nullptr && !opt_new_filament->is_nil();
+        bool print_override = opt_new_print != nullptr && !opt_new_print->is_nil();
+        if (filament_override || print_override)
+        {
+            if (filament_override && !print_override) {
+                // An extruder retract override is available at some of the filament presets.
+                bool overriden = opt_new->overriden_by(opt_new_filament);
+                if (overriden || *opt_old != *opt_new) {
+                    auto opt_copy = opt_new->clone();
+                    opt_copy->apply_override(opt_new_filament);
+                    bool changed = *opt_old != *opt_copy;
+                    if (changed)
+                        print_diff.emplace_back(opt_key);
+                    if (changed || overriden) {
+                        // filament_overrides will be applied to the placeholder parser, which layers these parameters over full_print_config.
+                        filament_overrides.set_key_value(opt_key, opt_copy);
+                    }
+                    else
+                        delete opt_copy;
+                }
             }
-        } else if (*opt_new != *opt_old)
+            else if (print_override) {
+                // An extruder retract override is available at some of the filament presets.
+                bool overriden = opt_new->overriden_by(opt_new_print);
+                if (overriden || *opt_old != *opt_new) {
+                    auto opt_copy = opt_new->clone();
+                    opt_copy->apply_override(opt_new_print);
+                    bool changed = *opt_old != *opt_copy;
+                    if (changed)
+                        print_diff.emplace_back(opt_key);
+                    if (changed || overriden) {
+                        // print_overrides will be applied to the placeholder parser, which layers these parameters over full_print_config.
+                        print_overrides.set_key_value(opt_key, opt_copy);
+                    }
+                    else
+                        delete opt_copy;
+                }
+            }
+        }   
+        else if (*opt_new != *opt_old)
             print_diff.emplace_back(opt_key);
     }
 
     return print_diff;
 }
 
+// Collect changes to print config, account for overrides of extruder retract values,filament temperature  by print presets.
+static t_config_option_keys print_overriders_config(
+	const PrintConfig& current_config,
+	const DynamicPrintConfig& new_full_config,
+	DynamicPrintConfig& print_overrides)
+{
+    t_config_option_keys            print_diff;
+	const std::vector<std::string>& print_retract_keys = print_config_def.extruder_retract_keys();
+    const std::vector<std::string> print_tempterature_keys = print_config_def.print_neededOverrides_Infilament_keys();
+    std::vector<std::string> print_overriders_keys = const_cast<std::vector<std::string>&>(print_retract_keys);
+    for (auto element : print_tempterature_keys)
+    {
+        print_overriders_keys.push_back(element);
+    }
+	const std::string               filament_prefix = "print_";
+	for (const t_config_option_key& opt_key : current_config.keys()) {
+		const ConfigOption* opt_old = current_config.option(opt_key);
+		assert(opt_old != nullptr);
+		const ConfigOption* opt_new = new_full_config.option(opt_key);
+		// assert(opt_new != nullptr);
+		if (opt_new == nullptr)
+			//FIXME This may happen when executing some test cases.
+			continue;
+        std::sort(print_overriders_keys.begin(), print_overriders_keys.end());
+        bool isFind = std::binary_search(print_overriders_keys.begin(), print_overriders_keys.end(), opt_key);
+		const ConfigOption* opt_new_filament = std::binary_search(print_overriders_keys.begin(), print_overriders_keys.end(), opt_key) ? new_full_config.option(filament_prefix + opt_key) : nullptr;
+		if (opt_new_filament != nullptr && !opt_new_filament->is_nil()) {
+			// An extruder retract override is available at some of the filament presets.
+			bool overriden = opt_new->overriden_by(opt_new_filament);
+			if (overriden || *opt_old != *opt_new) {
+				auto opt_copy = opt_new->clone();
+				opt_copy->apply_override(opt_new_filament);
+				bool changed = *opt_old != *opt_copy;
+                if (changed)
+                    print_diff.emplace_back(opt_key);
+				if (changed || overriden) {
+					// print_overrides will be applied to the placeholder parser, which layers these parameters over full_print_config.
+					print_overrides.set_key_value(opt_key, opt_copy);
+				}
+				else
+					delete opt_copy;
+			}
+		}
+        
+		
+	}
+    return print_diff;
+}
 // Prepare for storing of the full print config into new_full_config to be exported into the G-code and to be used by the PlaceholderParser.
 static t_config_option_keys full_print_config_diffs(const DynamicPrintConfig &current_full_config, const DynamicPrintConfig &new_full_config)
 {
@@ -962,17 +1047,16 @@ static PrintObjectRegions* generate_print_object_regions(
     return out.release();
 }
 
-static void output_config_diff(const DynamicPrintConfig& config, const t_config_option_keys& diff)
+static void output_config_diff(const boost::filesystem::path& output_path, const DynamicPrintConfig& config, const t_config_option_keys& diff_keys)
 {
     try
     {
-        if (diff.size() < 1) {
+        if (diff_keys.size() < 1) {
             return;
         }
 
-        boost::filesystem::path filePath("ankerslicer_config_diff.txt");
         boost::filesystem::ofstream fs;
-        fs.open(filePath, std::ios::app);
+        fs.open(output_path, std::ios::app);
 
         if (!fs.is_open()) {
             std::cerr << "Failed to open the file." << std::endl;
@@ -983,9 +1067,9 @@ static void output_config_diff(const DynamicPrintConfig& config, const t_config_
         boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
         std::string str_now = boost::posix_time::to_simple_string(now);
         fs << __func__ << "@write start time:" << str_now << std::endl;
-        fs << __func__ << "@diff key count:" << diff.size() << std::endl;
+        fs << __func__ << "@diff key count:" << diff_keys.size() << std::endl;
 
-        for (auto& key : diff)
+        for (auto& key : diff_keys)
         {
             fs << key << " = " << config.opt_serialize(key) << std::endl;
         }
@@ -1016,7 +1100,9 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 
     // Find modified keys of the various configs. Resolve overrides extruder retract values by filament profiles.
     DynamicPrintConfig   filament_overrides;
-    t_config_option_keys print_diff       = print_config_diffs(m_config, new_full_config, filament_overrides);
+    DynamicPrintConfig   print_overrides;
+    t_config_option_keys print_diff = print_config_diffs(m_config, new_full_config, filament_overrides, print_overrides);
+    
     t_config_option_keys full_config_diff = full_print_config_diffs(m_full_print_config, new_full_config);
     // If just a physical printer was changed, but printer preset is the same, then there is no need to apply whole print
     // see https://github.com/prusa3d/PrusaSlicer/issues/8800
@@ -1024,11 +1110,9 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         full_config_diff.clear();
 
     //Add Preset diff output to file by Galen Xiao,2023/09/06
-    boost::filesystem::path test_flag_path("test.config");
-    //auto test_flag_full_path = boost::filesystem::absolute(test_flag_path);
-    if (boost::filesystem::exists(test_flag_path))
-    {
-        output_config_diff(new_full_config, full_config_diff);
+    boost::filesystem::path test_flag_path = boost::filesystem::temp_directory_path() / "anker_studio_test.config";
+    if (boost::filesystem::exists(test_flag_path)){
+        output_config_diff(test_flag_path, new_full_config, full_config_diff);
     }
 
     // Collect changes to object and region configs.
@@ -1070,6 +1154,9 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         // Some filament_overrides may contain values different from new_full_config, but equal to m_config.
         // As long as these config options don't reallocate memory when copying, we are safe overriding a value, which is in use by a worker thread.
 	    m_config.apply(filament_overrides);
+        //print overriders 
+		m_placeholder_parser.apply_config(print_overrides);
+        m_config.apply(print_overrides);
 	    // Handle changes to object config defaults
 	    m_default_object_config.apply_only(new_full_config, object_diff, true);
 	    // Handle changes to regions config defaults

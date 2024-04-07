@@ -701,23 +701,23 @@ bool GLGizmoPainterBase::on_mouse(const wxMouseEvent &mouse_event)
         {
             // CTRL has been pressed while already dragging -> stop current action
             if (mouse_event.LeftIsDown())
-                gizmo_event(SLAGizmoEventType::LeftUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), true);
+               return  gizmo_event(SLAGizmoEventType::LeftUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), true);
             else if (mouse_event.RightIsDown())
-                gizmo_event(SLAGizmoEventType::RightUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), true);
-            return false;
+               return  gizmo_event(SLAGizmoEventType::RightUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), true);
+            //return false;
         }
     } else if (get_left_button_enable() && mouse_event.LeftUp()) {
         if (!m_parent.is_mouse_dragging()) {
             // in case SLA/FDM gizmo is selected, we just pass the LeftUp
             // event and stop processing - neither object moving or selecting
             // is suppressed in that case
-            gizmo_event(SLAGizmoEventType::LeftUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), control_down);
-            return true;
+            return gizmo_event(SLAGizmoEventType::LeftUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), control_down);
+            //return true;
         }
     } else if (get_right_button_enable() && mouse_event.RightUp()) {
         if (!m_parent.is_mouse_dragging()) {
-            gizmo_event(SLAGizmoEventType::RightUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), control_down);
-            return true;
+            return gizmo_event(SLAGizmoEventType::RightUp, mouse_pos, mouse_event.ShiftDown(), mouse_event.AltDown(), control_down);
+            //return true;
         }
     }
     return false;

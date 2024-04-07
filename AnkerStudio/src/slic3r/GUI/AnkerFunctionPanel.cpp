@@ -67,7 +67,13 @@ namespace Slic3r {
 			m_pSliceButton->SetActieBitMap(bitmap_actice);
 			m_pSizer->Add(m_pSliceButton, 0, wxALL, 1);
 
+			m_pPrintButton = new AnkerCombinButton(this, devcieBitmap, _L("Device"));
+			m_pPrintButton->SetMinSize(AnkerSize(160, 35));
+			m_pPrintButton->SetActieBitMap(devcieBitmap_actice);
+			m_pSizer->Add(m_pPrintButton, 0, wxALL, 1);
+
 			m_pTabBtnVec.push_back(m_pSliceButton);
+			m_pTabBtnVec.push_back(m_pPrintButton);
 
 			//set Slice button default selected
 			m_pSliceButton->SetSelected(true);

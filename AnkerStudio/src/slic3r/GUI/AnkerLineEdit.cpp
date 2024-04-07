@@ -1,4 +1,6 @@
 #include "AnkerLineEdit.hpp"
+#include "Common/AnkerValidator.hpp"
+#include "Common/AnkerFont.hpp"
 
 
 wxDEFINE_EVENT(wxCUSTOMEVT_EDIT_FINISHED, wxCommandEvent);
@@ -18,8 +20,8 @@ AnkerLineEdit::AnkerLineEdit(wxWindow* parent,
 	//EnableVerticalScrollbar(false);  //Do not do this, it will cause the program to crash
 	ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
 	SetTextColor(*wxWHITE);
-	Unbind(wxEVT_PAINT, &wxRichTextCtrl::OnPaint, this);
 
+	Unbind(wxEVT_PAINT, &wxRichTextCtrl::OnPaint, this);
 	Bind(wxEVT_KILL_FOCUS, &AnkerLineEdit::OnKillFocus, this);
 	Bind(wxEVT_SET_FOCUS, &AnkerLineEdit::OnSetFocus, this);
 	Bind(wxEVT_KEY_DOWN, &AnkerLineEdit::OnKeyDown, this);
@@ -49,6 +51,23 @@ void AnkerLineEdit::SetBackgroundColour(wxColour color)
 	m_background_color = color;
 }
 
+void AnkerLineEdit::AddValidatorInt(uint32_t min, uint32_t max)
+{
+	RichTextIntegerValidator<uint32_t> validator;
+	validator.SetMin(min);
+	validator.SetMax(max);
+	wxRichTextCtrl::SetValidator(validator);
+}
+
+void AnkerLineEdit::AddValidatorFloat(float min, float max, int precision)
+{
+	RichTextFloatingPointValidator<float> validator;
+	validator.SetMin(min);
+	validator.SetMax(max);
+	validator.SetPrecision(precision);
+	SetValidator(validator);
+}
+
 wxString AnkerLineEdit::GetValue() const
 {
 	if (GetHint() == wxRichTextCtrl::GetValue()) {		
@@ -56,6 +75,13 @@ wxString AnkerLineEdit::GetValue() const
 	}
 
 	return wxRichTextCtrl::GetValue();
+}
+
+bool AnkerLineEdit::SetFont(const wxFont& font)
+{
+	wxTextAttr textAttr;
+	textAttr.SetFont(font);
+	return SetDefaultStyle(textAttr);
 }
 
 void AnkerLineEdit::OnKillFocus(wxFocusEvent& event)
@@ -87,8 +113,9 @@ void AnkerLineEdit::OnKeyDown(wxKeyEvent& event)
 	{
 		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_EDIT_ENTER);
 		ProcessEvent(evt);
-
+#ifdef __APPLE__
 		Navigate(); //trigger kill focus
+#endif // __APPLE__
 	}
 	else
 	{

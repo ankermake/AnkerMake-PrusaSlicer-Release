@@ -2207,8 +2207,7 @@ void ObjectList::split()
     take_snapshot(_(L("Split to Parts")));
 
     // Before splitting volume we have to remove all custom supports, seams, and multimaterial painting.
-    wxGetApp().plater()->clear_before_change_mesh(obj_idx, _u8L("Custom supports, seams and multimaterial painting were "
-                                                                "removed after splitting the object."));
+    wxGetApp().plater()->clear_before_change_mesh(obj_idx, _u8L("common_slicepopup_split1"));
 
     volume->split(nozzle_dmrs_cnt);
 
@@ -3033,8 +3032,10 @@ void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selectio
         if (! shows && should_show) {
             m_objects_model->AddInfoChild(item_obj, type);
             Expand(item_obj);
-            if (added_object)
-                wxGetApp().notification_manager()->push_updated_item_info_notification(type); 
+
+            // comment by Samuel 20231106, Discarded  unused notification text
+            //if (added_object)
+            //    wxGetApp().notification_manager()->push_updated_item_info_notification(type); 
         }
         else if (shows && ! should_show) {
             if (!selections)
@@ -4734,8 +4735,7 @@ void ObjectList::fix_through_netfabb()
             msg += "\n";
         }
 
-        plater->clear_before_change_mesh(obj_idx, _u8L("Custom supports, seams and multimaterial painting were "
-                                                       "removed after repairing the mesh."));
+        plater->clear_before_change_mesh(obj_idx, _u8L("common_slicepopup_repairing1"));
         std::string res;
         if (!fix_model_by_win10_sdk_gui(*(object(obj_idx)), vol_idx, progress_dlg, msg, res))
             return false;
@@ -4787,18 +4787,18 @@ void ObjectList::fix_through_netfabb()
     wxString msg;
     wxString bullet_suf = "\n   - ";
     if (!succes_models.empty()) {
-        msg = _L_PLURAL("The following model was repaired successfully", "The following models were repaired successfully", succes_models.size()) + ":";
+        msg = _L_PLURAL("common_slicepopup_repaire1", "common_slicepopup_repaire2", succes_models.size()) + ":";
         for (auto& model : succes_models)
             msg += bullet_suf + from_u8(model);
         msg += "\n\n";
     }
     if (!failed_models.empty()) {
-        msg += _L_PLURAL("Folowing model repair failed", "Folowing models repair failed", failed_models.size()) + ":\n";
+        msg += _L_PLURAL("common_slicepopup_repairefailed1", "common_slicepopup_repairefailed2", failed_models.size()) + ":\n";
         for (auto& model : failed_models)
             msg += bullet_suf + from_u8(model.first) + ": " + _(model.second);
     }
     if (msg.IsEmpty())
-        msg = _L("Repairing was canceled");
+        msg = _L("common_slicepopup_repairecancel");
     plater->get_notification_manager()->push_notification(NotificationType::NetfabbFinished, NotificationManager::NotificationLevel::PrintInfoShortNotificationLevel, boost::nowide::narrow(msg));
 }
 

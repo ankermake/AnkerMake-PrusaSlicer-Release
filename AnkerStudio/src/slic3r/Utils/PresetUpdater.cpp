@@ -192,7 +192,7 @@ struct PresetUpdater::priv
 PresetUpdater::priv::priv()
 	: cache_path(fs::path(Slic3r::data_dir()) / "cache")
 	, cache_vendor_path(cache_path / "vendor")
-	, rsrc_path(fs::path(resources_dir()) / "profiles")
+	, rsrc_path(fs::path(resources_dir()) / "profiles"/"Anker-ini")
 	, vendor_path(fs::path(Slic3r::data_dir()) / "vendor")
 	, cancel(false)
 {
@@ -1269,7 +1269,8 @@ PresetUpdater::UpdateResult PresetUpdater::config_update(const Semver& old_slic3
 		// regular update
 		if (params == UpdateParams::SHOW_NOTIFICATION) {
 			p->set_waiting_updates(updates);
-			GUI::wxGetApp().plater()->get_notification_manager()->push_notification(GUI::NotificationType::PresetUpdateAvailable);
+			// comment by Samuel 20231106, Discarded  unused notification text
+			//GUI::wxGetApp().plater()->get_notification_manager()->push_notification(GUI::NotificationType::PresetUpdateAvailable);
 		}
 		else {
 			BOOST_LOG_TRIVIAL(info) << format("Update of %1% bundles available. Asking for confirmation ...", p->waiting_updates.updates.size());

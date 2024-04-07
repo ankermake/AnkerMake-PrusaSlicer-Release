@@ -1236,7 +1236,12 @@ void GLCanvas3D::toggle_sla_auxiliaries_visibility(bool visible, const ModelObje
             vol->is_active = visible;
             auto it = std::find_if(raycasters->begin(), raycasters->end(), [vol](std::shared_ptr<SceneRaycasterItem> item) { return item->get_raycaster() == vol->mesh_raycaster.get(); });
             if (it != raycasters->end())
-                (*it)->set_active(vol->is_active);
+                if (get_gizmos_manager().get_current_type() == GLGizmosManager::MmuSegmentation) {
+                    (*it)->set_active(true);
+                }
+                else {
+                    (*it)->set_active(vol->is_active);
+                }
         }
     }
 }
@@ -1276,8 +1281,14 @@ void GLCanvas3D::toggle_model_objects_visibility(bool visible, const ModelObject
         }
 
         auto it = std::find_if(raycasters->begin(), raycasters->end(), [vol](std::shared_ptr<SceneRaycasterItem> item) { return item->get_raycaster() == vol->mesh_raycaster.get(); });
-        if (it != raycasters->end())
-            (*it)->set_active(vol->is_active);
+        if (it != raycasters->end()) {
+            if (get_gizmos_manager().get_current_type() == GLGizmosManager::MmuSegmentation) {
+                (*it)->set_active(true);
+            }
+            else {
+                (*it)->set_active(vol->is_active);
+            }
+        }
     }
 
     if (visible && !mo)
@@ -1338,11 +1349,12 @@ void GLCanvas3D::refresh_camera_scene_box()
     wxGetApp().plater()->get_camera().set_scene_box(scene_bounding_box());
 }
 
+
 BoundingBoxf3 GLCanvas3D::volumes_bounding_box() const
 {
     BoundingBoxf3 bb;
     for (const GLVolume* volume : m_volumes.volumes) {
-        if (!m_apply_zoom_to_volumes_filter || ((volume != nullptr) && volume->zoom_to_volumes))
+        if ((volume != nullptr && !m_apply_zoom_to_volumes_filter) || ((volume != nullptr) && volume->zoom_to_volumes))
             bb.merge(volume->transformed_bounding_box());
     }
     return bb;
@@ -1516,7 +1528,7 @@ void GLCanvas3D::render()
     if (!m_main_toolbar.is_enabled())
         m_gcode_viewer.init();
 
-    if (! m_bed.build_volume().valid()) {
+    if (!m_bed.build_volume().valid()) {
         // this happens at startup when no data is still saved under <>\AppData\Roaming\Slic3rPE
         post_event(SimpleEvent(EVT_GLCANVAS_UPDATE_BED_SHAPE));
         return;
@@ -1566,7 +1578,7 @@ void GLCanvas3D::render()
         }
 #endif // ENABLE_RAYCAST_PICKING_DEBUG
     }
-    
+
 #ifdef SHOW_IMGUI_DEMO_WINDOW
     if (show_imgui_demo_window) ImGui::ShowDemoWindow();
 #endif // SHOW_IMGUI_DEMO_WINDOW    
@@ -1580,9 +1592,13 @@ void GLCanvas3D::render()
     _render_objects(GLVolumeCollection::ERenderType::Opaque);
     _render_sla_slices();
     _render_selection();
-    _render_bed_axes();
-    if (is_looking_downward)
-        _render_bed(camera.get_view_matrix(), camera.get_projection_matrix(), false);
+    auto type = m_gizmos.get_current_type();
+    if (m_gizmos.get_current_type() != GLGizmosManager::MmuSegmentation) {
+        _render_bed_axes();
+        if (is_looking_downward)
+            _render_bed(camera.get_view_matrix(), camera.get_projection_matrix(), false);
+    }
+
     if (!m_main_toolbar.is_enabled())
         _render_gcode();
     _render_objects(GLVolumeCollection::ERenderType::Transparent);
@@ -1604,8 +1620,10 @@ void GLCanvas3D::render()
     // could be invalidated by the following gizmo render methods
     _render_selection_sidebar_hints();
     _render_current_gizmo();
-    if (!is_looking_downward)
-        _render_bed(camera.get_view_matrix(), camera.get_projection_matrix(), true);
+    if (m_gizmos.get_current_type() != GLGizmosManager::MmuSegmentation) {
+        if (!is_looking_downward)
+            _render_bed(camera.get_view_matrix(), camera.get_projection_matrix(), true);
+    }
 
 #if ENABLE_RAYCAST_PICKING_DEBUG
     if (m_picking_enabled && !m_mouse.dragging && !m_gizmos.is_dragging() && !m_rectangle_selection.is_dragging())
@@ -1724,6 +1742,7 @@ void GLCanvas3D::select_all()
     m_dirty = true;
     //wxGetApp().obj_manipul()->set_dirty();
     wxGetApp().aobj_manipul()->set_dirty();
+    reset_main_toolbar_toggled_state();
     m_gizmos.reset_all_states();
     m_gizmos.update_data();
     post_event(SimpleEvent(EVT_GLCANVAS_OBJECT_SELECT));
@@ -1734,11 +1753,11 @@ void GLCanvas3D::deselect_all()
     if (m_selection.is_empty())
         return;
 
-    m_selection.remove_all();
     //wxGetApp().obj_manipul()->set_dirty();
     wxGetApp().aobj_manipul()->set_dirty();
     m_gizmos.reset_all_states();
     m_gizmos.update_data();
+    m_selection.remove_all();
     if (m_main_toolbar.is_any_item_toggled())
         m_main_toolbar.toggled_action(m_main_toolbar.get_item_id_toggled(), *this);
     post_event(SimpleEvent(EVT_GLCANVAS_OBJECT_SELECT));
@@ -2056,8 +2075,19 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
         return;
 
     bool update_object_list = false;
-    if (m_volumes.volumes != glvolumes_new)
+    if (m_volumes.volumes != glvolumes_new) {
 		update_object_list = true;
+        //no need to update if extra volume is wipe tower
+        if (m_volumes.volumes.size() == glvolumes_new.size() + 1) {
+            for (auto& volume : m_volumes.volumes) {
+                // some times volume is null from preview back to view3d when slicing 
+                if (volume && volume->is_wipe_tower) {
+                    update_object_list = false;
+                    break;
+                }
+            }
+        }
+    }
     m_volumes.volumes = std::move(glvolumes_new);
     for (unsigned int obj_idx = 0; obj_idx < (unsigned int)m_model->objects.size(); ++ obj_idx) {
         const ModelObject &model_object = *m_model->objects[obj_idx];
@@ -2181,6 +2211,7 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
             const Print *print = m_process->fff_print();
             const float depth = print->wipe_tower_data(extruders_count).depth;
+            const std::vector<std::pair<float, float>> z_and_depth_pairs = print->wipe_tower_data(extruders_count).z_and_depth_pairs;
             const float height_real = print->wipe_tower_data(extruders_count).height; // -1.f = unknown
 
             // Height of a print (Show at least a slab).
@@ -2188,11 +2219,11 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
 #if ENABLE_OPENGL_ES
             int volume_idx_wipe_tower_new = m_volumes.load_wipe_tower_preview(
-                x, y, w, depth, (float)height, ca, a, !print->is_step_done(psWipeTower),
+                x, y, w, depth, z_and_depth_pairs, (float)height, ca, a, !print->is_step_done(psWipeTower),
                 bw, &m_wipe_tower_mesh);
 #else
             int volume_idx_wipe_tower_new = m_volumes.load_wipe_tower_preview(
-                x, y, w, depth, (float)height, ca, a, !print->is_step_done(psWipeTower),
+                x, y, w, depth, z_and_depth_pairs, (float)height, ca, a, !print->is_step_done(psWipeTower),
                 bw);
 #endif // ENABLE_OPENGL_ES
             if (volume_idx_wipe_tower_old != -1)
@@ -2299,6 +2330,7 @@ void GLCanvas3D::load_gcode_preview(const GCodeProcessorResult& gcode_result, co
     if (wxGetApp().is_editor()) {
         m_gcode_viewer.update_shells_color_by_extruder(m_config);
         _set_warning_notification_if_needed(EWarning::ToolpathOutside);
+        _set_warning_notification_if_needed(EWarning::GCodeConflict);
     }
 
     m_gcode_viewer.refresh(gcode_result, str_tool_colors);
@@ -3578,6 +3610,19 @@ void GLCanvas3D::on_set_focus(wxFocusEvent& evt)
     m_tooltip_enabled = true;
 }
 
+Size GLCanvas3D::get_canvas_size_with_no_scale() const
+{
+    int w = 0;
+    int h = 0;
+
+    if (m_canvas != nullptr)
+        m_canvas->GetSize(&w, &h);
+
+    return Size(w, h, 1.0f);
+}
+
+
+
 Size GLCanvas3D::get_canvas_size() const
 {
     int w = 0;
@@ -4460,6 +4505,13 @@ void GLCanvas3D::_render_thumbnail_internal(ThumbnailData& thumbnail_data, const
         return ret;
     };
 
+    auto get_filament_colors = []() {
+        std::vector<std::string> colorsStr = Slic3r::GUI::wxGetApp().plater()->get_filament_colors_from_plater_config();
+        std::vector<ColorRGBA> colors;
+        decode_colors(colorsStr, colors);
+        return std::move(colors);
+    };
+
     GLVolumePtrs visible_volumes;
 
     for (GLVolume* vol : volumes.volumes) {
@@ -4518,16 +4570,25 @@ void GLCanvas3D::_render_thumbnail_internal(ThumbnailData& thumbnail_data, const
     const Transform3d& projection_matrix = camera.get_projection_matrix();
 
     for (GLVolume* vol : visible_volumes) {
-        vol->model.set_color((vol->printable && !vol->is_outside) ? (current_printer_technology() == ptSLA ? vol->color : ColorRGBA::ORANGE()) : ColorRGBA::GRAY());
         // the volume may have been deactivated by an active gizmo
+        if (!vol) { continue; }
         const bool is_active = vol->is_active;
         vol->is_active = true;
-        const Transform3d model_matrix = vol->world_matrix();
-        shader->set_uniform("view_model_matrix", view_matrix * model_matrix);
-        shader->set_uniform("projection_matrix", projection_matrix);
-        const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
-        shader->set_uniform("view_normal_matrix", view_normal_matrix); 
-        vol->render();
+        if (vol->mmu_mesh != nullptr && get_filament_colors().size() > 1) {
+            vol->set_render_color(vol->color);
+            vol->render_mmu(get_filament_colors(), camera);
+        }
+        else {
+            vol->model.set_color((vol->printable && !vol->is_outside) ? vol->color : ColorRGBA::GRAY());
+            //vol->model.set_color((vol->printable && !vol->is_outside) ? (current_printer_technology() == ptSLA ? vol->color : ColorRGBA::ORANGE()) : ColorRGBA::GRAY());
+            const Transform3d model_matrix = vol->world_matrix();
+            shader->set_uniform("view_model_matrix", view_matrix * model_matrix);
+            shader->set_uniform("projection_matrix", projection_matrix);
+            const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * model_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
+            shader->set_uniform("view_normal_matrix", view_normal_matrix);
+            vol->render();
+        }
+
         vol->is_active = is_active;
     }
 
@@ -5050,7 +5111,6 @@ bool GLCanvas3D::_init_main_toolbar()
     m_main_toolbar.set_scale(1.2f);
 
     GLToolbarItem::Data item;
-
     item.name = "arrange";
     item.icon_filename = "arrange.svg";
     item.tooltip = _u8L("Arrange") + " [A]\n"/* + _u8L("Arrange selection") + " [Shift+A]\n" + _u8L("Click right mouse button to show arrangement options")*/;
@@ -5076,6 +5136,7 @@ bool GLCanvas3D::_init_main_toolbar()
     item.left.toggable = true;
     item.left.action_callback = [this]() { m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::Move); };
     item.enabling_callback = [this]()->bool { return can_gizmos(); };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Move)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5087,6 +5148,7 @@ bool GLCanvas3D::_init_main_toolbar()
     item.left.toggable = true;
     item.left.action_callback = [this]() { m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::Rotate); };
     item.enabling_callback = [this]()->bool { return can_gizmos(); };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Rotate)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5098,6 +5160,7 @@ bool GLCanvas3D::_init_main_toolbar()
     item.left.toggable = true;
     item.left.action_callback = [this]() { m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::Scale); };
     item.enabling_callback = [this]()->bool { return can_gizmos(); };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Scale)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5109,6 +5172,7 @@ bool GLCanvas3D::_init_main_toolbar()
     item.left.toggable = true;
     item.left.action_callback = [this]() { m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::Flatten); };
     item.enabling_callback = [this]()->bool { return can_gizmos() && get_selection().is_single_full_instance(); };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Flatten)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5151,6 +5215,7 @@ bool GLCanvas3D::_init_main_toolbar()
     item.left.toggable = true;
     item.left.action_callback = [this]() { m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::Cut); };
     item.enabling_callback = [this]()->bool { return can_gizmos() && get_selection().is_single_full_instance(); };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Cut)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5174,6 +5239,7 @@ bool GLCanvas3D::_init_main_toolbar()
         return can_gizmos() && get_selection().is_single_full_instance();
     };
     item.visibility_callback = [this]()->bool { return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::MmuSegmentation)->is_selectable(); };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::MmuSegmentation)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5197,6 +5263,7 @@ bool GLCanvas3D::_init_main_toolbar()
         return can_gizmos() && get_selection().is_single_full_instance(); 
     };
     //item.visibility_callback = [this]()->bool { return m_main_toolbar_advanced; };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Seam)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
     if (!m_main_toolbar.add_item(item))
         return false;
 
@@ -5220,8 +5287,43 @@ bool GLCanvas3D::_init_main_toolbar()
         return can_gizmos() && get_selection().is_single_full_instance();
     };
     //item.visibility_callback = [this]()->bool { return m_main_toolbar_advanced; };
+    item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::FdmSupports)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
 	if (!m_main_toolbar.add_item(item))
 		return false;
+
+    // Add by aden.
+    item = GLToolbarItem::Data();
+    item.name = "auto bed";
+    item.icon_filename = "auto_orient.svg";
+    item.tooltip = _u8L("engin_auto_orient");
+    item.sprite_id = 11;
+    item.left.toggable = true;
+    item.left.action_callback = [this]() {
+        ANKER_LOG_INFO << "Main Tool: auto bed";
+       // m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::AutoOrient);
+        if (m_canvas != nullptr)
+            wxPostEvent(m_canvas, SimpleEvent(EVT_GLTOOLBAR_AUTO_BED)); };
+    item.enabling_callback = []()->bool { return wxGetApp().plater()->can_auto_bed(); };
+    if (!m_main_toolbar.add_item(item))
+        return false;
+
+    //// Add by virgil.
+    //item = GLToolbarItem::Data();
+    //item.name = m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Measure)->get_name(false, false);
+    //item.icon_filename = "measure.svg";
+    //item.tooltip = m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Measure)->get_name();
+    //item.sprite_id = 12;
+    //item.left.toggable = true;
+    //item.left.action_callback = [this]() { m_gizmos.open_gizmo(Slic3r::GUI::GLGizmosManager::EType::Measure); };
+    //item.enabling_callback = [this]()->bool {
+    //    Selection& selection = get_selection();
+    //    if (selection.is_empty())
+    //        return false;
+    //    return can_gizmos() && get_selection().is_single_full_instance();
+    //};
+    //item.toggled_callback = [this]()->bool {return m_gizmos.get_gizmo(Slic3r::GUI::GLGizmosManager::EType::Measure)->get_state() == Slic3r::GUI::GLGizmoBase::EState::On; };
+    //if (!m_main_toolbar.add_item(item))
+    //    return false;
 
     //item.name = "delete";
     //item.icon_filename = "remove.svg";
@@ -5453,7 +5555,7 @@ bool GLCanvas3D::_init_undoredo_toolbar()
         }
 
         if (new_additional_tooltip != curr_additional_tooltip) {
-            m_undoredo_toolbar.set_additional_tooltip(id, new_additional_tooltip);
+            //m_undoredo_toolbar.set_additional_tooltip(id, new_additional_tooltip);
             set_tooltip("");
         }
         return can_undo;
@@ -5489,7 +5591,7 @@ bool GLCanvas3D::_init_undoredo_toolbar()
         }
 
         if (new_additional_tooltip != curr_additional_tooltip) {
-            m_undoredo_toolbar.set_additional_tooltip(id, new_additional_tooltip);
+            //m_undoredo_toolbar.set_additional_tooltip(id, new_additional_tooltip);
             set_tooltip("");
         }
         return can_redo;
@@ -5641,7 +5743,8 @@ void GLCanvas3D::_picking_pass()
         {
             if (0 <= hit.raycaster_id && hit.raycaster_id < (int)m_volumes.volumes.size()) {
                 const GLVolume* volume = m_volumes.volumes[hit.raycaster_id];
-                if (volume->is_active && !volume->disabled && (volume->composite_id.volume_id >= 0 || m_render_sla_auxiliaries)) {
+                if ((volume->is_active || get_gizmos_manager().get_current_type() == GLGizmosManager::MmuSegmentation) 
+                    && !volume->disabled && (volume->composite_id.volume_id >= 0 || m_render_sla_auxiliaries)) {
                     // do not add the volume id if any gizmo is active and CTRL is pressed
                     if (m_gizmos.get_current_type() == GLGizmosManager::EType::Undefined || !wxGetKeyState(WXK_CONTROL))
                         m_hover_volume_idxs.emplace_back(hit.raycaster_id);
@@ -7367,8 +7470,12 @@ void GLCanvas3D::_set_warning_notification_if_needed(EWarning warning)
     }
     else {
         if (wxGetApp().is_editor()) {
-            if (current_printer_technology() != ptSLA)
-                show = m_gcode_viewer.has_data() && !m_gcode_viewer.is_contained_in_bed();
+            if (current_printer_technology() != ptSLA) {
+                if (warning == EWarning::ToolpathOutside)
+                    show = m_gcode_viewer.has_data() && !m_gcode_viewer.is_contained_in_bed();
+                else if (warning == EWarning::GCodeConflict)
+                    show = m_gcode_viewer.has_data() && m_gcode_viewer.is_contained_in_bed() && m_gcode_viewer.get_conflict_result().has_value();
+            }
         }
     }
 
@@ -7386,16 +7493,63 @@ void GLCanvas3D::_set_warning_notification(EWarning warning, bool state)
     ErrorType error = ErrorType::PLATER_WARNING;
     switch (warning) {
     case EWarning::ObjectOutside:      text = _u8L("An object outside the print area was detected."); break;
-    case EWarning::ToolpathOutside:    text = _u8L("A toolpath outside the print area was detected."); error = ErrorType::SLICING_ERROR; break;
+    case EWarning::ToolpathOutside:    text = _u8L("common_slicepopup_outside"); error = ErrorType::SLICING_ERROR; break;
     case EWarning::SlaSupportsOutside: text = _u8L("SLA supports outside the print area were detected."); error = ErrorType::PLATER_ERROR; break;
     case EWarning::SomethingNotShown:  text = _u8L("Some objects are not visible during editing."); break;
     case EWarning::ObjectClashed:
-        text = _u8L("An object outside the print area was detected.\n"
-            "Resolve the current problem to continue slicing.");
+        text = _u8L("common_slicepopup_objectoutside");
         error = ErrorType::PLATER_ERROR;
         break;
+    case EWarning::GCodeConflict: {
+        const ConflictResultOpt& conflict_result = m_gcode_viewer.get_conflict_result();
+        if (!conflict_result.has_value()) { break; }
+        std::string objName1 = conflict_result->_objName1;
+        std::string objName2 = conflict_result->_objName2;
+        double      height = conflict_result->_height;
+        int         layer = conflict_result->layer;
+        // TRN %3% is name of Object1, %4% is name of Object2
+        text = format(_u8L("common_print_slice_wipetower_further_hint"/*"Conflicts in G-code paths have been detected at layer %1%, z=%2$.2f mm. Please reposition the conflicting objects (%3% <-> %4%) further apart."*/),
+            layer, height, objName1, objName2);
+        error = ErrorType::SLICING_ERROR;
+        break;
+    }
     }
     auto& notification_manager = *wxGetApp().plater()->get_notification_manager();
+    const ConflictResultOpt& conflict_result = m_gcode_viewer.get_conflict_result();
+    if (warning == EWarning::GCodeConflict) {
+        if (conflict_result.has_value()) {
+            const PrintObject* obj2 = reinterpret_cast<const PrintObject*>(conflict_result->_obj2);
+            auto     mo = obj2->model_object();
+            ObjectID id = mo->id();
+            int layer_id = conflict_result->layer;
+            auto     action_fn = [id, layer_id](wxEvtHandler*) {
+                auto& objects = wxGetApp().model().objects;
+                auto  iter = id.id ? std::find_if(objects.begin(), objects.end(), [id](auto o) { return o->id() == id; }) : objects.end();
+                if (iter != objects.end()) {
+                    const unsigned int obj_idx = std::distance(objects.begin(), iter);
+                    wxGetApp().CallAfter([obj_idx, layer_id]() {
+                        wxGetApp().plater()->set_preview_layers_slider_values_range(0, layer_id - 1);
+                        wxGetApp().plater()->select_view_3D(VIEW_MODE_3D);
+                        wxGetApp().plater()->canvas3D()->reset_all_gizmos();
+                        wxGetApp().plater()->canvas3D()->get_selection().add_object(obj_idx, true);
+                        //wxGetApp().plater()->objectbar()->update_selections();
+                        wxGetApp().plater()->objectbar()->scene_selection_changed();
+                        });
+                }
+                return false;
+            };
+            auto hypertext = _u8L("Jump to");
+            hypertext += std::string(" [") + mo->name + "]";
+            notification_manager.push_notification(NotificationType::SlicingError, NotificationManager::NotificationLevel::ErrorNotificationLevel,
+                _u8L("ERROR:") + "\n" + text, hypertext, action_fn);
+        }
+        else
+            notification_manager.close_slicing_error_notification(text);
+
+        return;
+    }
+
+
     switch (error)
     {
     case PLATER_WARNING:
@@ -7544,6 +7698,17 @@ bool GLCanvas3D::_deactivate_arrange_menu()
     }
 
     return false;
+}
+
+int GLCanvas3D::get_object_idx(const ModelObject* mo)
+{
+    for (int object_idx = 0; object_idx < (int)m_model->objects.size(); ++object_idx) {
+        const ModelObject* model_object = m_model->objects[object_idx];
+        if (mo == model_object) {
+            return object_idx;
+        }
+    }
+    return -1;
 }
 
 bool GLCanvas3D::_deactivate_search_toolbar_item()

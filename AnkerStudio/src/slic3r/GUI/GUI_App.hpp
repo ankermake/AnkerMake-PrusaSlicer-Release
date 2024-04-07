@@ -18,6 +18,8 @@
 #include <stack>
 #include <thread>
 
+#include "OnlinePreset/OnlinePresetManager.hpp"
+
 class AnkerObjectBar;
 class AnkerObjectManipulator;
 class AnkerFloatingList;
@@ -32,6 +34,11 @@ struct wxLanguageInfo;
 #define  AnkerRect(x, y, w, h) Slic3r::GUI::wxGetApp().getRealRect(wxRect(x, y, w, h))
 #define  AnkerPoint(x, y) Slic3r::GUI::wxGetApp().getRealPoint(wxPoint(x, y))
 #define  AnkerLength(x) Slic3r::GUI::wxGetApp().getRealLength(x)
+
+//enable/ disable V6 ui 
+#define ENABLE_V6   true
+#define LOCAL_SIMULATE_V6 false
+
 
 namespace Slic3r {
 
@@ -61,6 +68,7 @@ class NotificationManager;
 class Downloader;
 struct GUI_InitParams;
 class GalleryDialog;
+class FilamentMaterialManager;
 
 
 
@@ -200,6 +208,9 @@ private:
     std::unique_ptr <AppUpdater> m_app_updater;
     std::unique_ptr <wxSingleInstanceChecker> m_single_instance_checker;
     std::unique_ptr <Downloader> m_downloader;
+    std::unique_ptr <FilamentMaterialManager> m_filament_material_manager;
+    std::unique_ptr <OnlinePresetManager> m_onlinePresetManager;
+
     std::string m_instance_hash_string;
 	size_t m_instance_hash_int;
 
@@ -215,6 +226,10 @@ public:
     bool is_gcode_viewer() const { return m_app_mode == EAppMode::GCodeViewer; }
     bool is_recreating_gui() const { return m_is_recreating_gui; }
     std::string logo_name() const { return is_editor() ? "AnkerStudio" : "AnkerStudio-gcodeviewer"; }
+
+    ///
+    void request_model_download(std::string url);
+    ////
 
     // To be called after the GUI is fully built up.
     // Process command line parameters cached in this->init_params,
@@ -367,6 +382,8 @@ public:
     NotificationManager* notification_manager();
     GalleryDialog *      gallery_dialog();
     Downloader*          downloader();
+    FilamentMaterialManager* filamentMaterialManager();
+    OnlinePresetManager* onlinePresetManager();
 
     // Parameters extracted from the command line to be passed to GUI after initialization.
     GUI_InitParams* init_params { nullptr };
@@ -435,6 +452,7 @@ public:
 
     
     bool            select_language(AnkerLanguageType type);
+    void            on_CrashTrack();
 
 private:
     bool            on_init_inner();
@@ -461,12 +479,17 @@ private:
 
     // Support regular cleaning of log files and retaining logs of the last few days
     void delLogtimer();
-    void auto_delete_logfile(const unsigned int days);
+    void autoDeleteLogfile(const unsigned int days);
+    void autoDeleteTempGcodeFile(const unsigned int days);
+    void autoDeleteUrlFile();
+    void readDownloadFile();
 
     bool            m_datadir_redefined { false }; 
     std::thread     m_thrdDelLog;
     std::atomic<bool> m_bDelLogTimerStop{ true };
  
+    std::thread    m_urlThread;
+    std::atomic<bool> m_bReadUrlStop { true };
 };
 
 DECLARE_APP(GUI_App)

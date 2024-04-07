@@ -1,10 +1,10 @@
 #include "AnkerCheckBox.hpp"
 #include "libslic3r/Utils.hpp"
+#include "GUI_Utils.hpp"
 
 BEGIN_EVENT_TABLE(AnkerCheckBox, wxControl)
 EVT_PAINT(AnkerCheckBox::OnPaint)
 EVT_LEFT_DOWN(AnkerCheckBox::OnPressed)
-EVT_LEFT_DCLICK(AnkerCheckBox::OnDClick)
 END_EVENT_TABLE()
 
 IMPLEMENT_DYNAMIC_CLASS(AnkerCheckBox, wxControl)
@@ -44,11 +44,20 @@ AnkerCheckBox::AnkerCheckBox(wxWindow* parent,
 #else
 	m_bgColor = wxColour("#3F4044");
 #endif
+
+	delayTimer.Bind(wxEVT_TIMER, &AnkerCheckBox::OnDelayTimer, this);
 }
 
 AnkerCheckBox::~AnkerCheckBox()
 {
 
+}
+
+void AnkerCheckBox::OnDelayTimer(wxTimerEvent& event)
+{
+	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED);
+	evt.SetEventObject(this);
+	ProcessEvent(evt);
 }
 
 void AnkerCheckBox::setBgColor(wxColour bgColor)
@@ -106,37 +115,38 @@ bool AnkerCheckBox::getCheckStatus()
 	return m_ischeck;
 }
 
+void AnkerCheckBox::openSupport()
+{
+	if (!IsEnabled()) {
+		return;
+	}
+
+	m_ischeck = true;
+	Refresh();
+	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED);
+	evt.SetEventObject(this);
+	ProcessEvent(evt);
+
+}
+
 void AnkerCheckBox::OnPressed(wxMouseEvent& event)
 {
 	if (!IsEnabled())
 	{
 		return;
 	}
-
 	m_ischeck = !m_ischeck;
-
-	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED);
-	evt.SetEventObject(this);
-	ProcessEvent(evt);
-	Refresh();
-}
-
-void AnkerCheckBox::OnDClick(wxMouseEvent& event)
-{
-// click the AnkerCheckBox quickly an repeatly would have bug(UI display state and m_ischeck value unmatch)
-#if 0
-	if (!IsEnabled())
+	if (!m_bUseDelayTimer)
 	{
-		return;
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED);
+		evt.SetEventObject(this);
+		ProcessEvent(evt);
 	}
-
-	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED);
-	evt.SetEventObject(this);
-	ProcessEvent(evt);
-
-	m_ischeck = !m_ischeck;
+	else
+	{
+		delayTimer.Start(150, true);
+	}
 	Refresh();
-#endif
 }
 
 void AnkerCheckBox::OnPaint(wxPaintEvent& event)
@@ -145,8 +155,13 @@ void AnkerCheckBox::OnPaint(wxPaintEvent& event)
 	
 	wxBrush brush(m_bgColor);		
 	dc.SetBrush(brush);
-	dc.DrawRectangle(-1, -1, GetRect().GetWidth() + 2, GetRect().GetHeight() + 2);
-
+    
+    wxPen pen(m_bgColor, 1);
+    dc.SetPen(pen);
+    
+	//dc.DrawRectangle(-1, -1, GetRect().GetWidth() + 2, GetRect().GetHeight() + 2);
+    
+    dc.DrawRectangle(0, 0, GetRect().GetWidth(), GetRect().GetHeight());
  	if (IsEnabled())
  	{	
  		if (m_ischeck)
@@ -176,7 +191,10 @@ void AnkerCheckBox::OnPaint(wxPaintEvent& event)
 		dc.SetPen(m_bgColor);
 		dc.SetTextForeground(m_Color);
 		dc.SetFont(m_textFont);
-		dc.DrawText(m_text, wxPoint(24, 0));
+
+		int iSpan = 8;
+		int width = m_checkImg.GetWidth() + iSpan;
+		dc.DrawText(m_text, wxPoint(width, 0));
 	}
 
 	event.Skip();

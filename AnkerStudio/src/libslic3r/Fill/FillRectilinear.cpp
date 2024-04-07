@@ -2749,7 +2749,7 @@ bool FillRectilinear::fill_surface_by_lines(const Surface *surface, const FillPa
     std::pair<float, Point> rotate_vector = this->_infill_direction(surface);
     rotate_vector.first += angleBase;
 
-    assert(params.density > 0.0001f && params.density <= 1.f);
+    assert(params.density > 0.0001f && params.density <= 1.3f);
     coord_t line_spacing = coord_t(scale_(this->spacing) / params.density);
 
     // On the polygons of poly_with_offset, the infill lines will be connected.
@@ -2929,7 +2929,7 @@ bool FillRectilinear::fill_surface_by_multilines(const Surface *surface, FillPar
     assert(sweep_params.size() > 1);
     assert(! params.full_infill());
     params.density /= double(sweep_params.size());
-    assert(params.density > 0.0001f && params.density <= 1.f);
+    assert(params.density > 0.0001f && params.density <= 1.3f);
 
     ExPolygonWithOffset poly_with_offset_base(surface->expolygon, 0, float(scale_(this->overlap - 0.5 * this->spacing)));
     if (poly_with_offset_base.n_contours == 0)

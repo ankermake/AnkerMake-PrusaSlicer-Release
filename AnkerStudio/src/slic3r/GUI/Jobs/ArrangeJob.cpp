@@ -362,10 +362,10 @@ void ArrangeJob::finalize(bool canceled, std::exception_ptr &eptr) {
         std::set<std::string> names;
         for (ModelInstance *mi : m_unarranged)
             names.insert(mi->get_object()->name);
-
-        m_plater->get_notification_manager()->push_notification(GUI::format(
+        // comment by Samuel 20231106, Discarded  unused notification text
+       /* m_plater->get_notification_manager()->push_notification(GUI::format(
             _L("Arrangement ignored the following objects which can't fit into a single bed:\n%s"),
-            concat_strings(names, "\n")));
+            concat_strings(names, "\n")));*/
     }
 }
 

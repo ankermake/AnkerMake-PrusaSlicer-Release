@@ -2701,6 +2701,9 @@ msgstr ""
 msgid "Style"
 msgstr ""
 
+msgid "Prime tower"
+msgstr "Prime tower"
+
 #: src/slic3r/GUI/Gizmos/GLGizmoCut.cpp:1568
 msgid "Depth ratio"
 msgstr ""
@@ -6542,7 +6545,7 @@ msgid "Open new G-code viewer"
 msgstr ""
 
 #: src/slic3r/GUI/MainFrame.cpp:227
-msgid "Closing AnkerMake_alpha. Current project is modified."
+msgid "Closing AnkerMake Studio. Current project is modified."
 msgstr ""
 
 #: src/slic3r/GUI/MainFrame.cpp:234
@@ -12274,6 +12277,12 @@ msgid ""
 "use placeholder variables for all AnkerMake_alpha settings."
 msgstr ""
 
+#: src/libslic3r/PrintConfig.cpp:685
+msgid ""
+"This end procedure is inserted at the end of the output file. Note that you can use placeholder "
+"variables for all AnkerMake Studio settings."
+msgstr ""
+
 #: src/libslic3r/PrintConfig.cpp:799
 msgid ""
 "This end procedure is inserted at the end of the output file, before the printer "
@@ -12401,6 +12410,31 @@ msgid ""
 "Detect overhang areas where bridges cannot be anchored, and fill them with extra "
 "perimeter paths. These paths are anchored to the nearby non-overhang area when "
 "possible."
+msgstr ""
+
+
+msgid ""
+"This is the acceleration your printer will use for travel moves. Set zero to "
+"disable acceleration control for travel."
+msgstr ""
+
+
+#: src/libslic3r/PrintConfig.cpp:3318
+msgid ""
+"Angle at the apex of the cone that is used to stabilize the wipe tower. "
+"Larger angle means wider base."
+msgstr ""
+
+#: src/libslic3r/PrintConfig.cpp:3328
+msgid "Spacing of purge lines on the wipe tower."
+msgstr ""
+
+
+#: src/libslic3r/PrintConfig.cpp:3094
+msgid ""
+"How far apart the branches need to be when they touch the model. Making this "
+"distance small will cause the tree support to touch the model at more "
+"points, causing better overhang but making support harder to remove."
 msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:890
@@ -14078,6 +14112,12 @@ msgstr ""
 msgid "Temperature variation"
 msgstr ""
 
+msgid "Start G-Code options"
+msgstr ""
+
+msgid "Emit temperature commands automatically"
+msgstr ""
+
 #: src/libslic3r/PrintConfig.cpp:2472
 msgid ""
 "Temperature difference to be applied when an extruder is not active. The value is "
@@ -14093,6 +14133,29 @@ msgid ""
 "order of heating commands and other custom actions. Note that you can use "
 "placeholder variables for all AnkerMake_alpha settings, so you can put a \"M109 "
 "S[first_layer_temperature]\" command wherever you want."
+msgstr ""
+
+#: src/libslic3r/PrintConfig.cpp:2640
+msgid ""
+"This start procedure is inserted at the beginning, possibly prepended by "
+"temperature-changing commands. See 'autoemit_temperature_commands'."
+msgstr ""
+
+
+#: src/libslic3r/PrintConfig.cpp:2625
+msgid ""
+"When enabled, PrusaSlicer will check whether your Custom Start G-Code "
+"contains M104 or M190. If so, the temperatures will not be emitted "
+"automatically so you're free to customize the order of heating commands and "
+"other custom actions. Note that you can use placeholder variables for all "
+"PrusaSlicer settings, so you can put a \"M109 S[first_layer_temperature]\" "
+"command wherever you want.\n"
+"If your Custom Start G-Code does NOT contain M104 or M190, PrusaSlicer will "
+"execute the Start G-Code after bed reached its target temperature and "
+"extruder just started heating.\n"
+"\n"
+"When disabled, PrusaSlicer will NOT emit commands to heat up extruder and "
+"bed, leaving both to Custom Start G-Code."
 msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:2498
@@ -14762,6 +14825,15 @@ msgstr ""
 #: src/libslic3r/PrintConfig.cpp:3134 src/libslic3r/PrintConfig.cpp:3135
 msgid "Wipe tower brim width"
 msgstr ""
+
+#: src/libslic3r/PrintConfig.cpp:3134 src/libslic3r/PrintConfig.cpp:3440
+msgid "Stabilization cone apex angle"
+msgstr ""
+
+#: src/libslic3r/PrintConfig.cpp:3450 src/libslic3r/PrintConfig.cpp:3450
+msgid "Wipe tower purge lines spacing"
+msgstr ""
+
 
 #: src/libslic3r/PrintConfig.cpp:3143
 msgid "Wipe into this object's infill"
@@ -24416,6 +24488,9 @@ msgstr "Resume"
 msgid "commin_button_update"
 msgstr "Update"
 
+msgid "common_account_button_confirm"
+msgstr "Confirm"
+
 msgid "common_account_button_forget"
 msgstr "Forgot password?"
 
@@ -24427,6 +24502,21 @@ msgstr "Resend Verification Email"
 
 msgid "common_account_button_signin"
 msgstr "Sign In"
+
+msgid "common_account_captcha_empty"
+msgstr "Please enter the CAPTCHA."
+
+msgid "common_account_email_empty"
+msgstr "Please enter your email address."
+
+msgid "common_account_email_invalid"
+msgstr "Please enter a valid email address."
+
+msgid "common_account_login_failed"
+msgstr "Login failed"
+
+msgid "common_account_logined"
+msgstr "Logined as {email}"
 
 msgid "common_account_notice_copyright"
 msgstr "Copyright©2021 Anker Innovations Limited"
@@ -24446,7 +24536,7 @@ msgstr ""
 "Make sure you select the region where the printer is physically located."
 
 msgid "common_account_notice_signup"
-msgstr "Don’t have an account? Sign up."
+msgstr "<0>Don't have an account? </0><1>Sign up.</1>"
 
 msgid "common_account_notice_verificationcode"
 msgstr "Verification Code"
@@ -24456,6 +24546,15 @@ msgstr "Thanks for signing up! Please check your email to continue…"
 
 msgid "common_account_notice_verificationemail2"
 msgstr "A verification email has been sent to your mailbox. Follow the instructions in the email to activate your account within 24 hours."
+
+msgid "common_account_password_empty"
+msgstr "Please enter your password."
+
+msgid "common_account_placeholder_captcha"
+msgstr "Enter Captcha"
+
+msgid "common_account_title_captcha"
+msgstr "Captcha"
 
 msgid "common_account_title_email"
 msgstr "Email"
@@ -24490,11 +24589,20 @@ msgstr "Close"
 msgid "common_button_accept"
 msgstr "Accept"
 
+msgid "common_button_all"
+msgstr "All"
+
 msgid "common_button_apply"
 msgstr "Apply"
 
+msgid "common_button_back"
+msgstr "Back"
+
 msgid "common_button_cancel"
 msgstr "Cancel"
+
+msgid "common_button_clear"
+msgstr "Clear"
 
 msgid "common_button_continue"
 msgstr "Continue"
@@ -24511,6 +24619,9 @@ msgstr "Don't remind me again."
 msgid "common_button_enforece"
 msgstr "Enforce"
 
+msgid "common_button_next"
+msgstr "Next"
+
 msgid "common_button_no"
 msgstr "No"
 
@@ -24523,8 +24634,17 @@ msgstr "OK"
 msgid "common_button_open"
 msgstr "Open"
 
+msgid "common_button_remember"
+msgstr "Remember my choice"
+
+msgid "common_button_retry"
+msgstr "Retry"
+
 msgid "common_button_save"
 msgstr "Save"
+
+msgid "common_button_start"
+msgstr "Start"
 
 msgid "common_button_stop"
 msgstr "Stop"
@@ -24561,6 +24681,12 @@ msgstr "Share Device Logs with AnkerMake"
 
 msgid "common_feedback_title_picturevideo"
 msgstr "Picture/Video"
+
+msgid "common_http_connect_error_content"
+msgstr "Failed to connect to the server, please check your connection and try again."
+
+msgid "common_http_connect_error_title"
+msgstr "Connection Error"
 
 msgid "common_launch_policy_content1"
 msgstr "Welcome to AnkerMake"
@@ -24610,11 +24736,35 @@ msgstr "Select All"
 msgid "common_menu_edit_undo"
 msgstr "Undo"
 
+msgid "common_menu_file_Importconfig"
+msgstr "Import Config"
+
+msgid "common_menu_file_Importconfigbundle"
+msgstr "Import Config Bundle"
+
+msgid "common_menu_file_Importlist"
+msgstr "Import STL/3MF/STEP/OBJ/AMF"
+
 msgid "common_menu_file_ejectsd"
 msgstr "Eject SD Card/Flash Drive"
 
 msgid "common_menu_file_export"
 msgstr "Export"
+
+msgid "common_menu_file_exportas"
+msgstr "Export Plate as STL/OBJ"
+
+msgid "common_menu_file_exportconfig"
+msgstr "Export Config"
+
+msgid "common_menu_file_exportconfigbundle"
+msgstr "Export Config Bundle"
+
+msgid "common_menu_file_exportgocde"
+msgstr "Export G-Code"
+
+msgid "common_menu_file_exportgocde2sd"
+msgstr "Export G-Code to SD Card/Flash Drive"
 
 msgid "common_menu_file_import"
 msgstr "Import"
@@ -24648,6 +24798,9 @@ msgstr "Feedback"
 
 msgid "common_menu_help_privacy"
 msgstr "Privacy Policy"
+
+msgid "common_menu_help_privacychoices"
+msgstr "Your Privacy Choices"
 
 msgid "common_menu_help_termsofuse"
 msgstr "Terms of Use"
@@ -24715,8 +24868,23 @@ msgstr "Show Labels"
 msgid "common_menu_view_top"
 msgstr "Top"
 
+msgid "common_mqtt_get_slots_failed"
+msgstr "Failed to obtain V6 printer slot data, please try again."
+
+msgid "common_net_connect_error"
+msgstr "Connection Error"
+
+msgid "common_notice_delete2check"
+msgstr "Are you sure you want to delete%s?"
+
 msgid "common_notice_loading"
 msgstr "Loading..."
+
+msgid "common_ota_update_preset_title"
+msgstr "System Updates"
+
+msgid "common_popup_close2save"
+msgstr "Closing %s. Do you want to save the changes to %s?"
 
 msgid "common_popup_content_1mos"
 msgstr "Printer may overheat. Power off %s, remove all USB-C cables, and then plug them back in. If the problem persists, please email support@ankermake.com to contact customer service for assistance."
@@ -24985,6 +25153,42 @@ msgstr "Layer"
 msgid "common_preview_operationtitle_step"
 msgstr "Step"
 
+msgid "common_preview_sheethover_colorchange"
+msgstr "Color Changes"
+
+msgid "common_preview_sheethover_custom"
+msgstr "Custom G-Codes"
+
+msgid "common_preview_sheethover_deretraction"
+msgstr "Deretractions"
+
+msgid "common_preview_sheethover_gravity"
+msgstr "Center of Gravity"
+
+msgid "common_preview_sheethover_pause"
+msgstr "Print Pauses"
+
+msgid "common_preview_sheethover_retraction"
+msgstr "Retractions"
+
+msgid "common_preview_sheethover_seam"
+msgstr "Seams"
+
+msgid "common_preview_sheethover_shell"
+msgstr "Shells"
+
+msgid "common_preview_sheethover_toolchange"
+msgstr "Tool Changes"
+
+msgid "common_preview_sheethover_toolmarker"
+msgstr "Tool Marker"
+
+msgid "common_preview_sheethover_travel"
+msgstr "Travel"
+
+msgid "common_preview_sheethover_wipe"
+msgstr "Wipe"
+
 msgid "common_preview_sheettitle_1layer"
 msgstr "First Layer"
 
@@ -25189,6 +25393,12 @@ msgstr "Please do not shut down the device"
 msgid "common_print_fwupdate_title"
 msgstr "Firmware Update"
 
+msgid "common_print_gcode_device_nomatch_hint"
+msgstr "The current G-code is not compatible with this printer, and continuing to print may cause problems such as extruder jams. Are you sure you want to continue?"
+
+msgid "common_print_gcode_not_anker_hint"
+msgstr "The selected file was not sliced by AnkerMake, and continuing to print may cause print quality issues. Are you sure you want to continue?"
+
 msgid "common_print_monitor_buttonretry"
 msgstr "Retry"
 
@@ -25270,6 +25480,8 @@ msgstr "Before printing, please run calibration via the AnkerMake app."
 msgid "common_print_popup_v6calibrationremove"
 msgstr "Before printing, please remove the calibration tool and install the PEI plate."
 
+msgid "common_print_popup_v6initialize"
+msgstr "V6 Color Engine detected. Please complete the initialization settings via the AnkerMake app and then refresh this page."
 
 msgid "common_print_popupfinished_buttonfinish"
 msgstr "Finish"
@@ -25517,6 +25729,9 @@ msgstr "Upon completion of a task, the printer will turn off the lights and fan 
 msgid "common_print_setsleep_no"
 msgstr "Never"
 
+msgid "common_print_slice_wipetower_further_hint"
+msgstr "Conflicts in G-code paths have been detected at layer %1%, z=%2$.2f mm. Please reposition the conflicting objects (%3% <-> %4%) further apart."
+
 msgid "common_print_statusnotice_createaccount"
 msgstr "Don't have an account? "
 
@@ -25556,6 +25771,9 @@ msgstr "Preheat"
 msgid "common_print_taskbar_buttonstart"
 msgstr "Start Printing"
 
+msgid "common_print_taskbar_calibration"
+msgstr "Calibration"
+
 msgid "common_print_taskbar_finished"
 msgstr "Finished (%s)"
 
@@ -25574,8 +25792,13 @@ msgstr "Progress"
 msgid "common_print_taskbar_progressleveling"
 msgstr "Auto Level"
 
+msgid "common_print_taskbar_progressv6calibration"
+msgstr "V6 Calibration"
 
 msgid "common_print_taskbar_statuscalibrating"
+msgstr "Calibrating..."
+
+msgid "common_print_taskbar_statuscalibrating_title"
 msgstr "Calibrating..."
 
 msgid "common_print_taskbar_statusdownload"
@@ -25622,6 +25845,15 @@ msgstr "Finish time: %s"
 
 msgid "common_print_transfer_errornotice"
 msgstr "G-code file failed to transfer, please try again."
+
+msgid "common_printerpanel_addremove_item"
+msgstr "Add/Remove Printers"
+
+msgid "common_printerpanel_edit_button_tip"
+msgstr "Click to Configure Printer"
+
+msgid "common_printerpanel_system_item"
+msgstr "System Presets"
 
 msgid "common_printnotice_limit_mismatch"
 msgstr "Please be sure the file you are printing is intended for use with your printer, or you may encounter unexpected issues while printing."
@@ -25711,7 +25943,7 @@ msgid "common_slice_slicing_title"
 msgstr "Slicing..."
 
 msgid "common_slice_toolpannel_addprintsettings"
-msgstr "Add print settings"
+msgstr "Add Print Settings"
 
 msgid "common_slice_toolpannel_cut"
 msgstr "Cut"
@@ -25729,7 +25961,7 @@ msgid "common_slice_toolpannel_modify"
 msgstr "Modify Object"
 
 msgid "common_slice_toolpannel_paintsupport"
-msgstr "Paint-On Support"
+msgstr "Paint-on Support"
 
 msgid "common_slice_toolpannel_seampaint"
 msgstr "Seam Painting"
@@ -25819,22 +26051,22 @@ msgid "common_slice_toolpannelseam_title1"
 msgstr "Brush Thickness"
 
 msgid "common_slice_toolpannelsimplify_decimateratio"
-msgstr "Decimate ratio"
+msgstr "Decimate Ratio"
 
 msgid "common_slice_toolpannelsimplify_name"
 msgstr "Name: "
 
 msgid "common_slice_toolpannelsimplify_showwirframe"
-msgstr "Show wireframe"
+msgstr "Show Wireframe"
 
 msgid "common_slice_toolpannelsimplify_triangles"
 msgstr "Triangles: "
 
 msgid "common_slice_toolpannelsupport_bulid"
-msgstr "Support on Bulid Plate Only"
+msgstr "Support on Build Plate Only"
 
 msgid "common_slice_toolpannelsupport_bushsize"
-msgstr "Brush size"
+msgstr "Brush Size"
 
 msgid "common_slice_toolpannelsupport_buttonadd"
 msgstr "Add Support"
@@ -25849,19 +26081,19 @@ msgid "common_slice_toolpannelsupport_generate"
 msgstr "Generate Support"
 
 msgid "common_slice_toolpannelsupport_highlight"
-msgstr "Highlight overhang"
+msgstr "Highlight Overhang"
 
 msgid "common_slice_toolpannelsupport_more"
 msgstr "More Settings"
 
 msgid "common_slice_toolpannelsupport_onlyplate"
-msgstr "Support on build plate only"
+msgstr "Support on Build Plate Only"
 
 msgid "common_slice_toolpannelsupport_overhang"
 msgstr "Overhang Threshold"
 
 msgid "common_slice_toolpannelsupport_painting"
-msgstr "Manual painting"
+msgstr "Manual Painting"
 
 msgid "common_slice_toolpannelsupport_supportmaterial"
 msgstr "Support Material"
@@ -25870,7 +26102,7 @@ msgid "common_slice_toolpannelsupport_surfacematerial"
 msgstr "Top Surface Support Material"
 
 msgid "common_slice_toolpannelsupport_threshold"
-msgstr "Overhang threshold"
+msgstr "Overhang Threshold"
 
 msgid "common_slice_toolpannelsupport_title1"
 msgstr "Generate Support"
@@ -25879,7 +26111,7 @@ msgid "common_slice_toolpannelsupport_title2"
 msgstr "Modify Manually"
 
 msgid "common_slice_toolpannelsupport_view"
-msgstr "Clip view"
+msgstr "Clip View"
 
 msgid "common_slice_toolpanneltext_advanced"
 msgstr "Advanced"
@@ -25888,7 +26120,7 @@ msgid "common_slice_toolpanneltext_boldness"
 msgstr "Boldness"
 
 msgid "common_slice_toolpanneltext_chargap"
-msgstr "Character spacing"
+msgstr "Character Spacing"
 
 msgid "common_slice_toolpanneltext_depth"
 msgstr "Depth"
@@ -25897,13 +26129,13 @@ msgid "common_slice_toolpanneltext_font"
 msgstr "Font"
 
 msgid "common_slice_toolpanneltext_fromsurface"
-msgstr "From surface"
+msgstr "From Surface"
 
 msgid "common_slice_toolpanneltext_height"
 msgstr "Height"
 
 msgid "common_slice_toolpanneltext_linegao"
-msgstr "Line gap"
+msgstr "Line Gap"
 
 msgid "common_slice_toolpanneltext_makeitreal"
 msgstr "Make It Real"
@@ -25912,7 +26144,7 @@ msgid "common_slice_toolpanneltext_rotation"
 msgstr "Rotation"
 
 msgid "common_slice_toolpanneltext_skewratio"
-msgstr "Skew ratio"
+msgstr "Skew Ratio"
 
 msgid "common_slice_toolpanneltext_style"
 msgstr "Style"
@@ -25921,7 +26153,7 @@ msgid "common_slice_toolpanneltext_stylenormal"
 msgstr "Normal"
 
 msgid "common_slice_toolpanneltext_usesurface"
-msgstr "Use surface"
+msgstr "Use Surface"
 
 msgid "common_slice_tooltips_arrange"
 msgstr "Arrange [%s]"
@@ -26046,6 +26278,172 @@ msgstr "Filament"
 msgid "common_slicepannel_title_printer"
 msgstr "Printer"
 
+msgid "common_slicepopup_3dmouse"
+msgstr "3D mouse disconnected."
+
+msgid "common_slicepopup_boolean"
+msgstr "Error: Unable to perform boolean operation on model meshes. Only positive parts will be exported."
+
+msgid "common_slicepopup_deviceremoved1"
+msgstr "Successfully unmounted. %s(%s) can now be safely removed from the computer."
+
+msgid "common_slicepopup_deviceremoved2"
+msgstr "%s(%s) failed to eject."
+
+msgid "common_slicepopup_error"
+msgstr "Error"
+
+msgid "common_slicepopup_exportfinished"
+msgstr "Finished exporting."
+
+msgid "common_slicepopup_exporting"
+msgstr "Exporting..."
+
+msgid "common_slicepopup_exporting_gcode2file"
+msgstr "Exporting G-code to %s..."
+
+msgid "common_slicepopup_failarrange"
+msgstr ""
+"Arrangement ignored the following objects which can't fit into a single bed: \n"
+"%s"
+
+msgid "common_slicepopup_failfont1"
+msgstr "Unable to load the \\\"%1%\\\") font. Application selected a similar one: (\\\"%1%\\\"). Please specify a font to enable text editing."
+
+msgid "common_slicepopup_failfont2"
+msgstr "No active font in style. Select correct one."
+
+msgid "common_slicepopup_failfont3"
+msgstr "WxFont did not load properly."
+
+msgid "common_slicepopup_integration2"
+msgstr "Successfully reversed desktop integration."
+
+msgid "common_slicepopup_integrationfinished1"
+msgstr "Desktop integration was successful."
+
+msgid "common_slicepopup_nonsoliddeleted"
+msgstr "All non-solid parts (modifiers) were deleted."
+
+msgid "common_slicepopup_objectoutside"
+msgstr "An object outside the print area was detected. Resolve the current problem to continue slicing."
+
+msgid "common_slicepopup_outside"
+msgstr "Error: A toolpath outside the print area was detected."
+
+msgid "common_slicepopup_painterror1"
+msgstr "Your printer has more extruders than the multi-material painting gizmo supports. For this reason, only the first extruder will be able to be used for painting."
+
+msgid "common_slicepopup_profileerror"
+msgstr "The profile in the imported archive is corrupted and could not be loaded."
+
+msgid "common_slicepopup_repaire1"
+msgstr "The following model was repaired successfully"
+
+msgid "common_slicepopup_repaire2"
+msgstr "The following models were repaired successfully."
+
+msgid "common_slicepopup_repairecancel"
+msgstr "Repair canceled."
+
+msgid "common_slicepopup_repairefailed1"
+msgstr "Repair failed for the following model."
+
+msgid "common_slicepopup_repairefailed2"
+msgstr "Repair failed for the following models."
+
+msgid "common_slicepopup_repairing1"
+msgstr "Custom supports, seams, and multi-material paint were  removed after repairing the mesh."
+
+msgid "common_slicepopup_simplify1"
+msgstr "Custom supports, seams, and multi-material paint were  removed after simplifying the mesh."
+
+msgid "common_slicepopup_slicing_genera1"
+msgstr "Generating skirt and brim..."
+
+msgid "common_slicepopup_slicing_genera2"
+msgstr "Infilling layers..."
+
+msgid "common_slicepopup_slicing_genera3"
+msgstr "Generating G-code..."
+
+msgid "common_slicepopup_slicing_processmesh"
+msgstr "Processing triangulated mesh..."
+
+msgid "common_slicepopup_slicingcancel"
+msgstr "Slicing Canceled"
+
+msgid "common_slicepopup_slicingnotice1"
+msgstr "No layers were detected. Repair your STL file(s) or check the size or thickness and retry."
+
+msgid "common_slicepopup_slicingnotice2"
+msgstr "The print is empty. The model is not printable with the current print settings."
+
+msgid "common_slicepopup_slicingnotice3"
+msgstr "There is an object with no extrusions in the first layer."
+
+msgid "common_slicepopup_slicingnotice4"
+msgstr "Object name: %s"
+
+msgid "common_slicepopup_slicingnotice5"
+msgstr "No extrusions were generated for objects."
+
+msgid "common_slicepopup_slicingnotice6"
+msgstr "Levitating objects cannot be printed without supports."
+
+msgid "common_slicepopup_slicingnotice7"
+msgstr "No pad can be generated for this model with the current configuration."
+
+msgid "common_slicepopup_slicingnotice8"
+msgstr "There are unprintable objects. Try adjusting support settings to make the objects printable."
+
+msgid "common_slicepopup_split1"
+msgstr "Custom supports, seams, and multi-material paint were removed after splitting the object."
+
+msgid "common_slicepopup_stabilityissue"
+msgstr ""
+"Detected print stability issues:\n"
+"%1%"
+
+msgid "common_slicepopup_stabilityissue1"
+msgstr "Floating object part"
+
+msgid "common_slicepopup_stabilityissue2"
+msgstr "Long bridging extrusions"
+
+msgid "common_slicepopup_stabilityissue3"
+msgstr "Floating bridge anchors"
+
+msgid "common_slicepopup_stabilityissue4"
+msgstr "Collapsing overhang"
+
+msgid "common_slicepopup_stabilityissue5"
+msgstr "Loose extrusions"
+
+msgid "common_slicepopup_stabilityissue6"
+msgstr "Low bed adhesion"
+
+msgid "common_slicepopup_stabilityissue7"
+msgstr "Thin and fragile part"
+
+msgid "common_slicepopup_stabilityissue8"
+msgstr "Consider enabling supports."
+
+msgid "common_slicepopup_stabilityissue9"
+msgstr "Also consider enabling brim."
+
+msgid "common_slicepopup_toolconflict"
+msgstr "Please deselect all active tools from the top toolbar first."
+
+msgid "common_slicepopup_triangletoomuch1"
+msgstr "Processing model '%1%' with more than 1 million triangles could be slow. We highly recommend reducing the amount of triangles."
+
+msgid "common_slicepopup_triangletoomuch2"
+msgstr "Simplify model."
+
+msgid "common_slicepopup_warning"
+msgstr "Warning"
+
 msgid "common_toptable_login"
 msgstr "Log In"
 
@@ -26057,3 +26455,618 @@ msgstr "Prepare"
 
 msgid "common_toptable_print"
 msgstr "Print"
+
+msgid "common_web_connect_content"
+msgstr "Stay connected by moving to a stronger signal area for a smoother experience."
+
+msgid "common_web_down_timeout_title"
+msgstr "Download timed out."
+
+msgid "common_web_failed_to_connect_network_title"
+msgstr "Failed to connect to the Wi-Fi network."
+
+msgid "common_web_file_download_content"
+msgstr "File downloaded %d%%..."
+
+msgid "common_web_import_model_title"
+msgstr "Importing Model..."
+
+msgid "common_web_invalid_parameters_content"
+msgstr "The imported parameters are not supported. Please check your file or you can contact us at support@ankermake.com."
+
+msgid "common_web_invalid_parameters_title"
+msgstr "Invalid Parameters"
+
+msgid "common_web_timeout_content"
+msgstr "Download timed out. Please try again."
+
+msgid "common_webview_req_failed"
+msgstr "Request failed, please try again."
+
+msgid "common_wizard_filament_header"
+msgstr "Filament Profile Selection"
+
+msgid "common_wizard_filament_hint"
+msgstr "Filaments marked with * are not compatible with some installed printers."
+
+msgid "common_wizard_filament_printer"
+msgstr "Printer"
+
+msgid "common_wizard_filament_profile"
+msgstr "Profile"
+
+msgid "common_wizard_filament_type"
+msgstr "Type"
+
+msgid "common_wizard_filament_vendor"
+msgstr "Vendor"
+
+msgid "common_wizard_pinter_alter_nozlle"
+msgstr "Alternate Nozzles:"
+
+msgid "common_wizard_pinter_header"
+msgstr "Printer Preset Selection"
+
+msgid "common_wizard_pinter_nozlle"
+msgstr "Nozzle"
+
+msgid "common_wizard_printer_all_standard"
+msgstr "All Standard"
+
+msgid "common_wizard_printer_standard"
+msgstr "Standard"
+
+msgid "common_wizard_title"
+msgstr "Setup Wizard"
+
+msgid "common_wizard_welcome_header"
+msgstr "Welcome to AnkerMake. Begin your creative journey after a few simple steps."
+
+msgid "engin_auto_orient"
+msgstr "Auto Bed"
+
+msgid "engin_printconfig_option_brim_ears_detection_length"
+msgstr "Brim Ears Detection Length"
+
+msgid "engin_printconfig_option_brim_ears_max_angle"
+msgstr "Brim Ears Max Angle"
+
+msgid "engin_printconfig_option_brim_smart_ordering"
+msgstr "Enable Smart Brim"
+
+msgid "engin_printconfig_tip_RangTip"
+msgstr "The recommended range here is %.2f - %.2f, please adjust this parameter to within the recommended range."
+
+msgid "engin_printconfig_tip_SupportTreeTipDiameter"
+msgstr "Organic support branch tip diameter."
+
+msgid "engin_printconfig_tip_brim_ears_detection_length"
+msgstr ""
+"The geometry will be decimated before detecting sharp angles. This parameter indicates the minimum length of the deviation for the decimation. \n"
+"0 to deactivate."
+
+msgid "engin_printconfig_tip_brim_ears_max_angle"
+msgstr ""
+"Maximum angle for a brim ear to appear. \n"
+"If set to 0, no brim will be created. \n"
+"If set to 180, brim will be created on everything but straight sections."
+
+msgid "engin_printconfig_tip_brim_smart_ordering"
+msgstr "Swap the print order of the innermost and second innermost brim lines to improve brim removal."
+
+msgid "common_wizard_empty_printer_notice"
+msgstr "At least one printer must be selected."
+
+msgid "common_web_download_error_content"
+msgstr "Failed to found the download folder on your computer, please check."
+
+msgid "common_objecelist_modelType_invalid"
+msgstr "invalid"
+
+msgid "common_objecelist_modelType_part"
+msgstr "part"
+
+
+msgid "common_objecelist_modelType_negetive"
+msgstr "negetive"
+
+msgid "common_objecelist_modelType_modifier"
+msgstr "modifier"
+
+msgid "common_objecelist_modelType_blocker"
+msgstr "blocker"
+
+msgid "common_objecelist_modelType_enforcer"
+msgstr "enforcer"
+
+msgid "common_control_tip_edit_temperature"
+msgstr "Edit temperature"
+
+msgid "common_reject_switch_language"
+msgstr "A-code is being exported. Please wait for the task to be completed or the terminal export operation to switch languages." 
+
+msgid "engin_brim_type_mouse_ear"
+msgstr "Mouse ear"
+
+msgid "common_net_fail_get_printer_data"
+msgstr "Failed to obtain printer data, please try again."
+
+msgid "common_select_fialment_tips"
+msgstr "Please specify the filament before printing."
+
+msgid "common_not_support_material_tips"
+msgstr "Only supports the same type of material that was sliced."
+
+msgid "common_printnotice_temperature_hint"
+msgstr "The nozzle and heatbed will preheat during the file transferring, please be careful not to touch them."
+
+msgid ""
+"Is it %s%% or %s %s?\n"
+"YES for %s%%, \n"
+"NO for %s %s."
+msgstr ""
+
+msgid "common_Parameter_optionGroup_Bridging"
+msgstr "Bridging"
+
+msgid "common_Parameter_optionGroup_FilamentForSupports"
+msgstr "Filament for supports"
+
+msgid "common_Parameter_optionGroup_Jerk"
+msgstr "Jerk(XY)"
+
+msgid "common_Parameter_optionGroup_OtherLayerSpeed"
+msgstr "Other layer speed"
+
+msgid "common_Parameter_optionGroup_Overhang"
+msgstr "Overhangs"
+
+msgid "common_Parameter_optionGroup_PressureEqualizer"
+msgstr "Pressure Equalizer"
+
+msgid "common_Parameter_optionGroup_TopBottom"
+msgstr "Top/Bottom shells"
+
+msgid "common_Parameter_optionGroup_WallsAndSurfaces"
+msgstr "Walls"
+
+msgid "common_print_device_gcode_not_match"
+msgstr "The chosen printer is not compatible with the G-code's printer settings, please select the correct settings."
+
+msgid "common_print_gcode_path_error"
+msgstr "The generated path for G-code or A-code is invalid."
+
+msgid "common_print_netplugin_download_failed"
+msgstr "Failed to download Network Plug-in, please try again."
+
+msgid "common_print_netplugin_downloading"
+msgstr "Downloading..."
+
+msgid "common_print_netplugin_install"
+msgstr "Install"
+
+msgid "common_print_netplugin_install_finish"
+msgstr "Finish"
+
+msgid "common_print_netplugin_install_networkplugin"
+msgstr "AnkerMake Studio network plug-in is not detected, please install it before using the network feature with your AnkerMake devices."
+
+msgid "common_print_netplugin_install_new_networkplugin"
+msgstr "Detected a new AnkerMake Studio network plug-in, please install it before using the network feature with your AnkerMake devices."
+
+msgid "common_print_netplugin_install_success"
+msgstr "Installed Successfully"
+
+msgid "common_print_netplugin_networkplugin"
+msgstr "Network Plug-In"
+
+msgid "common_print_netplugin_notnow"
+msgstr "Not Now"
+
+msgid "common_right_panel_measure_cancel_button"
+msgstr "Cancel"
+
+msgid "common_right_panel_measure_click_to_scale"
+msgstr "Edit to scale"
+
+msgid "common_right_panel_measure_restart_button"
+msgstr "Restart Selection"
+
+msgid "common_right_panel_measure_scale_button"
+msgstr "Scale"
+
+msgid "common_right_panel_measure_selection"
+msgstr "Selection"
+
+msgid "common_right_panel_measure_selection_circle"
+msgstr "Circle"
+
+msgid "common_right_panel_measure_selection_diameter_of_circle"
+msgstr "Diameter"
+
+msgid "common_right_panel_measure_selection_edge"
+msgstr "Edge"
+
+msgid "common_right_panel_measure_selection_length_of_edge"
+msgstr "Length"
+
+msgid "common_right_panel_measure_selection_none"
+msgstr "None"
+
+msgid "common_right_panel_measure_selection_plane"
+msgstr "Plane"
+
+msgid "common_right_panel_measure_selection_point_on_circle"
+msgstr "Point on circle"
+
+msgid "common_right_panel_measure_selection_point_on_edge"
+msgstr "Point on edge"
+
+msgid "common_right_panel_measure_selection_point_on_plane"
+msgstr "Point on plane"
+
+msgid "common_right_panel_measure_selection_vertex"
+msgstr "Vertex"
+
+msgid "common_right_panel_measure_title"
+msgstr "Measure"
+
+msgid "common_right_panel_measure_type_angle"
+msgstr "Angle"
+
+msgid "common_right_panel_measure_type_direct_distance"
+msgstr "Direct distance"
+
+msgid "common_right_panel_measure_type_distance_xyz"
+msgstr "Distance XYZ"
+
+msgid "common_right_panel_measure_type_perpendicular_distance"
+msgstr "Perpendicular distance"
+
+msgid "common_right_panel_remove_preset"
+msgstr "Remove Preset"
+
+msgid "common_right_panel_rename_preset"
+msgstr "Rename Preset"
+
+msgid "engin_optionTip_Initial layer travel speed"
+msgstr "Travel speed of initial layer"
+
+msgid "engin_optionTip_Internal_bridge_flow"
+msgstr "This value governs the thickness of the internal bridge layer. This is the first layer over sparse infill. Decrease this value slightly (for example 0.9) to improve surface quality over sparse infill."
+
+msgid "engin_optionTip_bottom_solid_infill_flow_ratio"
+msgstr "This factor affects the amount of material for bottom solid infill"
+
+msgid "engin_optionTip_bridge_acceleration"
+msgstr "Acceleration of bridges. If the value is expressed as a percentage (e.g. 50%), it will be calculated based on the outer wall acceleration."
+
+msgid "engin_optionTip_bridge_density"
+msgstr "Density of external bridges. 100% means solid bridge. Default is 100%."
+
+msgid "engin_optionTip_brim_type"
+msgstr "This controls the generation of the brim at outer and/or inner side of models. Auto means the brim width is analysed and calculated automatically."
+
+msgid "engin_optionTip_elefant_foot_compensation_layers"
+msgstr ""
+"The number of layers on which the elephant foot compensation will be active.The first layer will be shrunk by the elephant foot compensation value, \n"
+"then the next layers will be linearly shrunk less, up to the layer indicated by this value."
+
+msgid "engin_optionTip_exclude_object"
+msgstr "Enable this option to add EXCLUDE OBJECT command in G-code"
+
+msgid "engin_optionTip_external_perimeter_acceleration"
+msgstr "Acceleration of Outer Walls"
+
+msgid "engin_optionTip_external_perimeter_extrusion_width"
+msgstr "Line width of outer wall. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_extra_perimeters_on_overhangs"
+msgstr "Create additional perimeter paths over steep overhangs and areas where bridges cannot be anchored."
+
+msgid "engin_optionTip_extrusion_width"
+msgstr "Default line width if other line widths are set to 0. If expressed as a percentage it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_filter_out_gap_fill"
+msgstr "Filter out gaps smaller than the threshold specified"
+
+msgid "engin_optionTip_first_layer_extrusion_width"
+msgstr "Line width of initial layer. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_first_layer_min_bead_width"
+msgstr "The minimum wall width that should be used for the first layer is recommended to be set to the same size as the nozzle. This adjustment is expected to enhance adhesion."
+
+msgid "engin_optionTip_first_layer_speed"
+msgstr "Speed of first layer"
+
+msgid "engin_optionTip_hole_to_polyhole"
+msgstr "Search for almost-circular holes that span more than one layer and convert the geometry to polyholes.Use the nozzle size and the (biggest) diameter to compute the polyhole."
+
+msgid "engin_optionTip_infill_acceleration"
+msgstr "Acceleration of sparse infill. If the value is expressed as a percentage (e.g. 100%), it will be calculated based on the default acceleration."
+
+msgid "engin_optionTip_infill_extrusion_width"
+msgstr "Line width of internal sparse infill. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_infill_first"
+msgstr ""
+"Order of wall/infill. When the tickbox is unchecked the walls are printed first, which works best in most cases.\\n"
+"\\n"
+"Printing walls first may help with extreme overhangs as the walls have the neighbouring infill to adhere to. However, the infill will slighly push out the printed walls where it is attached to them, resulting in a worse external surface finish. It can also cause the infill to shine through the external surfaces of the part."
+
+msgid "engin_optionTip_internal_bridge_speed"
+msgstr "Speed of internal bridge. If the value is expressed as a percentage, it will be calculated based on the bridge_speed. Default value is 150%."
+
+msgid "engin_optionTip_internal_solid_infill_pattern"
+msgstr "Line pattern of internal solid infill. if the detect narrow internal solid infill be enabled, the concentric pattern will be used for the small area."
+
+msgid "engin_optionTip_ironing_angle"
+msgstr "The angle ironing is done at. A negative number disables this function and uses the default method."
+
+msgid "engin_optionTip_ironing_pattern"
+msgstr "The pattern that will be used when ironing"
+
+msgid "engin_optionTip_jerk_infill"
+msgstr "Jerk for Infill"
+
+msgid "engin_optionTip_jerk_initial_layer"
+msgstr "Jerk for Initial Layer"
+
+msgid "engin_optionTip_jerk_inner_wall"
+msgstr "Jerk of Inner Walls"
+
+msgid "engin_optionTip_jerk_outer_wall"
+msgstr "Jerk of Outer Walls"
+
+msgid "engin_optionTip_jerk_top_surface"
+msgstr "Jerk for Top Surface"
+
+msgid "engin_optionTip_jerk_travel"
+msgstr "Jerk for Travel"
+
+msgid "engin_optionTip_make_overhang_printable"
+msgstr "Modify the geometry to print overhangs without support material."
+
+msgid "engin_optionTip_min_bead_width"
+msgstr ""
+"Width of the wall that will replace thin features (according to the Minimum feature size) of the model. If the Minimum wall width is thinner than the thickness of the feature,\n"
+"the wall will become as thick as the feature itself. It's expressed as a percentage over nozzle diameter"
+
+msgid "engin_optionTip_only_one_wall_first_layer"
+msgstr "Use only one wall on first layer, to give more space to the bottom infill pattern"
+
+msgid "engin_optionTip_overhang_reverse"
+msgstr ""
+"Extrude perimeters that have a part over an overhang in the reverse direction on odd layers. This alternating pattern can drastically improve steep overhangs.\\n"
+"\\n"
+"This setting can also help reduce part warping due to the reduction of stresses in the part walls."
+
+msgid "engin_optionTip_perimeter_acceleration"
+msgstr "Acceleration of Inner Walls"
+
+msgid "engin_optionTip_perimeter_extrusion_width"
+msgstr "Line width of inner wall. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_precise_outer_wall"
+msgstr "Improve shell precision by adjusting outer wall spacing. This also improves layer consistency."
+
+msgid "engin_optionTip_role_based_wipe_speed"
+msgstr "The wipe speed is determined by the speed of the current extrusion role. \"e.g. if a wipe action is executed immediately following an outer wall extrusion, the speed of the outer wall extrusion will be utilized for the wipe action."
+
+msgid "engin_optionTip_seam_gap"
+msgstr ""
+"In order to reduce the visibility of the seam in a closed loop extrusion, the loop is interrupted and shortened by a specified amount.\\n"
+"This amount can be specified in millimeters or as a percentage of the current extruder diameter. The default value for this parameter is 10%."
+
+msgid "engin_optionTip_skirt_speed"
+msgstr "Speed of skirt, in mm/s. Zero means use default layer extrusion speed."
+
+msgid "engin_optionTip_slow_down_layers"
+msgstr "The first few layers are printed slower than normal. The speed is gradually increased in a linear fashion over the specified number of layers."
+
+msgid "engin_optionTip_slowdown_for_curled_perimeters"
+msgstr "Enable this option to slow printing down in areas where potential curled perimeters may exist"
+
+msgid "engin_optionTip_small_perimeter_speed"
+msgstr ""
+"This separate setting will affect the speed of perimeters having radius <= small_perimeter_threshold (usually holes). If expressed as percentage (for example: 80%) it will be calculated \n"
+"on the outer wall speed setting above. Set to zero for auto."
+
+msgid "engin_optionTip_small_perimeter_threshold"
+msgstr "This sets the threshold for small perimeter length. Default threshold is 0mm"
+
+msgid "engin_optionTip_solid_infill_acceleration"
+msgstr "Acceleration of internal solid infill. If the value is expressed as a percentage (e.g. 100%), it will be calculated based on the default acceleration."
+
+msgid "engin_optionTip_solid_infill_extrusion_width"
+msgstr "Line width of internal solid infill. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_support_material_extrusion_width"
+msgstr "Line width of support. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_support_material_speed"
+msgstr "Speed of support"
+
+msgid "engin_optionTip_support_remove_small_overhang"
+msgstr "Remove small overhangs that possibly need no supports."
+
+msgid "engin_optionTip_top_infill_extrusion_width"
+msgstr "Line width for top surfaces. If expressed as a percentage, it will be computed over the nozzle diameter."
+
+msgid "engin_optionTip_top_infill_flow_ratio"
+msgstr "This factor affects the amount of material for top solid infill. You can decrease it slightly to have smooth surface finish"
+
+msgid "engin_optionTip_travel_acceleration"
+msgstr "Acceleration of Travel Moves"
+
+msgid "engin_optionTip_wall_distribution_count"
+msgstr "The number of walls, counted from the center, over which the variation needs to be spread. Lower values mean that the outer walls don't change in width"
+
+msgid "engin_optionTip_wall_sequence"
+msgstr ""
+"Print sequence of the internal (inner) and external (outer) walls. \\n"
+"\\n"
+"Use Inner/Outer for best overhangs. This is because the overhanging walls can adhere to a neighouring perimeter while printing. However, this option results in slightly reduced surface quality as the external perimeter is deformed by being squashed to the internal perimeter.\\n"
+"\\n"
+"Use Inner/Outer/Inner for the best external surface finish and dimensional accuracy as the external wall is printed undisturbed from an internal perimeter. However, overhang performance will reduce as there is no internal perimeter to print the external wall against. This option requires a minimum of 3 walls to be effective as it prints the internal walls from the 3rd perimeter onwards first, then the external perimeter and, finally, the first internal perimeter. This option is recomended against the Outer/Inner option in most cases. \\n"
+"\\n"
+"Use Outer/Inner for the same external wall quality and dimensional accuracy benefits of Inner/Outer/Inner option. However, the z seams will appear less consistent as the first extrusion of a new layer starts on a visible surface.\\n"
+"\\n"
+
+msgid "engin_optionTip_wipe_before_external_loop"
+msgstr ""
+"To minimise visibility of potential overextrusion at the start of an external perimeter when printing with Outer/Inner or Inner/Outer/Inner wall print order, the deretraction is performed slightly on the inside from the\n"
+"start of the external perimeter. That way any potential over extrusion is hidden from the outside surface. \\n"
+"\\n"
+"This is useful when printing with Outer/Inner or Inner/Outer/Inner wall print order as in these modes it is more likely\n"
+"an external perimeter is printed immediately after a deretraction move."
+
+msgid "engin_optionTip_wipe_on_loops"
+msgstr "To minimize the visibility of the seam in a closed loop extrusion, a small inward movement is executed before the extruder leaves the loop."
+
+msgid "engin_optionTip_wipe_speed"
+msgstr "The wipe speed is determined by the speed setting specified in this configuration.If the value is expressed as a percentage (e.g. 80%), it will be calculated based on the travel speed setting above.The default value for this parameter is 80%"
+
+msgid "engin_optionTip_wipe_tower"
+msgstr "The wiping tower can be used to clean up the residue on the nozzle and stabilize the chamber pressure inside the nozzle, in order to avoid appearance defects when printing objects."
+
+msgid "This sets the threshold for small perimeter length. Default threshold is 0mm"
+msgstr "This sets the threshold for small perimeter length. Default threshold is 0mm"
+
+msgid "Value is out of range."
+msgstr "Value is out of range."
+
+msgid "engin_option_Internal_bridge_flow"
+msgstr "Internal Bridge Flow Ratio"
+
+msgid "engin_option_bottom_fill_pattern"
+msgstr "Bottom Surface Pattern"
+
+msgid "engin_option_bottom_solid_infill_flow_ratio"
+msgstr "Bottom Surface Flow Ratio"
+
+msgid "engin_option_bridge_angle"
+msgstr "Bridge Infill Direction"
+
+msgid "engin_option_bridge_density"
+msgstr "Bridge Density"
+
+msgid "engin_option_bridge_speed"
+msgstr "Bridge External"
+
+msgid "engin_option_brim_width"
+msgstr "Brim Width"
+
+msgid "engin_option_elefant_foot_compensation_layers"
+msgstr "Elephant foot compensation layers"
+
+msgid "engin_option_enable_arc_fitting"
+msgstr "Arc fitting"
+
+msgid "engin_option_exclude_object"
+msgstr "Exclude Objects"
+
+msgid "engin_option_fill_angle"
+msgstr "Infill Direction"
+
+msgid "engin_option_filter_out_gap_fill"
+msgstr "Filter Out Tiny Gaps"
+
+msgid "engin_option_first_layer_min_bead_width"
+msgstr "First Layer Minimum Wall Width"
+
+msgid "engin_option_first_layer_travel_speed"
+msgstr "Initial Layer Travel Speed"
+
+msgid "engin_option_hole_to_polyhole"
+msgstr "Convert holes to polyholes"
+
+msgid "engin_option_infill_anchor"
+msgstr "Sparse Infill Anchor Length"
+
+msgid "engin_option_infill_first"
+msgstr "Print Infill First"
+
+msgid "engin_option_internal_bridge_speed"
+msgstr "Bridge (Internal)"
+
+msgid "engin_option_internal_solid_infill_pattern"
+msgstr "Internal Solid Infill Pattern"
+
+msgid "engin_option_ironing_angle"
+msgstr "Ironing angle"
+
+msgid "engin_option_ironing_pattern"
+msgstr "Ironing pattern"
+
+msgid "engin_option_ironing_spacing"
+msgstr "Ironing Line Spacing"
+
+msgid "engin_option_make_overhang_printable"
+msgstr "Make Overhangs Printable"
+
+msgid "engin_option_only_one_wall_first_layer"
+msgstr "Only One Wall on First Layer"
+
+msgid "engin_option_overhang_reverse"
+msgstr "Reverse on Odd"
+
+msgid "engin_option_overhang_speed_0"
+msgstr "Overhang Speed (10%, 25%)"
+
+msgid "engin_option_overhang_speed_1"
+msgstr "Overhang Speed [25%, 50%)"
+
+msgid "engin_option_overhang_speed_2"
+msgstr "Overhang Speed [50%, 75%)"
+
+msgid "engin_option_overhang_speed_3"
+msgstr "Overhang Speed [75%, 100%)"
+
+msgid "engin_option_precise_outer_wall"
+msgstr "Precise Wall (Experimental)"
+
+msgid "engin_option_reduce_infill_retraction"
+msgstr "Reduce Infill Retraction"
+
+msgid "engin_option_role_based_wipe_speed"
+msgstr "Role Base Wipe Speed"
+
+msgid "engin_option_seam_gap"
+msgstr "Seam Gap"
+
+msgid "engin_option_skirt_speed"
+msgstr "Skirt Speed"
+
+msgid "engin_option_slow_down_layers"
+msgstr "Number of Slow Layers"
+
+msgid "engin_option_slowdown_for_curled_perimeters"
+msgstr "Slow Down for Curled Perimeters"
+
+msgid "engin_option_small_perimeter_speed"
+msgstr "Small Perimeter Speed"
+
+msgid "engin_option_small_perimeter_threshold"
+msgstr "Small Perimeter Threshold"
+
+msgid "engin_option_support_material"
+msgstr "Generate Support Material"
+
+msgid "engin_option_top_infill_flow_ratio"
+msgstr "Top Surface Flow Ratio"
+
+msgid "engin_option_top_surface_single_perimeter"
+msgstr "Only One Wall on Top Surfaces"
+
+msgid "engin_option_wall_sequence"
+msgstr "Wall Printing Order"
+
+msgid "engin_option_wipe_before_external_loop"
+msgstr "Wipe Before External Loop"
+
+msgid "engin_option_wipe_on_loops"
+msgstr "Wipe on loops"
+
+msgid "engin_option_wipe_speed"
+msgstr "Wipe speed"

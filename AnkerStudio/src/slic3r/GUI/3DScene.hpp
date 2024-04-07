@@ -8,6 +8,7 @@
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Color.hpp"
+#include "libslic3r/TriangleSelector.hpp"
 
 #include "GLModel.hpp"
 #include "MeshUtils.hpp"
@@ -46,6 +47,73 @@ enum ModelInstanceEPrintVolumeState : unsigned char;
 
 // Return appropriate color based on the ModelVolume.
 extern ColorRGBA color_from_model_volume(const ModelVolume& model_volume);
+
+class GLSimpleMesh
+{
+public:
+    GLSimpleMesh() = delete;
+
+    explicit GLSimpleMesh(size_t triangle_indices_buffers_count)
+    {
+        this->triangle_indices = std::vector<std::vector<int>>(triangle_indices_buffers_count);
+        this->triangle_indices_sizes = std::vector<size_t>(triangle_indices_buffers_count);
+        this->triangle_indices_VBO_ids = std::vector<unsigned int>(triangle_indices_buffers_count);
+    }
+
+    virtual ~GLSimpleMesh() { release_geometry(); }
+
+    [[nodiscard]] inline bool has_VBOs(size_t triangle_indices_idx) const
+    {
+        assert(triangle_indices_idx < this->triangle_indices.size());
+        return this->triangle_indices_VBO_ids[triangle_indices_idx] != 0;
+    }
+
+    // Release the geometry data, release OpenGL VBOs.
+    void release_geometry();
+    // Finalize the initialization of the geometry, upload the geometry to OpenGL VBO objects
+    // and possibly releasing it if it has been loaded into the VBOs.
+    void finalize_vertices();
+    // Finalize the initialization of the indices, upload the indices to OpenGL VBO objects
+    // and possibly releasing it if it has been loaded into the VBOs.
+    void finalize_triangle_indices();
+
+    void clear()
+    {
+        this->vertices.clear();
+        for (std::vector<int>& ti : this->triangle_indices)
+            ti.clear();
+
+        for (size_t& triangle_indices_size : this->triangle_indices_sizes)
+            triangle_indices_size = 0;
+    }
+
+    void render(size_t triangle_indices_idx) const;
+
+    std::vector<float>            vertices;
+    std::vector<std::vector<int>> triangle_indices;
+
+    // When the triangle indices are loaded into the graphics card as Vertex Buffer Objects,
+    // the above mentioned std::vectors are cleared and the following variables keep their original length.
+    std::vector<size_t> triangle_indices_sizes;
+
+    // IDs of the Vertex Array Objects, into which the geometry has been loaded.
+    // Zero if the VBOs are not sent to GPU yet.
+#if ENABLE_GL_CORE_PROFILE
+    unsigned int              vertices_VAO_id{ 0 };
+#endif // ENABLE_GL_CORE_PROFILE
+    unsigned int              vertices_VBO_id{ 0 };
+    std::vector<unsigned int> triangle_indices_VBO_ids;
+};
+
+namespace GUI {
+    class GLTriangleSelector : public TriangleSelector {
+    public:
+        explicit GLTriangleSelector(const TriangleMesh& mesh)
+            : TriangleSelector(mesh) {}
+        virtual ~GLTriangleSelector() = default;
+        void set_mmu_render_data(std::shared_ptr<GLSimpleMesh> mmu_mesh, int size);
+    };
+}
 
 class GLVolume {
 public:
@@ -127,6 +195,10 @@ public:
     // Color used to render this volume.
     ColorRGBA render_color;
 
+    std::shared_ptr<GLSimpleMesh> mmu_mesh;
+
+    std::array<double, 4> m_clipping_plane{};
+
     struct CompositeID {
         CompositeID(int object_id, int volume_id, int instance_id) : object_id(object_id), volume_id(volume_id), instance_id(instance_id) {}
         CompositeID() : object_id(-1), volume_id(-1), instance_id(-1) {}
@@ -205,10 +277,13 @@ public:
 
     void set_color(const ColorRGBA& rgba)        { color = rgba; }
     void set_render_color(const ColorRGBA& rgba) { render_color = rgba; }
+    void set_clip_planes(const std::array<double, 4> planes) { m_clipping_plane = planes; }
     // Sets render color in dependence of current state
     void set_render_color(bool force_transparent);
     // set color according to model volume
     void set_color_from_model_volume(const ModelVolume& model_volume);
+
+    void set_mmu_render_data_from_model_volume(const ModelVolume& model_volume);
 
     const Geometry::Transformation& get_instance_transformation() const { return m_instance_transformation; }
     void set_instance_transformation(const Geometry::Transformation& transformation) { m_instance_transformation = transformation; set_bounding_boxes_as_dirty(); }
@@ -297,6 +372,8 @@ public:
     void                set_range(double low, double high);
 
     void                render();
+
+    void                render_mmu(const std::vector<ColorRGBA>& colors, const GUI::Camera& camera);
 
     void                set_bounding_boxes_as_dirty() {
         m_transformed_bounding_box.reset();
@@ -396,10 +473,10 @@ public:
 
 #if ENABLE_OPENGL_ES
     int load_wipe_tower_preview(
-        float pos_x, float pos_y, float width, float depth, float height, float cone_angle, float rotation_angle, bool size_unknown, float brim_width, TriangleMesh* out_mesh = nullptr);
+        float pos_x, float pos_y, float width, float depth, const std::vector<std::pair<float, float>>& z_and_depth_pairs, float height, float cone_angle, float rotation_angle, bool size_unknown, float brim_width, TriangleMesh* out_mesh = nullptr);
 #else
     int load_wipe_tower_preview(
-        float pos_x, float pos_y, float width, float depth, float height, float cone_angle, float rotation_angle, bool size_unknown, float brim_width);
+        float pos_x, float pos_y, float width, float depth, const std::vector<std::pair<float, float>>& z_and_depth_pairs, float height, float cone_angle, float rotation_angle, bool size_unknown, float brim_width);
 #endif // ENABLE_OPENGL_ES
 
     // Load SLA auxiliary GLVolumes (for support trees or pad).

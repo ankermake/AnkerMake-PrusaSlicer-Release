@@ -104,6 +104,7 @@ class Preview : public wxPanel
     bool m_loaded { false };
 
     bool m_isImportGCode{ false };
+    bool m_ImportIsACode = false;
 
     DoubleSlider::Control* m_layers_slider{ nullptr };
     DoubleSlider::Control* m_moves_slider{ nullptr };
@@ -157,16 +158,21 @@ public:
     bool is_GcodeImported() const { return m_isImportGCode; }
     void setGCodeImportType(bool isImport) { m_isImportGCode = isImport; }
 
+    bool ImportIsACode() const { return m_ImportIsACode; };
+    void setImportIsACode(bool isACode) { m_ImportIsACode = isACode; }
+
     void update_moves_slider();
     void enable_moves_slider(bool enable);
     void move_moves_slider(wxKeyEvent& evt);
     void hide_layers_slider();
 
     void set_keep_current_preview_type(bool value) { m_keep_current_preview_type = value; }
+    void set_layers_slider_values_range(int bottom, int top);
 
     void createGcodePreviewLayerToolbar();
     wxWindow* GetGcodeLayerToolbar();
     void showGcodeLayerToolbar(bool show);
+    void CalGcodePreviewToolbarPos();
     void on_size(wxSizeEvent& evt);
     void on_move(wxMoveEvent& evt);
     void shutdown();
@@ -176,7 +182,6 @@ private:
     void bind_event_handlers();
     void unbind_event_handlers();
 
-    void CalGcodePreviewToolbarPos();
     void CalGcodePreviewToolbarSize();
 
     // Create/Update/Reset double slider on 3dPreview

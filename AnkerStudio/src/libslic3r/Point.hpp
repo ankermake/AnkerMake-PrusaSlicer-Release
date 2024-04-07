@@ -17,6 +17,8 @@ namespace Slic3r {
 
 class BoundingBox;
 class BoundingBoxf;
+class Line;
+class MultiPoint;
 class Point;
 using Vector = Point;
 
@@ -189,6 +191,8 @@ public:
     Point  rotated(double angle) const { Point res(*this); res.rotate(angle); return res; }
     Point  rotated(double cos_a, double sin_a) const { Point res(*this); res.rotate(cos_a, sin_a); return res; }
     Point  rotated(double angle, const Point &center) const { Point res(*this); res.rotate(angle, center); return res; }
+    Point  projection_onto(const MultiPoint& poly) const;
+    Point  projection_onto(const Line& line) const;
 };
 
 inline bool operator<(const Point &l, const Point &r) 

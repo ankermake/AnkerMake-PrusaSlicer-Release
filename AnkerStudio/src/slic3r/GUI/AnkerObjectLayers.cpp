@@ -9,7 +9,7 @@
 #include "libslic3r/Model.hpp"
 #include "GLCanvas3D.hpp"
 #include "Plater.hpp"
-#include "common/AnkerGUIConfig.hpp"
+
 #include <boost/algorithm/string.hpp>
 
 #include "I18N.hpp"
@@ -70,6 +70,11 @@ void AnkerObjectLayers::select_editor(AnkerLayerRangeEditor* editor, const bool 
 wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, PlusMinusButton *delete_btn, PlusMinusButton *add_btn) 
 {
     ++m_rangeCnt;
+
+    m_ranges.push_back(range);
+    t_layer_height_range* pRangeItem = nullptr;
+    if (m_ranges.size())
+        pRangeItem = &m_ranges[m_ranges.size() - 1];
 
     bool isSelectedObjectItem = range.first == m_selectable_range.first && range.second == m_selectable_range.second ? true : false;
  
@@ -133,6 +138,7 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
         //delete_button->SetMaxSize(wxSize(25,25));
         //del_btn->SetToolTip(_L("Remove layer range"));
         delete_button->Bind(wxEVT_BUTTON, [delete_button](wxEvent&) {
+            delete_button->SetFocus();
             ANKER_LOG_INFO << "delete layer range :" << delete_button->range.first << "-" << delete_button->range.second;
             wxGetApp().objectbar()->del_layer_range(delete_button->range);
             });
@@ -154,17 +160,22 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
         lineSizer->AddSpacer(10);
 
         // Add editor for the "Min Z"
-        auto editor = new AnkerLayerRangeEditor(this, theParent, double_to_string(range.first), Ak_etMinZ, set_focus_data,
-            [range, update_focus_data, this, delete_button, add_button](coordf_t min_z, bool enter_pressed, bool dont_update_ui)
+        auto editor = new AnkerLayerRangeEditor(this, theParent, pRangeItem, double_to_string(range.first), Ak_etMinZ, set_focus_data,
+            [/*range,*/ update_focus_data, this, delete_button, add_button](t_layer_height_range* range, coordf_t min_z, bool enter_pressed, bool dont_update_ui)
             {
-                if (fabs(min_z - range.first) < EPSILON) {
+                if (!range) {
+                    ANKER_LOG_ERROR << "range ptr is null.";
+                    return false;
+                }
+
+                if (fabs(min_z - (*range).first) < EPSILON) {
                     m_selection_type = Ak_etUndef;
                     ANKER_LOG_ERROR << "edit layer range faile ,fabs(min_z - range.first) < EPSILON ";
                     return false;
                 }
 
                 // data for next focusing
-                coordf_t max_z = min_z < range.second ? range.second : min_z + 0.5;
+                coordf_t max_z = min_z < (*range).second ? (*range).second : min_z + 0.5;
                 const t_layer_height_range new_range = { min_z, max_z };
                 if (delete_button)
                     delete_button->range = new_range;
@@ -172,7 +183,16 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
                     add_button->range = new_range;
                 update_focus_data(new_range, Ak_etMinZ, enter_pressed);
 
-                return wxGetApp().objectbar()->edit_layer_range(range, new_range, dont_update_ui);
+                if (wxGetApp().objectbar()->edit_layer_range((*range), new_range, dont_update_ui))
+                {
+                    if (m_top_layer_range.second < new_range.second)
+                        m_top_layer_range = new_range;
+
+                    (*range) = new_range;
+                    return true;
+                }
+                else
+                    return false;
             });
         //editor->SetBackgroundStyle(wxBG_STYLE_PAINT);
         editor->SetBackgroundColour(theParent->GetBackgroundColour());
@@ -190,25 +210,40 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
         lineSizer->AddSpacer(10);
 
         // Add editor for the "Max Z"
-        editor = new AnkerLayerRangeEditor(this, theParent, double_to_string(range.second), Ak_etMaxZ, set_focus_data,
-            [range, update_focus_data, this, delete_button, add_button](coordf_t max_z, bool enter_pressed, bool dont_update_ui)
+        editor = new AnkerLayerRangeEditor(this, theParent, pRangeItem, double_to_string(range.second), Ak_etMaxZ, set_focus_data,
+            [/*range,*/ update_focus_data, this, delete_button, add_button](t_layer_height_range* range, coordf_t max_z, bool enter_pressed, bool dont_update_ui)
             {
-                if (fabs(max_z - range.second) < EPSILON || range.first > max_z) {
+                if (!range) {
+                    ANKER_LOG_ERROR << "range ptr is null.";
+                    return false;
+                }
+
+                if (fabs(max_z - (*range).second) < EPSILON || (*range).first > max_z) {
                     m_selection_type = Ak_etUndef;
                     ANKER_LOG_ERROR << "edit layer range faile ,fabs(min_z - range.first) < EPSILON ";
                     return false;       // LayersList would not be updated/recreated
                 }
 
                 // data for next focusing
-                const t_layer_height_range& new_range = { range.first, max_z };
+                const t_layer_height_range& new_range = { (*range).first, max_z };
                 if (delete_button)
                     delete_button->range = new_range;
                 if (add_button)
                     add_button->range = new_range;
                 update_focus_data(new_range, Ak_etMaxZ, enter_pressed);
 
-                return wxGetApp().objectbar()->edit_layer_range(range, new_range, dont_update_ui);
+                if (wxGetApp().objectbar()->edit_layer_range((*range), new_range, dont_update_ui))
+                {
+                    if (m_top_layer_range.second < new_range.second)
+                        m_top_layer_range = new_range;
+
+                    (*range) = new_range;
+                    return true;
+                }
+                else
+                    return false;
             });
+
         //editor->SetBackgroundStyle(wxBG_STYLE_PAINT);
         //editor->SetBackgroundColour(wxColour(41, 42, 45));
         editor->SetBackgroundColour(theParent->GetBackgroundColour());
@@ -477,17 +512,20 @@ void AnkerObjectLayers::reset_selection()
     m_selectable_range = { 0.0, 0.0 };
     m_top_layer_range = { 0.0, 0.0 };
     m_selection_type = Ak_etLayerHeight;
+    m_ranges.clear();
 }
 
 AnkerLayerRangeEditor::AnkerLayerRangeEditor( AnkerObjectLayers* obj_layer,
                                     wxWindow* parent,
+                                    t_layer_height_range* range,
                                     const wxString& value,
                                     AnkerEditorType type,
                                     std::function<void(AnkerEditorType)> set_focus_data_fn,
-                                    std::function<bool(coordf_t, bool, bool)>   edit_fn
+                                    std::function<bool(t_layer_height_range* ,coordf_t, bool, bool)>   edit_fn
                                     ) :
     m_valid_value(value),
     m_type(type),
+    m_range(range),
     m_set_focus_data(set_focus_data_fn),
     wxTextCtrl(parent, wxID_ANY, value, wxDefaultPosition,
                wxSize(8 * em_unit(parent), wxDefaultCoord), wxTE_PROCESS_ENTER
@@ -519,13 +557,13 @@ AnkerLayerRangeEditor::AnkerLayerRangeEditor( AnkerObjectLayers* obj_layer,
 #endif
             // If LayersList wasn't updated/recreated, we can call wxEVT_KILL_FOCUS.Skip()
             if (m_type & Ak_etLayerHeight) {
-                if (!edit_fn(get_value(), true, false))
+                if (!edit_fn(m_range, get_value(), true, false))
                     SetValue(m_valid_value);
                 else
                     m_valid_value = double_to_string(get_value());
                 m_call_kill_focus = true;
             }
-            else if (!edit_fn(get_value(), true, false)) {
+            else if (!edit_fn(m_range, get_value(), true, false)) {
                 SetValue(m_valid_value);
                 m_call_kill_focus = true;
             }
@@ -548,13 +586,13 @@ AnkerLayerRangeEditor::AnkerLayerRangeEditor( AnkerObjectLayers* obj_layer,
 #endif // not __WXGTK__
             // If LayersList wasn't updated/recreated, we should call e.Skip()
             if (m_type & Ak_etLayerHeight) {
-                if (!edit_fn(get_value(), false, dynamic_cast<AnkerObjectLayers::PlusMinusButton*>(e.GetWindow()) != nullptr))
+                if (!edit_fn(m_range, get_value(), false, dynamic_cast<AnkerObjectLayers::PlusMinusButton*>(e.GetWindow()) != nullptr))
                     SetValue(m_valid_value);
                 else
                     m_valid_value = double_to_string(get_value());
                 e.Skip();
             }
-            else if (!edit_fn(get_value(), false, dynamic_cast<AnkerObjectLayers::PlusMinusButton*>(e.GetWindow()) != nullptr)) {
+            else if (!edit_fn(m_range, get_value(), false, dynamic_cast<AnkerObjectLayers::PlusMinusButton*>(e.GetWindow()) != nullptr)) {
                 SetValue(m_valid_value);
                 e.Skip();
             } 

@@ -1696,8 +1696,10 @@ static inline std::pair<SupportGeneratorLayer*, SupportGeneratorLayer*> new_cont
         bottom_z = (layer_id == 1) ? slicing_params.object_print_z_min : layer.lower_layer->lower_layer->print_z;
     } else {
         print_z  = layer.bottom_z() - slicing_params.gap_support_object;
-        bottom_z = print_z;
-        height   = 0.;
+        //add by friva ,fix me false to config .in order to  independent_support_layer_height
+        bool is_independent_support_layer_height = !object_config.support_material_synchronize_layers;
+        height = is_independent_support_layer_height ? 0. : layer.lower_layer->height/*object_config.layer_height*/;
+        bottom_z = print_z - height;
         // Ignore this contact area if it's too low.
         // Don't want to print a layer below the first layer height as it may not stick well.
         //FIXME there may be a need for a single layer support, then one may decide to print it either as a bottom contact or a top contact
@@ -1726,6 +1728,8 @@ static inline std::pair<SupportGeneratorLayer*, SupportGeneratorLayer*> new_cont
             for (const LayerRegion* region : layer.regions())
                 bridging_height += region->region().bridging_height_avg(print_config);
             bridging_height /= coordf_t(layer.regions().size());
+            if (!is_independent_support_layer_height)
+                bridging_height = std::ceil(bridging_height / object_config.layer_height - EPSILON) * object_config.layer_height;
             coordf_t bridging_print_z = layer.print_z - bridging_height - slicing_params.gap_support_object;
             if (bridging_print_z >= min_print_z) {
                 // Not below the first layer height means this layer is printable.
@@ -1742,9 +1746,9 @@ static inline std::pair<SupportGeneratorLayer*, SupportGeneratorLayer*> new_cont
                         bridging_layer->bottom_z = 0;
                         bridging_layer->height = slicing_params.first_print_layer_height;
                     } else {
+                        bridging_layer->height = is_independent_support_layer_height ? 0. : object_config.layer_height;
                         // Don't know the height yet.
-                        bridging_layer->bottom_z = bridging_print_z;
-                        bridging_layer->height = 0;
+                        bridging_layer->bottom_z = bridging_print_z - bridging_layer->height;
                     }
                 }
             }
@@ -2094,7 +2098,7 @@ static inline SupportGeneratorLayer* detect_bottom_contacts(
     // top shapes so this can be done here
     //FIXME calculate layer height based on the actual thickness of the layer:
     // If the layer is extruded with no bridging flow, support just the normal extrusions.
-    layer_new.height = slicing_params.soluble_interface ?
+    layer_new.height = slicing_params.soluble_interface || object.config().support_material_synchronize_layers ?
         // Align the interface layer with the object's layer height.
         layer.upper_layer->height :
         // Place a bridge flow interface layer or the normal flow interface layer over the top surface.
@@ -2118,11 +2122,16 @@ static inline SupportGeneratorLayer* detect_bottom_contacts(
                 coordf_t diff = layer_new.print_z - top_contacts[top_idx]->print_z;
                 assert(std::abs(diff) <= support_params.support_layer_height_min + EPSILON);
                 if (diff > 0.) {
-                    // The top contact layer is below this layer. Make the bridging layer thinner to align with the existing top layer.
-                    assert(diff < layer_new.height + EPSILON);
-                    assert(layer_new.height - diff >= support_params.support_layer_height_min - EPSILON);
-                    layer_new.print_z = top_contacts[top_idx]->print_z;
-                    layer_new.height -= diff;
+                    if (layer_new.height - diff > support_params.support_layer_height_min) {
+                        // The top contact layer is below this layer. Make the bridging layer thinner to align with the existing top layer.
+                        assert(diff < layer_new.height + EPSILON);
+                        assert(layer_new.height - diff >= support_params.support_layer_height_min - EPSILON);
+                        layer_new.print_z = top_contacts[top_idx]->print_z;
+                        layer_new.height -= diff;
+                    }
+                    else {
+                        continue;
+                    }
                 }
                 else {
                     // The top contact layer is above this layer. One may either make this layer thicker or thinner.
@@ -2925,7 +2934,7 @@ SupportGeneratorLayersPtr generate_raft_base(
         // The object does not have a raft.
         // Calculate the area covered by the brim.
         const BrimType brim_type       = object.config().brim_type;
-        const bool     brim_outer      = brim_type == btOuterOnly || brim_type == btOuterAndInner;
+        const bool     brim_outer      = brim_type == btOuterOnly || brim_type == btOuterAndInner || brim_type == btAutoBrim;
         const bool     brim_inner      = brim_type == btInnerOnly || brim_type == btOuterAndInner;
         const auto     brim_separation = scaled<float>(object.config().brim_separation.value + object.config().brim_width.value);
         for (const ExPolygon &ex : object.layers().front()->lslices) {
@@ -4157,6 +4166,29 @@ SupportGeneratorLayersPtr generate_support_layers(
     layers_append(layers_sorted, base_interface_layers);
     // Sort the layers lexicographically by a raising print_z and a decreasing height.
     std::sort(layers_sorted.begin(), layers_sorted.end(), [](auto *l1, auto *l2) { return *l1 < *l2; });
+    //add by friva,
+    if (!object.config().support_material_synchronize_layers && !object.slicing_parameters().soluble_interface) {
+        auto thres = 0.16 - EPSILON;//FIXME:0.16 place the support_layer_height_min
+        for (size_t i = 1; i < layers_sorted.size() - 1; ++i) {
+            auto& lowr = layers_sorted[i - 1];
+            auto& curr = layers_sorted[i];
+            auto& higr = layers_sorted[i + 1];
+            // "Rounding" suspicious top/bottom contacts
+            if (curr->layer_type == Slic3r::SupporLayerType::TopContact || curr->layer_type == Slic3r::SupporLayerType::BottomContact) {
+                // Check adjacent-layer print_z diffs
+                coordf_t height_low = curr->print_z - lowr->print_z;
+                coordf_t height_high = higr->print_z - curr->print_z;
+                if (height_low < thres || height_high < thres) {
+                    // Mark to-be-deleted layer as Unknown type
+                    curr->layer_type = Slic3r::SupporLayerType::Unknown;
+                }
+            }
+        }
+
+        // Retains the order
+        layers_sorted.erase(std::remove_if(layers_sorted.begin(), layers_sorted.end(), [](SupportGeneratorLayer* l) {return l->layer_type == Slic3r::SupporLayerType::Unknown; }), layers_sorted.end());
+    }
+
     int layer_id = 0;
     int layer_id_interface = 0;
     assert(object.support_layers().empty());

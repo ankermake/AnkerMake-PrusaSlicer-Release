@@ -819,6 +819,277 @@ msgstr ""
 "傾斜したモデルに隙間ができるのを避けるために、必要に応じて境界線を追加します。 Slic3rは、すぐ上のループ"
 "の70％以上がカバーされるまで、境界線を追加します。"
 
+
+#: src/libslic3r/PrintConfig.cpp:928
+msgid "Detect overhang areas where bridges cannot be anchored, and fill them with extra perimeter paths. These paths are anchored to the nearby non-overhang area when possible."
+msgstr "ブリッジのアンカーが打てないオーバーハング部分を検出し、拡張外周パスで埋めます。これらのパスは、可能な限り近くの非オーバーハング領域にアンカーを形成します。"
+
+
+#: src/libslic3r/PrintConfig.cpp:453
+msgid "Plan travel moves such that the extruder avoids areas where the filament may be curled up. This is mostly happening on steeper rounded overhangs and may cause a crash with the nozzle. This feature slows down both the print and the G-code generation."
+msgstr "フィラメントがカールする可能性のある場所を避けるように、ヘッドの移動を計画します。この現象は、主に急な丸みを帯びたオーバーハング部で発生しやすく、発生するとノズルとの衝突を引き起こす可能性があります。この機能により、プリントとGコード生成の両方が遅くなります。"
+
+
+#: src/libslic3r/PrintConfig.cpp:2448
+msgid ""
+"This option causes the inner seams to be shifted backwards based on their "
+"depth, forming a zigzag pattern."
+msgstr ""
+"このオプションは、内側のシーム部を深さに応じて後方にずらし、ジグザグ模様を形"
+"成するものです。"
+
+
+#: src/libslic3r/PrintConfig.cpp:2985
+msgid ""
+"Synchronize support layers with the object print layers. This is useful with "
+"multi-material printers, where the extruder switch is expensive. This option "
+"is only available when top contact Z distance is set to zero."
+msgstr ""
+"サポートレイヤーとオブジェクトプリントレイヤーを同期させる。これは、エクスト"
+"ルーダースイッチが高価なマルチマテリアルプリンタで有用です。このオプション"
+"は、トップコンタクトのZ距離がゼロに設定されている場合にのみ利用可能です。"
+
+
+#: src/libslic3r/PrintConfig.cpp:3017
+msgid ""
+"The maximum angle of the branches, when the branches have to avoid the "
+"model. Use a lower angle to make them more vertical and more stable. Use a "
+"higher angle to be able to have more reach."
+msgstr ""
+"枝の最大角度は、枝がモデルを避けなければならないときに より垂直に、より安定さ"
+"せるために、低い角度を使用します。よりリーチがあるようにするには、より高い角"
+"度を使用します。"
+
+
+#: src/libslic3r/PrintConfig.cpp:3029
+msgid ""
+"The preferred angle of the branches, when they do not have to avoid the "
+"model. Use a lower angle to make them more vertical and more stable. Use a "
+"higher angle for branches to merge faster."
+msgstr ""
+"枝の好ましい角度、モデルを避ける必要がない場合。低い角度を使用すると、より垂"
+"直になり、より安定します。枝が早く合流するようにするには、角度を高くします。"
+
+#: src/libslic3r/PrintConfig.cpp:3052
+msgid ""
+"The diameter of the thinnest branches of organic support. Thicker branches "
+"are more sturdy. Branches towards the base will be thicker than this."
+msgstr ""
+"オーガニックサポートの一番細い枝の直径です。太い枝の方が丈夫です。ベースに向"
+"かう枝はこれより太くなります。"
+
+#: src/libslic3r/PrintConfig.cpp:3065
+msgid ""
+"The angle of the branches' diameter as they gradually become thicker towards "
+"the bottom. An angle of 0 will cause the branches to have uniform thickness "
+"over their length. A bit of an angle can increase stability of the organic "
+"support."
+msgstr ""
+"枝の直径が、下に向かって徐々に太くなっていくときの角度です。角度が0だと、枝の"
+"太さが一定になります。少し角度をつけると、オーガニックサポートの安定性が増し"
+"ます。"
+
+#: src/libslic3r/PrintConfig.cpp:3094
+msgid ""
+"How far apart the branches need to be when they touch the model. Making this "
+"distance small will cause the tree support to touch the model at more "
+"points, causing better overhang but making support harder to remove."
+msgstr ""
+"モデルとの接点の枝の間隔をどのくらいにするか。この距離を小さくすると、ツリー"
+"サポートがモデルに接触する箇所が多くなり、オーバーハングが良くなりますが、サ"
+"ポートの取り外しが難しくなります。"
+
+
+#: src/libslic3r/PrintConfig.cpp:3104
+msgid ""
+"Adjusts the density of the support structure used to generate the tips of "
+"the branches. A higher value results in better overhangs but the supports "
+"are harder to remove, thus it is recommended to enable top support "
+"interfaces instead of a high branch density value if dense interfaces are "
+"needed."
+msgstr ""
+"枝の先端を生成するために使用されるサポート構造の密度を調整します。高い値を設"
+"定するとオーバーハングが良くなりますが、サポートの除去が困難になるため、密度"
+"の高いインターフェースが必要な場合は、枝密度を高めるのではなく、トップサポー"
+"トのインターフェースを有効にすることをお勧めします。"
+
+
+#: src/libslic3r/PrintConfig.cpp:2124
+msgid ""
+"This is the acceleration your printer will use for external perimeters. Set "
+"zero to use the value for perimeters."
+msgstr ""
+"これは、プリンターが最外周パスに使用する加速度です。外周と同じ値を使用する場"
+"合は、0を設定します。"
+
+
+#: src/libslic3r/PrintConfig.cpp:1541
+msgid ""
+"This is the acceleration your printer will use for top solid infill. Set "
+"zero to use the value for solid infill."
+msgstr ""
+"これは、プリンターがトップの塗りつぶし時に使用する加速度です。塗りつぶしと同"
+"じ値にする場合は、0を設定します。"
+
+
+#: src/libslic3r/PrintConfig.cpp:1532
+msgid ""
+"This is the acceleration your printer will use for solid infill. Set zero to "
+"use the value for infill."
+msgstr ""
+"これは、プリンターが塗りつぶしに使用する加速度です。インフィルと同じ値にする"
+"場合は0を設定します。"
+
+
+#: src/libslic3r/PrintConfig.cpp:1550
+msgid ""
+"This is the acceleration your printer will use for travel moves. Set zero to "
+"disable acceleration control for travel."
+msgstr ""
+"プリンターヘッドの移動時に使用する加速度です。ゼロを設定すると、移動時の加速"
+"度制御は無効になります。"
+
+
+#: src/libslic3r/PrintConfig.cpp:2074
+msgid ""
+"This option will drop the temperature of the inactive extruders to prevent "
+"oozing."
+msgstr ""
+"このオプションは、非アクティブなエクストルーダーの温度を下げて、樹脂ダレを防"
+"止するものです。"
+
+
+#: src/libslic3r/PrintConfig.cpp:2614
+msgid ""
+"Temperature difference to be applied when an extruder is not active. The "
+"value is not used when 'idle_temperature' in filament settings is defined."
+msgstr ""
+"エクストルーダーがアクティブでないときに適用される温度差。フィラメント設定"
+"の'idle_temperature'が定義されている場合、この値は使用されない。"
+
+
+#: src/libslic3r/PrintConfig.cpp:3318
+msgid ""
+"Angle at the apex of the cone that is used to stabilize the wipe tower. "
+"Larger angle means wider base."
+msgstr ""
+"ワイプタワーを安定させるために使用される円錐の頂点の角度。角度が大きいと底面"
+"が広くなります。"
+
+
+#: src/libslic3r/PrintConfig.cpp:3328
+msgid "Spacing of purge lines on the wipe tower."
+msgstr "ワイプタワーのパージラインの間隔。"
+
+#: src/libslic3r/PrintConfig.cpp:3911
+msgid ""
+"Nozzle temperature when the tool is currently not used in multi-tool setups."
+"This is only used when 'Ooze prevention' is active in Print Settings."
+msgstr ""
+"ノズル温度は、マルチツール設定においてツールが現在使用されていない場合に使用"
+"されます。プリント設定で「樹脂ダレ防止」が有効な場合のみ使用されます。"
+
+#: src/libslic3r/PrintConfig.cpp:630
+msgid "This setting enables dynamic fan speed control on overhangs."
+msgstr ""
+"オーバーハング時にファン回転数をダイナミックにコントロールできる設定です。"
+
+#: src/libslic3r/PrintConfig.cpp:582
+msgid "This setting enables dynamic speed control on overhangs."
+msgstr "オーバーハング時のダイナミックな速度制御を可能にする設定です。"
+
+
+#: src/libslic3r/PrintConfig.cpp:587
+msgid ""
+"Overhang size is expressed as a percentage of overlap of the extrusion with "
+"the previous layer: 100% would be full overlap (no overhang), while 0% "
+"represents full overhang (floating extrusion, bridge). Speeds for overhang "
+"sizes in between are calculated via linear interpolation. If set as "
+"percentage, the speed is calculated over the external perimeter speed."
+msgstr ""
+"オーバーハングの大きさは、射出幅が前のレイヤーと重なる割合で表されます： 100%"
+"は完全なオーバーラップ（オーバーハングなし）、0%は完全なオーバーハング（フ"
+"ローティングエクストルージョン、ブリッジ）を意味します。その間のオーバーハン"
+"グサイズの速度は、線形補間で計算されます。パーセンテージで設定した場合、速度"
+"は外周の速度に対して計算されます。"
+
+
+#. TRN FilamentSettings : "Dynamic fan speeds"
+#: src/libslic3r/PrintConfig.cpp:635
+msgid ""
+"Overhang size is expressed as a percentage of overlap of the extrusion with "
+"the previous layer: 100% would be full overlap (no overhang), while 0% "
+"represents full overhang (floating extrusion, bridge). Fan speeds for "
+"overhang sizes in between are calculated via linear interpolation."
+msgstr ""
+"オーバーハングの大きさは、射出幅が前のレイヤーと重なる割合で表されます： 100%"
+"は完全なオーバーラップ（オーバーハングなし）、0%は完全なオーバーハング（フ"
+"ローティングエクストルージョン、ブリッジ）を意味します。この間のオーバーハン"
+"グ・サイズのファン速度は、線形補間によって計算されます。"
+
+#: src/libslic3r/PrintConfig.cpp:2640
+msgid ""
+"This start procedure is inserted at the beginning, possibly prepended by "
+"temperature-changing commands. See 'autoemit_temperature_commands'."
+msgstr ""
+"この開始手順は、先頭に挿入され、場合によっては温度変更コマンドで前置きされま"
+"す。autoemit_temperature_commands'を参照してください。"
+
+
+#: src/libslic3r/PrintConfig.cpp:2625
+msgid ""
+"When enabled, PrusaSlicer will check whether your Custom Start G-Code "
+"contains M104 or M190. If so, the temperatures will not be emitted "
+"automatically so you're free to customize the order of heating commands and "
+"other custom actions. Note that you can use placeholder variables for all "
+"PrusaSlicer settings, so you can put a \"M109 S[first_layer_temperature]\" "
+"command wherever you want.\n"
+"If your Custom Start G-Code does NOT contain M104 or M190, PrusaSlicer will "
+"execute the Start G-Code after bed reached its target temperature and "
+"extruder just started heating.\n"
+"\n"
+"When disabled, PrusaSlicer will NOT emit commands to heat up extruder and "
+"bed, leaving both to Custom Start G-Code."
+msgstr ""
+"有効にすると、PrusaSlicerはカスタムスタートGコードにM104またはM190が含まれて"
+"いるかどうかをチェックします。含まれていた場合、温度は自動的に出力されず、加"
+"熱コマンドやその他のカスタムアクションの順序を自由にカスタマイズできます。"
+"PrusaSlicerのすべての設定にプレースホルダー変数を使用できるので、好きな場所に"
+"\"M109 S[first_layer_temperature]\"コマンドを置くことができることに注意してく"
+"ださい。\n"
+"カスタムスタートGコードにM104またはM190が含まれていない場合、PrusaSlicerは"
+"ベッドが目標温度に達し、エクストルーダーが加熱を開始した後にスタートGコードを"
+"実行します。\n"
+"\n"
+"無効の場合、PrusaSlicerはエクストルーダーとベッドを加熱するコマンドを発行せ"
+"ず、両方をカスタムスタートGコードに任せます。"
+
+#: src/libslic3r/PrintConfig.cpp:2625
+msgid ""
+"When enabled, AnkerMake Studio will check whether your Custom Start G-Code contains M104 or M190. "
+"If so, the temperatures will not be emitted automatically so you're free to customize "
+"the order of heating commands and other custom actions. Note that you can use "
+"placeholder variables for all AnkerMake Studio settings, so you can put "
+"a \"M109 S[first_layer_temperature]\" command wherever you want.\n"
+"If your Custom Start G-Code does NOT contain M104 or M190, "
+"AnkerMake Studio will execute the Start G-Code after bed reached its target temperature "
+"and extruder just started heating.\n\n"
+"When disabled, AnkerMake Studio will NOT emit commands to heat up extruder and bed, "
+"leaving both to Custom Start G-Code."
+msgstr ""
+"有効にすると、AnkerMake StudioはカスタムスタートGコードにM104またはM190が含まれて"
+"いるかどうかをチェックします。含まれていた場合、温度は自動的に出力されず、加"
+"熱コマンドやその他のカスタムアクションの順序を自由にカスタマイズできます。"
+"AnkerMake Studioのすべての設定にプレースホルダー変数を使用できるので、好きな場所に"
+"\"M109 S[first_layer_temperature]\"コマンドを置くことができることに注意してく"
+"ださい。\n"
+"カスタムスタートGコードにM104またはM190が含まれていない場合、AnkerMake Studioは"
+"ベッドが目標温度に達し、エクストルーダーが加熱を開始した後にスタートGコードを"
+"実行します。\n"
+"\n"
+"無効の場合、AnkerMake Studioはエクストルーダーとベッドを加熱するコマンドを発行せ"
+"ず、両方をカスタムスタートGコードに任せます。"
+
 #: src/slic3r/GUI/GUI_Factories.cpp:161
 msgid "Add negative volume"
 msgstr "切り取りボリュームを追加"
@@ -943,7 +1214,7 @@ msgstr "アドレス"
 #: src/libslic3r/PrintConfig.cpp:3120 src/libslic3r/PrintConfig.cpp:3129
 #: src/libslic3r/PrintConfig.cpp:3141 src/libslic3r/PrintConfig.cpp:3338
 msgid "Advanced"
-msgstr "上級者向け"
+msgstr "詳細設定"
 
 #: src/slic3r/GUI/GUI_App.cpp:2261
 msgid "Advanced View Mode"
@@ -1045,8 +1316,8 @@ msgid "All walls"
 msgstr "全ての壁"
 
 #: src/slic3r/GUI/Preferences.cpp:208 src/slic3r/GUI/Preferences.cpp:212
-msgid "Allow just a single PrusaSlicer instance"
-msgstr "PrusaSlicerインスタンスを1つだけ許可する"
+msgid "Allow just a single AnkerMake Studio instance"
+msgstr "AnkerMake Studioインスタンスを1つだけ許可する"
 
 #: src/slic3r/GUI/ExtruderSequenceDialog.cpp:172
 msgid "Allow next color repetition"
@@ -1092,21 +1363,21 @@ msgstr ""
 #: src/slic3r/GUI/Preferences.cpp:235
 msgid ""
 "Always ask for unsaved changes in presets, when: \n"
-"- Closing PrusaSlicer while some presets are modified,\n"
+"- Closing AnkerMake Studio while some presets are modified,\n"
 "- Loading a new project while some presets are modified"
 msgstr ""
 "以下の場合、プリセットの未保存の変更を常に問い合わせます：\n"
-"- プリセットを変更したままPrusaSlicerを終了する。\n"
+"- プリセットを変更したままAnkerMake Studioを終了する。\n"
 "- プリセットを変更した状態で新しいプロジェクトをロードする。"
 
 #: src/slic3r/GUI/Preferences.cpp:224
 msgid ""
 "Always ask for unsaved changes in project, when: \n"
-"- Closing PrusaSlicer,\n"
+"- Closing AnkerMake Studio,\n"
 "- Loading or creating a new project"
 msgstr ""
 "以下の場面で、プロジェクト内の未保存の変更点がある場合、常に聞かれます：\n"
-"- PrusaSlicer終了時。\n"
+"- AnkerMake Studio終了時。\n"
 "- プロジェクトをロードまたは新規作成する時"
 
 #: src/slic3r/GUI/GUI_App.cpp:972
@@ -1306,11 +1577,11 @@ msgstr "アートワークモデル：Leslie Ing"
 
 #: src/slic3r/GUI/OpenGLManager.cpp:263
 msgid ""
-"As a workaround, you may run PrusaSlicer with a software rendered 3D graphics by running prusa-slicer."
+"As a workaround, you may run AnkerMake Studio with a software rendered 3D graphics by running prusa-slicer."
 "exe with the --sw-renderer parameter."
 msgstr ""
 "回避策として、--sw-rendererパラメーターを指定してprusa-slicer.exeを実行することにより、ソフトウェアでレ"
-"ンダリングされた3Dグラフィックスを使用してPrusaSlicerを実行できます。"
+"ンダリングされた3Dグラフィックスを使用してAnkerMake Studioを実行できます。"
 
 #: src/slic3r/GUI/Preferences.cpp:249 src/slic3r/GUI/UnsavedChangesDialog.cpp:895
 msgid "Ask for unsaved changes in presets when creating new project"
@@ -1335,16 +1606,16 @@ msgstr ""
 "更を保存するかどうかを尋ねます"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:1261 src/slic3r/GUI/Preferences.cpp:157
-msgid "Associate .3mf files to PrusaSlicer"
-msgstr ".3mfファイルをPrusaSlicerに関連付けます"
+msgid "Associate .3mf files to AnkerMake Studio"
+msgstr ".3mfファイルをAnkerMake Studioに関連付けます"
 
 #: src/slic3r/GUI/Preferences.cpp:258
-msgid "Associate .gcode files to PrusaSlicer G-code Viewer"
-msgstr ".gcodeファイルをPrusaSlicerのGコードビューアに関連付けます "
+msgid "Associate .gcode files to AnkerMake Studio G-code Viewer"
+msgstr ".gcodeファイルをAnkerMake StudioのGコードビューアに関連付けます "
 
 #: src/slic3r/GUI/ConfigWizard.cpp:1262 src/slic3r/GUI/Preferences.cpp:164
-msgid "Associate .stl files to PrusaSlicer"
-msgstr ".stlファイルをPrusaSlicerに関連付けます"
+msgid "Associate .stl files to AnkerMake Studio"
+msgstr ".stlファイルをAnkerMake Studioに関連付けます"
 
 #: src/slic3r/GUI/Jobs/SLAImportJob.cpp:236 src/slic3r/GUI/Plater.cpp:2449
 msgid "Attention!"
@@ -1519,8 +1790,8 @@ msgid "Between objects G-code (for sequential printing)"
 msgstr "オブジェクト間のGコード（シーケンシャルプリントの場合）"
 
 #: src/slic3r/GUI/SysInfoDialog.cpp:150
-msgid "Blacklisted libraries loaded into PrusaSlicer process:"
-msgstr "PrusaSlicerプロセスにロードされたブラックリストに登録されたライブラリ："
+msgid "Blacklisted libraries loaded into AnkerMake Studio process:"
+msgstr "AnkerMake Studioプロセスにロードされたブラックリストに登録されたライブラリ："
 
 #: src/slic3r/GUI/Gizmos/GLGizmoSeam.cpp:38 src/slic3r/GUI/Gizmos/GLGizmoSeam.cpp:255
 msgid "Block seam"
@@ -1677,10 +1948,10 @@ msgstr "バケットフィル"
 
 #: src/slic3r/GUI/GUI_App.cpp:1682
 msgid ""
-"But since this version of PrusaSlicer we don't show this information in Printer Settings anymore.\n"
+"But since this version of AnkerMake Studio we don't show this information in Printer Settings anymore.\n"
 "Settings will be available in physical printers settings."
 msgstr ""
-"ただし、このバージョンのPrusaSlicer以降、この情報はプリンタ設定に表示されなくなりました。\n"
+"ただし、このバージョンのAnkerMake Studio以降、この情報はプリンタ設定に表示されなくなりました。\n"
 "設定は、物理プリンターの設定で利用できます。"
 
 #: src/slic3r/GUI/ButtonsDescription.cpp:62
@@ -1709,10 +1980,10 @@ msgstr "CRC-32チェックに失敗しました"
 
 #: src/slic3r/Utils/Http.cpp:91
 msgid ""
-"CURL init has failed. PrusaSlicer will be unable to establish network connections. See logs for "
+"CURL init has failed. AnkerMake Studio will be unable to establish network connections. See logs for "
 "additional details."
 msgstr ""
-"CURLの初期化に失敗しました。 PrusaSlicerはネットワーク接続を確立できなくなります。 詳細については、ログ"
+"CURLの初期化に失敗しました。 AnkerMake Studioはネットワーク接続を確立できなくなります。 詳細については、ログ"
 "を参照してください。"
 
 #: src/slic3r/GUI/Preferences.cpp:314
@@ -1966,8 +2237,8 @@ msgid "Choose one or more files (STL, OBJ):"
 msgstr "1つ以上のファイル(STL, OBJ)を選択します："
 
 #: src/slic3r/GUI/GUI_App.cpp:1870
-msgid "Choose one or more files (STL/3MF/STEP/OBJ/AMF/PRUSA):"
-msgstr "1つ以上のファイルの選択(STL/3MF/STEP/OBJ/AMF/PRUSA):"
+msgid "Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO):"
+msgstr "1つ以上のファイルの選択(STL/3MF/STEP/OBJ/AMF/AKPRO):"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:1361
 msgid "Choose the type of firmware used by your printer."
@@ -2067,12 +2338,12 @@ msgid "Close holes"
 msgstr "穴を閉じる"
 
 #: src/slic3r/GUI/MainFrame.cpp:232
-msgid "Closing PrusaSlicer while some presets are modified."
-msgstr "一部のプリセットが変更されている間にPrusaSlicerを閉じます。"
+msgid "Closing AnkerMake Studio while some presets are modified."
+msgstr "一部のプリセットが変更されている間にAnkerMake Studioを閉じます。"
 
 #: src/slic3r/GUI/MainFrame.cpp:225
-msgid "Closing PrusaSlicer. Current project is modified."
-msgstr "PrusaSlicerを閉じます。 現在のプロジェクトが変更されました。"
+msgid "Closing AnkerMake Studio. Current project is modified."
+msgstr "AnkerMake Studioを閉じます。 現在のプロジェクトが変更されました。"
 
 #: src/slic3r/GUI/Gizmos/GLGizmoHollow.cpp:34 src/libslic3r/PrintConfig.cpp:3873
 msgid "Closing distance"
@@ -2285,7 +2556,7 @@ msgstr "確認"
 #: src/libslic3r/PrintConfig.cpp:1415
 msgid ""
 "Connect an infill line to an internal perimeter with a short segment of an additional perimeter. If "
-"expressed as percentage (example: 15%) it is calculated over infill extrusion width. PrusaSlicer tries "
+"expressed as percentage (example: 15%) it is calculated over infill extrusion width. AnkerMake Studio tries "
 "to connect two close infill lines to a short perimeter segment. If no such perimeter segment shorter "
 "than infill_anchor_max is found, the infill line is connected to a perimeter segment at just one side "
 "and the length of the perimeter segment taken is limited to this parameter, but no longer than "
@@ -2293,7 +2564,7 @@ msgid ""
 "infill line."
 msgstr ""
 "追加の境界線の短いセグメントを使用して、インフィルラインを内側の境界線に接続します。 パーセンテージ"
-"（例：15％）で表される場合、インフィルの押出し幅に対して計算されます。 PrusaSlicerは、2つの近いインフィ"
+"（例：15％）で表される場合、インフィルの押出し幅に対して計算されます。 AnkerMake Studioは、2つの近いインフィ"
 "ルラインを短い境界線セグメントに接続しようとします。 infill_anchor_maxより短いそのような境界線セグメン"
 "トが見つからない場合、インフィルラインは片側だけで境界線セグメントに接続され、取得される境界線セグメン"
 "トの長さはこのパラメーターに制限されますが、anchor_length_maxより長くはなりません。 このパラメータをゼ"
@@ -2302,14 +2573,14 @@ msgstr ""
 #: src/libslic3r/PrintConfig.cpp:1443
 msgid ""
 "Connect an infill line to an internal perimeter with a short segment of an additional perimeter. If "
-"expressed as percentage (example: 15%) it is calculated over infill extrusion width. PrusaSlicer tries "
+"expressed as percentage (example: 15%) it is calculated over infill extrusion width. AnkerMake Studio tries "
 "to connect two close infill lines to a short perimeter segment. If no such perimeter segment shorter "
 "than this parameter is found, the infill line is connected to a perimeter segment at just one side and "
 "the length of the perimeter segment taken is limited to infill_anchor, but no longer than this "
 "parameter. Set this parameter to zero to disable anchoring."
 msgstr ""
 "追加の境界線の短いセグメントを使用して、インフィルラインを内側の境界線パターンに接続します。 パーセン"
-"テージ（例：15％）で表される場合、インフィルの押出し幅に対して計算されます。 PrusaSlicerは、2つの近いイ"
+"テージ（例：15％）で表される場合、インフィルの押出し幅に対して計算されます。 AnkerMake Studioは、2つの近いイ"
 "ンフィルラインを短い境界線セグメントに接続しようとします。 このパラメータより短い境界線セグメントが見つ"
 "からない場合、インフィルラインは片側だけで境界線セグメントに接続され、取得される境界線セグメントの長さ"
 "はinfill_anchorに制限されますが、このパラメータより長くはなりません。 アンカーを無効にするには、このパ"
@@ -2403,7 +2674,7 @@ msgstr "メートルから換算"
 
 #: src/slic3r/GUI/Tab.cpp:1999
 msgid "Cooling"
-msgstr "クーリング"
+msgstr "冷却"
 
 #: src/libslic3r/PrintConfig.cpp:967
 msgid "Cooling moves are gradually accelerating beginning at this speed."
@@ -2568,10 +2839,10 @@ msgstr "Repetierに接続できません"
 
 #: src/slic3r/Utils/Http.cpp:73
 msgid ""
-"Could not detect system SSL certificate store. PrusaSlicer will be unable to establish secure network "
+"Could not detect system SSL certificate store. AnkerMake Studio will be unable to establish secure network "
 "connections."
 msgstr ""
-"システムSSL証明書ストアを検出できませんでした。 PrusaSlicerは安全なネットワーク接続を確立できなくなりま"
+"システムSSL証明書ストアを検出できませんでした。 AnkerMake Studioは安全なネットワーク接続を確立できなくなりま"
 "す。"
 
 #: src/slic3r/GUI/PhysicalPrinterDialog.cpp:315
@@ -2583,8 +2854,8 @@ msgid "Could not get resources to create a new connection"
 msgstr "新しい接続を作成するためのリソースを取得できません"
 
 #: src/libslic3r/PrintConfig.cpp:2637
-msgid "Cover the top contact layer of the supports with loops. Disabled by default."
-msgstr "ループでサポート上部の接触層を覆います。 デフォルトでは無効になっています。"
+#msgid "Cover the top contact layer of the supports with loops. Disabled by default."
+#msgstr "ループでサポート上部の接触層を覆います。 デフォルトでは無効になっています。"
 
 #: src/libslic3r/PrintConfig.cpp:2499
 msgid ""
@@ -2949,8 +3220,8 @@ msgid "Density of internal infill, expressed in the range 0% - 100%."
 msgstr "0％-100％の範囲で表される内部インフィルの密度。"
 
 #: src/libslic3r/PrintConfig.cpp:2082
-msgid "Density of the first raft or support layer."
-msgstr "1層目のラフトもしくはサポート層の密度"
+#msgid "Density of the first raft or support layer."
+#msgstr "1層目のラフトもしくはサポート層の密度"
 
 #: src/slic3r/GUI/Tab.cpp:1728 src/slic3r/GUI/Tab.cpp:2115 src/slic3r/GUI/Tab.cpp:2502
 #: src/slic3r/GUI/Tab.cpp:2575 src/slic3r/GUI/Tab.cpp:4590 src/slic3r/GUI/Tab.cpp:4737
@@ -3441,13 +3712,23 @@ msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:1615
 msgid ""
-"Emit M73 P[percent printed] R[remaining time in minutes] at 1 minute intervals into the G-code to let "
-"the firmware show accurate remaining time. As of now only the Prusa i3 MK3 firmware recognizes M73. "
-"Also the i3 MK3 firmware supports M73 Qxx Sxx for the silent mode."
+"Emit M73 P[percent printed] R[remaining time in minutes] at 1 minute"
+" intervals into the G-code to let the firmware show accurate remaining time."
+" As of now only the Anker i3 MK3 firmware recognizes M73."
+" Also the i3 MK3 firmware supports M73 Qxx Sxx for the silent mode."
 msgstr ""
 "正確な残り時間を表示させるために、Gコードに1分間隔でM73 P [プリント率(%)] R [残り時間(分)]を埋め込みま"
 "す。 現在のところ、M73を認識するのはPrusa i3 MK3ファームウェアのみです。 また、Prusa i3 MK3ファームウェ"
 "アは、サイレントモードのM73 Qxx Sxxもサポートしています。"
+
+msgid "Start G-Code options"
+msgstr "スタートGコードオプション"
+
+msgid "Emit temperature commands automatically"
+msgstr "温度コマンドを自動で出力"
+
+msgid "Apply below setting to other extruders"
+msgstr "以下の設定を他のエクストルーダーにも適用する"
 
 #: src/libslic3r/PrintConfig.cpp:1637
 msgid "Emit to G-code"
@@ -3709,10 +3990,10 @@ msgstr ""
 
 #: src/slic3r/GUI/GUI_App.cpp:908 src/slic3r/GUI/GUI_App.cpp:1006
 msgid ""
-"Error parsing PrusaSlicer config file, it is probably corrupted. Try to manually delete the file to "
+"Error parsing AnkerMake Studio config file, it is probably corrupted. Try to manually delete the file to "
 "recover from the error. Your user profiles will not be affected."
 msgstr ""
-"PrusaSlicer構成ファイルの読み込みエラー。 ファイルが破損している可能性があります。 ファイルを手動で削除"
+"AnkerMake Studio構成ファイルの読み込みエラー。 ファイルが破損している可能性があります。 ファイルを手動で削除"
 "してください。 ユーザープロファイルは影響を受けません。"
 
 #: src/slic3r/GUI/PrintHostDialogs.cpp:424
@@ -4024,6 +4305,22 @@ msgstr "とても低い"
 msgid "Extra perimeters if needed"
 msgstr "必要に応じて外周を追加"
 
+#: src/libslic3r/PrintConfig.cpp:913
+msgid "Extra perimeters on overhangs (Experimental)"
+msgstr "オーバーハングに対する追加ペリメータ（実験的）"
+
+#: src/libslic3r/PrintConfig.cpp:406
+msgid "Avoid crossing curled overhangs (Experimental)"
+msgstr "カールしたオーバーハングの交差を避ける（実験的）"
+
+#: src/libslic3r/PrintConfig.cpp:2306
+msgid "Staggered inner seams"
+msgstr "スタガード（交互に配置された）内部の縫い目"
+
+#: src/slic3r/GUI/Tab.cpp:1528
+msgid "Organic supports"
+msgstr "オーガニックサポート"
+
 #: src/slic3r/GUI/GCodeViewer.cpp:3347 src/slic3r/GUI/GCodeViewer.cpp:3393
 #: src/slic3r/GUI/GCodeViewer.cpp:3398 src/slic3r/GUI/GUI_ObjectList.cpp:312
 #: src/slic3r/GUI/wxExtensions.cpp:536 src/libslic3r/PrintConfig.cpp:791
@@ -4207,7 +4504,7 @@ msgstr "フィラメントエンドG-Code"
 
 #: src/slic3r/GUI/Tab.cpp:1866
 msgid "Filament Overrides"
-msgstr "フィラメント上書き"
+msgstr "フィラメントの優先設定"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:2912
 msgid "Filament Profiles Selection"
@@ -4612,10 +4909,10 @@ msgstr "フルスクリーン"
 #: resources/data/hints.ini: [hint:Fullscreen mode]
 msgid ""
 "Fullscreen mode\n"
-"Did you know that you can switch PrusaSlicer to fullscreen mode? Use the <b>F11</b> hotkey."
+"Did you know that you can switch AnkerMake Studio to fullscreen mode? Use the <b>F11</b> hotkey."
 msgstr ""
 "フルスクリーンモード\n"
-"PrusaSlicerをフルスクリーンモードに切り替えることができることをご存知ですか？ <b>F11</b>ホットキーを使"
+"AnkerMake Studioをフルスクリーンモードに切り替えることができることをご存知ですか？ <b>F11</b>ホットキーを使"
 "用します。"
 
 #: src/slic3r/GUI/GUI_Factories.cpp:130 src/libslic3r/PrintConfig.cpp:1278
@@ -4703,6 +5000,9 @@ msgstr "GUI"
 #: src/slic3r/GUI/GUI_Factories.cpp:471
 msgid "Gallery"
 msgstr "ギャラリー"
+
+msgid "Text"
+msgstr "テキスト"
 
 #: src/slic3r/GUI/GUI_Preview.cpp:247 src/libslic3r/ExtrusionEntity.cpp:338
 #: src/libslic3r/ExtrusionEntity.cpp:368 src/libslic3r/PrintConfig.cpp:1320
@@ -5186,12 +5486,12 @@ msgstr ""
 "告が表示されます。"
 
 #: src/slic3r/GUI/Preferences.cpp:289
-msgid "If enabled, PrusaSlicer will be open at the position it was closed"
-msgstr "有効にすると、PrusaSlicerは前回閉じた位置で開きます"
+msgid "If enabled, AnkerMake Studio will be open at the position it was closed"
+msgstr "有効にすると、AnkerMake Studioは前回閉じた位置で開きます"
 
 #: src/slic3r/GUI/Preferences.cpp:384
-msgid "If enabled, PrusaSlicer will not open hyperlinks in your browser."
-msgstr "この機能を有効にすると、PrusaSlicerはブラウザでハイパーリンクを開きません。"
+msgid "If enabled, AnkerMake Studio will not open hyperlinks in your browser."
+msgstr "この機能を有効にすると、AnkerMake Studioはブラウザでハイパーリンクを開きません。"
 
 #: src/slic3r/GUI/Preferences.cpp:410
 msgid "If enabled, Settings Tabs will be placed as menu items. If disabled, old UI will be used."
@@ -5250,13 +5550,13 @@ msgstr ""
 "いUIが使用されます。"
 
 #: src/libslic3r/PrintConfig.cpp:2819
-msgid ""
-"If enabled, bridges are more reliable, can bridge longer distances, but may look worse. If disabled, "
-"bridges look better but are reliable just for shorter bridged distances."
-msgstr ""
-"有効にすると、ブリッジの信頼性が高まり、より長い距離をブリッジすることができますが、見た目が悪くなる場"
-"合があります。無効の場合、ブリッジの信頼性は向上しますが、ブリッジされる距離が短い場合にのみ信頼性が向"
-"上します。"
+#msgid ""
+#"If enabled, bridges are more reliable, can bridge longer distances, but may look worse. If disabled, "
+#"bridges look better but are reliable just for shorter bridged distances."
+#msgstr ""
+#"有効にすると、ブリッジの信頼性が高まり、より長い距離をブリッジすることができますが、見た目が悪くなる場"
+#"合があります。無効の場合、ブリッジの信頼性は向上しますが、ブリッジされる距離が短い場合にのみ信頼性が向"
+#"上します。"
 
 #: src/slic3r/GUI/Preferences.cpp:368
 msgid ""
@@ -5280,18 +5580,18 @@ msgid "If enabled, reverses the direction of zoom with mouse wheel"
 msgstr "有効にすると、マウスホイールでのズームの方向が逆になります"
 
 #: src/slic3r/GUI/Preferences.cpp:260
-msgid "If enabled, sets PrusaSlicer G-code Viewer as default application to open .gcode files."
+msgid "If enabled, sets AnkerMake Studio G-code Viewer as default application to open .gcode files."
 msgstr ""
-"有効にすると、.gcodeファイルを開くデフォルトのアプリケーション設定がPrusaSlicer Gコードビュワーになりま"
+"有効にすると、.gcodeファイルを開くデフォルトのアプリケーション設定がAnkerMake Studio Gコードビュワーになりま"
 "す。"
 
 #: src/slic3r/GUI/Preferences.cpp:159
-msgid "If enabled, sets PrusaSlicer as default application to open .3mf files."
-msgstr "有効にすると、.3mfファイルを開くデフォルトのアプリケーション設定がPrusaSlicerになります。"
+msgid "If enabled, sets AnkerMake Studio as default application to open .3mf files."
+msgstr "有効にすると、.3mfファイルを開くデフォルトのアプリケーション設定がAnkerMake Studioになります。"
 
 #: src/slic3r/GUI/Preferences.cpp:166
-msgid "If enabled, sets PrusaSlicer as default application to open .stl files."
-msgstr "有効にすると、.stlファイルを開くデフォルトのアプリケーション設定がPrusaSlicerになります。"
+msgid "If enabled, sets AnkerMake Studio as default application to open .stl files."
+msgstr "有効にすると、.stlファイルを開くデフォルトのアプリケーション設定がAnkerMake Studioになります。"
 
 #: src/slic3r/GUI/Preferences.cpp:270
 msgid ""
@@ -5315,11 +5615,11 @@ msgstr "有効にすると、折りたたみサイドバーのボタンが3Dシ�
 
 #: src/libslic3r/PrintConfig.cpp:4562
 msgid ""
-"If enabled, the command line arguments are sent to an existing instance of GUI PrusaSlicer, or an "
-"existing PrusaSlicer window is activated. Overrides the \"single_instance\" configuration value from "
+"If enabled, the command line arguments are sent to an existing instance of GUI AnkerMake Studio, or an "
+"existing AnkerMake Studio window is activated. Overrides the \"single_instance\" configuration value from "
 "application preferences."
 msgstr ""
-"有効にすると、コマンドライン引数がGUI PrusaSlicerの既存のインスタンスに送信されるか、既存のPrusaSlicer"
+"有効にすると、コマンドライン引数がGUI AnkerMake Studioの既存のインスタンスに送信されるか、既存のAnkerMake Studio"
 "ウィンドウがアクティブになります。 アプリケーション設定の「single_instance」構成値を上書きします。 "
 
 #: src/slic3r/GUI/Preferences.cpp:305
@@ -5454,10 +5754,10 @@ msgstr ""
 
 #: src/slic3r/GUI/Preferences.cpp:214
 msgid ""
-"If this is enabled, when starting PrusaSlicer and another instance of the same PrusaSlicer is already "
+"If this is enabled, when starting AnkerMake Studio and another instance of the same AnkerMake Studio is already "
 "running, that instance will be reactivated instead."
 msgstr ""
-"これが有効になっている場合、PrusaSlicerを起動し、同じPrusaSlicerの別のインスタンスがすでに実行されてい"
+"これが有効になっている場合、AnkerMake Studioを起動し、同じAnkerMake Studioの別のインスタンスがすでに実行されてい"
 "ると、代わりにそのインスタンスが再アクティブ化されます。"
 
 #: src/slic3r/GUI/SendSystemInfoDialog.cpp:585
@@ -6343,7 +6643,7 @@ msgstr "最小Z高さ"
 #: src/libslic3r/PrintConfig.cpp:1726 src/libslic3r/PrintConfig.cpp:1736
 #: src/libslic3r/PrintConfig.cpp:1749 src/libslic3r/PrintConfig.cpp:1759
 msgid "Machine limits"
-msgstr "機体の限界"
+msgstr "最大値"
 
 #: src/slic3r/GUI/Tab.cpp:4296
 msgid "Machine limits are not set, therefore the print time estimate may not be accurate."
@@ -6467,13 +6767,17 @@ msgstr "Y最大加速度"
 msgid "Maximum acceleration Z"
 msgstr "Zの最大加速度"
 
+#: src/libslic3r/PrintConfig.cpp:1760
+msgid "Maximum acceleration for travel moves (M204 T)"
+msgstr "トラベルムーブの最大加速度(M204 T)"
+
 #: src/libslic3r/PrintConfig.cpp:1758
 msgid "Maximum acceleration for travel moves"
 msgstr "トラベルムーブ時の最大加速度"
 
-#: src/libslic3r/PrintConfig.cpp:1760
-msgid "Maximum acceleration for travel moves (M204 T)"
-msgstr "トラベルムーブの最大加速度(M204 T)"
+#: src/libslic3r/PrintConfig.cpp:1758
+msgid "Maximum acceleration for travel moves."
+msgstr "トラベルムーブ時の最大加速度."
 
 #: src/libslic3r/PrintConfig.cpp:1688
 msgid "Maximum acceleration of the E axis"
@@ -6516,6 +6820,29 @@ msgstr "リトラクト時の最大加速度（M204 R）"
 #: src/slic3r/GUI/Tab.cpp:2662
 msgid "Maximum accelerations"
 msgstr "最大加速度"
+
+
+#: src/libslic3r/PrintConfig.cpp:1913
+msgid ""
+"Maximum acceleration when retracting.\n"
+"\n"
+"Not used for RepRapFirmware, which does not support it."
+msgstr ""
+"リトラクト時の最大加速度。\n"
+"\n"
+"RepRapFirmwareは対応していないため、使用できません。"
+
+msgid "Auto"
+msgstr "オート"
+
+#: src/libslic3r/PrintConfig.cpp:1735
+msgid "This controls the generation of the brim at outer and/or inner side of models. "
+"Auto means the brim width is analysed and calculated automatically."
+msgstr "これはモデルの外側および/または内側にフリンを生成するものを制御します。"
+"オートは、フリンの幅が自動的に分析および計算されることを意味します。"
+
+msgid "The diameter of the top of the tip of the branches of organic support."
+msgstr "有機サポートの枝の先端の直径。"
 
 #: src/libslic3r/PrintConfig.cpp:2121
 msgid ""
@@ -6906,6 +7233,14 @@ msgstr "個別条件領域"
 msgid "Monotonic"
 msgstr "モノトニック"
 
+#: src/libslic3r/PrintConfig.cpp:863
+msgid "Monotonic Lines"
+msgstr "モノトニックライン"
+
+#: src/libslic3r/PrintConfig.cpp:2975
+msgid "Organic"
+msgstr "オーガニック"
+
 #: src/slic3r/GUI/HintNotification.cpp:771 src/slic3r/GUI/HintNotification.cpp:797
 #: src/slic3r/GUI/NotificationManager.cpp:374 src/slic3r/GUI/NotificationManager.cpp:391
 msgid "More"
@@ -6913,10 +7248,10 @@ msgstr "もっと見る"
 
 #: src/slic3r/GUI/GUI.cpp:326
 msgid ""
-"Most likely the configuration was produced by a newer version of PrusaSlicer or by some PrusaSlicer "
+"Most likely the configuration was produced by a newer version of AnkerMake Studio or by some AnkerMake Studio "
 "fork."
 msgstr ""
-"ほとんどの場合、構成は新しいバージョンのPrusaSlicerまたは一部のPrusaSlicerフォークによって作成されまし"
+"ほとんどの場合、構成は新しいバージョンのAnkerMake Studioまたは一部のAnkerMake Studioフォークによって作成されまし"
 "た。"
 
 #: src/slic3r/GUI/Gizmos/GLGizmoSlaSupports.cpp:1224
@@ -7090,12 +7425,12 @@ msgstr "切り取りボリューム"
 msgid ""
 "Negative volume\n"
 "Did you know that you can subtract one mesh from another using the Negative volume modifier? That way "
-"you can, for example, create easily resizable holes directly in PrusaSlicer. Read more in the "
+"you can, for example, create easily resizable holes directly in AnkerMake Studio. Read more in the "
 "documentation. (Requires Advanced or Expert mode.)"
 msgstr ""
 "切取りボリューム\n"
 "切取りボリュームモディファイヤを使用して、あるメッシュを別のメッシュから差し引くことができることをご存"
-"知ですか？ これを使うと、たとえば、PrusaSlicerに直接簡単にサイズ変更可能な穴を作成できます。 詳細につい"
+"知ですか？ これを使うと、たとえば、AnkerMake Studioに直接簡単にサイズ変更可能な穴を作成できます。 詳細につい"
 "ては、ドキュメントをご覧ください。 （詳細モードまたはエキスパートモードが必要です。）"
 
 #: src/slic3r/GUI/BonjourDialog.cpp:55
@@ -7230,14 +7565,14 @@ msgid ""
 "A new Physical Printer profile is created by clicking on the \"cog\" icon right of the Printer "
 "profiles combo box, by selecting the \"Add physical printer\" item in the Printer combo box. The "
 "Physical Printer profile editor opens also when clicking on the \"cog\" icon in the Printer settings "
-"tab. The Physical Printer profiles are being stored into PrusaSlicer/physical_printer directory."
+"tab. The Physical Printer profiles are being stored into AnkerMake Studio/physical_printer directory."
 msgstr ""
 "注：このグループのすべてのパラメーターは、物理プリンター設定に移動されます（チェンジログを参照）。\n"
 " \n"
 "[プリンタプロファイル]コンボボックスの右側にある[歯車]アイコンをクリックし、[プリンタ]コンボボックスの"
 "[物理プリンタを追加]項目を選択すると、新しい物理プリンタプロファイルが作成されます。 物理プリンタプロ"
 "ファイルエディタは、[プリンタ設定]タブの[歯車]アイコンをクリックしたときにも開きます。 物理プリンタプロ"
-"ファイルは、PrusaSlicer/physical_printerディレクトリに保存されます。"
+"ファイルは、AnkerMake Studio/physical_printerディレクトリに保存されます。"
 
 #: src/slic3r/Utils/AstroBox.cpp:92
 msgid "Note: AstroBox version at least 1.1.0 is required."
@@ -7268,7 +7603,7 @@ msgstr "注：一部のショートカットは編集モードでは使えませ
 #: src/slic3r/GUI/Tab.cpp:2568 src/slic3r/GUI/Tab.cpp:2569 src/slic3r/GUI/Tab.cpp:3954
 #: src/slic3r/GUI/Tab.cpp:4582 src/slic3r/GUI/Tab.cpp:4583
 msgid "Notes"
-msgstr "メモ"
+msgstr "備考"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:2340 src/slic3r/GUI/ConfigWizard.cpp:2438
 #: src/slic3r/GUI/DoubleSlider.cpp:2522 src/slic3r/GUI/DoubleSlider.cpp:2543 src/slic3r/GUI/GUI.cpp:232
@@ -7550,7 +7885,7 @@ msgid "Ooze prevention is currently not supported with the wipe tower enabled."
 msgstr "垂れ防止機能は、現在のところ、ワイプタワーを有効にした状態では使えません。"
 
 #: src/slic3r/GUI/MainFrame.cpp:1541
-msgid "Open &PrusaSlicer"
+msgid "Open &AnkerMake Studio"
 msgstr "&Prusaスライサーのオープン"
 
 #: src/slic3r/GUI/PhysicalPrinterDialog.cpp:375
@@ -7582,16 +7917,16 @@ msgid "Open Preferences."
 msgstr "設定を開く。"
 
 #: src/slic3r/GUI/MainFrame.cpp:89 src/slic3r/GUI/MainFrame.cpp:1541
-msgid "Open PrusaSlicer"
-msgstr "PrusaSlicerを開く"
+msgid "Open AnkerMake Studio"
+msgstr "AnkerMake Studioを開く"
 
 #: src/slic3r/GUI/KBShortcutsDialog.cpp:205 src/slic3r/GUI/MainFrame.cpp:1525
 msgid "Open a G-code file"
 msgstr "G-コードファイルを開く"
 
 #: src/slic3r/GUI/MainFrame.cpp:75 src/slic3r/GUI/MainFrame.cpp:89 src/slic3r/GUI/MainFrame.cpp:1420
-msgid "Open a new PrusaSlicer instance"
-msgstr "新しいPrusaSlicerインスタンスを開く"
+msgid "Open a new AnkerMake Studio instance"
+msgstr "新しいAnkerMake Studioインスタンスを開く"
 
 #: src/slic3r/GUI/MainFrame.cpp:1152
 msgid "Open a project file"
@@ -8037,11 +8372,11 @@ msgstr ""
 
 #: src/slic3r/GUI/DesktopIntegrationDialog.cpp:419
 msgid ""
-"Performing desktop integration failed - could not create Gcodeviewer desktop file. PrusaSlicer desktop "
+"Performing desktop integration failed - could not create Gcodeviewer desktop file. AnkerMake Studio desktop "
 "file was probably created successfully."
 msgstr ""
 "デスクトップ統合の実行に失敗しました-Gcodeビュワーデスクトップファイルを作成できませんでした。 "
-"PrusaSlicerデスクトップファイルはおそらく正常に作成されました。"
+"AnkerMake Studioデスクトップファイルはおそらく正常に作成されました。"
 
 #: src/slic3r/GUI/DesktopIntegrationDialog.cpp:378
 msgid "Performing desktop integration failed because the application directory was not found."
@@ -8171,8 +8506,8 @@ msgid "Please check your object list before preset changing."
 msgstr "プリセットを変更する前にオブジェクトリストを確認してください。"
 
 #: src/slic3r/GUI/BackgroundSlicingProcess.cpp:85
-msgid "Please save your project and restart PrusaSlicer. We would be glad if you reported the issue."
-msgstr "プロジェクトを保存して、PrusaSlicerを再起動してください。 問題を報告していただければ幸いです。"
+msgid "Please save your project and restart AnkerMake Studio. We would be glad if you reported the issue."
+msgstr "プロジェクトを保存して、AnkerMake Studioを再起動してください。 問題を報告していただければ幸いです。"
 
 #: src/slic3r/GUI/Plater.cpp:3641
 msgid "Please select the file to reload"
@@ -8590,13 +8925,13 @@ msgid "Prusa MSLA Technology Printers"
 msgstr "Prusa MSLA方式プリンター"
 
 #: src/slic3r/GUI/GUI_Init.cpp:57 src/slic3r/GUI/GUI_Init.cpp:60
-msgid "PrusaSlicer GUI initialization failed"
-msgstr "PrusaSlicer GUIの初期化に失敗しました"
+msgid "AnkerMake Studio GUI initialization failed"
+msgstr "AnkerMake Studio GUIの初期化に失敗しました"
 
 #: src/slic3r/GUI/GUI_App.cpp:1338
 #, boost-format
 msgid ""
-"PrusaSlicer crashed last time when attempting to set window position.\n"
+"AnkerMake Studio crashed last time when attempting to set window position.\n"
 "We are sorry for the inconvenience, it unfortunately happens with certain multiple-monitor setups.\n"
 "More precise reason for the crash: \"%1%\".\n"
 "For more information see our GitHub issue tracker: \"%2%\" and \"%3%\"\n"
@@ -8604,7 +8939,7 @@ msgid ""
 "To avoid this problem, consider disabling \"%4%\" in \"Preferences\". Otherwise, the application will "
 "most likely crash again next time."
 msgstr ""
-"前回、ウィンドウ位置の設定をしようとしたときにPrusaSlicerがクラッシュしました。\n"
+"前回、ウィンドウ位置の設定をしようとしたときにAnkerMake Studioがクラッシュしました。\n"
 "この現象は、マルチモニター環境において発生します。\n"
 "より正確には、クラッシュの原因は  \"%1%\"。\n"
 "詳細は、GitHub issue tracker: \"%2%\" および \"%3%\" を参照してください。\n"
@@ -8614,97 +8949,97 @@ msgstr ""
 
 #: src/slic3r/Utils/Http.cpp:78
 #, boost-format
-msgid "PrusaSlicer detected system SSL certificate store in: %1%"
-msgstr "PrusaSlicerがシステムSSL証明書ストアを検出しました：%1%"
+msgid "AnkerMake Studio detected system SSL certificate store in: %1%"
+msgstr "AnkerMake StudioがシステムSSL証明書ストアを検出しました：%1%"
 
 #: src/slic3r/Config/Snapshot.cpp:599
-msgid "PrusaSlicer error"
-msgstr "PrusaSlicer エラー"
+msgid "AnkerMake Studio error"
+msgstr "AnkerMake Studio エラー"
 
 #: src/slic3r/GUI/BackgroundSlicingProcess.cpp:84
 #, boost-format
-msgid "PrusaSlicer has encountered a fatal error: \"%1%\""
-msgstr "PrusaSlicerで致命的なエラーが発生しました: \"%1%\""
+msgid "AnkerMake Studio has encountered a fatal error: \"%1%\""
+msgstr "AnkerMake Studioで致命的なエラーが発生しました: \"%1%\""
 
 #: src/slic3r/GUI/GUI_App.cpp:705
 msgid ""
-"PrusaSlicer has encountered a localization error. Please report to PrusaSlicer team, what language was "
+"AnkerMake Studio has encountered a localization error. Please report to AnkerMake Studio team, what language was "
 "active and in which scenario this issue happened. Thank you.\n"
 "\n"
 "The application will now terminate."
 msgstr ""
-"PrusaSlicerでローカリゼーションエラーが発生しました。 PrusaSlicerチームに、どの言語がアクティブで、どの"
+"AnkerMake Studioでローカリゼーションエラーが発生しました。 AnkerMake Studioチームに、どの言語がアクティブで、どの"
 "シナリオでこの問題が発生したかをご報告ください。 ご協力に感謝いたします。\n"
 " \n"
 "これでアプリケーションは終了します。 "
 
 #: src/slic3r/Config/Snapshot.cpp:598
-msgid "PrusaSlicer has encountered an error while taking a configuration snapshot."
-msgstr "PrusaSlicerは、構成スナップショットの作成中にエラーが発生しました。"
+msgid "AnkerMake Studio has encountered an error while taking a configuration snapshot."
+msgstr "AnkerMake Studioは、構成スナップショットの作成中にエラーが発生しました。"
 
 #: src/slic3r/GUI/AboutDialog.cpp:273
-msgid "PrusaSlicer is based on Slic3r by Alessandro Ranellucci and the RepRap community."
-msgstr "PrusaSlicerは、Alessandro RanellucciとRepRapコミュニティによるSlic3rをベースにしています。"
+msgid "AnkerMake Studio is based on Slic3r by Alessandro Ranellucci and the RepRap community."
+msgstr "AnkerMake Studioは、Alessandro RanellucciとRepRapコミュニティによるSlic3rをベースにしています。"
 
 #: src/slic3r/GUI/MainFrame.cpp:232
-msgid "PrusaSlicer is closing"
-msgstr "PrusaSlicerを終了します"
+msgid "AnkerMake Studio is closing"
+msgstr "AnkerMake Studioを終了します"
 
 #: src/slic3r/GUI/UpdateDialogs.cpp:95
 msgid ""
-"PrusaSlicer is not using the newest configuration available.\n"
+"AnkerMake Studio is not using the newest configuration available.\n"
 "Configuration Wizard may not offer the latest printers, filaments and SLA materials to be installed."
 msgstr ""
-"PrusaSlicerは、利用可能な最新の構成を使用していません。\n"
+"AnkerMake Studioは、利用可能な最新の構成を使用していません。\n"
 "構成ウィザードは、インストールする最新のプリンター、フィラメント、およびSLAマテリアルを提供しない場合が"
 "あります。"
 
 #: src/slic3r/GUI/OpenGLManager.cpp:257
 #, c-format, boost-format
 msgid ""
-"PrusaSlicer requires OpenGL 2.0 capable graphics driver to run correctly, \n"
+"AnkerMake Studio requires OpenGL 2.0 capable graphics driver to run correctly, \n"
 "while OpenGL version %s, render %s, vendor %s was detected."
 msgstr ""
-"OpenGLバージョン%s、レンダー%s、ベンダー%sが検出されました。PrusaSlicerには、OpenGL 2.0が機能するグラ"
+"OpenGLバージョン%s、レンダー%s、ベンダー%sが検出されました。AnkerMake Studioには、OpenGL 2.0が機能するグラ"
 "フィックドライバーが必要です。"
 
 #: src/slic3r/GUI/GUI_App.cpp:1337
-msgid "PrusaSlicer started after a crash"
-msgstr "クラッシュ後のPrusaSlicerの起動"
+msgid "AnkerMake Studio started after a crash"
+msgstr "クラッシュ後のAnkerMake Studioの起動"
 
 #: src/slic3r/GUI/ConfigSnapshotDialog.cpp:60
-msgid "PrusaSlicer version"
-msgstr "PrusaSlicerバージョン"
+msgid "AnkerMake Studio version"
+msgstr "AnkerMake Studioバージョン"
 
 #: src/slic3r/GUI/UnsavedChangesDialog.cpp:903
-msgid "PrusaSlicer will remember your action."
-msgstr "PrusaSlicerは行った操作を記録します。 "
+msgid "AnkerMake Studio will remember your action."
+msgstr "AnkerMake Studioは行った操作を記録します。 "
 
 #: src/slic3r/GUI/GUI_App.cpp:3106 src/slic3r/GUI/Plater.cpp:1732
-msgid "PrusaSlicer will remember your choice."
-msgstr "PrusaSlicerはあなたの選択を記憶します。"
+msgid "AnkerMake Studio will remember your choice."
+msgstr "AnkerMake Studioはあなたの選択を記憶します。"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:1274
 msgid ""
-"PrusaSlicer's user interfaces comes in three variants:\n"
+"AnkerMake Studio's user interfaces comes in three variants:\n"
 "Simple, Advanced, and Expert.\n"
 "The Simple mode shows only the most frequently used settings relevant for regular 3D printing. The "
 "other two offer progressively more sophisticated fine-tuning, they are suitable for advanced and "
 "expert users, respectively."
 msgstr ""
-"PrusaSlicerのユーザーインターフェイスには、次の3つのバリエーションがあります。\n"
+"AnkerMake Studioのユーザーインターフェイスには、次の3つのバリエーションがあります。\n"
 "シンプル、高度、エキスパート。\n"
 "シンプルモードでは、通常の3Dプリントするときに最も一般的に使用される設定のみが表示されます。 他の2つは"
 "上級ユーザーやエキスパートユーザー向けに微調整できる項目を提供します。"
 
 #: src/slic3r/GUI/GUI_App.cpp:3110 src/slic3r/GUI/Plater.cpp:1738
 #: src/slic3r/GUI/UnsavedChangesDialog.cpp:906
-msgid "PrusaSlicer: Don't ask me again"
-msgstr "PrusaSlicer：次から尋ねない"
+msgid "AnkerMake Studio: Don't ask me again"
+msgstr "AnkerMake Studio：次から尋ねない"
 
 #: src/slic3r/GUI/GUI_App.cpp:3099 src/slic3r/GUI/GUI_App.cpp:3122
-msgid "PrusaSlicer: Open hyperlink"
-msgstr "PrusaSlicer：ハイパーリンクを開く"
+msgid "AnkerMake Studio: Open hyperlink"
+msgstr "AnkerMake Studio：ハイパーリンクを開く"
 
 #: src/libslic3r/PrintConfig.cpp:3024
 msgid ""
@@ -8960,11 +9295,11 @@ msgstr "ディスクからリロード"
 msgid ""
 "Reload from disk\n"
 "Did you know that if you created a newer version of your model, you can simply reload it in "
-"PrusaSlicer? Right-click the model in the 3D view and choose Reload from disk. Read more in the "
+"AnkerMake Studio? Right-click the model in the 3D view and choose Reload from disk. Read more in the "
 "documentation."
 msgstr ""
 "ディスクからリロード\n"
-"モデルの新しいバージョンを作成した場合は、PrusaSlicerにリロードするだけでよいことをご存知ですか？ 3D"
+"モデルの新しいバージョンを作成した場合は、AnkerMake Studioにリロードするだけでよいことをご存知ですか？ 3D"
 "ビューでモデルを右クリックし、[ディスクからリロード]を選択します。 詳細については、ドキュメントをご覧く"
 "ださい。"
 
@@ -9511,7 +9846,7 @@ msgstr "OBJファイルを保存します（STLよりも調整エラーが少な
 
 #: src/slic3r/GUI/MainFrame.cpp:1198 src/slic3r/GUI/MainFrame.cpp:1200
 msgid "Save Project &as"
-msgstr "名前を付けてプロジェクトを保存&a"
+msgstr "名前を付けてプロジェクトを保存"
 
 #: src/slic3r/GUI/Plater.cpp:5744
 msgid "Save SL1 / SL1S file as:"
@@ -9661,11 +9996,11 @@ msgstr "検索"
 #: resources/data/hints.ini: [hint:Search functionality]
 msgid ""
 "Search functionality\n"
-"Did you know that you use the<a>Search</a>tool to quickly find a specific PrusaSlicer setting? Or use "
+"Did you know that you use the<a>Search</a>tool to quickly find a specific AnkerMake Studio setting? Or use "
 "the familiar shortcut <b>Ctrl+F</b>."
 msgstr ""
 "検索機能\n"
-"<a>検索</a>ツールを使用して特定のPrusaSlicer設定をすばやく見つけることをご存知ですか？ または、おなじみ"
+"<a>検索</a>ツールを使用して特定のAnkerMake Studio設定をすばやく見つけることをご存知ですか？ または、おなじみ"
 "のショートカット<b>Ctrl+F</b>を使用します。"
 
 #: src/slic3r/GUI/ImGuiWrapper.cpp:963 src/slic3r/GUI/Search.cpp:465
@@ -10239,11 +10574,11 @@ msgstr "シェイプギャラリー"
 #: resources/data/hints.ini: [hint:Shapes gallery]
 msgid ""
 "Shapes gallery\n"
-"Did you know that PrusaSlicer has a Shapes Gallery? You can use the included models as modifiers, "
+"Did you know that AnkerMake Studio has a Shapes Gallery? You can use the included models as modifiers, "
 "negative volumes or as printable objects. Right-click the platter and select<a>Add Shape - Gallery</a>."
 msgstr ""
 "シェイプギャラリー\n"
-"PrusaSlicerにシェイプギャラリーがあることをご存知ですか？ 含まれているモデルをモディファイヤ、切取りボ"
+"AnkerMake Studioにシェイプギャラリーがあることをご存知ですか？ 含まれているモデルをモディファイヤ、切取りボ"
 "リューム、またはプリント可のオブジェクトとして使用できます。 プラッターを右クリックして、<a>[シェイプの"
 "追加]-[ギャラリー]</a>を選択します。"
 
@@ -10753,10 +11088,10 @@ msgstr "水溶性フィラメントが溶解性サポート材としてもっと
 msgid ""
 "Some G/M-code commands, including temperature control and others, are not universal. Set this option "
 "to your printer's firmware to get a compatible output. The \"No extrusion\" flavor prevents "
-"PrusaSlicer from exporting any extrusion value at all."
+"AnkerMake Studio from exporting any extrusion value at all."
 msgstr ""
 "温度制御などを含む一部のG/Mコードコマンドは普遍的ではありません。互換性のある出力を実現するためにプリン"
-"ターが使用するファームウェアのタイプを選択します。 「押出しなし」コマンドにより、PrusaSlicerは押出しコ"
+"ターが使用するファームウェアのタイプを選択します。 「押出しなし」コマンドにより、AnkerMake Studioは押出しコ"
 "マンドをエクスポートしなくなります。"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:2696
@@ -11577,29 +11912,29 @@ msgstr "サポートスティックとジャンクションを接続するため
 #, c-format, boost-format
 msgid ""
 "The dimensions of the object from file %s seem to be defined in inches.\n"
-"The internal unit of PrusaSlicer is a millimeter. Do you want to recalculate the dimensions of the "
+"The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of the "
 "object?"
 msgid_plural ""
 "The dimensions of some objects from file %s seem to be defined in inches.\n"
-"The internal unit of PrusaSlicer is a millimeter. Do you want to recalculate the dimensions of these "
+"The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of these "
 "objects?"
 msgstr[0] ""
 "ファイル%sの一部のオブジェクトの寸法は、インチで定義されているようです。\n"
-"PrusaSlicerの内部単位はミリメートルです。 これらのオブジェクトの寸法を再計算しますか？"
+"AnkerMake Studioの内部単位はミリメートルです。 これらのオブジェクトの寸法を再計算しますか？"
 
 #: src/slic3r/GUI/Plater.cpp:2574
 #, c-format, boost-format
 msgid ""
 "The dimensions of the object from file %s seem to be defined in meters.\n"
-"The internal unit of PrusaSlicer is a millimeter. Do you want to recalculate the dimensions of the "
+"The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of the "
 "object?"
 msgid_plural ""
 "The dimensions of some objects from file %s seem to be defined in meters.\n"
-"The internal unit of PrusaSlicer is a millimeter. Do you want to recalculate the dimensions of these "
+"The internal unit of AnkerMake Studio is a millimeter. Do you want to recalculate the dimensions of these "
 "objects?"
 msgstr[0] ""
 "ファイル%sの一部のオブジェクトの寸法は、メートルで定義されているようです。\n"
-"PrusaSlicerの内部単位はミリメートルです。 これらのオブジェクトの寸法を再計算しますか？"
+"AnkerMake Studioの内部単位はミリメートルです。 これらのオブジェクトの寸法を再計算しますか？"
 
 #: src/libslic3r/SLAPrint.cpp:646
 msgid ""
@@ -11889,9 +12224,9 @@ msgstr ""
 "プロジェクトを保存しますか？"
 
 #: src/slic3r/GUI/Plater.cpp:2507
-msgid "The preset below was temporarily installed on the active instance of PrusaSlicer"
-msgid_plural "The presets below were temporarily installed on the active instance of PrusaSlicer"
-msgstr[0] "以下のプリセットは、PrusaSlicerのアクティブなインスタンスに一時的にインストールされました"
+msgid "The preset below was temporarily installed on the active instance of AnkerMake Studio"
+msgid_plural "The presets below were temporarily installed on the active instance of AnkerMake Studio"
+msgstr[0] "以下のプリセットは、AnkerMake Studioのアクティブなインスタンスに一時的にインストールされました"
 
 #: src/slic3r/GUI/GUI_App.cpp:2533 src/slic3r/GUI/GUI_App.cpp:2594
 msgid "The preset modifications are successfully saved"
@@ -11912,26 +12247,26 @@ msgstr "指定された名前は無効です；"
 
 #: src/libslic3r/Format/3mf.cpp:1746
 msgid ""
-"The selected 3MF contains FDM supports painted object using a newer version of PrusaSlicer and is not "
+"The selected 3MF contains FDM supports painted object using a newer version of AnkerMake Studio and is not "
 "compatible."
 msgstr ""
-"選択した3MFには、新しいバージョンのPrusaSlicerを使用してペイントされたオブジェクトをサポートするFDMが含"
+"選択した3MFには、新しいバージョンのAnkerMake Studioを使用してペイントされたオブジェクトをサポートするFDMが含"
 "まれており、互換性がありません。"
 
 #: src/libslic3r/Format/3mf.cpp:1754
 msgid ""
-"The selected 3MF contains multi-material painted object using a newer version of PrusaSlicer and is "
+"The selected 3MF contains multi-material painted object using a newer version of AnkerMake Studio and is "
 "not compatible."
 msgstr ""
-"選択した3MFには、新しいバージョンのPrusaSlicerを使用したマルチマテリアルペイントオブジェクトが含まれて"
+"選択した3MFには、新しいバージョンのAnkerMake Studioを使用したマルチマテリアルペイントオブジェクトが含まれて"
 "おり、互換性がありません。"
 
 #: src/libslic3r/Format/3mf.cpp:1750
 msgid ""
-"The selected 3MF contains seam painted object using a newer version of PrusaSlicer and is not "
+"The selected 3MF contains seam painted object using a newer version of AnkerMake Studio and is not "
 "compatible."
 msgstr ""
-"選択した3MFには、新しいバージョンのPrusaSlicerを使用したシームペイントされたオブジェクトが含まれてお"
+"選択した3MFには、新しいバージョンのAnkerMake Studioを使用したシームペイントされたオブジェクトが含まれてお"
 "り、互換性がありません。"
 
 #: src/libslic3r/Format/3mf.cpp:1735
@@ -12135,8 +12470,8 @@ msgid "There is an object with no extrusions in the first layer."
 msgstr "最初のレイヤーに押し出す部分のないオブジェクトがあります。"
 
 #: src/libslic3r/PrintConfig.cpp:2817
-msgid "Thick bridges"
-msgstr "太いブリッジ"
+#msgid "Thick bridges"
+#msgstr "太いブリッジ"
 
 #: src/slic3r/GUI/UpdateDialogs.cpp:225
 #, c-format, boost-format
@@ -12199,34 +12534,34 @@ msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:2846
 msgid ""
-"This custom code is inserted before every toolchange. Placeholder variables for all PrusaSlicer "
+"This custom code is inserted before every toolchange. Placeholder variables for all AnkerMake Studio "
 "settings as well as {toolchange_z}, {previous_extruder} and {next_extruder} can be used. When a tool-"
 "changing command which changes to the correct extruder is included (such as T{next_extruder}), "
-"PrusaSlicer will emit no other such command. It is therefore possible to script custom behaviour both "
+"AnkerMake Studio will emit no other such command. It is therefore possible to script custom behaviour both "
 "before and after the toolchange."
 msgstr ""
-"このカスタムコードは、ツールチェンジの前に挿入されます。PrusaSlicerのすべての設定と{toolchange_z}、"
+"このカスタムコードは、ツールチェンジの前に挿入されます。AnkerMake Studioのすべての設定と{toolchange_z}、"
 "{previous_extruder}、{next_extruder}のプレースホルダー変数を使用することができます。正しいエクストルー"
-"ダーに変更する工具変更コマンド(T{next_extruder}など)が含まれている場合、PrusaSlicerは他のコマンドを発行"
+"ダーに変更する工具変更コマンド(T{next_extruder}など)が含まれている場合、AnkerMake Studioは他のコマンドを発行"
 "しません。そのため、ツールチェンジの前後で独自の動作をスクリプト化することが可能です。"
 
 #: src/libslic3r/PrintConfig.cpp:695
 msgid ""
 "This end procedure is inserted at the end of the output file, before the printer end gcode (and before "
 "any toolchange from this filament in case of multimaterial printers). Note that you can use "
-"placeholder variables for all PrusaSlicer settings. If you have multiple extruders, the gcode is "
+"placeholder variables for all AnkerMake Studio settings. If you have multiple extruders, the gcode is "
 "processed in extruder order."
 msgstr ""
 "この終了手順は、出力ファイルの最後のプリント完了Gコードの前（マルチマテリアルプリンタの場合は現在のフィ"
-"ラメントからのツール変更の前）に挿入されます。 すべてのPrusaSlicer設定に代替変数を使用できます。 複数の"
+"ラメントからのツール変更の前）に挿入されます。 すべてのAnkerMake Studio設定に代替変数を使用できます。 複数の"
 "エクストルーダーがある場合、Gコードはエクストルーダー順に処理されます。"
 
 #: src/libslic3r/PrintConfig.cpp:685
 msgid ""
 "This end procedure is inserted at the end of the output file. Note that you can use placeholder "
-"variables for all PrusaSlicer settings."
+"variables for all AnkerMake Studio settings."
 msgstr ""
-"この終了プロシージャは、出力ファイルの最後に挿入されます。 すべてのPrusaSlicer変数を使用できます。"
+"この終了プロシージャは、出力ファイルの最後に挿入されます。 すべてのAnkerMake Studio変数を使用できます。"
 
 #: src/libslic3r/PrintConfig.cpp:1819
 msgid ""
@@ -12595,9 +12930,9 @@ msgstr "この設定は、ファンが回転するために必要な最小PWMで
 msgid ""
 "This start procedure is inserted at the beginning, after any printer start gcode (and after any "
 "toolchange to this filament in case of multi-material printers). This is used to override settings for "
-"a specific filament. If PrusaSlicer detects M104, M109, M140 or M190 in your custom codes, such "
+"a specific filament. If AnkerMake Studio detects M104, M109, M140 or M190 in your custom codes, such "
 "commands will not be prepended automatically so you're free to customize the order of heating commands "
-"and other custom actions. Note that you can use placeholder variables for all PrusaSlicer settings, so "
+"and other custom actions. Note that you can use placeholder variables for all AnkerMake Studio settings, so "
 "you can put a \"M109 S[first_layer_temperature]\" command wherever you want. If you have multiple "
 "extruders, the gcode is processed in extruder order."
 msgstr ""
@@ -12605,22 +12940,22 @@ msgstr ""
 "ラメントにツールを変更した後）の最初に挿入されます。 これは、特定のフィラメントの設定をオーバーライドす"
 "るために使用されます。カスタムコードでM104またはM190が書かれている場合には、同種のコマンドが自動的に追"
 "加されることはありませんので、加熱コマンドやその他のカスタムアクションの順序を自由にカスタマイズできま"
-"す。 全てのPrusaSlicer変数を使用できますので、「M109 S [first_layer_temperature]」コマンドをご希望の場"
+"す。 全てのAnkerMake Studio変数を使用できますので、「M109 S [first_layer_temperature]」コマンドをご希望の場"
 "所に配置できます。複数のエクストルーダーがある場合、Gコードはエクストルーダーの順に処理されます。"
 
 #: src/libslic3r/PrintConfig.cpp:2419
 msgid ""
 "This start procedure is inserted at the beginning, after bed has reached the target temperature and "
-"extruder just started heating, and before extruder has finished heating. If PrusaSlicer detects M104 "
+"extruder just started heating, and before extruder has finished heating. If AnkerMake Studio detects M104 "
 "or M190 in your custom codes, such commands will not be prepended automatically so you're free to "
 "customize the order of heating commands and other custom actions. Note that you can use placeholder "
-"variables for all PrusaSlicer settings, so you can put a \"M109 S[first_layer_temperature]\" command "
+"variables for all AnkerMake Studio settings, so you can put a \"M109 S[first_layer_temperature]\" command "
 "wherever you want."
 msgstr ""
 "この開始プロシージャーは、ベッドが目標温度に達し、エクストルーダーが加熱を開始した直後、およびエクスト"
 "ルーダーが加熱を完了する前のところに挿入されます。 カスタムコードでM104またはM190が書かれている場合に"
 "は、同種のコマンドが自動的に追加されることはありませんので、加熱コマンドやその他のカスタムアクションの"
-"順序を自由にカスタマイズできます。 全てのPrusaSlicer変数を使用できますので、「M109 S "
+"順序を自由にカスタマイズできます。 全てのAnkerMake Studio変数を使用できますので、「M109 S "
 "[first_layer_temperature]」コマンドをご希望の場所に配置できます。"
 
 #: src/libslic3r/PrintConfig.cpp:1002
@@ -12662,12 +12997,12 @@ msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:4539
 msgid ""
-"This version of PrusaSlicer may not understand configurations produced by the newest PrusaSlicer "
-"versions. For example, newer PrusaSlicer may extend the list of supported firmware flavors. One may "
+"This version of AnkerMake Studio may not understand configurations produced by the newest AnkerMake Studio "
+"versions. For example, newer AnkerMake Studio may extend the list of supported firmware flavors. One may "
 "decide to bail out or to substitute an unknown value with a default silently or verbosely."
 msgstr ""
-"このバージョンのPrusaSlicerは、最新のPrusaSlicerバージョンによって生成された構成を理解できない場合があ"
-"ります。 たとえば、新しいPrusaSlicerは、サポートされているファームウェアフレーバーのリストを拡張する場"
+"このバージョンのAnkerMake Studioは、最新のAnkerMake Studioバージョンによって生成された構成を理解できない場合があ"
+"ります。 たとえば、新しいAnkerMake Studioは、サポートされているファームウェアフレーバーのリストを拡張する場"
 "合があります。 暗黙的にまたは冗長的に、修正するか、未知の値をデフォルトに置き換えるかを決めることができ"
 "ます。"
 
@@ -13458,12 +13793,12 @@ msgid ""
 "We do not send any personal information nor anything that would allow us to identify you later. To "
 "detect duplicate entries, a unique number derived from your system is sent, but the source information "
 "cannot be reconstructed. Apart from that, only general data about your OS, hardware and OpenGL "
-"installation are sent. PrusaSlicer is open source, if you want to inspect the code actually performing "
+"installation are sent. AnkerMake Studio is open source, if you want to inspect the code actually performing "
 "the communication, see %1%."
 msgstr ""
 "個人情報や、後でお客様を特定できるようなものは送信しません。 重複エントリを検出するために、システムから"
 "派生した一意の番号が送信されますが、ソース情報を再構築することはできません。 それとは別に、OS、ハード"
-"ウェア、OpenGLのインストールに関する一般的なデータのみが送信されます。 PrusaSlicerはオープンソースで"
+"ウェア、OpenGLのインストールに関する一般的なデータのみが送信されます。 AnkerMake Studioはオープンソースで"
 "す。実際に通信を実行しているコードを検査する場合は、%1%を参照してください。"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:488
@@ -13677,6 +14012,14 @@ msgstr "ワイプタワー-パージ量調整"
 msgid "Wipe tower brim width"
 msgstr "ワイプタワーのブリム幅"
 
+#: src/libslic3r/PrintConfig.cpp:3134 src/libslic3r/PrintConfig.cpp:3440
+msgid "Stabilization cone apex angle"
+msgstr "安定化コーンの頂点角度"
+
+#: src/libslic3r/PrintConfig.cpp:3450 src/libslic3r/PrintConfig.cpp:3450
+msgid "Wipe tower purge lines spacing"
+msgstr "ワイプタワーのパージライン間隔"
+
 #: src/slic3r/GUI/Tab.cpp:2046
 msgid "Wipe tower parameters"
 msgstr "ワイプタワーのパラメータ"
@@ -13779,14 +14122,14 @@ msgstr "%1%バージョン%2%を開いています。"
 
 #: src/slic3r/GUI/GUI_App.cpp:1050
 msgid ""
-"You are running a 32 bit build of PrusaSlicer on 64-bit Windows.\n"
-"32 bit build of PrusaSlicer will likely not be able to utilize all the RAM available in the system.\n"
-"Please download and install a 64 bit build of PrusaSlicer from https://www.prusa3d.cz/prusaslicer/.\n"
+"You are running a 32 bit build of AnkerMake Studio on 64-bit Windows.\n"
+"32 bit build of AnkerMake Studio will likely not be able to utilize all the RAM available in the system.\n"
+"Please download and install a 64 bit build of AnkerMake Studio from https://www.prusa3d.cz/AnkerMake Studio/.\n"
 "Do you wish to continue?"
 msgstr ""
-"64ビットWindowsでPrusaSlicerの32ビットビルドを実行しています。\n"
-"PrusaSlicerの32ビットビルドでは、システムで使用可能なすべてのRAMを利用できない可能性があります。\n"
-"https://www.prusa3d.cz/prusaslicer/からPrusaSlicerの64ビットビルドをダウンロードしてインストールしてく"
+"64ビットWindowsでAnkerMake Studioの32ビットビルドを実行しています。\n"
+"AnkerMake Studioの32ビットビルドでは、システムで使用可能なすべてのRAMを利用できない可能性があります。\n"
+"https://www.prusa3d.cz/AnkerMake Studio/からAnkerMake Studioの64ビットビルドをダウンロードしてインストールしてく"
 "ださい。\n"
 "続行しますか？"
 
@@ -13912,11 +14255,11 @@ msgstr "ハイパーリンクホバーで再び聞かれることはありませ
 #: src/slic3r/GUI/Plater.cpp:1733
 msgid ""
 "You will not be asked about it again, when: \n"
-"- Closing PrusaSlicer,\n"
+"- Closing AnkerMake Studio,\n"
 "- Loading or creating a new project"
 msgstr ""
 "以下の時に聞かれないようになります：\n"
-"- PrusaSlicer終了時。\n"
+"- AnkerMake Studio終了時。\n"
 "- 新しいプロジェクトのロードまたは作成時"
 
 #: src/slic3r/GUI/UnsavedChangesDialog.cpp:898
@@ -13930,11 +14273,11 @@ msgstr "次回プリセット切り替え時に、プリセット内の未保存
 #: src/slic3r/GUI/UnsavedChangesDialog.cpp:900
 msgid ""
 "You will not be asked about the unsaved changes in presets the next time you: \n"
-"- Closing PrusaSlicer while some presets are modified,\n"
+"- Closing AnkerMake Studio while some presets are modified,\n"
 "- Loading a new project while some presets are modified"
 msgstr ""
 "保存されていないプリセットの変更については、次回から質問されなくなります：\n"
-"- プリセットを変更したままPrusaSlicerを終了する。\n"
+"- プリセットを変更したままAnkerMake Studioを終了する。\n"
 "- プリセットを変更した状態で新しいプロジェクトをロードする。"
 
 #: src/slic3r/GUI/DoubleSlider.cpp:2518
@@ -14281,12 +14624,12 @@ msgid "loaded"
 msgstr "ロード完了"
 
 #: src/slic3r/GUI/ConfigSnapshotDialog.cpp:78
-msgid "max PrusaSlicer version"
+msgid "max AnkerMake Studio version"
 msgstr "最大PrusaSclierバージョン"
 
 #: src/slic3r/GUI/ConfigSnapshotDialog.cpp:76
-msgid "min PrusaSlicer version"
-msgstr "最小PrusaSlicerバージョン"
+msgid "min AnkerMake Studio version"
+msgstr "最小AnkerMake Studioバージョン"
 
 #: src/libslic3r/PrintConfig.cpp:3388
 msgid "ml"
@@ -14350,11 +14693,11 @@ msgstr "mm (0で無効化)"
 #: src/libslic3r/PrintConfig.cpp:3085 src/libslic3r/PrintConfig.cpp:3100
 #: src/libslic3r/PrintConfig.cpp:3134 src/libslic3r/PrintConfig.cpp:3146
 msgid "mm or %"
-msgstr "mmまたは%"
+msgstr "mm or %"
 
 #: src/libslic3r/PrintConfig.cpp:407
 msgid "mm or % (zero to disable)"
-msgstr "mmまたは％（ゼロで無効）"
+msgstr "mm or ％（ゼロで無効）"
 
 #: src/libslic3r/PrintConfig.cpp:508 src/libslic3r/PrintConfig.cpp:916 src/libslic3r/PrintConfig.cpp:924
 #: src/libslic3r/PrintConfig.cpp:933 src/libslic3r/PrintConfig.cpp:941 src/libslic3r/PrintConfig.cpp:968
@@ -14374,7 +14717,7 @@ msgstr "mm/s"
 #: src/libslic3r/PrintConfig.cpp:2377 src/libslic3r/PrintConfig.cpp:2708
 #: src/libslic3r/PrintConfig.cpp:2877
 msgid "mm/s or %"
-msgstr "mm/s または %"
+msgstr "mm/s or %"
 
 #: src/libslic3r/PrintConfig.cpp:467 src/libslic3r/PrintConfig.cpp:638 src/libslic3r/PrintConfig.cpp:1187
 #: src/libslic3r/PrintConfig.cpp:1196 src/libslic3r/PrintConfig.cpp:1396
@@ -22978,6 +23321,10 @@ msgstr "50%オーバーラップ時の速度"
 msgid "speed for 75% overlap"
 msgstr "75%オーバーラップ時の速度"
 
+#: src/libslic3r/PrintConfig.cpp:583
+msgid "Enable dynamic fan speeds"
+msgstr "ダイナミックファンスピードを有効にする"
+
 #: src/libslic3r/PrintConfig.cpp:3840
 msgid "Idle temperature"
 msgstr "アイドリング温度"
@@ -22986,6 +23333,23 @@ msgstr "アイドリング温度"
 msgid "Dynamic fan speeds"
 msgstr "ダイナミックファンスピード"
 
+#: src/slic3r/GUI/Gizmos/GLGizmoCut.cpp:268
+msgid ""
+"Click to flip the cut plane\n"
+"Drag to move the cut plane"
+msgstr ""
+"クリックでカット面を反転\n"
+"ドラッグでカット面を移動"
+
+#: src/slic3r/GUI/Gizmos/GLGizmoCut.cpp:270
+msgid ""
+"Click to flip the cut plane\n"
+"Drag to move the cut plane\n"
+"Right-click a part to assign it to the other side"
+msgstr ""
+"クリックでカット面を反転させる\n"
+"ドラッグしてカット面を移動する\n"
+"パーツを右クリックすると、他方のパーツに割り当てます"
 
 # import PO file from volcengine \n"
 
@@ -23001,6 +23365,9 @@ msgstr "再開"
 msgid "commin_button_update"
 msgstr "更新"
 
+msgid "common_account_button_confirm"
+msgstr "確認"
+
 msgid "common_account_button_forget"
 msgstr "パスワードをお忘れですか？"
 
@@ -23012,6 +23379,21 @@ msgstr "認証メールを再送信"
 
 msgid "common_account_button_signin"
 msgstr "サインイン"
+
+msgid "common_account_captcha_empty"
+msgstr "右の画像に表示されている文字を入力してください。"
+
+msgid "common_account_email_empty"
+msgstr "メールアドレスを入力してください。"
+
+msgid "common_account_email_invalid"
+msgstr "有効なメールアドレスを入力してください。"
+
+msgid "common_account_login_failed"
+msgstr "ログインに失敗しました"
+
+msgid "common_account_logined"
+msgstr "{email}としてログインしました"
 
 msgid "common_account_notice_copyright"
 msgstr "Copyright©2021 Anker Innovations Limited"
@@ -23029,7 +23411,7 @@ msgstr ""
 "お客様のデータを保護するため、必ず実際にお住まいの国 (プリンターを利用する国) を選択してください。"
 
 msgid "common_account_notice_signup"
-msgstr "アカウントをお持ちでない場合：アカウント登録"
+msgstr "<0>アカウントをお持ちでない場合：</0><1>アカウント登録</1>"
 
 msgid "common_account_notice_verificationcode"
 msgstr "認証コード"
@@ -23039,6 +23421,15 @@ msgstr "アカウントをご登録いただきありがとうございます。
 
 msgid "common_account_notice_verificationemail2"
 msgstr "認証メールが送信されました。メールの指示に従って、24時間以内にアカウントをアクティベートしてください。"
+
+msgid "common_account_password_empty"
+msgstr "パスワードを入力してください。"
+
+msgid "common_account_placeholder_captcha"
+msgstr "認証コードを入力"
+
+msgid "common_account_title_captcha"
+msgstr "認証コード"
 
 msgid "common_account_title_email"
 msgstr "メール"
@@ -23073,11 +23464,20 @@ msgstr "閉じる"
 msgid "common_button_accept"
 msgstr "同意する"
 
+msgid "common_button_all"
+msgstr "すべて"
+
 msgid "common_button_apply"
 msgstr "適用する"
 
+msgid "common_button_back"
+msgstr "戻る"
+
 msgid "common_button_cancel"
 msgstr "キャンセル"
+
+msgid "common_button_clear"
+msgstr "クリア"
 
 msgid "common_button_continue"
 msgstr "続行"
@@ -23094,6 +23494,9 @@ msgstr "今後表示しない"
 msgid "common_button_enforece"
 msgstr "強制"
 
+msgid "common_button_next"
+msgstr "次へ"
+
 msgid "common_button_no"
 msgstr "いいえ"
 
@@ -23106,8 +23509,17 @@ msgstr "OK"
 msgid "common_button_open"
 msgstr "開く"
 
+msgid "common_button_remember"
+msgstr "選択を保存する"
+
+msgid "common_button_retry"
+msgstr "リトライ"
+
 msgid "common_button_save"
 msgstr "保存する"
+
+msgid "common_button_start"
+msgstr "始める"
 
 msgid "common_button_stop"
 msgstr "中止"
@@ -23144,6 +23556,12 @@ msgstr "AnkerMakeとデバイスログを共有する"
 
 msgid "common_feedback_title_picturevideo"
 msgstr "画像/ビデオ"
+
+msgid "common_http_connect_error_content"
+msgstr "サーバーへの接続に失敗しました。接続を確認し、もう一度お試しください。"
+
+msgid "common_http_connect_error_title"
+msgstr "接続エラー"
 
 msgid "common_launch_policy_content1"
 msgstr "AnkerMakeへようこそ"
@@ -23193,11 +23611,35 @@ msgstr "すべて選択"
 msgid "common_menu_edit_undo"
 msgstr "元に戻す"
 
+msgid "common_menu_file_Importconfig"
+msgstr "現在の設定をインポート"
+
+msgid "common_menu_file_Importconfigbundle"
+msgstr "全ての設定をインポート"
+
+msgid "common_menu_file_Importlist"
+msgstr "STL/3MF/STEP/OBJ/AMFファイルをインポート"
+
 msgid "common_menu_file_ejectsd"
 msgstr "SDカード/フラッシュドライブの取り外し"
 
 msgid "common_menu_file_export"
 msgstr "エクスポート"
+
+msgid "common_menu_file_exportas"
+msgstr "全てのオブジェクトをSTL/OBJとしてエクスポート"
+
+msgid "common_menu_file_exportconfig"
+msgstr "現在の設定をエクスポート"
+
+msgid "common_menu_file_exportconfigbundle"
+msgstr "全ての設定をエクスポート"
+
+msgid "common_menu_file_exportgocde"
+msgstr "Gコードファイルをエクスポート"
+
+msgid "common_menu_file_exportgocde2sd"
+msgstr "GコードファイルをSDカード/ドライブにエクスポート"
 
 msgid "common_menu_file_import"
 msgstr "インポート"
@@ -23231,6 +23673,9 @@ msgstr "フィードバック"
 
 msgid "common_menu_help_privacy"
 msgstr "プライバシーポリシー"
+
+msgid "common_menu_help_privacychoices"
+msgstr "Your Privacy Choices"
 
 msgid "common_menu_help_termsofuse"
 msgstr "利用規約"
@@ -23298,8 +23743,23 @@ msgstr "ラベルを表示"
 msgid "common_menu_view_top"
 msgstr "トップ"
 
+msgid "common_mqtt_get_slots_failed"
+msgstr "V6のデータ取得に失敗しました。もう一度お試しください。"
+
+msgid "common_net_connect_error"
+msgstr "接続エラー"
+
+msgid "common_notice_delete2check"
+msgstr "%sを削除してよろしいですか?"
+
 msgid "common_notice_loading"
 msgstr "読み込み中..."
+
+msgid "common_ota_update_preset_title"
+msgstr "システムの更新"
+
+msgid "common_popup_close2save"
+msgstr "%sを閉じます。変更を%sに保存しますか？"
 
 msgid "common_popup_content_1mos"
 msgstr "プリンターが過熱している可能性があります。%sの電源を切り、すべてのUSB-Cケーブルを取り外してから再度接続してください。問題が解決しない場合は、カスタマーサポートまでお問い合わせください。"
@@ -23568,6 +24028,42 @@ msgstr "レイヤー"
 msgid "common_preview_operationtitle_step"
 msgstr "ステップ"
 
+msgid "common_preview_sheethover_colorchange"
+msgstr "カラー変更"
+
+msgid "common_preview_sheethover_custom"
+msgstr "カスタムGコード"
+
+msgid "common_preview_sheethover_deretraction"
+msgstr "リトラクション戻し"
+
+msgid "common_preview_sheethover_gravity"
+msgstr "重心"
+
+msgid "common_preview_sheethover_pause"
+msgstr "プリントの一時停止"
+
+msgid "common_preview_sheethover_retraction"
+msgstr "リトラクション (引き戻し)"
+
+msgid "common_preview_sheethover_seam"
+msgstr "シーム (継ぎ目)"
+
+msgid "common_preview_sheethover_shell"
+msgstr "シェル"
+
+msgid "common_preview_sheethover_toolchange"
+msgstr "ツール変更"
+
+msgid "common_preview_sheethover_toolmarker"
+msgstr "ツールマーカー"
+
+msgid "common_preview_sheethover_travel"
+msgstr "トラベル"
+
+msgid "common_preview_sheethover_wipe"
+msgstr "ワイプ"
+
 msgid "common_preview_sheettitle_1layer"
 msgstr "初期レイヤー"
 
@@ -23771,6 +24267,12 @@ msgstr "デバイスをシャットダウンしないでください"
 
 msgid "common_print_fwupdate_title"
 msgstr "ファームウェアの更新"
+
+msgid "common_print_gcode_device_nomatch_hint"
+msgstr "現在のGコードファイルはこのプリンター対応していないため、エクストルーダーの詰まりなどの問題が発生する可能性があります。続行しますか？"
+
+msgid "common_print_gcode_not_anker_hint"
+msgstr "プリントしようとしているファイルはAnkerMakeによってスライス処理されていないため、プリント品質に問題が生じる可能性があります。続行しますか？"
 
 msgid "common_print_monitor_buttonretry"
 msgstr "再試行"
@@ -24102,6 +24604,9 @@ msgstr "タスクが完了するとプリンターはスリープモードに入
 msgid "common_print_setsleep_no"
 msgstr "オフにしない"
 
+msgid "common_print_slice_wipetower_further_hint"
+msgstr "Gコードのパス (レイヤー%1%、z=%2$.2f mm) にて衝突が検出されました。衝突しているオブジェクト（%3% <‍-> %4%）を離れた位置に再配置してください。"
+
 msgid "common_print_statusnotice_createaccount"
 msgstr "アカウントをお持ちでないですか？"
 
@@ -24141,6 +24646,9 @@ msgstr "予熱する"
 msgid "common_print_taskbar_buttonstart"
 msgstr "プリント開始"
 
+msgid "common_print_taskbar_calibration"
+msgstr "較正"
+
 msgid "common_print_taskbar_finished"
 msgstr "終了（%s）"
 
@@ -24159,8 +24667,14 @@ msgstr "進捗"
 msgid "common_print_taskbar_progressleveling"
 msgstr "オートレベリング"
 
+msgid "common_print_taskbar_progressv6calibration"
+msgstr "V6 校正"
+
 msgid "common_print_taskbar_statuscalibrating"
 msgstr "校正中..."
+
+msgid "common_print_taskbar_statuscalibrating_title"
+msgstr "較正中..."
 
 msgid "common_print_taskbar_statusdownload"
 msgstr "ダウンロード中 (%s)"
@@ -24206,6 +24720,15 @@ msgstr "終了時間：%s"
 
 msgid "common_print_transfer_errornotice"
 msgstr "Gコードファイルの転送に失敗しました。もう一度お試しください。"
+
+msgid "common_printerpanel_addremove_item"
+msgstr "プリンタの追加/削除"
+
+msgid "common_printerpanel_edit_button_tip"
+msgstr "クリックしてプリンタを設定"
+
+msgid "common_printerpanel_system_item"
+msgstr "システムプリセット"
 
 msgid "common_printnotice_limit_mismatch"
 msgstr "プリントするファイルが、お客様のプリンターで使用することを想定してスライス処理されていることを確認してください。そうでない場合、プリント時に予期しない問題が発生する可能性があります。"
@@ -24630,6 +25153,172 @@ msgstr "フィラメント"
 msgid "common_slicepannel_title_printer"
 msgstr "プリンター"
 
+msgid "common_slicepopup_3dmouse"
+msgstr "3Dマウスの接続が切断されました。"
+
+msgid "common_slicepopup_boolean"
+msgstr "エラー：モデルメッシュに対してブーリアン演算を実行できません。正の部分のみがエクスポートされます。"
+
+msgid "common_slicepopup_deviceremoved1"
+msgstr "アンマウントに成功しました。これで%s(%s)をコンピューターから安全に削除できます。"
+
+msgid "common_slicepopup_deviceremoved2"
+msgstr "%s(%s)の取り外しに失敗しました。"
+
+msgid "common_slicepopup_error"
+msgstr "エラー"
+
+msgid "common_slicepopup_exportfinished"
+msgstr "エクスポートが終了しました。"
+
+msgid "common_slicepopup_exporting"
+msgstr "エクスポート中..."
+
+msgid "common_slicepopup_exporting_gcode2file"
+msgstr "Gコードを%sにエクスポートしています...."
+
+msgid "common_slicepopup_failarrange"
+msgstr ""
+"ヒートベッドに収まらないため、次のオブジェクトに対するアレンジは実行されませんでした:\n"
+"%s"
+
+msgid "common_slicepopup_failfont1"
+msgstr "\\\"%1%\\\")のフォントを読み込めません。アプリケーションは類似のフォント(\\\"%1%\\\")を選択しました。テキスト編集を有効にするフォントを指定してください。"
+
+msgid "common_slicepopup_failfont2"
+msgstr "スタイルに有効なフォントがありません。正しいフォントを選択してください。"
+
+msgid "common_slicepopup_failfont3"
+msgstr "WxFontが正しく読み込まれませんでした。"
+
+msgid "common_slicepopup_integration2"
+msgstr "デスクトップ統合の解除に成功しました。"
+
+msgid "common_slicepopup_integrationfinished1"
+msgstr "デスクトップ統合が成功しました。"
+
+msgid "common_slicepopup_nonsoliddeleted"
+msgstr "ソリッドでない部分（モディファイア）がすべて削除されました。"
+
+msgid "common_slicepopup_objectoutside"
+msgstr "プリント範囲外のオブジェクトが検出されました。スライスを続行するには、現在の問題を解決してください。"
+
+msgid "common_slicepopup_outside"
+msgstr "エラー：プリント領域外のツールパスが検出されました。"
+
+msgid "common_slicepopup_painterror1"
+msgstr "お使いのプリンターには、マルチマテリアルペイントツールが対応できるよりも多くの押出機が搭載されています。このため、最初の押出機のみが使用されます。"
+
+msgid "common_slicepopup_profileerror"
+msgstr "インポートされたアーカイブ内のプロファイルが破損していたため、読み込めませんでした。"
+
+msgid "common_slicepopup_repaire1"
+msgstr "次のモデルは正常に修復されました"
+
+msgid "common_slicepopup_repaire2"
+msgstr "次のモデルは正常に修復されました。"
+
+msgid "common_slicepopup_repairecancel"
+msgstr "修復がキャンセルされました。"
+
+msgid "common_slicepopup_repairefailed1"
+msgstr "次のモデルの修復に失敗しました。"
+
+msgid "common_slicepopup_repairefailed2"
+msgstr "次のモデルの修復に失敗しました。"
+
+msgid "common_slicepopup_repairing1"
+msgstr "カスタムサポート、縫い目、マルチマテリアルペイントは、メッシュの修復後に削除されました。"
+
+msgid "common_slicepopup_simplify1"
+msgstr "カスタムサポート、継ぎ目、マルチマテリアルペイントは、メッシュを簡略化した後に削除されました。"
+
+msgid "common_slicepopup_slicing_genera1"
+msgstr "スカートとブリムを生成しています...."
+
+msgid "common_slicepopup_slicing_genera2"
+msgstr "レイヤーをインフィル (充填) しています...."
+
+msgid "common_slicepopup_slicing_genera3"
+msgstr "Gコードを生成しています...."
+
+msgid "common_slicepopup_slicing_processmesh"
+msgstr "三角メッシュの処理中です..."
+
+msgid "common_slicepopup_slicingcancel"
+msgstr "スライス処理がキャンセルされました"
+
+msgid "common_slicepopup_slicingnotice1"
+msgstr "レイヤーが検出されませんでした。STLファイルを修復するか、サイズまたは厚さを確認してから再試行してください。"
+
+msgid "common_slicepopup_slicingnotice2"
+msgstr "プリントが空です。現在のプリント設定では、モデルのプリントを行うことができません。"
+
+msgid "common_slicepopup_slicingnotice3"
+msgstr "初期レイヤーの押し出しデータがないオブジェクトがあります。"
+
+msgid "common_slicepopup_slicingnotice4"
+msgstr "オブジェクト名：%s"
+
+msgid "common_slicepopup_slicingnotice5"
+msgstr "オブジェクトの押し出しデータが生成されませんでした。"
+
+msgid "common_slicepopup_slicingnotice6"
+msgstr "浮いているオブジェクトは、サポートなしではプリントできません。"
+
+msgid "common_slicepopup_slicingnotice7"
+msgstr "現在の構成では、このモデルにパッドを生成することができません。"
+
+msgid "common_slicepopup_slicingnotice8"
+msgstr "プリントできないオブジェクトがあります。サポート設定を調整してください。"
+
+msgid "common_slicepopup_split1"
+msgstr "カスタムサポート、継ぎ目、マルチマテリアルペイントは、オブジェクトを分割した後に削除されました。"
+
+msgid "common_slicepopup_stabilityissue"
+msgstr ""
+"プリントの安定性に関する問題が検出されました：\n"
+"%1%"
+
+msgid "common_slicepopup_stabilityissue1"
+msgstr "オブジェクトの浮いている部分"
+
+msgid "common_slicepopup_stabilityissue2"
+msgstr "長いブリッジの押し出し"
+
+msgid "common_slicepopup_stabilityissue3"
+msgstr "浮いているブリッジの支え"
+
+msgid "common_slicepopup_stabilityissue4"
+msgstr "オーバーハングの崩壊"
+
+msgid "common_slicepopup_stabilityissue5"
+msgstr "緩い押し出し"
+
+msgid "common_slicepopup_stabilityissue6"
+msgstr "ベッドの粘着力低下"
+
+msgid "common_slicepopup_stabilityissue7"
+msgstr "薄くてもろい部分"
+
+msgid "common_slicepopup_stabilityissue8"
+msgstr "サポートの有効化を検討してください。"
+
+msgid "common_slicepopup_stabilityissue9"
+msgstr "ブリムの有効化も検討してください。"
+
+msgid "common_slicepopup_toolconflict"
+msgstr "最初に、ツールバーでアクティブになっている全てのツールの選択を解除してください。"
+
+msgid "common_slicepopup_triangletoomuch1"
+msgstr "'%1%' は、100万個以上の三角形を含むため処理が遅くなる可能性があります。三角形の数を減らすことを強く推奨します。"
+
+msgid "common_slicepopup_triangletoomuch2"
+msgstr "モデルを簡略化する。"
+
+msgid "common_slicepopup_warning"
+msgstr "警告"
+
 msgid "common_toptable_login"
 msgstr "ログイン"
 
@@ -24641,3 +25330,1146 @@ msgstr "準備"
 
 msgid "common_toptable_print"
 msgstr "プリント"
+
+msgid "common_web_connect_content"
+msgstr "ネットワークの安定した場所でご使用ください"
+
+msgid "common_web_down_timeout_title"
+msgstr "ダウンロードのタイムアウト"
+
+msgid "common_web_failed_to_connect_network_title"
+msgstr "Wi-Fi接続に失敗"
+
+msgid "common_web_file_download_content"
+msgstr "ファイルのダウンロード進行状況：%d%%"
+
+msgid "common_web_import_model_title"
+msgstr "モデルをインポート中..."
+
+msgid "common_web_invalid_parameters_content"
+msgstr "インポートされたパラメーターには対応していません。ファイルを確認してください。"
+
+msgid "common_web_invalid_parameters_title"
+msgstr "無効なパラメーター"
+
+msgid "common_web_timeout_content"
+msgstr "ダウンロードのタイムアウト。後でもう一度お試しください。"
+
+msgid "common_webview_req_failed"
+msgstr "リクエストに失敗しました。もう一度お試しください。"
+
+msgid "common_wizard_filament_header"
+msgstr "フィラメントプロファイルの選択"
+
+msgid "common_wizard_filament_hint"
+msgstr "*でマークされたフィラメントは、一部のインストールされたプリンターと互換性がありません。"
+
+msgid "common_wizard_filament_printer"
+msgstr "プリンタName"
+
+msgid "common_wizard_filament_profile"
+msgstr "プロフィール"
+
+msgid "common_wizard_filament_type"
+msgstr "タイプ"
+
+msgid "common_wizard_filament_vendor"
+msgstr "ベンダー"
+
+msgid "common_wizard_pinter_alter_nozlle"
+msgstr "代替ノズル:"
+
+msgid "common_wizard_pinter_header"
+msgstr "プリンタプリセットの選択"
+
+msgid "common_wizard_pinter_nozlle"
+msgstr "ノズル"
+
+msgid "common_wizard_printer_all_standard"
+msgstr "すべての標準"
+
+msgid "common_wizard_printer_standard"
+msgstr "スタンダード"
+
+msgid "common_wizard_title"
+msgstr "セットアップウィザード"
+
+msgid "common_wizard_welcome_header"
+msgstr "Anker Makeへようこそ。いくつかの簡単なステップの後、創造的な旅を始めましょう。"
+
+msgid "engin_auto_orient"
+msgstr "オートベッド"
+
+msgid "engin_printconfig_option_brim_ears_detection_length"
+msgstr "ブリムイヤーの検出長さ"
+
+msgid "engin_printconfig_option_brim_ears_max_angle"
+msgstr "ブリムイヤーの最大角度"
+
+msgid "engin_printconfig_option_brim_smart_ordering"
+msgstr "スマートブリムを有効化"
+
+msgid "engin_printconfig_tip_RangTip"
+msgstr "推奨範囲は%.2f - %.2fdす。パラメーターを推奨範囲内に調整してください。"
+
+msgid "engin_printconfig_tip_SupportTreeTipDiameter"
+msgstr "オーガニックサポートの先端直径"
+
+msgid "engin_printconfig_tip_brim_ears_detection_length"
+msgstr ""
+"鋭角を検出する前に、形状のポリゴン数が削減されます。このパラメーターは、ポリゴン数削減のための偏差の最小長さを示します。\n"
+"無効にするには、0に設定してください。"
+
+msgid "engin_printconfig_tip_brim_ears_max_angle"
+msgstr ""
+"ブリムイヤーが生成される最大角度です。\n"
+"0に設定すると、ブリムは生成されません。\n"
+"180に設定すると、直線部分以外にブリムが生成されます。"
+
+msgid "engin_printconfig_tip_brim_smart_ordering"
+msgstr "ブリムを剥がしやすくするため、一番内側と二番目のブリムラインのプリント順序を変更します。"
+
+msgid "common_wizard_empty_printer_notice"
+msgstr "最低限一つのプリンターを選択する必要があります"
+
+msgid "common_web_download_error_content"
+msgstr "コンピュータ上にダウンロードフォルダが見つかりません。確認してください。"
+
+msgid "common_control_tip_edit_temperature"
+msgstr "温度を変更"
+
+msgid "common_objecelist_modelType_invalid"
+msgstr "無効"
+
+msgid "common_objecelist_modelType_part"
+msgstr "パーツ"
+
+msgid "common_objecelist_modelType_negetive"
+msgstr "negetive"
+
+msgid "common_objecelist_modelType_modifier"
+msgstr "modifier"
+
+msgid "common_objecelist_modelType_blocker"
+msgstr "blocker"
+
+msgid "common_objecelist_modelType_enforcer"
+msgstr "enforcer"
+
+msgid "common_reject_switch_language"
+msgstr "Aコードファイルをエクスポート中です。完了するまでお待ちください。言語を変更するには、一旦操作を中断してください。"
+
+msgid "engin_brim_type_mouse_ear"
+msgstr "円形ブリム"
+
+msgid "common_net_fail_get_printer_data"
+msgstr "プリンター情報の取得に失敗しました。もう一度お試しください。"
+
+msgid "common_select_fialment_tips"
+msgstr "プリントを開始する前に、フィラメントを指定してください。"
+
+msgid "common_not_support_material_tips"
+msgstr "スライス処理された素材と同じものにのみ対応しています。"
+
+msgid "common_printnotice_temperature_hint"
+msgstr "ファイルの転送中は、ノズルとヒートベッドが発熱します。お手を触れないようご注意ください。"
+msgid "Strength"
+msgstr "強度"
+
+msgid "Support"
+msgstr "サポート"
+
+msgid "Outer wall"
+msgstr "外壁"
+
+msgid "Inner wall"
+msgstr "内壁"
+
+msgid "Top surface"
+msgstr "トップ面"
+
+msgid "Sparse infill"
+msgstr "スパース インフィル"
+
+msgid "Resolution"
+msgstr "分解能"
+
+msgid "X-Y hole compensation"
+msgstr "ホール補正 X-Y"
+
+msgid "X-Y contour compensation"
+msgstr "輪郭補正 X-Y"
+
+msgid "Ironing speed"
+msgstr "アイロン時の移動速度"
+
+msgid "Ironing line spacing"
+msgstr "アイロン時にライン間隔"
+
+msgid "Wall generator"
+msgstr "壁面生成器"
+
+msgid "Wall transitioning filter margin"
+msgstr "フィルタマージン"
+
+msgid "Wall distribution count"
+msgstr "壁面分布カウント"
+
+msgid "Avoid crossing wall"
+msgstr "壁上の移動を迂回"
+
+msgid "Wall loops"
+msgstr "壁面層数"
+
+msgid "Top surface pattern"
+msgstr "トップ面パターン"
+
+msgid "Top shell layers"
+msgstr "トップ面層数"
+
+msgid "Top shell thickness"
+msgstr "トップ面厚さ"
+
+msgid "Sparse infill pattern"
+msgstr "充填パターン"
+
+msgid "Infill/Wall overlap"
+msgstr "インフィル/壁面 オーバーラップ"
+
+msgid "Minimum sparse infill threshold"
+msgstr "スパース インフィルの下閾値"
+
+msgid "Infill combination"
+msgstr "インフィル マージ"
+
+msgid "Internal solid infill"
+msgstr "内部ソリッド インフィル"
+
+msgid "Gap infill"
+msgstr "隙間インフィル"
+
+msgid "Slow down for overhang"
+msgstr "オーバーハング減速"
+
+msgid "Normal printing"
+msgstr "通常造形"
+
+msgid "Seam"
+msgstr "継ぎ目"
+
+msgid "Line width"
+msgstr "押出線幅"
+
+msgid "Precision"
+msgstr "精度"
+
+msgid "Walls"
+msgstr "壁面"
+
+msgid "Top/bottom shells"
+msgstr "トップ面/底面"
+
+msgid "Initial layer speed"
+msgstr "1層目の移動速度"
+
+msgid "Other layers speed"
+msgstr "他の層の速度"
+
+msgid "Overhang speed"
+msgstr "オーバーハング速度"
+
+msgid "Travel speed"
+msgstr "移動速度"
+
+msgid "Acceleration"
+msgstr "加速度"
+
+msgid "Support filament"
+msgstr "サポート用フィラメント"
+
+msgid "Prime tower"
+msgstr "プライムタワー"
+
+msgid "Special mode"
+msgstr "特別モード"
+
+msgid "G-code output"
+msgstr "G-code出力"
+
+msgid "Fill"
+msgstr "塗りつぶし"
+
+msgid "Advance"
+msgstr "高度な設定"
+
+msgid "Bed adhension"
+msgstr "ベッド接着"
+
+msgid "Wall transitioning threshold angle"
+msgstr "角度閾値"
+
+msgid "Wall transition length"
+msgstr "壁面遷移長さ"
+
+msgid "Bottom surface pattern"
+msgstr "底面パターン"
+
+msgid "Bottom shell layers"
+msgstr "底面層数"
+
+msgid "Bottom shell thickness"
+msgstr "底面厚さ"
+
+msgid "Sparse infill density"
+msgstr "充填密度"
+
+msgid "Skirt distance"
+msgstr "スカート距離"
+
+msgid "Extra perimeters on overhangs"
+msgstr "オーバーハングに対する追加ペリメータ"
+
+msgid ""
+"Height of initial layer. Making initial layer height to be thick slightly "
+"can improve build plate adhension"
+msgstr "1層目の高さです。高さを大きくすればプレートとの接着性が良くなります。"
+
+msgid "The start position to print each part of outer wall"
+msgstr "各パーツに対して、外壁を造形時の開始位置です。"
+
+msgid ""
+"G-code path is genereated after simplifing the contour of model to avoid too "
+"much points and gcode lines in gcode file. Smaller value means higher "
+"resolution and more time to slice"
+msgstr ""
+"モデルを簡略化してG-codeのデータ量を減らせます。値が小さく設定するほど、分解"
+"能が高くなり、スライス時間も長くなります。"
+
+msgid ""
+"Holes of object will be grown or shrunk in XY plane by the configured value. "
+"Positive value makes holes bigger. Negative value makes holes smaller. This "
+"function is used to adjust size slightly when the object has assembling issue"
+msgstr ""
+"オブジェクトの穴の大きさの調整値。正数は穴を大きくし、負数は穴を小さくしま"
+"す。この機能はパーツを組立てる為に、はめあいの微調査です。"
+
+msgid ""
+"Contour of object will be grown or shrunk in XY plane by the configured "
+"value. Positive value makes contour bigger. Negative value makes contour "
+"smaller. This function is used to adjust size slightly when the object has "
+"assembling issue"
+msgstr ""
+"オブジェクトの輪郭の大きさの調整値です。正数は大きくし、負数は小さくします。"
+"これがパーツを組み立てる為にはめあいの微調整です。"
+
+msgid ""
+"Ironing is using small flow to print on same height of surface again to make "
+"flat surface more smooth. This setting controls which layer being ironed"
+msgstr ""
+"アイロンでは、小さな流量で水平の表面をならします。ならす面を選択してくださ"
+"い。"
+
+msgid ""
+"Enable this to get a G-code file which has G2 and G3 moves. And the fitting "
+"tolerance is same with resolution"
+msgstr "この設定で出力のG-codeファイルにG2/G3コードを有効します。"
+
+msgid ""
+"Shrink the initial layer on build plate to compensate for elephant foot "
+"effect"
+msgstr "1層目を縮小して、コーナーのはみ出しを軽減します。"
+
+
+msgid "Print speed of ironing lines"
+msgstr "アイロン時の造形速度です。"
+
+msgid ""
+"The amount of material to extrude during ironing. Relative to flow of normal "
+"layer height. Too high value results in overextrusion on the surface"
+msgstr "アイロン時の押出量です。通常流量の比率で決まります。"
+
+msgid "The distance between the lines of ironing"
+msgstr "アイロン時の線間隔です。"
+
+msgid ""
+"Classic wall generator produces walls with constant extrusion width and for "
+"very thin areas is used gap-fill. Arachne engine produces walls with "
+"variable extrusion width"
+msgstr ""
+"クラシックでは従来通りの壁面を生成しますが、Arachneでは押出線幅が可変になりま"
+"す。"
+
+msgid ""
+"The number of walls, counted from the center, over which the variation needs "
+"to be spread. Lower values mean that the outer walls don't change in width"
+msgstr "壁の層数"
+
+msgid ""
+"Minimum thickness of thin features. Model features that are thinner than "
+"this value will not be printed, while features thicker than the Minimum "
+"feature size will be widened to the Minimum wall width. It's expressed as a "
+"percentage over nozzle diameter"
+msgstr "小部分の厚さ下限。モデルに厚さがこの値以下になる部分を造形しません。"
+
+msgid "Detour and avoid to travel across wall which may cause blob on surface"
+msgstr "移動する時に、壁面を迂回します。表面の仕上がりが良くなります。"
+
+msgid ""
+"Decrease this value slightly(for example 0.9) to reduce the amount of "
+"material for bridge, to improve sag"
+msgstr ""
+"この値を少し (例えば 0.9) 小さくし、ブリッジ用に押出し量を減らし、たるみを防"
+"ぎます。"
+
+msgid ""
+"If enabled, bridges are more reliable, can bridge longer distances, but may "
+"look worse. If disabled, bridges look better but are reliable just for "
+"shorter bridged distances."
+msgstr ""
+"有効になる場合、より長いブリッジを造形できますが、仕上がりが劣る可能性があり"
+"ます。"
+
+#, c-format, boost-format
+msgid ""
+"Detect the overhang percentage relative to line width and use different "
+"speed to print. For 100%% overhang, bridge speed is used."
+msgstr ""
+"この設定により、線幅に対するオーバーハングの割合を検出し、異なる速度で造形し"
+"ます。100%%のオーバーハングの場合、ブリッジの速度が使用されます。"
+msgid "Number of walls of every layer"
+msgstr "壁面の層数です。"
+
+msgid ""
+"Detect thin wall which can't contain two line width. And use single line to "
+"print. Maybe printed not very well, because it's not closed loop"
+msgstr ""
+"2ラインの入らない薄い壁面を検出し、1ラインで造形します。仕上がりが悪くなり可"
+"能性があります。"
+
+msgid "Line pattern of top surface infill"
+msgstr "トップ面のインフィルのパターンです。"
+
+msgid ""
+"This is the number of solid layers of top shell, including the top surface "
+"layer. When the thickness calculated by this value is thinner than top shell "
+"thickness, the top shell layers will be increased"
+msgstr ""
+"トップ面に使用するソリッド層数です。この値がトップ面の厚みより小さい場合、層"
+"数を増やして厚みに合わせます。"
+
+msgid ""
+"The number of top solid layers is increased when slicing if the thickness "
+"calculated by top shell layers is thinner than this value. This can avoid "
+"having too thin shell when layer height is small. 0 means that this setting "
+"is disabled and thickness of top shell is absolutely determained by top "
+"shell layers"
+msgstr ""
+"トップ面の厚さです、トップ面層数で決まった厚みがこの値より小さい場合、層数を"
+"増やします。この値が0にする場合、この設定が無効となり、設定した層数で造形しま"
+"す。"
+
+msgid "Line pattern of bottom surface infill, not bridge infill"
+msgstr "底面のインフィル パターンです、ブリッジインフィルが含まれていません。"
+
+
+msgid ""
+"This is the number of solid layers of bottom shell, including the bottom "
+"surface layer. When the thickness calculated by this value is thinner than "
+"bottom shell thickness, the bottom shell layers will be increased"
+msgstr ""
+"底面に使用するソリッド層数です。この値が底面の厚みより小さい場合、層数を増や"
+"して厚みに合わせます。"
+
+msgid ""
+"The number of bottom solid layers is increased when slicing if the thickness "
+"calculated by bottom shell layers is thinner than this value. This can avoid "
+"having too thin shell when layer height is small. 0 means that this setting "
+"is disabled and thickness of bottom shell is absolutely determained by "
+"bottom shell layers"
+msgstr ""
+"底面の厚さです、底面層数で決まった厚みがこの値より小さい場合、層数を増やしま"
+"す。この値が0にする場合、この設定が無効となり、設定した層数で造形します。"
+
+msgid "Line pattern for internal sparse infill"
+msgstr "スパース インフィルのパターンです。"
+
+msgid ""
+"Infill area is enlarged slightly to overlap with wall for better bonding. "
+"The percentage value is relative to line width of sparse infill"
+msgstr ""
+"インフィルの領域を少し壁面を重ねるために拡大します。これにより壁面との接着性"
+"が向上させます。値はスパース インフィルの線幅の割合です。"
+
+msgid ""
+"Angle for sparse infill pattern, which controls the start or main direction "
+"of line"
+msgstr "スパース インフィル パターンの角度です"
+
+msgid ""
+"Bridging angle override. If left to zero, the bridging angle will be "
+"calculated automatically. Otherwise the provided angle will be used for "
+"external bridges. Use 180°for zero angle."
+msgstr ""
+"ブリッジ角度。値が0の場合は自動計算となります。0°を使用したい場合は180を入力"
+"していください。"
+
+msgid "This sets the threshold for small perimeter length. Default threshold is 0mm"
+msgstr "これは小さい周囲長の閾値を設定します。デフォルトの閾値は0mmです"
+
+msgid "Value is out of range."
+msgstr "値が範囲外です。"
+
+msgid ""
+"Sparse infill area which is smaller than threshold value is replaced by "
+"internal solid infill"
+msgstr ""
+"スパース インフィルの面積がこの値以下の場合、ソリッド インフィルに変換されま"
+"す"
+
+msgid ""
+"Automatically Combine sparse infill of several layers to print together to "
+"reduce time. Wall is still printed with original layer height."
+msgstr ""
+"複数層のスパース インフィルをまとめて造形し、時間短縮に効きます。壁面はこの設"
+"定に影響されません"
+
+msgid ""
+"This option will auto detect narrow internal solid infill area. If enabled, "
+"concentric pattern will be used for the area to speed printing up. "
+"Otherwise, rectilinear pattern is used defaultly."
+msgstr ""
+"ソリッド インフィル領域に狭い部分があるか検出します。その設定を有効にする場"
+"合、狭い領域は同心パターンを使用し、それ以外の領域は、直線パターンを使用しま"
+"す。"
+
+msgid ""
+"Add solid infill near sloping surfaces to guarantee the vertical shell "
+"thickness (top+bottom solid layers)"
+msgstr "傾斜面にソリッドインフィルを追加"
+
+msgid ""
+"Speed of outer wall which is outermost and visible. It's used to be slower "
+"than inner wall speed to get better quality."
+msgstr ""
+"外壁の造形速度です。普段は内壁より遅い速度を指定し、仕上がりが良くなります。"
+
+msgid "Speed of inner wall"
+msgstr "内壁の造形速度です。"
+
+msgid "Speed of internal sparse infill"
+msgstr "スパース インフィルの造形速度です。"
+
+msgid "Speed of internal solid infill, not the top and bottom surface"
+msgstr "ソリッド インフィルの造形速度です。"
+
+msgid "Speed of top surface infill which is solid"
+msgstr "トップ面のインフィルの造形速度です。"
+
+msgid ""
+"Speed of gap infill. Gap usually has irregular line width and should be "
+"printed more slowly"
+msgstr ""
+"ギャップを充填時の速度です。ギャップの幅が不規則なので、遅くするのが推奨で"
+"す。"
+
+msgid "Enable this option to slow printing down for different overhang degree"
+msgstr ""
+"オーバーハングを造形時に速度を下げます。各角度のオーバーハングに対して、下記"
+"の減速パラメータを設定してください。"
+
+msgid "Speed of bridge and completely overhang wall"
+msgstr "ブリッジを造形する時に速度です。"
+
+msgid ""
+"The default acceleration of both normal printing and travel except initial "
+"layer"
+msgstr "造形と移動時のデフォルト加速度です。"
+
+msgid ""
+"Acceleration of top surface infill. Using a lower value may improve top "
+"surface quality"
+msgstr ""
+"トップ面のインフィル加速度です。遅くすると表面の仕上がりが向上させることがで"
+"きます"
+
+msgid "Enable support generation."
+msgstr "この設定によりサポート生成を有効になります。"
+
+msgid ""
+"Acceleration of initial layer. Using a lower value can improve build plate "
+"adhesive"
+msgstr ""
+"1層目の造形加速度です。遅くするとプレートとの接着を向上させることができます"
+
+msgid "Speed of travel which is faster and without extrusion"
+msgstr "移動完了時の速度です。"
+
+msgid "Density of the first raft or support layer."
+msgstr "1層目のラフトもしくはサポート層の密度"
+
+ "接触面は同心パターンにする"
+
+msgid ""
+"Cover the top contact layer of the supports with loops. Disabled by default."
+msgstr ""
+"これにより、サポートの上部接触層がループで覆われます。デフォルトでは無効に"
+"なっています。"
+
+
+msgid "Number of loops for the skirt. Zero means disabling skirt"
+msgstr "スカートのループ数です、値が0の場合、スカートが無効になります。"
+
+
+msgid ""
+"A gap between innermost brim line and object can make brim be removed more "
+"easily"
+msgstr ""
+"ブリムを取り外しやすくする為、一番内側のブリムラインをモデルと少し距離を設け"
+"ます。"
+
+msgid ""
+"Randomly jitter while printing the wall, so that the surface has a rough "
+"look. This setting controls the fuzzy position"
+msgstr ""
+"この設定により、壁面を造形時にノズルがランダムで軽微な振動を加えます。これに"
+"より、表面にザラザラ感が出来上がります。"
+
+msgid ""
+"Spiralize smooths out the z moves of the outer contour. And turns a solid "
+"model into a single walled print with solid bottom layers. The final "
+"generated model has no seam"
+msgstr ""
+"スパイラルモードでは、輪郭面を一筆書きで造形します。Z方向の移動に段差がないの"
+"で、シームはありません。"
+
+msgid "Print sequence, layer by layer or object by object"
+msgstr "造形の順番を設定します、積層順かオブジェクト順にしてください"
+
+msgid "Distance from model to the outermost brim line"
+msgstr "一番外側のブリム線がモデルと距離です。"
+
+msgid "How many layers of skirt. Usually only one layer"
+msgstr "スカートの層は何枚ですか。通常は一枚だけです"
+
+msgid "Distance from skirt to brim or object"
+msgstr "スカートからブリム或はオブジェクトまでの距離です。"
+
+msgid ""
+"Don't retract when the travel is in infill area absolutely. That means the "
+"oozing can't been seen. This can reduce times of retraction for complex "
+"model and save printing time, but make slicing and G-code generating slower"
+msgstr ""
+"インフィル領域内の移動はリトラクションしません。造形時間を節約できます。"
+
+msgid "User can self-define the project file name when export"
+msgstr "エクスポート時ファイル名を設定できます"
+
+msgid ""
+"Is it %s%% or %s %s?\n"
+"YES for %s%%, \n"
+"NO for %s %s."
+msgstr ""
+"%s%% か、それとも %s %sですか？\n"
+"%s%% の場合ははい、 %s %s はいいえ。"
+
+msgid "Print sequence"
+msgstr "造形シーケンス"
+
+msgid "Detect overhang wall"
+msgstr "オーバーハングを検出"
+
+msgid "Thick bridges"
+msgstr "厚いブリッジ"
+
+msgid "Only one wall on top surfaces"
+msgstr "トップ面に1層"
+
+msgid ""
+"Use only one wall on flat top surface, to give more space to the top infill "
+"pattern"
+msgstr "トップ面に1層だけ造形します、インフィルを多い空間を与えます。"
+
+msgid "Minimum wall width"
+msgstr "最小壁幅"
+
+msgid "Ironing flow"
+msgstr "アイロン時の流量比率"
+
+msgid "Brim-object gap"
+msgstr "ブリムとオブジェクトの間隔"
+
+msgid "Others"
+msgstr "その他"
+
+msgid "Speed of support"
+msgstr "サポートの造形速度です。"
+
+msgid "Detect narrow internal solid infill"
+msgstr "薄いソリッド インフィル検出"
+
+msgid "common_Parameter_optionGroup_Bridging"
+msgstr "ブリッジング"
+
+msgid "common_Parameter_optionGroup_FilamentForSupports"
+msgstr "サポート用フィラメント"
+
+msgid "common_Parameter_optionGroup_Jerk"
+msgstr "ジャーク(XY)"
+
+msgid "common_Parameter_optionGroup_OtherLayerSpeed"
+msgstr "他のレイヤーの速度"
+
+msgid "common_Parameter_optionGroup_Overhang"
+msgstr "オーバーハング"
+
+msgid "common_Parameter_optionGroup_PressureEqualizer"
+msgstr "圧力イコライザー"
+
+msgid "common_Parameter_optionGroup_TopBottom"
+msgstr "トップ/ボトム"
+
+msgid "common_Parameter_optionGroup_WallsAndSurfaces"
+msgstr "壁と表面"
+
+msgid "common_print_device_gcode_not_match"
+msgstr "選択したプリンターはGコードのプリンター設定と互換性がありません。正しい設定を選択してください。"
+
+msgid "common_print_gcode_path_error"
+msgstr "GコードまたはAコードの生成されたパスが無効です。"
+
+msgid "common_print_netplugin_download_failed"
+msgstr "ネットワークプラグインのダウンロードに失敗しました。もう一度お試しください。"
+
+msgid "common_print_netplugin_downloading"
+msgstr "ダウンロード中…"
+
+msgid "common_print_netplugin_install"
+msgstr "インストールする"
+
+msgid "common_print_netplugin_install_finish"
+msgstr "終了する"
+
+msgid "common_print_netplugin_install_networkplugin"
+msgstr "AnkerMake Studioのネットワークプラグインが検出されません。AnkerMakeの3Dプリンターでネットワーク機能を使用する前にインストールしてください。"
+
+msgid "common_print_netplugin_install_new_networkplugin"
+msgstr "新しいAnkerMake Studioネットワークプラグインを検出しました。AnkerMakeの3Dプリンターでネットワーク機能を使用する前にインストールしてください。"
+
+msgid "common_print_netplugin_install_success"
+msgstr "インストールに成功しました"
+
+msgid "common_print_netplugin_networkplugin"
+msgstr "ネットワークプラグイン"
+
+msgid "common_print_netplugin_notnow"
+msgstr "後で"
+
+msgid "common_right_panel_measure_cancel_button"
+msgstr "キャンセル"
+
+msgid "common_right_panel_measure_click_to_scale"
+msgstr "スケールに合わせて編集"
+
+msgid "common_right_panel_measure_restart_button"
+msgstr "選択を再スタート"
+
+msgid "common_right_panel_measure_scale_button"
+msgstr "スケール"
+
+msgid "common_right_panel_measure_selection"
+msgstr "選択"
+
+msgid "common_right_panel_measure_selection_circle"
+msgstr "円"
+
+msgid "common_right_panel_measure_selection_diameter_of_circle"
+msgstr "直径"
+
+msgid "common_right_panel_measure_selection_edge"
+msgstr "エッジ"
+
+msgid "common_right_panel_measure_selection_length_of_edge"
+msgstr "長さ"
+
+msgid "common_right_panel_measure_selection_none"
+msgstr "なし"
+
+msgid "common_right_panel_measure_selection_plane"
+msgstr "平面"
+
+msgid "common_right_panel_measure_selection_point_on_circle"
+msgstr "円の上のポイント"
+
+msgid "common_right_panel_measure_selection_point_on_edge"
+msgstr "エッジ上のポイント"
+
+msgid "common_right_panel_measure_selection_point_on_plane"
+msgstr "平面上のポイント"
+
+msgid "common_right_panel_measure_selection_vertex"
+msgstr "頂点"
+
+msgid "common_right_panel_measure_title"
+msgstr "測定する"
+
+msgid "common_right_panel_measure_type_angle"
+msgstr "角度"
+
+msgid "common_right_panel_measure_type_direct_distance"
+msgstr "直線距離"
+
+msgid "common_right_panel_measure_type_distance_xyz"
+msgstr "XYZの距離"
+
+msgid "common_right_panel_measure_type_perpendicular_distance"
+msgstr "垂直距離"
+
+msgid "common_right_panel_remove_preset"
+msgstr "プリセットを削除"
+
+msgid "common_right_panel_rename_preset"
+msgstr "プリセットの名前を変更"
+
+msgid "engin_optionTip_Initial layer travel speed"
+msgstr "初期レイヤーの移動速度"
+
+msgid "engin_optionTip_Internal_bridge_flow"
+msgstr "この値は、内部ブリッジレイヤーの厚さを決定します。これはスパースインフィルの初期レイヤーです。この値をわずかに減らすと (例えば0.9)、スパースインフィルの表面品質を向上させることができます。"
+
+msgid "engin_optionTip_bottom_solid_infill_flow_ratio"
+msgstr "この要素は、ボトムソリッドインフィルの材料の量に影響します。"
+
+msgid "engin_optionTip_bridge_acceleration"
+msgstr "ブリッジの加速度。値がパーセンテージ (例えば50%) で表される場合、外壁の加速度に基づいて計算されます。"
+
+msgid "engin_optionTip_bridge_density"
+msgstr "外部ブリッジの密度。100%はソリッドブリッジを意味します。デフォルトは100%です。"
+
+msgid "engin_optionTip_brim_type"
+msgstr "これにより、モデルの外側および/または内側のブリムの生成が制御されます。自動の場合、ブリムの幅が自動的に分析および計算されます。"
+
+msgid "engin_optionTip_elefant_foot_compensation_layers"
+msgstr ""
+"エレファント・フット補正が有効になるレイヤーの数。最初のレイヤーは、エレファント・フット補正値によって縮小されます。\n"
+"次のレイヤーは、この値で示されるレイヤーまで線形に縮小されます。"
+
+msgid "engin_optionTip_exclude_object"
+msgstr "GコードにEXCLUDE OBJECTコマンドを追加するには、このオプションを有効にしてください"
+
+msgid "engin_optionTip_external_perimeter_acceleration"
+msgstr "外壁の加速度"
+
+msgid "engin_optionTip_external_perimeter_extrusion_width"
+msgstr "外壁の線幅。%で表される場合、ノズルの直径に対して計算されます。"
+
+msgid "engin_optionTip_extra_perimeters_on_overhangs"
+msgstr "急なオーバーハングや、ブリッジが固定できないエリアに追加の周辺パスを作成する。"
+
+msgid "engin_optionTip_extrusion_width"
+msgstr "他の線幅が0に設定されている場合のデフォルト線幅。%として表される場合、ノズルの直径に対して計算されます。"
+
+msgid "engin_optionTip_filter_out_gap_fill"
+msgstr "指定された閾値より小さい隙間をフィルタリングする"
+
+msgid "engin_optionTip_first_layer_extrusion_width"
+msgstr "初期レイヤーの線幅。%で表される場合、ノズルの直径に対して計算されます。"
+
+msgid "engin_optionTip_first_layer_min_bead_width"
+msgstr "初期レイヤーに使用する最小壁幅は、ノズルと同じ体格に設定することをお勧めします。この調整により、密着性が向上することが期待されます。"
+
+msgid "engin_optionTip_first_layer_speed"
+msgstr "初期レイヤーの速度"
+
+msgid "engin_optionTip_hole_to_polyhole"
+msgstr "複数のレイヤーにまたがるほぼ円形の穴を検索し、形状をポリホールに変換します。ノズルの体格と(最大の)直径を使用してポリホールを計算します。"
+
+msgid "engin_optionTip_infill_acceleration"
+msgstr "スパースインフィルの加速度。値がパーセンテージ (例えば100%) で表される場合、デフォルトの加速度に基づいて計算されます。"
+
+msgid "engin_optionTip_infill_extrusion_width"
+msgstr "内部スパースインフィルの線幅。%で表される場合、ノズルの直径にわたって計算されます。"
+
+msgid "engin_optionTip_infill_first"
+msgstr ""
+"壁/インフィルの順序。チェックボックスをオフにすると、壁が最初にプリントされます。これは、ほとんどの場合に最適な方法です。\\n"
+"\\n"
+"壁を最初にプリントすると、隣接するインフィルが壁に付着するため、極端なオーバーハングの場合に役立ちます。ただし、インフィルは、隣接する壁をわずかに押し出すため、外部表面の仕上げが悪くなります。また、インフィルが部品の外面に透けて見えることもあります。"
+
+msgid "engin_optionTip_internal_bridge_speed"
+msgstr "内部ブリッジの速度。値がパーセンテージで表される場合、ブリッジ速度に基づいて計算されます。デフォルト値は150%です。"
+
+msgid "engin_optionTip_internal_solid_infill_pattern"
+msgstr "内部ソリッドインフィルのラインパターン。狭い内部インフィルの検出が有効になっている場合、狭い領域には同心円状のパターンが使用されます。"
+
+msgid "engin_optionTip_ironing_angle"
+msgstr "アイロンがけが行われる角度。マイナス値を入力すると、この機能は無効になり、デフォルトの方法が使用されます。"
+
+msgid "engin_optionTip_ironing_pattern"
+msgstr "アイロンがけで使用されるパターン"
+
+msgid "engin_optionTip_jerk_infill"
+msgstr "インフィル用のジャーク"
+
+msgid "engin_optionTip_jerk_initial_layer"
+msgstr "初期レイヤーのジャーク"
+
+msgid "engin_optionTip_jerk_inner_wall"
+msgstr "内壁のジャーク"
+
+msgid "engin_optionTip_jerk_outer_wall"
+msgstr "外壁のジャーク"
+
+msgid "engin_optionTip_jerk_top_surface"
+msgstr "上面のジャーク"
+
+msgid "engin_optionTip_jerk_travel"
+msgstr "移動のジャーク"
+
+msgid "engin_optionTip_make_overhang_printable"
+msgstr "サポート材なしでオーバーハングをプリントできるよう、形状を修正する。"
+
+msgid "engin_optionTip_min_bead_width"
+msgstr ""
+"モデルの細かい特徴を (最小機能サイズに従って) 置き換える壁の幅。最小壁幅が特徴の厚さよりも薄い場合、\n"
+"壁は特徴自体と同じ厚さになります。これは、ノズルの直径に対するパーセンテージで表されます。"
+
+msgid "engin_optionTip_only_one_wall_first_layer"
+msgstr "初期レイヤーの壁は1枚だけにし、下層のインフィルパターンに余裕を持たせる。"
+
+msgid "engin_optionTip_overhang_reverse"
+msgstr ""
+"奇数レイヤーで、オーバーハング部分を持つ外周を逆方向に押し出します。この交互のパターンは、急なオーバーハングを大幅に改善できます。\\n"
+"\\n"
+"この設定は、部品壁の応力が減少するため、部品の反りを減らすのにも役立ちます。"
+
+msgid "engin_optionTip_perimeter_acceleration"
+msgstr "内壁の加速度"
+
+msgid "engin_optionTip_perimeter_extrusion_width"
+msgstr "内壁の線幅。%で表される場合、ノズルの直径に対して計算されます。"
+
+msgid "engin_optionTip_precise_outer_wall"
+msgstr "外壁の間隔を調整することでシェルの精度を向上させます。これにより、レイヤーの一貫性も向上します。"
+
+msgid "engin_optionTip_role_based_wipe_speed"
+msgstr "ワイプ速度は、現在の押し出し速度によって決定されます。例えば、外壁押し出しの直後にワイプアクションが実行された場合、外壁押し出しの速度がワイプアクションに利用されます。"
+
+msgid "engin_optionTip_seam_gap"
+msgstr ""
+"閉ループ押出の継ぎ目を目立たなくさせるために、ループを指定した量だけ中断して短縮します。\\n"
+"この量はミリメートルまたは現在のエクストルーダーの直径のパーセンテージで指定できます。このパラメータのデフォルト値は10%です。"
+
+msgid "engin_optionTip_skirt_speed"
+msgstr "スカートの速度はmm/sで表されます。値が0の場合は、デフォルトのレイヤー押出速度を使用します。"
+
+msgid "engin_optionTip_slow_down_layers"
+msgstr "最初の数層は通常よりも遅くプリントされます。速度は、指定された層数にわたって線形に徐々に増加します。"
+
+msgid "engin_optionTip_slowdown_for_curled_perimeters"
+msgstr "このオプションを有効にすると、カールしている可能性のある周辺部分のプリント速度が低下します。"
+
+msgid "engin_optionTip_small_perimeter_speed"
+msgstr "この個別の設定は、半径が「小さな外周の閾値」以下の範囲（通常は穴）の速度に影響します。パーセンテージ (例えば80%) で表される場合は、上記の外周速度設定に基づいて計算されます。自動の場合はゼロに設定します。"
+
+msgid "engin_optionTip_small_perimeter_threshold"
+msgstr "これにより、小さな外周の閾値が設定されます。デフォルトの閾値は0mmです。"
+
+msgid "engin_optionTip_solid_infill_acceleration"
+msgstr "内部ソリッドインフィルの加速度。値がパーセンテージ (例えば100%) で表される場合、デフォルトの加速度に基づいて計算されます。"
+
+msgid "engin_optionTip_solid_infill_extrusion_width"
+msgstr "内部ソリッドインフィルの線幅。%として表される場合、ノズルの直径にわたって計算されます。"
+
+msgid "engin_optionTip_support_material_extrusion_width"
+msgstr "サポートの線幅。%として表される場合、ノズルの直径に対して計算されます。"
+
+msgid "engin_optionTip_support_material_speed"
+msgstr "サポートの速度"
+
+msgid "engin_optionTip_support_remove_small_overhang"
+msgstr "サポート不要な小さなオーバーハングを取り除く。"
+
+msgid "engin_optionTip_top_infill_extrusion_width"
+msgstr "上面の線幅。%で表される場合、ノズルの直径に対して計算されます。"
+
+msgid "engin_optionTip_top_infill_flow_ratio"
+msgstr "この要素は、トップソリッドインフィルの材料の量に影響します。滑らかな表面仕上げにするために、少し減らすことができます。"
+
+msgid "engin_optionTip_travel_acceleration"
+msgstr "移動の加速度"
+
+msgid "engin_optionTip_wall_distribution_count"
+msgstr "中心から数えて、バリエーションを広げる必要がある壁の数。値が低いほど、外壁の幅は変わりません。"
+
+msgid "engin_optionTip_wall_sequence"
+msgstr ""
+"内壁 (内側) と外壁 (外側) のプリント順序。\\n"
+"\\n"
+"オーバーハングには、内側/外側を使用してください。これは、オーバーハングした壁がプリント中に隣接する外周に付着する可能性があるためです。ただし、このオプションでは、外周が内周に押しつぶされて変形するため、表面品質がわずかに低下します。\\n"
+"\\n"
+"内側/外側/内側を使用すると、外壁が内周に邪魔されずにプリントされるため、最高の外面仕上げと寸法精度が得られます。しかし、外壁をプリントする内周がないため、オーバーハングの性能は低下します。このオプションは、3つ目以降の内壁→外壁→最初の内壁の順にプリントするため、最低3つの壁が必要です。ほとんどの場合、このオプションは外側/内側オプションに対して推奨されます。\\n"
+"\\n"
+" 外側/内側を使用すると、内側/外側/内側オプションと同じ外壁品質と寸法精度の利点が得られます。ただし、新しいレイヤーの最初の押し出しが目に見える表面で開始されるため、z継ぎ目の一貫性が低下します。\\n"
+"\\n"
+
+msgid "engin_optionTip_wipe_before_external_loop"
+msgstr ""
+"外側/内側または内側/外側/内側の順序で壁をプリントする場合、外周部のプリント開始時における過度な押し出しの可能性を最小限に抑えるために、外周部のプリント開始時に内側からわずかに引き戻しが行われます。そうすることで、押し出しを超える部分が外側の表面から隠されます。\\n"
+"\\n"
+"外側/内側または内側/外側/内側の順序でプリントする場合、引き戻しの直後に外周部がプリントされる可能性が高いため、このモードが有効です。"
+
+msgid "engin_optionTip_wipe_on_loops"
+msgstr "閉ループ押出の継ぎ目を目立たなくさせるために、エクストルーダーがループを離れる前に小さな内向きの動きが実行されます。"
+
+msgid "engin_optionTip_wipe_speed"
+msgstr "ワイプ速度は、この設定で指定された速度設定によって決定されます。値がパーセンテージ（例えば80%）で表される場合、上記の移動速度設定に基づいて計算されます。このパラメータのデフォルト値は80%です。"
+
+msgid "engin_optionTip_wipe_tower"
+msgstr "ワイプタワーは、ノズルに付着した残留物を除去し、ノズル内のチャンバー圧力を安定させて印刷物の外観不良を避けることができます。"
+
+msgid "engin_option_Internal_bridge_flow"
+msgstr "インターナルブリッジの流量比"
+
+msgid "engin_option_bottom_fill_pattern"
+msgstr "底面パターン"
+
+msgid "engin_option_bottom_solid_infill_flow_ratio"
+msgstr "底面の流量比"
+
+msgid "engin_option_bridge_angle"
+msgstr "ブリッジのインフィル方向"
+
+msgid "engin_option_bridge_density"
+msgstr "ブリッジ密度"
+
+msgid "engin_option_bridge_speed"
+msgstr "ブリッジ外部"
+
+msgid "engin_option_brim_width"
+msgstr "ブリム幅"
+
+msgid "engin_option_elefant_foot_compensation_layers"
+msgstr "エレファント・フット補正レイヤー"
+
+msgid "engin_option_enable_arc_fitting"
+msgstr "アークフィッティング"
+
+msgid "engin_option_exclude_object"
+msgstr "オブジェクトを除外"
+
+msgid "engin_option_fill_angle"
+msgstr "インフィルの方向"
+
+msgid "engin_option_filter_out_gap_fill"
+msgstr "小さな隙間を取り除く"
+
+msgid "engin_option_first_layer_min_bead_width"
+msgstr "初期レイヤーの最小周囲幅"
+
+msgid "engin_option_first_layer_travel_speed"
+msgstr "初期レイヤーの移動速度"
+
+msgid "engin_option_hole_to_polyhole"
+msgstr "穴をポリホールに変換する"
+
+msgid "engin_option_infill_anchor"
+msgstr "スパースインフィルアンカーの長さ"
+
+msgid "engin_option_infill_first"
+msgstr "インフィルを最初にプリントする"
+
+msgid "engin_option_internal_bridge_speed"
+msgstr "ブリッジ内部"
+
+msgid "engin_option_internal_solid_infill_pattern"
+msgstr "インターナルソリッドインフィルパターン"
+
+msgid "engin_option_ironing_angle"
+msgstr "アイロンがけの角度"
+
+msgid "engin_option_ironing_pattern"
+msgstr "アイロンがけのパターン"
+
+msgid "engin_option_ironing_spacing"
+msgstr "アイロンがけの間隔"
+
+msgid "engin_option_make_overhang_printable"
+msgstr "オーバーハングをプリント可能にする"
+
+msgid "engin_option_only_one_wall_first_layer"
+msgstr "初期レイヤーごとに1つの壁"
+
+msgid "engin_option_overhang_reverse"
+msgstr "オーバーハングリバース"
+
+msgid "engin_option_overhang_speed_0"
+msgstr "オーバーハング速度 (10%、25%)"
+
+msgid "engin_option_overhang_speed_1"
+msgstr "オーバーハング速度 [25%、50%)"
+
+msgid "engin_option_overhang_speed_2"
+msgstr "オーバーハング速度 [50%、75%)"
+
+msgid "engin_option_overhang_speed_3"
+msgstr "オーバーハング速度 [75%、100%)"
+
+msgid "engin_option_precise_outer_wall"
+msgstr "精密な壁"
+
+msgid "engin_option_reduce_infill_retraction"
+msgstr "インフィルの引き込みを減らす"
+
+msgid "engin_option_role_based_wipe_speed"
+msgstr "自動ワイプ速度"
+
+msgid "engin_option_seam_gap"
+msgstr "シームギャップ"
+
+msgid "engin_option_skirt_speed"
+msgstr "スカートスピード"
+
+msgid "engin_option_slow_down_layers"
+msgstr "スローレイヤーの数"
+
+msgid "engin_option_slowdown_for_curled_perimeters"
+msgstr "カールした外周で減速する"
+
+msgid "engin_option_small_perimeter_speed"
+msgstr "小さな外周"
+
+msgid "engin_option_small_perimeter_threshold"
+msgstr "小さな外周の閾値"
+
+msgid "engin_option_support_material"
+msgstr "サポートを有効にする"
+
+msgid "engin_option_top_infill_flow_ratio"
+msgstr "上面の流量比"
+
+msgid "engin_option_top_surface_single_perimeter"
+msgstr "上面ごとに1つの壁"
+
+msgid "engin_option_wall_sequence"
+msgstr "壁のプリント順序"
+
+msgid "engin_option_wipe_before_external_loop"
+msgstr "壁を越えないようにしてください-最大迂回距離"
+
+msgid "engin_option_wipe_on_loops"
+msgstr "ループ上でワイプ"
+
+msgid "engin_option_wipe_speed"
+msgstr "ワイプ速度"
+
+msgid "Bed Adhension"
+msgstr "ベッド接着"
+
+msgid "Filename Format"
+msgstr "ファイル名形式"
+
+msgid "Walls and Surfaces"
+msgstr "壁と表面"
+
+msgid "No ironing"
+msgstr "しない"

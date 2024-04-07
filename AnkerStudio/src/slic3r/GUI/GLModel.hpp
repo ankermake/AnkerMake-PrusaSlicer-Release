@@ -233,6 +233,9 @@ namespace GUI {
         void set_color(const ColorRGBA& color) { m_render_data.geometry.color = color; }
         const ColorRGBA& get_color() const { return m_render_data.geometry.color; }
 
+        // Aden
+        void update_bounding_box();
+
         void reset();
         void render();
         void render(const std::pair<size_t, size_t>& range);

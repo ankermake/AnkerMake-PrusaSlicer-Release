@@ -143,7 +143,16 @@ std::vector<ExtendedPoint> estimate_points_properties(const std::vector<P>      
             ((points.back().distance > boundary_offset + EPSILON) != (next_point.distance > boundary_offset + EPSILON))) {
             const ExtendedPoint &prev_point = points.back();
             auto intersections = unscaled_prev_layer.template intersections_with_line<true>(L{prev_point.position.cast<AABBScalar>(), next_point.position.cast<AABBScalar>()});
+            const auto& prev_position = prev_point.position;
+            const auto& next_position = next_point.position;
             for (const auto &intersection : intersections) {
+                //Galen.Xiao, remove small segment 2023/10/17 begin
+                auto curr_position = intersection.first.template cast<double>();
+                if ((curr_position - prev_position).norm() < 1 || (curr_position - next_position).norm() < 1) {
+                    continue;
+                }
+                //Galen.Xiao, remove small segment 2023/10/17 end
+
                 points.emplace_back(intersection.first.template cast<double>(), boundary_offset, intersection.second);
             }
         }
@@ -246,17 +255,101 @@ class ExtrusionQualityEstimator
 {
     std::unordered_map<const PrintObject *, AABBTreeLines::LinesDistancer<Linef>> prev_layer_boundaries;
     std::unordered_map<const PrintObject *, AABBTreeLines::LinesDistancer<Linef>> next_layer_boundaries;
+    std::unordered_map<const PrintObject *, AABBTreeLines::LinesDistancer<CurledLine>> prev_curled_extrusions;
+    std::unordered_map<const PrintObject *, AABBTreeLines::LinesDistancer<CurledLine>> next_curled_extrusions;
     const PrintObject                                                            *current_object;
 
 public:
     void set_current_object(const PrintObject *object) { current_object = object; }
 
-    void prepare_for_new_layer(const Layer *layer)
+    Point move_inside_to_pre_layer_boundary(Point point, double line_width)
+    { 
+        auto closestPoint = [](Point pt, Linef line) {
+            double ax = line.a.x();
+            double ay = line.a.y();
+            double bx = line.b.x();
+            double by = line.b.y();
+            double a, b, c, t;
+            a = ax - bx;
+            b = ay - by;
+            c = -a * ax - b * ay;
+            t = -a * unscaled(pt.x()) - b * unscaled(pt.y()) - c;
+            
+            return Point(scaled(ax + a * t), scaled(ay + b * t));
+        };
+
+        const auto& prev_layer_boundary = prev_layer_boundaries[current_object];
+
+        auto get_distance_and_line_idx = [&](Point pt) {
+            Points path;
+            path.push_back(pt);
+            std::vector<ExtendedPoint> extended_points =
+                estimate_points_properties<true, true, true, true>(path, prev_layer_boundary, line_width);
+            return extended_points.back();
+        };
+
+        ExtendedPoint distance_data = get_distance_and_line_idx(point);
+        if (distance_data.distance < EPSILON || distance_data.distance > line_width)
+        {
+            return point;
+        }
+        Linef nearest_line = prev_layer_boundary.get_line(distance_data.nearest_prev_layer_line);
+        Point projection = closestPoint(point, nearest_line);
+        Vec2d  p1 = point.cast<double>();
+        Vec2d  p2 = projection.cast<double>();
+        Vec2d  v = p2 - p1;
+        double l2 = v.norm();
+        Vec2d  inward_point = p1 + v * ((l2 + scaled(line_width)) / l2);
+        Point inward_point_coord_t = inward_point.cast<coord_t>();
+        ExtendedPoint distance_data_new = get_distance_and_line_idx(inward_point_coord_t);
+        double move_dist = (inward_point - p1).norm();
+        if (move_dist > 2 * scaled(line_width), distance_data_new.distance > EPSILON)
+        {
+            return point;
+        }   
+        return inward_point_coord_t;
+    }
+
+    bool check_point_is_overhang(Point point, double line_width)
+    {
+        const auto& prev_layer_boundary = prev_layer_boundaries[current_object];
+        if (prev_layer_boundary.get_lines().empty())
+        {
+            return false;
+        }
+
+        auto get_distance_and_line_idx = [&](Point pt) {
+            Points path;
+            path.push_back(pt);
+            std::vector<ExtendedPoint> extended_points =
+                estimate_points_properties<true, true, true, true>(path, prev_layer_boundary, line_width);
+            return extended_points.back();
+        };
+
+        ExtendedPoint distance_data = get_distance_and_line_idx(point);
+        if (distance_data.distance > 0.25 * line_width)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    void prepare_for_new_layer(const PrintObject* obj, const Layer* layer)
     {
         if (layer == nullptr) return;
-        const PrintObject *object     = layer->object();
+        const PrintObject *object     = obj;
         prev_layer_boundaries[object] = next_layer_boundaries[object];
         next_layer_boundaries[object] = AABBTreeLines::LinesDistancer<Linef>{to_unscaled_linesf(layer->lslices)};
+        CurledLines curled_lines;
+        for (CurledLine cLine : layer->curled_lines) {
+            CurledLine cLine_new;
+            cLine_new.a = Point(cLine.a.x() / 1000, cLine.a.y() / 1000);
+            cLine_new.b = Point(cLine.b.x() / 1000, cLine.b.y() / 1000);
+            cLine_new.curled_height = cLine.curled_height;
+            curled_lines.push_back(cLine_new);
+        }
+        prev_curled_extrusions[object] = next_curled_extrusions[object];
+        next_curled_extrusions[object] = AABBTreeLines::LinesDistancer<CurledLine>{ curled_lines };
     }
 
     std::vector<ProcessedPoint> estimate_extrusion_quality(const ExtrusionPath                                          &path,
@@ -264,7 +357,8 @@ public:
                                                            const std::vector<std::pair<int, ConfigOptionInts>> overhangs_w_fan_speeds,
                                                            size_t                                              extruder_id,
                                                            float                                               ext_perimeter_speed,
-                                                           float                                               original_speed)
+                                                           float                                               original_speed,
+                                                           bool                                                slowdown_for_curled_edges)
     {
         float                  speed_base = ext_perimeter_speed > 0 ? ext_perimeter_speed : original_speed;
         std::map<float, float> speed_sections;
@@ -284,12 +378,97 @@ public:
 
         std::vector<ExtendedPoint> extended_points =
             estimate_points_properties<true, true, true, true>(path.polyline.points, prev_layer_boundaries[current_object], path.width);
+        const auto width_inv = 1.0f / path.width;
+        //Galen.Xiao, Overhang length is less than min short threshold that no variable speed of endpoint 2023/10/15 begin
+        auto update_extended_point = [&](ExtendedPoint& cur_point, const ExtendedPoint& next_point) {
+            const auto& prev_layer_boundary = prev_layer_boundaries[current_object];
+
+            if (cur_point.nearest_prev_layer_line < 0
+                || cur_point.nearest_prev_layer_line >= prev_layer_boundary.get_lines().size())
+                return;
+            auto& line = prev_layer_boundary.get_line(cur_point.nearest_prev_layer_line);
+
+            auto is_need_min_segment_optimize = [](const Linef& line, Vec2d position) {
+                return (line.a - line.b).norm() < 1.5 && std::min((position - line.a).norm(), (position - line.b).norm()) < 1;
+            };
+            if (is_need_min_segment_optimize(line, cur_point.position)) {
+                auto position = (cur_point.position + next_point.position) / 2.0f;
+                using AABBScalar = typename AABBTreeLines::LinesDistancer<Linef>::Scalar;
+                auto [distance, nearest_line, x] = prev_layer_boundary.template distance_from_lines_extra<true>(position.cast<AABBScalar>());
+                float other_distance = (cur_point.distance + next_point.distance) / 2;
+                cur_point.distance = std::min((float)distance, other_distance);
+            }
+        };
+
+        if (extended_points.size() > 1) {
+            update_extended_point(extended_points.front(), *(++extended_points.begin()));
+            update_extended_point(extended_points.back(), *(++extended_points.rbegin()));
+        }
+        //Galen.Xiao, Overhang length is less than min short threshold that no variable speed in the endpoint 2023/10/15 end
 
         std::vector<ProcessedPoint> processed_points;
         processed_points.reserve(extended_points.size());
         for (size_t i = 0; i < extended_points.size(); i++) {
             const ExtendedPoint &curr = extended_points[i];
             const ExtendedPoint &next = extended_points[i + 1 < extended_points.size() ? i + 1 : i];
+
+            float artificial_distance_to_curled_lines = 0.0;
+            if (slowdown_for_curled_edges ) {
+                // The following code artifically increases the distance to provide slowdown for extrusions that are over curled lines
+                const double dist_limit = 10.0 * path.width;
+                {
+                    Vec2d middle = 0.5 * (curr.position + next.position);
+                    auto line_indices = prev_curled_extrusions[current_object].all_lines_in_radius(Point(middle.x() * 1000, middle.y() * 1000), dist_limit * 1000);
+                    if (!line_indices.empty()) {
+                        double len = (next.position - curr.position).norm();
+                        // For long lines, there is a problem with the additional slowdown. If by accident, there is small curled line near the middle of this long line
+                        //  The whole segment gets slower unnecesarily. For these long lines, we do additional check whether it is worth slowing down.
+                        // NOTE that this is still quite rough approximation, e.g. we are still checking lines only near the middle point
+                        // TODO maybe split the lines into smaller segments before running this alg? but can be demanding, and GCode will be huge
+                        if (len > 8) {
+                            Vec2d dir = Vec2d(next.position - curr.position) / len;
+                            Vec2d right = Vec2d(-dir.y(), dir.x());
+
+                            Polygon box_of_influence = {
+                                scaled(Vec2d(curr.position + right * dist_limit)),
+                                scaled(Vec2d(next.position + right * dist_limit)),
+                                scaled(Vec2d(next.position - right * dist_limit)),
+                                scaled(Vec2d(curr.position - right * dist_limit)),
+                            };
+
+                            double projected_lengths_sum = 0;
+                            for (size_t idx : line_indices) {
+                                const CurledLine& line = prev_curled_extrusions[current_object].get_line(idx);
+                                CurledLine cLine_new;
+                                cLine_new.a = Point(line.a.x() * 1000, line.a.y() * 1000);
+                                cLine_new.b = Point(line.b.x() * 1000, line.b.y() * 1000);
+                                cLine_new.curled_height = line.curled_height;
+                                Lines             inside = intersection_ln({ {cLine_new.a, cLine_new.b} }, { box_of_influence });
+                                if (inside.empty())
+                                    continue;
+                                double projected_length = abs(dir.dot(unscaled(Vec2d((inside.back().b - inside.back().a).cast<double>()))));
+                                projected_lengths_sum += projected_length;
+                            }
+                            if (projected_lengths_sum < 0.4 * len) {
+                                line_indices.clear();
+                            }
+                        }
+
+                        for (size_t idx : line_indices) {
+                            const CurledLine& line = prev_curled_extrusions[current_object].get_line(idx);
+                            CurledLine cLine_new;
+                            cLine_new.a = Point(line.a.x() * 1000, line.a.y() * 1000);
+                            cLine_new.b = Point(line.b.x() * 1000, line.b.y() * 1000);
+                            cLine_new.curled_height = line.curled_height;
+                            float             distance_from_curled = unscaled(line_alg::distance_to(cLine_new, Point::new_scale(middle)));
+                            float             dist = path.width * (1.0 - (distance_from_curled / dist_limit)) *
+                                (1.0 - (distance_from_curled / dist_limit)) *
+                                (cLine_new.curled_height / (path.height * 10.0f)); // max_curled_height_factor from SupportSpotGenerator
+                            artificial_distance_to_curled_lines = std::max(artificial_distance_to_curled_lines, dist);
+                        }
+                    }
+                }
+            }
 
             auto interpolate_speed = [](const std::map<float, float> &values, float distance) {
                 auto upper_dist = values.lower_bound(distance);
@@ -309,6 +488,11 @@ public:
                                              interpolate_speed(speed_sections, next.distance));
             float fan_speed       = std::min(interpolate_speed(fan_speed_sections, curr.distance),
                                              interpolate_speed(fan_speed_sections, next.distance));
+
+            if (slowdown_for_curled_edges && !path.role().is_external_perimeter()) {
+                float curled_speed = interpolate_speed(speed_sections, artificial_distance_to_curled_lines);
+                extrusion_speed = std::min(curled_speed, extrusion_speed); // adjust extrusion speed based on what is smallest - the calculated overhang speed or the artificial curled speed
+            }
 
             processed_points.push_back({scaled(curr.position), extrusion_speed, int(fan_speed)});
         }

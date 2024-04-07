@@ -2343,7 +2343,7 @@ void GLGizmoCut3D::set_input_window_state(bool on)
 
     ANKER_LOG_INFO << "GLGizmoCut3D: " << on;
 
-    std::string panelFlag = get_name(true, false);
+    std::string panelFlag = "GLGizmoCut3D";
     if (on)
     {
         wxGetApp().plater()->sidebarnew().setMainSizer();

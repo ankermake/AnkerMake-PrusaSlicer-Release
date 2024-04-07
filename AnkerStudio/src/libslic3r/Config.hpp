@@ -2283,6 +2283,9 @@ public:
     double get_abs_value(const t_config_option_key &opt_key, double ratio_over) const;
 
     std::string&        opt_string(const t_config_option_key &opt_key, bool create = false)     { return this->option<ConfigOptionString>(opt_key, create)->value; }
+    std::vector<std::string> opt_strings(const t_config_option_key& opt_key) { return this->option<ConfigOptionStrings>(opt_key)->vserialize(); }
+
+
     const std::string&  opt_string(const t_config_option_key &opt_key) const                    { return const_cast<ConfigBase*>(this)->opt_string(opt_key); }
     std::string&        opt_string(const t_config_option_key &opt_key, unsigned int idx)        { return this->option<ConfigOptionStrings>(opt_key)->get_at(idx); }
     const std::string&  opt_string(const t_config_option_key &opt_key, unsigned int idx) const  { return const_cast<ConfigBase*>(this)->opt_string(opt_key, idx); }

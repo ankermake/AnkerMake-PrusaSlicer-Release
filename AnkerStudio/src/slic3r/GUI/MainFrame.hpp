@@ -19,20 +19,20 @@
 #include "GUI_Utils.hpp"
 #include "Event.hpp"
 #include "UnsavedChangesDialog.hpp"
+#include "AnkerDevice.hpp"
 #include "GUI_App.hpp"
+#include "AnkerWebView.hpp"
 #include "AnkerFunctionPanel.h"
-//#include "Common/AnkerMenuBar.hpp"
 #include "AnkerConfigDialog/AnkerConfigDialog.hpp"
 
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RELOAD_DATA, wxCommandEvent);
 
 class wxBookCtrlBase;
 class wxProgressDialog;
-wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
-wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RELOAD_DATA, wxCommandEvent);
 namespace Slic3r {
 
 class ProgressStatusBar;
-
 namespace GUI
 {
 
@@ -111,7 +111,7 @@ class MainFrame : public DPIFrame
 
     // init tab panel
     void initTabPanel();
-
+    void setUserInfoForSentry();
     std::string     get_base_name(const wxString &full_name, const char *extension = nullptr) const;
     std::string     get_dir_name(const wxString &full_name) const;
 
@@ -174,37 +174,59 @@ class MainFrame : public DPIFrame
     static void onDownLoadProgress(double dltotal, double dlnow, double ultotal, double ulnow);
 
     std::string getAppName();
+    void updateBuryInfo();
+    wxMenu* GetHelpMenu();
+    void DealPrivacyChoices(const wxCommandEvent& event);
+    void RemovePrivacyChoices();
+
+    void SetWebviewTestItem();
+    void TestAnkerWebview();
+    void TestLoacalBrowser();
+
+    void LogOut();
+
 protected:
     virtual void on_dpi_changed(const wxRect &suggested_rect) override;
     virtual void on_sys_color_changed() override;
 
     void ShowLoginedMenu();
+    void ShowUnLoginDevice();
     void ShowUnLoginMenu();
     void ClearLoingiMenu();
     void onLogOut();
     void OnMove(wxMoveEvent& event);
     void OnOtaTimer(wxTimerEvent& event);
+    void OnHttpConnectError(wxCommandEvent& event);
+    void BindEvent();
+
+
 
 public:
     MainFrame(const int font_point_size);
     ~MainFrame();// = default;
     void createAnkerCfgDlg();
+    void InitDeviceWidget();
     void ShowAnkerWebView();
     void update_layout();
     void update_mode_markers();
     void setUrl(std::string webUrl = std::string());
 	// Called when closing the application and when switching the application language.
-	void 		shutdown();
+	void 		shutdown(bool restart = false);
     Plater*     plater() { return m_plater; }
     GalleryDialog* gallery_dialog();
 
+    void buryTime();
+    std::string getWorkDuration();
     void        selectLanguage(GUI_App::AnkerLanguageType language);
     static bool        languageIsJapanese();
+    static std::string GetTranslateLanguage();
 
     void        update_title();
 
     void        init_tabpanel();
     void        getwebLoginDataBack();
+    AnkerWebView* CreateWebView(bool background);
+    void        InitAnkerDevice();
     void        create_preset_tabs();
     void        add_created_tab(Tab* panel, const std::string& bmp_name = "");
     bool        is_active_and_shown_tab(Tab* tab);
@@ -265,6 +287,7 @@ public:
 
     AnkerTab* openAnkerTabByPresetType(const Preset::Type type);
 
+    AnkerWebView*         m_loginWebview{ nullptr };    // background
     Plater*               m_plater { nullptr };
     wxBookCtrlBase*       m_tabpanel { nullptr };
     // add by allen for ankerCfgDlg
@@ -274,10 +297,8 @@ public:
     SettingsDialog        m_settings_dialog;
     DiffPresetDialog      diff_dialog;
     wxWindow*             m_plater_page{ nullptr };
-//    wxProgressDialog*     m_progress_dialog { nullptr };
     PreferencesDialog*    preferences_dialog { nullptr };
     PrintHostQueueDialog* m_printhost_queue_dlg;
-//    std::shared_ptr<ProgressStatusBar>  m_statusbar;
     GalleryDialog*        m_gallery_dialog{ nullptr };
 
     AnkerFunctionPanel*        m_pFunctionPanel;
@@ -287,23 +308,40 @@ public:
     std::unique_ptr<wxTaskBarIcon> m_taskbar_icon;
 #endif // __APPLE__
 
-wxMenu*             m_pLoginMenu {nullptr};
+    wxMenu*             m_pLoginMenu {nullptr};
+    AnkerDevice*        m_pDeviceWidget{ nullptr };
 
-ANKER_ENVIR         m_currentEnvir = EN_ENVIR;   
-wxString            m_loginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/#/login")};
-wxString            m_backloginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/#/login?invisible=true")};
+    ANKER_ENVIR         m_currentEnvir = EN_ENVIR;   
+    wxString            m_loginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/?nocache=%s#/login")};
+    wxString            m_backloginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/?nocache=%s#/login?invisible=true")};
+    inline std::string getCurTimestamp()
+    {
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+        return std::to_string(now_time);
+    }
+    inline  wxString getBackloginUrl()
+    {
+        return  wxString::Format(m_backloginUrl, getCurTimestamp());
+    }
+    inline  wxString getLoginUrl()
+    {
+        return  wxString::Format(m_loginUrl, getCurTimestamp());
+    }
 #ifdef _WIN32
     void*				m_hDeviceNotify { nullptr };
     uint32_t  			m_ulSHChangeNotifyRegister { 0 };
 	static constexpr int WM_USER_MEDIACHANGED { 0x7FFF }; // WM_USER from 0x0400 to 0x7FFF, picking the last one to not interfere with wxWidgets allocation
 #endif // _WIN32
     wxTimer* m_otaTimer = nullptr;
+    wxTimer* m_extrusionTimer = nullptr;
     
     bool m_bIsOpenWebview {false};
     
     mutable std::mutex m_ReadWriteMutex;
     
-    
+    bool m_normalExit { false };
+    wxDateTime m_buryTime;
 };
 
 } // GUI

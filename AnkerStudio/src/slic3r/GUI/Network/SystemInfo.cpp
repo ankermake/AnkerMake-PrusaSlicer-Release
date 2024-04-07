@@ -13,41 +13,51 @@
 #include <sys/sysctl.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
 #endif
+#include <slic3r/Utils/DataMangerUi.hpp>
 
 #ifdef _WIN32
 #pragma comment(lib, "DXGI.lib")
 #endif // _WIN32
 
+SysInfo SysInfoCollector::m_sysInfo;
 
-SysInfoCollector::SysInfoCollector()
-{
 #ifdef _WIN32
-    m_sysInfo.m_os_type = "Windows";
-#elif __APPLE__
-    m_sysInfo.m_os_type = "MacOS";
-#endif
-}
-
-SysInfo SysInfoCollector::getSysInfo() const
+BOOL CALLBACK SysInfoCollector::MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData) 
 {
-    return m_sysInfo;
-}
-
-std::string SysInfoCollector::getMachineUniqueId() const
-{
-    return m_Machineid;
-}
-
-void SysInfoCollector::initSysInfo()
-{
-    std::unique_lock<std::mutex> lck(m_mutex);
-    while (!m_start)
-    {
-        m_cv.wait(lck);
+    MONITORINFOEX mi;
+    static int count = 0;
+    mi.cbSize = sizeof(MONITORINFOEX);
+    if (GetMonitorInfo(hMonitor, &mi)) {
+        std::cout << "Display: " << mi.szDevice << std::endl;
+        int width = mi.rcMonitor.right - mi.rcMonitor.left;
+        int height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+        std::cout << "  Width: " << width << std::endl;
+        std::cout << "  Height: " << height << std::endl;
+        if (dwData) {
+            SysInfoCollector* collector = (SysInfoCollector*)(dwData);
+            if (collector) {
+                if (count == 0) {
+                    collector->m_sysInfo.m_primary_screen_resolution =
+                        std::to_string(width) + "x" + std::to_string(height);
+                }
+                else if (count > 0) {
+                    collector->m_sysInfo.m_extended_screen_resolution +=
+                        std::string("screen") + std::to_string(count + 1) +
+                        std::string(":") + std::to_string(width) + "x" +
+                        std::to_string(height) + std::string(",");
+                }
+            }
+        }
     }
+    return TRUE;
+}
+#endif
 
+SysInfo SysInfoCollector::GetSysInfo()
+{
     ANKER_LOG_INFO << "initSysInfo thread id: " << std::this_thread::get_id();
     m_sysInfo.m_os_version = wxGetOsDescription().ToStdString();
+
     // Windows 10 (build 19045), 64-bit edition
     // macOS Ventura Version 13.4 (Build 22F66)
     ANKER_LOG_INFO << "osVersion: " << m_sysInfo.m_os_version;
@@ -82,7 +92,7 @@ void SysInfoCollector::initSysInfo()
     // Total Physical Memory (RAM): 16149 MB
     ANKER_LOG_INFO << "Total Physical Memory (RAM): " << statex.ullTotalPhys / (1024 * 1024) << " MB";
 
-    EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, (LPARAM)this);
+    EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, 0);
 
     IDXGIFactory* pFactory = NULL;
     IDXGIAdapter* pAdapter = NULL;
@@ -92,7 +102,7 @@ void SysInfoCollector::initSysInfo()
 
     HRESULT hr = CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)(&pFactory));
     if (FAILED(hr)) {
-        return;
+        return m_sysInfo;
     }
 
     while (pFactory->EnumAdapters(iAdapterNum, &pAdapter) != DXGI_ERROR_NOT_FOUND)
@@ -121,7 +131,6 @@ void SysInfoCollector::initSysInfo()
     }
     m_sysInfo.m_gpu_model = gpuModelStr;
     m_sysInfo.m_video_ram = std::to_string(videoRam);
-
 
     HKEY key = NULL;
     if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Cryptography", 0, KEY_READ | KEY_WOW64_64KEY, &key)
@@ -263,18 +272,7 @@ void SysInfoCollector::initSysInfo()
     machineId = buffer;
 
 #endif // _WIN32
-    m_Machineid = machineId.ToStdString();
-    ANKER_LOG_INFO << "Machine id: " << m_Machineid;
-}
-
-void SysInfoCollector::setAppVersion(const std::string& version)
-{
-    m_sysInfo.m_app_version = version;
-}
-
-void SysInfoCollector::goGetPCInfo()
-{
-    std::unique_lock<std::mutex> lck(m_mutex);
-    m_start = true;
-    m_cv.notify_all();
+    m_sysInfo.m_machineid = machineId.ToStdString();
+    ANKER_LOG_INFO << "Machine id: " << m_sysInfo.m_machineid;
+    return m_sysInfo;
 }

@@ -61,7 +61,43 @@ private:
 	bool		m_bIsCancelShow{ true };
 };
 
-static AnkerMsgDialog::MsgResult AnkerMessageBox(wxWindow* parent, std::string message, std::string title, bool cancelVisible = true, std::string okText = "", std::string cancelText = "")
+
+// Notice: messge and title parameter should be utf8 format
+static AnkerMsgDialog::MsgResult AnkerMessageBox(wxWindow* parent, std::string message, std::string title, 
+	bool cancelVisible = true, std::string okText = "", std::string cancelText = "")
+{
+	static bool isShowModal = false;
+	if (isShowModal) {
+		return AnkerMsgDialog::MSG_CANCEL;
+	}
+	isShowModal = true;
+
+	if (okText.empty())
+		okText = _("common_button_ok").ToStdString(wxConvUTF8);
+
+	if (cancelText.empty())
+		cancelText = _("common_button_cancel").ToStdString(wxConvUTF8);
+
+	AnkerMsgDialog* msgBox = new AnkerMsgDialog(parent);
+	msgBox->setMessage(wxString::FromUTF8(message));
+	msgBox->setTitle(title);
+	msgBox->setOKText(okText);
+	msgBox->setCancelVisible(cancelVisible);
+	msgBox->setCancelText(cancelText);
+	msgBox->Center(wxBOTH);
+	msgBox->ShowModal();
+
+	AnkerMsgDialog::MsgResult result = msgBox->getMsgResult();
+	delete msgBox;
+	msgBox = nullptr;
+	isShowModal = false;
+	return result;
+}
+
+// fix: AnkerMessageBox would crash at msgBox->GetParent()
+// Notice: messge and title parameter should be utf8 format
+static AnkerMsgDialog::MsgResult AnkerMessageBoxV2(wxWindow* parent, std::string message, std::string title,
+	bool cancelVisible = true, std::string okText = "", std::string cancelText = "")
 {
 	static bool isShowModal = false;
 	if (isShowModal) {
@@ -75,22 +111,21 @@ static AnkerMsgDialog::MsgResult AnkerMessageBox(wxWindow* parent, std::string m
 	if (cancelText.empty())
 		cancelText = _("common_button_cancel").ToStdString();
 
-	AnkerMsgDialog* msgBox = new AnkerMsgDialog(parent);
-	msgBox->setMessage(message);
-	msgBox->setTitle(title);
-	msgBox->setOKText(okText);
-	msgBox->setCancelVisible(cancelVisible);
-	msgBox->setCancelText(cancelText);
+	AnkerMsgDialog msgBox (parent);
+	msgBox.setMessage(wxString::FromUTF8(message));
+	msgBox.setTitle(title);
+	msgBox.setOKText(okText);
+	msgBox.setCancelVisible(cancelVisible);
+	msgBox.setCancelText(cancelText);
+	msgBox.Center(wxBOTH);
+	msgBox.ShowModal();
 
-	msgBox->ShowModal();
+	AnkerMsgDialog::MsgResult result = msgBox.getMsgResult();
 
-	AnkerMsgDialog::MsgResult result = msgBox->getMsgResult();
-	msgBox->Reparent(nullptr);
-	delete msgBox;
-	msgBox = nullptr;
 	isShowModal = false;
 	return result;
 }
+
 
 #endif // _ANKER_MSG_DIALOG_H_
 

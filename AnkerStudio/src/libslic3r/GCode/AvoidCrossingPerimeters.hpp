@@ -28,10 +28,11 @@ public:
     Polyline    travel_to(const GCode& gcodegen, const Point& point)
     {
         bool could_be_wipe_disabled;
-        return this->travel_to(gcodegen, point, &could_be_wipe_disabled);
+        bool avoid_crossing_perimeters_via_lift_z;
+        return this->travel_to(gcodegen, point, &could_be_wipe_disabled, &avoid_crossing_perimeters_via_lift_z);
     }
 
-    Polyline    travel_to(const GCode& gcodegen, const Point& point, bool* could_be_wipe_disabled);
+    Polyline    travel_to(const GCode& gcodegen, const Point& point, bool* could_be_wipe_disabled, bool * avoid_crossing_perimeters_via_lift_z);
 
     struct Boundary {
         // Collection of boundaries used for detection of crossing perimeters for travels

@@ -225,7 +225,7 @@ void GLGizmoRotate3D::set_input_window_state(bool on)
 
     ANKER_LOG_INFO << "GLGizmoRotate3D: " << on;
 
-    std::string panelFlag = get_name(true, false);
+    std::string panelFlag = "GLGizmoRotate3D";
     if (on)
     {
         wxGetApp().plater()->sidebarnew().setMainSizer();

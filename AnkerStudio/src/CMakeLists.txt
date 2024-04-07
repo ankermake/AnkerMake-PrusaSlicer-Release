@@ -15,6 +15,23 @@ add_subdirectory(hints)
 add_subdirectory(qoi)
 add_subdirectory(libnest2d)
 
+# If you want to force FetchContent AnkerNet every time to ensure the latest AnkerNet code is used. 
+# Please turn on the following directive, please note that this will increase the compile time each time;
+set(FORCE_FETCH_ANKERNET OFF)
+
+if(OPEN_SOURCE)
+    add_definitions(-DOPEN_SOURCE_MODE)
+endif()
+
+
+if(OPEN_SOURCE)
+    message("-------OPEN_SOURCE_MODE")
+    include_directories( "slic3r/GUI/AnkerNetModule/Interface Files")
+endif()
+
+set (ankerSoftVersion "${CMAKE_CURRENT_BINARY_DIR}/libslic3r")
+message("-------ankerSoftVersion=${ankerSoftVersion}")
+include_directories(${ankerSoftVersion})
 
 find_package(Qhull 7.2 REQUIRED)
 add_library(qhull INTERFACE)
@@ -30,6 +47,10 @@ add_subdirectory(libslic3r)
 
 if (SLIC3R_ENABLE_FORMAT_STEP)
     add_subdirectory(occt_wrapper)
+endif ()
+
+if(NOT OPEN_SOURCE)
+include_directories($ENV{THIRD_PART_ROOT}/usr/local/include/sentry)
 endif ()
 
 if (SLIC3R_GUI)
@@ -51,9 +72,9 @@ if (SLIC3R_GUI)
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set (wxWidgets_CONFIG_OPTIONS "--toolkit=gtk${SLIC3R_GTK}")
         if (SLIC3R_WX_STABLE)
-            find_package(wxWidgets 3.0 REQUIRED COMPONENTS base core adv html gl webview richtext)
+            find_package(wxWidgets 3.0 REQUIRED COMPONENTS base core adv html gl webview richtext net)
         else ()
-            find_package(wxWidgets 3.1 QUIET COMPONENTS base core adv html gl webview richtext)
+            find_package(wxWidgets 3.1 QUIET COMPONENTS base core adv html gl webview richtext net)
 
             if (NOT wxWidgets_FOUND)
                 message(FATAL_ERROR "\nCould not find wxWidgets 3.1.\n"
@@ -63,7 +84,7 @@ if (SLIC3R_GUI)
 
         include(${wxWidgets_USE_FILE})
     else ()
-        find_package(wxWidgets 3.2 CONFIG REQUIRED COMPONENTS html adv gl core base webview richtext)
+        find_package(wxWidgets 3.2 CONFIG REQUIRED COMPONENTS html adv gl core base webview richtext net)
         slic3r_remap_configs(wx::wxhtml wx::wxadv wx::wxgl wx::wxcore wx::wxbase RelWithDebInfo Release)
         # find_package(wxWidgets 3.1 COMPONENTS html adv gl core base webview)
         # if (NOT wxWidgets_FOUND)
@@ -135,11 +156,40 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/msw/AnkerStudio-gcodeviewer.
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/msw/AnkerStudio.manifest.in ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.manifest @ONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/osx/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/Info.plist @ONLY)
 if (WIN32)
-    add_library(AnkerStudio SHARED AnkerStudio.cpp AnkerStudio.hpp exception_handle/AnkerStackWalker.hpp)
+    add_library(AnkerStudio SHARED AnkerStudio.cpp AnkerStudio.hpp AnkerComFunction.hpp AnkerComFunction.cpp exception_handle/AnkerStackWalker.hpp)
 else ()
-    add_executable(AnkerStudio AnkerStudio.cpp AnkerStudio.hpp)
+    add_executable(AnkerStudio AnkerStudio.cpp AnkerStudio.hpp AnkerComFunction.hpp AnkerComFunction.cpp)
 endif ()
 
+if(FORCE_FETCH_ANKERNET)
+add_custom_command(
+    TARGET AnkerStudio
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "Force get the latest code for AnkerNet"
+    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_SOURCE_DIR}/CMakeLists.txt
+)
+endif()
+
+if (MSVC)
+    message("--------------------anker net copy file , path = ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}")
+    add_custom_command(TARGET AnkerStudio POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/libcrypto-1_1-x64.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/libssl-1_1-x64.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/libcrypto-3-x64.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/paho-mqtt3cs.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/PPCS_API.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/GD_CA.crt ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/make-us.crt ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/make-us-qa.crt ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/avcodec-59.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/avformat-59.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/avutil-57.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/swresample-4.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/swscale-6.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+        VERBATIM
+    )
+endif()
 
 if (MINGW)
     target_link_options(AnkerStudio PUBLIC "-Wl,-allow-multiple-definition")
@@ -152,6 +202,11 @@ if (NOT WIN32 AND NOT APPLE)
 endif ()
 
 target_link_libraries(AnkerStudio libslic3r libcereal)
+
+
+if(NOT OPEN_SOURCE)
+    add_dependencies(AnkerStudio AnkerNet)
+endif()
 
 if (APPLE)
 #    add_compile_options(-stdlib=libc++)
@@ -198,7 +253,7 @@ if (WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -municode")
     endif()
 
-    add_executable(AnkerStudio_app_gui WIN32 AnkerStudio_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
+    add_executable(AnkerStudio_app_gui WIN32 AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
     # Generate debug symbols even in release mode.
     if(MSVC)
         target_link_options(AnkerStudio_app_gui PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
@@ -207,8 +262,12 @@ if (WIN32)
     add_dependencies(AnkerStudio_app_gui AnkerStudio)
     set_target_properties(AnkerStudio_app_gui PROPERTIES OUTPUT_NAME "ankermake studio")
     target_link_libraries(AnkerStudio_app_gui PRIVATE boost_headeronly)
-
-    add_executable(AnkerStudio_app_console AnkerStudio_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
+	
+if(NOT OPEN_SOURCE)
+	target_link_libraries(AnkerStudio_app_gui PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+endif ()
+	
+    add_executable(AnkerStudio_app_console AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
     # Generate debug symbols even in release mode.
     if (MSVC)
         target_link_options(AnkerStudio_app_console PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
@@ -216,9 +275,12 @@ if (WIN32)
     target_compile_definitions(AnkerStudio_app_console PRIVATE -DSLIC3R_WRAPPER_CONSOLE)
     add_dependencies(AnkerStudio_app_console AnkerStudio)
     set_target_properties(AnkerStudio_app_console PROPERTIES OUTPUT_NAME "ankermake studio-console")
+if(NOT OPEN_SOURCE)	
+	target_link_libraries(AnkerStudio_app_console PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+endif ()	
     target_link_libraries(AnkerStudio_app_console PRIVATE boost_headeronly)
 
-    add_executable(AnkerStudio_app_gcodeviewer WIN32 AnkerStudio_app_msvc.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio-gcodeviewer.rc)
+    add_executable(AnkerStudio_app_gcodeviewer WIN32 AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio-gcodeviewer.rc)
     # Generate debug symbols even in release mode.
     if (MSVC)
         target_link_options(AnkerStudio_app_gcodeviewer PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
@@ -227,6 +289,9 @@ if (WIN32)
     add_dependencies(AnkerStudio_app_gcodeviewer AnkerStudio)
     set_target_properties(AnkerStudio_app_gcodeviewer PROPERTIES OUTPUT_NAME "anker-gcodeviewer")
     target_link_libraries(AnkerStudio_app_gcodeviewer PRIVATE boost_headeronly)
+if(NOT OPEN_SOURCE)		
+	target_link_libraries(AnkerStudio_app_gcodeviewer PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+endif ()	
 endif ()
 
 # Link the resources dir to where Slic3r GUI expects it

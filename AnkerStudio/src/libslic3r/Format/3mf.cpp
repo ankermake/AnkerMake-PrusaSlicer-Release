@@ -81,6 +81,7 @@ const std::string SLA_SUPPORT_POINTS_FILE = "Metadata/Slic3r_PE_sla_support_poin
 const std::string SLA_DRAIN_HOLES_FILE = "Metadata/Slic3r_PE_sla_drain_holes.txt";
 const std::string CUSTOM_GCODE_PER_PRINT_Z_FILE = "Metadata/Anker_Studio_custom_gcode_per_print_z.xml";
 const std::string CUT_INFORMATION_FILE = "Metadata/Anker_Studio_cut_information.xml";
+const std::string SLICE_PRINT_TIME_FILAMENT_FILE = "Metadata/Slic3r_Print_Time_Filament.txt";
 
 static constexpr const char* MODEL_TAG = "model";
 static constexpr const char* RESOURCES_TAG = "resources";
@@ -2365,10 +2366,10 @@ namespace Slic3r {
         bool m_zip64 { true };
 
     public:
-        bool save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, bool zip64);
+        bool save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data, bool zip64);
         static void add_transformation(std::stringstream &stream, const Transform3d &tr);
     private:
-        bool _save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, const ThumbnailData* thumbnail_data);
+        bool _save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data);
         bool _add_content_types_file_to_archive(mz_zip_archive& archive);
         bool _add_thumbnail_file_to_archive(mz_zip_archive& archive, const ThumbnailData& thumbnail_data);
         bool _add_relationships_file_to_archive(mz_zip_archive& archive);
@@ -2384,17 +2385,18 @@ namespace Slic3r {
         bool _add_print_config_file_to_archive(mz_zip_archive& archive, const DynamicPrintConfig &config);
         bool _add_model_config_file_to_archive(mz_zip_archive& archive, const Model& model, const IdToObjectDataMap &objects_data);
         bool _add_custom_gcode_per_print_z_file_to_archive(mz_zip_archive& archive, Model& model, const DynamicPrintConfig* config);
+        bool _add_slice_data_to_archive(mz_zip_archive& archive, const SliceModelData& slice_data);
     };
 
-    bool _3MF_Exporter::save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, bool zip64)
+    bool _3MF_Exporter::save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data, bool zip64)
     {
         clear_errors();
         m_fullpath_sources = fullpath_sources;
         m_zip64 = zip64;
-        return _save_model_to_file(filename, model, config, thumbnail_data);
+        return _save_model_to_file(filename, model, config, thumbnail_data, slice_data);
     }
 
-    bool _3MF_Exporter::_save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, const ThumbnailData* thumbnail_data)
+    bool _3MF_Exporter::_save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data)
     {
         mz_zip_archive archive;
         mz_zip_zero_struct(&archive);
@@ -2455,6 +2457,16 @@ namespace Slic3r {
             close_zip_writer(&archive);
             boost::filesystem::remove(filename);
             return false;
+        }
+
+        // Adds slice info profile file ("Metadata/Slic3r_print_time_data.txt").
+        // add slice print time & flilament after do slice
+        if (slice_data != nullptr) {
+            if (!_add_slice_data_to_archive(archive, *slice_data)) {
+                close_zip_writer(&archive);
+                boost::filesystem::remove(filename);
+                return false;
+            }
         }
 
         // Adds layer config ranges file ("Metadata/Slic3r_PE_layer_config_ranges.txt").
@@ -3396,6 +3408,20 @@ bool _3MF_Exporter::_add_custom_gcode_per_print_z_file_to_archive( mz_zip_archiv
     return true;
 }
 
+bool _3MF_Exporter::_add_slice_data_to_archive(mz_zip_archive& archive, const SliceModelData& slice_data)
+{
+    std::string out = "";
+    out += std::string("print_time=") + std::to_string(slice_data.print_time) + std::string("\n");
+    out += std::string("print_filament=") + slice_data.filament_cost;
+    if (!out.empty()) {
+        if (!mz_zip_writer_add_mem(&archive, SLICE_PRINT_TIME_FILAMENT_FILE.c_str(), (const void*)out.data(), out.length(), MZ_DEFAULT_COMPRESSION)) {
+            add_error("Unable to add slice file to archive");
+            return false;
+        }
+    }
+    return true;
+}
+
 // Perform conversions based on the config values available.
 static void handle_legacy_project_loaded(unsigned int version_project_file, DynamicPrintConfig& config, const boost::optional<Semver>& ankerstudio_generator_version)
 {
@@ -3470,7 +3496,7 @@ bool load_3mf(const char* path, DynamicPrintConfig& config, ConfigSubstitutionCo
     return !model->objects.empty() || !config.empty();
 }
 
-bool store_3mf(const char* path, Model* model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, bool zip64)
+bool store_3mf(const char* path, Model* model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data, bool zip64)
 {
     // All export should use "C" locales for number formatting.
     CNumericLocalesSetter locales_setter;
@@ -3479,7 +3505,7 @@ bool store_3mf(const char* path, Model* model, const DynamicPrintConfig* config,
         return false;
 
     _3MF_Exporter exporter;
-    bool res = exporter.save_model_to_file(path, *model, config, fullpath_sources, thumbnail_data, zip64);
+    bool res = exporter.save_model_to_file(path, *model, config, fullpath_sources, thumbnail_data, slice_data, zip64);
     if (!res)
         exporter.log_errors();
 

@@ -4,6 +4,7 @@
 #include <locale>
 #include <utility>
 #include <functional>
+#include <iostream>
 #include <type_traits>
 #include <system_error>
 #include <cmath>
@@ -13,25 +14,12 @@
 
 #include "libslic3r.h"
 
-
-// ANKER_LOG WRAPPER FOR BOOST_LOG_TRIVIAL which contains file name, line numberand function name;
-#ifdef WIN32
-#define PATH_TO_FILE(x) (strrchr(x,'\\') ? strrchr(x,'\\') + 1 : x)
-#else
-#define PATH_TO_FILE(x) (strrchr(x,'/') ? strrchr(x,'/') + 1 : x)
-#endif
-
-#define ANKER_LOG_TRACE BOOST_LOG_TRIVIAL(trace) << "[" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  __FUNCTION__ << "]"
-#define ANKER_LOG_DEBUG BOOST_LOG_TRIVIAL(debug) << "[" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  __FUNCTION__ << "]"
-#define ANKER_LOG_INFO BOOST_LOG_TRIVIAL(info) << "[" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  __FUNCTION__ << "]"
-#define ANKER_LOG_WARNING BOOST_LOG_TRIVIAL(warning) << "[" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  __FUNCTION__ << "]"
-#define ANKER_LOG_ERROR BOOST_LOG_TRIVIAL(error) << "[" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  __FUNCTION__ << "]"
-#define ANKER_LOG_FATAL BOOST_LOG_TRIVIAL(fatal) << "[" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  __FUNCTION__ << "]"
-
 namespace boost { namespace filesystem { class directory_entry; }}
 
 namespace Slic3r {
 
+extern std::string logBaseInfo();
+extern std::string AnkerEncrypt(std::string logContent,int& strLength);
 extern void set_logging_level(unsigned int level);
 extern unsigned get_logging_level();
 // Format memory allocated, separate thousands by comma.
@@ -278,6 +266,10 @@ inline typename CONTAINER_TYPE::value_type& next_value_modulo(typename CONTAINER
 extern std::string xml_escape(std::string text, bool is_marked = false);
 extern std::string xml_escape_double_quotes_attribute_value(std::string text);
 
+
+// Declassify String, eg: abcdefghijk -> abc*****ijk   maskPercentage is the Percentage of '*'
+std::string MaskingString(const std::string& inStr, double maskPercentage);
+
 #if defined __GNUC__ && __GNUC__ < 5 && !defined __clang__
 // Older GCCs don't have std::is_trivially_copyable
 // cf. https://gcc.gnu.org/onlinedocs/gcc-4.9.4/libstdc++/manual/manual/status.html#status.iso.2011
@@ -410,8 +402,23 @@ inline std::string get_time_dhm(float time_in_secs)
     return buffer;
 }
 
-} // namespace Slic3r
+} 
 
+// ANKER_LOG WRAPPER FOR BOOST_LOG_TRIVIAL which contains file name, line numberand function name;
+#ifdef WIN32
+#define PATH_TO_FILE(x) (strrchr(x,'\\') ? strrchr(x,'\\') + 1 : x)
+#else
+#define PATH_TO_FILE(x) (strrchr(x,'/') ? strrchr(x,'/') + 1 : x)
+#endif
+#define BASE_INFO Slic3r::logBaseInfo()
+#define FUNC_NAME(str) ((strrchr(str, ':') ? strrchr(str, ':') + 1 : str))
+
+#define ANKER_LOG_TRACE BOOST_LOG_TRIVIAL(trace)    <<BASE_INFO+ "[trace][" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  FUNC_NAME(__FUNCTION__) << "]"
+#define ANKER_LOG_DEBUG BOOST_LOG_TRIVIAL(debug)    <<BASE_INFO+ "[debug][" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  FUNC_NAME(__FUNCTION__) << "]"
+#define ANKER_LOG_INFO  BOOST_LOG_TRIVIAL(info)     <<BASE_INFO+ "[info][" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  FUNC_NAME(__FUNCTION__) << "]"
+#define ANKER_LOG_WARNING BOOST_LOG_TRIVIAL(warning) <<BASE_INFO+ "[warn][" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  FUNC_NAME(__FUNCTION__) << "]"
+#define ANKER_LOG_ERROR BOOST_LOG_TRIVIAL(error)    <<BASE_INFO+ "[error][" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  FUNC_NAME(__FUNCTION__) << "]"
+#define ANKER_LOG_FATAL BOOST_LOG_TRIVIAL(fatal)    <<BASE_INFO+ "[fatal][" << PATH_TO_FILE(__FILE__) << ":" << __LINE__ << " " <<  FUNC_NAME(__FUNCTION__) << "]"
 
 #if WIN32
     #define SLIC3R_STDVEC_MEMSIZE(NAME, TYPE) NAME.capacity() * ((sizeof(TYPE) + __alignof(TYPE) - 1) / __alignof(TYPE)) * __alignof(TYPE)

@@ -53,6 +53,7 @@ struct Parameters {
     const PrintRegionConfig     &config;
     const PrintObjectConfig     &object_config;
     const PrintConfig           &print_config;
+    ExPolygons                  single_perimeter_regions;
 
     // Derived parameters
     bool                         spiral_vase;
@@ -78,7 +79,9 @@ void process_classic(
     // Gaps without the thin walls
     ExtrusionEntityCollection  &out_gap_fill,
     // Infills without the gap fills
-    ExPolygons                 &out_fill_expolygons);
+    ExPolygons                 &out_fill_expolygons,
+    // No overlap fill contain all
+    ExPolygons                 &out_no_overlap_fills);
 
 void process_arachne(
     // Inputs:
@@ -93,7 +96,9 @@ void process_arachne(
     // Gaps without the thin walls
     ExtrusionEntityCollection  &out_gap_fill,
     // Infills without the gap fills
-    ExPolygons                 &out_fill_expolygons);
+    ExPolygons                 &out_fill_expolygons,
+    // No overlap fill contain all
+    ExPolygons                 &out_no_overlap_fills);
 
 ExtrusionMultiPath thick_polyline_to_multi_path(const ThickPolyline &thick_polyline, ExtrusionRole role, const Flow &flow, float tolerance, float merge_tolerance);
 

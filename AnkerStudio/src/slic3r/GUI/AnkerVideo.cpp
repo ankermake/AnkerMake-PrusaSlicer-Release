@@ -1,32 +1,21 @@
 #include "libslic3r/Utils.hpp"
 #include "GUI_App.hpp"
-
 #include "AnkerVideo.hpp"
-
-#include "../Utils/DataManger.hpp"
 #include "Common/AnkerGUIConfig.hpp"
+#include <slic3r/GUI/GcodeVerify/PrintCheckHint.hpp>
+#include <slic3r/Utils/DataMangerUi.hpp>
+#include "AnkerNetBase.h"
+#include "DeviceObjectBase.h"
+#include "../AnkerComFunction.hpp"
 
 
+extern AnkerPlugin* pAnkerPlugin;
 static std::string num2Str(long long num)
 {
 	std::stringstream ss;
 	ss << num;
 	return ss.str();
 }
-
-#define PrintLog(logString) do { \
-    auto now = std::chrono::system_clock::now(); \
-    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now); \
-    auto ms = now_ms.time_since_epoch().count() % 1000; \
-    auto t = std::chrono::system_clock::to_time_t(now); \
-    std::ostringstream logStream; \
-    char timeBuffer[100]; \
-    std::strftime(timeBuffer, sizeof(timeBuffer), "%Y%m%d %H:%M:%S", std::localtime(&t)); \
-    logStream << "[" << timeBuffer << "." << std::setfill('0') << std::setw(3) << ms << "][" \
-              << std::this_thread::get_id() << "][" << /*__FILE__*/""<< "][" << __FUNCTION__ << "][" << __LINE__ << "]: " << logString; \
-    std::cout << logStream.str() << std::endl; \
-} while(0)
-
 
 std::string GetCurrentTimestampAsString()
 {
@@ -112,6 +101,12 @@ void CustomPopupMenu::setMenuItemWidth(int w)
 {
 	m_menuItemWidth = w;
 }
+
+int CustomPopupMenu::GetMenuItemWidth()
+{
+	return m_menuItemWidth;
+}
+
 void CustomPopupMenu::setMenuItemHeight(int h)
 {
 	m_menuItemHeight = h;
@@ -331,7 +326,6 @@ void CustomComboBox::OnMouseLeftDown(wxMouseEvent& event)
 {
 	int mouseX = event.GetX();
 	int mouseY = event.GetY();
-	wxPoint screenPos = ClientToScreen(wxPoint(mouseX, mouseY + 20));
 
 	CustomPopupMenu* m_popupMenu = new CustomPopupMenu(this);
 	m_popupMenu->SetFont(ANKER_FONT_NO_1);
@@ -342,6 +336,8 @@ void CustomComboBox::OnMouseLeftDown(wxMouseEvent& event)
 		m_popupMenu->AddMenuItem(m_options[i]);
 	}
 	m_popupMenu->SetSelectedMenuItem(m_currentOption);
+
+	wxPoint screenPos = ClientToScreen(wxPoint(mouseX - m_popupMenu->GetMenuItemWidth(), mouseY + 20));
 	m_popupMenu->SetPosition(screenPos);
 	m_popupMenu->SetMenuItemSelectedCallback([this, m_popupMenu](const wxString& menuItem) {
 		//wxLogMessage("you Selected item: %s", menuItem);
@@ -429,6 +425,10 @@ void imageDisplayer::OnLeftButtonDown(wxMouseEvent& event)
 
 void imageDisplayer::OnMouseOver(wxMouseEvent& event)
 {
+	AnkerVideo* video = dynamic_cast<AnkerVideo*>(this->GetParent());
+	if (video && video->IsOffLine())
+		return;
+
 	wxPoint mousePos = event.GetPosition();
 	if (IsInRetryButtonArea(mousePos))
 	{
@@ -594,18 +594,6 @@ AnkerVideo::AnkerVideo(wxWindow* parent, std::string sn)
 
 AnkerVideo::~AnkerVideo()
 {
-	/*
-	if (currVideoState == Video_State_Recving_Frame)
-	{
-		ANKER_LOG_INFO << ("AnkerVideo destrucor, close video sn=" + m_sn);
-		videoImgDisplayer->m_bStopRender = true;
-		DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
-		if (!pDevObj) {
-			return;
-		}
-		pDevObj->setVideoStop(VIDEO_CLOSE_BY_APP_QUIT);
-	}
-	*/
 }
 
 void AnkerVideo::InitGUI()
@@ -682,6 +670,7 @@ void AnkerVideo::InitGUI()
 			m_offlineIconButton = new ScalableButton(videoImgDisplayer, wxID_ANY, "device_wifi_icon_off", wxEmptyString, wxDefaultSize, wxDefaultPosition, wxBU_EXACTFIT | wxNO_BORDER, px_size);
 			m_offlineIconButton->SetBackgroundColour(wxColour("#000000"));
 			sizer->Add(m_offlineIconButton, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+			m_offlineIconButton->Disable();
 
 			m_offlineText = new wxStaticText(videoImgDisplayer, wxID_ANY, _L("common_print_statusnotice_disconnected")); // "Device Is Disconnected,"
 			m_offlineText->SetFont(ANKER_FONT_NO_1);
@@ -692,9 +681,9 @@ void AnkerVideo::InitGUI()
 
 			wxString helpText = _L("common_print_statusnotice_disconnected2"); // "please click to see more help >>"
 			wxSize textSize = videoImgDisplayer->GetTextExtent(helpText);
-			m_offlineHelpLink = new AnkerHyperlink(videoImgDisplayer, wxID_ANY, helpText, "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue", wxColour("#000000"));
-			m_offlineHelpLink->SetMinSize(AnkerSize(textSize.x+10, textSize.y + 10));
-			m_offlineHelpLink->SetSize(AnkerSize(textSize.x + 10, textSize.y + 10));
+			m_offlineHelpLink = new AnkerHyperlink(videoImgDisplayer, wxID_ANY, helpText, "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue", wxColour("#000000"), wxDefaultPosition,wxDefaultSize ,ALIGN_CENTER);
+			m_offlineHelpLink->SetMinSize(AnkerSize(textSize.x+20, textSize.y + 10));
+			m_offlineHelpLink->SetSize(AnkerSize(textSize.x + 20, textSize.y + 10));
 			sizer->Add(m_offlineHelpLink, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
 
 			wxBoxSizer* offLineMsgSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -793,7 +782,9 @@ void AnkerVideo::InitGUI()
 	UpdateUI();
 
 	m_videoStreamConnetingTimer.Bind(wxEVT_TIMER, [=](wxTimerEvent& event) {
-		ANKER_LOG_INFO << ("==ConectingVideo time out");
+		ANKER_LOG_INFO << ("ConectingVideo time out");
+		CloseVideoStream(VIDEO_CLOSE_BY_UI_TIMEOUT);
+
 		this->m_videoStreamConnetingTimer.Stop();
 		this->m_VideoConnetingClosingIconUpdtTimer.Stop();
 		this->currVideoState = Video_State_ConectingVideo_Fail;
@@ -818,9 +809,19 @@ void AnkerVideo::SetOnlineOfflineState(bool state)
 {
 	ANKER_LOG_INFO << ("SetOnlineOfflineState:"+num2Str(state));
 	m_onlineOfflineState = state;
+	currVideoState = Video_State_None;
 	UpdateUI();
+
+	AnkerNetBase* ankerNet = AnkerNetInst();
+	if (ankerNet) {
+		ankerNet->closeVideoStream(VIDEO_CLOSE_BY_OFF_LINE);
+	}
 }
 
+bool AnkerVideo::IsOffLine()
+{
+	return m_onlineOfflineState;
+}
 
 void  AnkerVideo::SetSN(std::string sn)
 {
@@ -861,25 +862,74 @@ void AnkerVideo::onRetryBtnClickCB()
 void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 {
 	ANKER_LOG_INFO << ("===>OnPlayBtnClicked,sn = "+ m_sn);
-    DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
+    DeviceObjectBasePtr pDevObj = CurDevObject(m_sn);
+	//report: start play the video
+	std::string deviceSn = m_sn;
+	std::string errorCode = std::string("0");
+	std::string errorMsg = std::string("start play video");
+
+	std::map<std::string, std::string> buryMap;
+	buryMap.insert(std::make_pair(c_pv_device_sn, deviceSn));
+	buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
+	buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+
     if (!pDevObj)    {
-		ANKER_LOG_ERROR << ("device obj is null");
+		ANKER_LOG_ERROR << ("could not connect video:device obj is null");
+		errorCode = "-1";
+		errorMsg = std::string("could not connect video:device obj is null");
+		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
+		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		reportBuryEvent(e_play_video, buryMap);
+		
         return;
     }
 
-    if (!pDevObj->onlined) {
-		ANKER_LOG_ERROR << ("device is offline");
+    if (!pDevObj->GetOnline()) {
+		ANKER_LOG_ERROR << ("could not connect video:device is offline");
+		errorCode = "-1";
+		errorMsg = std::string("could not connect video:device is offline");
+		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
+		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		reportBuryEvent(e_play_video, buryMap);
+		
         return;
     }
 
-    PRINT_MACHINE *pmachine = Datamanger::GetInstance().getMachine(m_sn);
-    if (!pmachine) {
-        return;
-    }
+	if (pDevObj->GetDeviceType() == DEVICE_V8110_TYPE)
+	{
+		m_isVideoSuport = false;
+	}
 
-    if (pmachine->is_camera == false) {
+	if (PrintCheckHint::StopForV6UnInited(m_sn, this)) {
+		ANKER_LOG_ERROR << ("could not connect video:v6 uninited");
+		errorCode = "-1";
+		errorMsg = std::string("could not connect video:v6 uninited");
+		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
+		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		reportBuryEvent(e_play_video, buryMap);
+		
+		return;
+	}
+	auto ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		errorCode = "-1";
+		errorMsg = std::string("no net module to play video");
+		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
+		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		reportBuryEvent(e_play_video, buryMap);
+		
+		return;
+	}
+
+    if (!pDevObj->GetCameraLimit()) {
+		ANKER_LOG_ERROR << ("could not connect video:no camera permission");
+		errorCode = "-1";
+		errorMsg = std::string("could not connect video:no camera permission");
+		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
+		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		reportBuryEvent(e_play_video, buryMap);
+		
         currVideoState = Video_State_ConectingVideo_Fail;
-
         UpdateUI();
         return;
     }
@@ -895,22 +945,20 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		currVideoState = Video_State_ConectingVideo;
 		UpdateUI();
 
-		Datamanger::GetInstance().setP2POperationType(P2P_TRANSFER_VIDEO_STREAM);
-		Datamanger::GetInstance().setCurrentSn(m_sn);
-		Datamanger::GetInstance().getDeviceDsk(m_sn, nullptr);
-		//pDevObj->setVideoPlayStart();
+		ankerNet->StartP2pOperator(P2P_TRANSFER_VIDEO_STREAM, m_sn, "");
 	}
 	else {
 		ANKER_LOG_ERROR << ("===> ignore, currstate:"+ getVideoStateStr(currVideoState));
 	}
 
-	// ANKER_LOG_INFO << ("--------in playclick thread id=" + num2Str((getThreadIdAsLongLong())));
+	reportBuryEvent(e_play_video, buryMap);
+	
 }
 
 void AnkerVideo::OnStopBtnClicked(wxCommandEvent& event)
 {
 	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
-	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
+	DeviceObjectBasePtr pDevObj = CurDevObject(m_sn);
 	if (!pDevObj) {
 		ANKER_LOG_ERROR << ("device obj is null");
 		return;
@@ -922,21 +970,30 @@ void AnkerVideo::OnStopBtnClicked(wxCommandEvent& event)
 		m_VideoConnetingClosingIconUpdtTimer.Start(100);
 		UpdateUI();
 
-		pDevObj->setVideoStop();
+		AnkerNetBase* ankerNet = AnkerNetInst();
+		if (ankerNet) {
+			ankerNet->closeVideoStream(VIDEO_CLOSE_BY_USER);
+		}
 	}
 	else {
-		ANKER_LOG_ERROR << ("curr state is not playing video, do nothing");
-	}
+		ANKER_LOG_ERROR << ("error state!! curr state is not playing video,should not stop, reset state ...");
+		currVideoState = Video_State_None;
+		UpdateUI();
 
+		auto ankerNet = AnkerNetInst();
+		if (ankerNet) {
+			ankerNet->closeVideoStream(VIDEO_CLOSE_NONE);
+		}
+	}
 }
 
 
 void AnkerVideo::OnTurnOnLightBtnClicked(wxCommandEvent& event)
 {
 	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
-	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
-	if (!pDevObj) {
-		ANKER_LOG_ERROR << ("device obj is null");
+	AnkerNetBase* ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		ANKER_LOG_ERROR << ("ankerNet obj is null");
 		return;
 	}
 
@@ -953,16 +1010,14 @@ void AnkerVideo::OnTurnOnLightBtnClicked(wxCommandEvent& event)
 	});
 	m_timer.StartOnce(3 * 1000);
 
-	//m_camerLightOnoff = true;
-	pDevObj->setCameraLight(true);
+	ankerNet->setCameraLightState(true);
 }
-
 
 void AnkerVideo::OnTurnOffLightBtnClicked(wxCommandEvent& event)
 {
 	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
-	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
-	if (!pDevObj) {
+	AnkerNetBase* ankerNet = AnkerNetInst();
+	if (!ankerNet) {
 		return;
 	}
 
@@ -977,27 +1032,31 @@ void AnkerVideo::OnTurnOffLightBtnClicked(wxCommandEvent& event)
 		});
 	m_timer.StartOnce(3 * 1000);
 
-	pDevObj->setCameraLight(false);
+	ankerNet->setCameraLightState(false);
 }
 
 void AnkerVideo::OnSelectVideoMode(wxString mode)
 {
 	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState));
-	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
-	if (!pDevObj) {
+	AnkerNetBase* ankerNet = AnkerNetInst();
+	if (!ankerNet) {
 		return;
 	}
-	
+
 	if (mode == "HD" || mode == _L("common_print_monitor_switchhd")) {
-		pDevObj->setVideoMode(1);
+		ankerNet->setVideoMode(P2P_VIDEO_MODE_HD);
 	}else if (mode == "Smooth" || mode == _L("common_print_monitor_switchsd") ) {
-		pDevObj->setVideoMode(2);
+		ankerNet->setVideoMode(P2P_VIDEO_MODE_SMOOTH);
 	}
 }
 
-
 void AnkerVideo::displayVideoFrame(const unsigned char* imgData, int width, int height)
 {
+	if (Slic3r::GUI::wxGetApp().is_recreating_gui()) {
+		videoImgDisplayer->m_bStopRender = true;
+		return;
+	}
+
 	if (currVideoState == Video_State_p2pInit_OK) {
 		m_showVideoIcon = false;
 		currVideoState = Video_State_Recving_Frame;
@@ -1101,22 +1160,23 @@ void AnkerVideo::PostUpdateUIEvent()
 
 void AnkerVideo::UpdateUI()
 {
-	ANKER_LOG_INFO << ("===> sn:"+ m_sn+" currstate:" + getVideoStateStr(currVideoState) + " online ? : " + num2Str(m_onlineOfflineState));
+	ANKER_LOG_INFO << ("===> sn:"+ m_sn+" currstate:" + getVideoStateStr(currVideoState) + " online ? : " + num2Str(m_onlineOfflineState))<<"    isShown: "<<this->IsShown();
 
 	bool isOffline = false;
-	bool isVideoSuport = true;
-
 	if (m_onlineOfflineState == false || m_sn.empty()) {
 		isOffline = true;
 	}
 	else {
-		DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
+		DeviceObjectBasePtr pDevObj = CurDevObject(m_sn);
 		if (!pDevObj) {
 			return;
 		}
-		if (pDevObj->deviceType == DEVICE_UNKNOWN_TYPE)
+		if (pDevObj->GetDeviceType() == DEVICE_V8110_TYPE)
 		{
-			isVideoSuport = false;
+			m_isVideoSuport = false;
+		}
+		else {
+			m_isVideoSuport = true;
 		}
 	}
 
@@ -1154,7 +1214,7 @@ void AnkerVideo::UpdateUI()
 	}
 	else
 	{
-		if (isVideoSuport == false)
+		if (m_isVideoSuport == false)
 		{
 			m_playBtn->Show(true);
 			m_playBtn->Enable(false);
@@ -1272,7 +1332,7 @@ void AnkerVideo::UpdateUI()
 
 			case Video_State_p2pInit_OK:
 				m_playBtn->Show(true);
-				m_playBtn->Enable(true);
+				m_playBtn->Enable(false);
 
 				m_stopBtn->Show(false);
 				m_stopBtn->Enable(true);
@@ -1428,17 +1488,6 @@ void AnkerVideo::onRecvCameraLightStateNotify(bool onOff)
 
 void AnkerVideo::onRecVideoModeNotify(int mode)
 {
-	/*
-	//printLog("currVideoState:" + getVideoStateStr(currVideoState));
-	m_videoModeSelector->blockSignals(true);
-	if (m_videoModeComboBox->count() >= 2) {
-		if (mode == 1)      // HD
-			m_videoModeComboBox->setCurrentIndex(0);
-		else if (mode == 2) // smooth
-			m_videoModeComboBox->setCurrentIndex(1);
-	}
-	m_videoModeComboBox->blockSignals(false);
-	*/
 }
 
 void AnkerVideo::onVideoP2pInited()
@@ -1481,7 +1530,11 @@ void AnkerVideo::onRecvVideoStreamClosing(int closeReason)
 void AnkerVideo::onP2pvideoStreamSessionClosed(int closeReason)
 {
 	ANKER_LOG_INFO << ("===> currstate:" + getVideoStateStr(currVideoState) + "  reason:" + num2Str(closeReason));
-	Datamanger::GetInstance().setP2POperationType(P2P_IDLE);
+	auto ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		return;
+	}
+	
 	m_isInP2pSession = false;
 	m_camerLightOnoff = false;
 	m_VideoConnetingClosingIconUpdtTimer.Stop();
@@ -1502,7 +1555,6 @@ void AnkerVideo::onP2pvideoStreamSessionClosed(int closeReason)
 	//UpdateUI();
 	PostUpdateUIEvent();
 	// ANKER_LOG_INFO << ("--------in onClosed, thread id=" + num2Str((getThreadIdAsLongLong())));
-
 }
 
 void AnkerVideo::onRcvP2pVideoStreamCtrlBusyFeedback()
@@ -1529,7 +1581,7 @@ void AnkerVideo::onRcvP2pVideoStreamCtrlAbnomal()
 
 void AnkerVideo::PrintVideoState()
 {
-	DeviceObjectPtr pDevObj = Datamanger::GetInstance().getDeviceObjectFromSn(m_sn);
+	DeviceObjectBasePtr pDevObj = CurDevObject(m_sn);
 	if (pDevObj) {
 	// ANKER_LOG_INFO << ("VideoState:" + getVideoStateStr(currVideoState)  + " sn:" + pDevObj->m_sn + "  devName:" + pDevObj->station_name);
 	}

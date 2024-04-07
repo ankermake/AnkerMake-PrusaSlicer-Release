@@ -55,6 +55,7 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/miniz_extension.hpp"
+#include "../AnkerComFunction.hpp"
 
 // For stl export
 #include "libslic3r/CSGMesh/ModelToCSGMesh.hpp"
@@ -81,6 +82,7 @@
 #include "Mouse3DController.hpp"
 #include "Tab.hpp"
 #include "Jobs/ArrangeJob.hpp"
+#include "Jobs/OrientJob.hpp"
 #include "Jobs/FillBedJob.hpp"
 #include "Jobs/RotoptimizeJob.hpp"
 #include "Jobs/SLAImportJob.hpp"
@@ -109,6 +111,7 @@
 #include "Common/AnkerGUIConfig.hpp"
 #include "Common/AnkerNumberEnterDialog.hpp"
 #include "Common/AnkerMsgDialog.hpp"
+#include "Network/chooseDeviceFrame.h"
 
 #ifdef __APPLE__
 #include "Gizmos/GLGizmosManager.hpp"
@@ -120,14 +123,16 @@
 #include "libslic3r/CustomGCode.hpp"
 #include "libslic3r/Platform.hpp"
 
-#include "../Utils/DataManger.hpp"
-#include <boost/bind.hpp>
+#include "../Utils/DataMangerUi.hpp"
+#include <boost/bind/bind.hpp>
 #include <boost/signals2/connection.hpp>
 #include <boost/filesystem.hpp>
 #include "libslic3r/Utils.hpp"
 
 #include "AnkerGcodePreviewSideBar.hpp"
 #include <slic3r/GUI/AnkerHint.h>
+#include "slic3r/GUI/WebWeak/WebDownloadController.hpp"
+#include "AnkerNetBase.h"
 
 using boost::optional;
 namespace fs = boost::filesystem;
@@ -135,8 +140,10 @@ using Slic3r::_3DScene;
 using Slic3r::Preset;
 using Slic3r::PrintHostJob;
 using Slic3r::GUI::format_wxstr;
-
+extern AnkerPlugin* pAnkerPlugin;
 static const std::pair<unsigned int, unsigned int> THUMBNAIL_SIZE_3MF = { 256, 256 };
+
+wxDEFINE_EVENT(wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP, wxCommandEvent);
 
 namespace Slic3r {
     namespace GUI {
@@ -1025,7 +1032,7 @@ namespace Slic3r {
             sizer->Add(p->scrolled, 1, wxEXPAND);
             sizer->Add(btns_sizer, 0, wxEXPAND | wxLEFT, margin_5);
             //SetSizer(sizer);
-            Datamanger::GetInstance().setPlaterPtr(p->plater);
+            DatamangerUi::GetInstance().setPlaterPtr(p->plater);
 
             // Events
             /*p->btn_export_gcode->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { p->plater->export_gcode(false); });
@@ -1039,8 +1046,8 @@ namespace Slic3r {
                     const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
                     if (export_gcode_after_slicing)
                         p->plater->export_gcode(true);
-                    else
-                        p->plater->reslice();
+                    //else
+                    //    p->plater->reslice();
                     p->plater->select_view_3D(VIEW_MODE_PREVIEW);
                 });
 
@@ -1586,11 +1593,8 @@ namespace Slic3r {
         void Sidebar::updateFileTransferProgressValue(int value) { /*p->m_transferFileProgress->SetValue(value);*/ }
         bool Sidebar::show_send_progress(bool show)    const { show_print_btn(!show); return false;/* p->m_transferFileProgress->Show(show);*/ }
         void Sidebar::OnUpdateProgressEvent(wxThreadEvent& event) {
-            std::thread::id tid = std::this_thread::get_id();
-            std::hash<std::thread::id> hasher;
-            int id = hasher(tid);
             int value = event.GetInt();
-            PrintLog("Datamanger::updateProgressValue: " + std::to_string(value) + ", thread id: " + std::to_string(id));
+            ANKER_LOG_INFO << "Progress: " << value;
             p->m_transferFileProgress->SetValue(value);
         }
 
@@ -1713,13 +1717,40 @@ namespace Slic3r {
 
         bool PlaterDropTarget::OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& filenames)
         {
+            //report: start to drop to load model
+            std::string fileName = std::string();
+            std::string fileSize = std::string("0");
+            std::string handleType = std::string("import");            
+            std::string startTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+            std::string errorCode = std::string("0");
+            std::string errorMsg = std::string("start drop file to load model");
+
+            wxString files = "";
+            for (auto fileInfo : filenames)
+            {
+                files += fileInfo.ToStdString() + " ";
+            }
+            fileName = files.ToUTF8().data();
             //drag file to device panel is not allow
-            if (!wxGetApp().plater()->IsShown()) return false;
+            if (!wxGetApp().plater()->IsShown())
+            {          
+                errorCode = -1;
+                errorMsg = "drag file to device panel is not allow";
+                std::map<std::string, std::string> buryMap;
+                buryMap.insert(std::make_pair(c_hm_type, handleType));
+                buryMap.insert(std::make_pair(c_hm_file_name, fileName));                
+                buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+
+                reportBuryEvent(e_hanlde_model, buryMap);
+
+                return false;
+            }
 #ifdef WIN32
             // hides the system icon
             this->MSWUpdateDragImageOnLeave();
 #endif // WIN32
-
+            m_plater.set_droping_file(true);
             m_mainframe.Raise();
             m_mainframe.select_tab(size_t(0));
             
@@ -1727,7 +1758,7 @@ namespace Slic3r {
                 m_plater.select_view_3D(VIEW_MODE_3D);
             bool res = m_plater.load_files(filenames);
             m_mainframe.update_title();
-            
+            m_plater.set_droping_file(false);
             return res;
         }
 
@@ -1801,9 +1832,8 @@ namespace Slic3r {
             AnkerGcodePreviewSideBar* previewRightSidePanel{ nullptr };
             wxBoxSizer* previewRightSidePanelSizer{ nullptr };
             std::unique_ptr<NotificationManager> notification_manager;
-
+            DynamicPrintConfig m_global_config;
             ProjectDirtyStateManager dirty_state;
-
             BackgroundSlicingProcess    background_process;
             bool suppressed_backround_processing_update{ false };
 
@@ -1830,10 +1860,13 @@ namespace Slic3r {
             AkeyPrintData               a_key_print_data;
 
             bool                        show_render_statistic_dialog{ false };
-
+            bool                        droping_file = false;
             progressChangeCallbackFunction export_progress_change_cb = nullptr;
+            bool app_closing{ false };
+            bool exporting_acode { false };
             bool cancel_export{ false };
             bool create_AI_file = false;
+            std::string exported_file_cache;
             static const std::regex pattern_bundle;
             static const std::regex pattern_3mf;
             static const std::regex pattern_zip_amf;
@@ -1862,7 +1895,7 @@ namespace Slic3r {
                         std::string act = wxGetApp().app_config->get(act_key);
                         if (act.empty()) {
                             RichMessageDialog dialog(mainframe, reason + "\n" + format_wxstr(_L("Do you want to save the changes to \"%1%\"?"), suggested_project_name), wxString(SLIC3R_APP_NAME), wxYES_NO | wxCANCEL);
-                            dialog.SetYesNoLabels(_L("Save"), _L("Discard"));
+                            dialog.SetYesNoCancelLabels(_L("common_button_save"), _L("common_button_discard"), _L("common_button_cancel"));
                             dialog.ShowCheckBox(_L("Remember my choice"));
                             res = dialog.ShowModal();
                             if (res != wxID_CANCEL)
@@ -1897,7 +1930,8 @@ namespace Slic3r {
             }
             void reset_project_dirty_after_save() { m_undo_redo_stack_main.mark_current_as_saved(); dirty_state.reset_after_save(); }
             void reset_project_dirty_initial_presets() { dirty_state.reset_initial_presets(); }
-
+         
+       
 #if ENABLE_PROJECT_DIRTY_STATE_DEBUG_WINDOW
             void render_project_state_debug_window() const { dirty_state.render_debug_window(); }
 #endif // ENABLE_PROJECT_DIRTY_STATE_DEBUG_WINDOW
@@ -1913,7 +1947,7 @@ namespace Slic3r {
             void select_next_view_3D();
 
             wxBoxSizer* CreatePreViewRightSideBar();
-            void updatePreViewRightSideBar(bool SlicingProcessCompletedSuss);
+            void updatePreViewRightSideBar(bool gcode_valid, RightSidePanelUpdateReason reason = REASON_NONE);
             void UpdateCurrentViewType(GCodeViewer::EViewType type);
             bool is_preview_shown() const { return current_panel == preview; }
             bool is_preview_loaded() const { return preview->is_loaded(); }
@@ -1939,6 +1973,8 @@ namespace Slic3r {
 
             bool init_view_toolbar();
             bool init_collapse_toolbar();
+
+            void set_preview_layers_slider_values_range(int bottom, int top);
 
             void update_preview_moves_slider();
             void enable_preview_moves_slider(bool enable);
@@ -1969,6 +2005,7 @@ namespace Slic3r {
 
             void select_all();
             void deselect_all();
+            int get_object_count();
             void remove(size_t obj_idx);
             bool delete_object_from_model(size_t obj_idx);
             void delete_all_objects_from_model();
@@ -2034,14 +2071,24 @@ namespace Slic3r {
             }
             void export_gcode(fs::path output_path, bool output_path_on_removable_media, PrintHostJob upload_job);
             void set_export_progress_change_callback(progressChangeCallbackFunction cb) { export_progress_change_cb = cb; }
-            void cancel_exporting_Gcode() { cancel_export = true; }
+            void set_app_closing(bool v) { app_closing = v; }
+            bool is_exporting_acode() { return exporting_acode;}
+            void cancel_exporting_acode() { cancel_export = true; }
+            bool is_cancel_exporting_Gcode() { return cancel_export; }
             void set_create_AI_file(bool value) {
                 create_AI_file = value;
                 wxString str = wxString::Format("%d", static_cast<int>(create_AI_file));
-                Slic3r::GUI::wxGetApp().app_config->set("create_AI_file", str.ToStdString());
-                background_process.update_temp_output_path(create_AI_file);
+                Slic3r::GUI::wxGetApp().app_config->set("create_AI_file", str.ToStdString(wxConvUTF8));
+                //background_process.set_temp_output_path(create_AI_file);
             }
             bool get_create_AI_file() { return create_AI_file; };
+
+            void update_exported_file_cache(fs::path path);
+            void clear_exported_file_cache();
+
+            void set_droping_file(bool val) { droping_file = val; }
+            bool is_droping_file() { return droping_file; }
+
             void reload_from_disk();
             bool replace_volume_with_stl(int object_idx, int volume_idx, const fs::path& new_path, const wxString& snapshot = "");
             void replace_with_stl();
@@ -2072,6 +2119,12 @@ namespace Slic3r {
             void on_action_split_volumes(SimpleEvent&);
             void on_action_layersediting(SimpleEvent&);
 
+            //// web download model
+            void on_action_request_model_download(const std::string& url);
+            void on_download_complete(wxCommandEvent& evt);
+            ////
+
+
             void on_object_select(SimpleEvent&);
             void on_right_click(RBtnEvent&);
             void on_wipetower_moved(Vec3dEvent&);
@@ -2095,6 +2148,7 @@ namespace Slic3r {
             bool can_split_to_objects() const;
             bool can_split_to_volumes() const;
             bool can_arrange() const;
+            bool can_auto_bed() const;
             bool can_layers_editing() const;
             bool can_fix_through_netfabb() const;
             bool can_simplify() const;
@@ -2150,7 +2204,7 @@ namespace Slic3r {
             // vector of all warnings generated by last slicing
             std::vector<std::pair<Slic3r::PrintStateBase::Warning, size_t>> current_warnings;
             bool show_warning_dialog{ false };
-
+            std::unique_ptr<WebDownloadController> m_downLoad_controller{ std::make_unique<WebDownloadController>() };
         };
 
         const std::regex Plater::priv::pattern_bundle(".*[.](amf|amf[.]xml|zip[.]amf|3mf|akpro)", std::regex::icase);
@@ -2188,6 +2242,7 @@ namespace Slic3r {
             , collapse_toolbar(GLToolbar::Normal, "Collapse")
             , m_project_filename(wxEmptyString)
             , current_view_mode(VIEW_MODE_3D)
+            , m_global_config((wxGetApp().preset_bundle->prints.get_edited_preset().config))
         {
             if (objectbar == nullptr)
             {
@@ -2215,12 +2270,40 @@ namespace Slic3r {
                             return;
 
                         const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
+						//report: start to slice model
+                        std::string fileName = std::string();
+                        std::string fileSize = std::string("0");
+                        auto startTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+                        std::string status = std::string("start");
+                        std::string errorCode = std::string("0");
+                        std::string errorMsg = std::string("start slice model");                                                
+
+                        for (auto object :model.objects)
+                        {
+                            fileName += object->name + " ";
+                        }
+
+                        std::map<std::string, std::string> buryMap;
+                        buryMap.insert(std::make_pair(c_sm_file_name, fileName));
+                        buryMap.insert(std::make_pair(c_sm_file_size, fileSize));
+                        buryMap.insert(std::make_pair(c_sm_time, startTime));
+                        buryMap.insert(std::make_pair(c_sm_status, status));
+                        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+                        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+                        
+                        reportBuryEvent(e_slice_model, buryMap);
+
                         if (export_gcode_after_slicing)
                             q->export_gcode(true);
-                        else
-                            q->reslice();
-                        q->select_view_3D(VIEW_MODE_PREVIEW);
+                        //else
+                        //    q->reslice();
                         
+                        if (current_view_mode == VIEW_MODE_PREVIEW) {
+                            q->reslice();
+                        }
+                        else {
+                            q->select_view_3D(VIEW_MODE_PREVIEW);   // here: switch to PREVIEW mode and reslice()
+                        }                        
                     });
 
                 sidebarnew->Bind(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED, [this, q](wxCommandEvent& event)
@@ -2238,6 +2321,11 @@ namespace Slic3r {
                     {
                         //todo right parameterpanel value changed and update flags process_completed_with_error
                         //schedule_background_process();
+                        DynamicPrintConfig p_config = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+                        // update config from  right side parameter panel
+                        this->sidebarnew->updatePreset(p_config);
+                        m_global_config.apply(p_config);
+                        wxGetApp().mainframe->on_config_changed(&p_config);
                     });
 
             }
@@ -2361,6 +2449,7 @@ namespace Slic3r {
                 view3D_canvas->Bind(EVT_GLTOOLBAR_DELETE_ALL, [this](SimpleEvent&) { delete_all_objects_from_model(); });
                 //        view3D_canvas->Bind(EVT_GLTOOLBAR_DELETE_ALL, [q](SimpleEvent&) { q->reset_with_confirm(); });
                 view3D_canvas->Bind(EVT_GLTOOLBAR_ARRANGE, [this](SimpleEvent&) { this->q->arrange(); });
+                view3D_canvas->Bind(EVT_GLTOOLBAR_AUTO_BED, [this](SimpleEvent&) { this->q->auto_bed(); });
                 view3D_canvas->Bind(EVT_GLTOOLBAR_COPY, [q](SimpleEvent&) { q->copy_selection_to_clipboard(); });
                 view3D_canvas->Bind(EVT_GLTOOLBAR_PASTE, [q](SimpleEvent&) { q->paste_from_clipboard(); });
                 view3D_canvas->Bind(EVT_GLTOOLBAR_MORE, [q](SimpleEvent&) { q->increase_instances(); });
@@ -2368,7 +2457,10 @@ namespace Slic3r {
                 view3D_canvas->Bind(EVT_GLTOOLBAR_SPLIT_OBJECTS, &priv::on_action_split_objects, this);
                 view3D_canvas->Bind(EVT_GLTOOLBAR_SPLIT_VOLUMES, &priv::on_action_split_volumes, this);
                 view3D_canvas->Bind(EVT_GLTOOLBAR_LAYERSEDITING, &priv::on_action_layersediting, this);
-                view3D_canvas->Bind(EVT_GLCANVAS_INITIALIZED, [this](SimpleEvent&) {objectbar->getViewer()->Show(); });
+                view3D_canvas->Bind(EVT_GLCANVAS_INITIALIZED, [this](SimpleEvent&) {
+                    bool visible = wxGetApp().is_editor() && current_view_mode == VIEW_MODE_3D && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE;
+                    objectbar->getViewer()->Show(visible);
+                 });
             }
             view3D_canvas->Bind(EVT_GLCANVAS_UPDATE_BED_SHAPE, [q](SimpleEvent&) { q->set_bed_shape(); });
 
@@ -2396,6 +2488,9 @@ namespace Slic3r {
                 q->Bind(EVT_EXPORT_BEGAN, &priv::on_export_began, this);
                 q->Bind(EVT_GLVIEWTOOLBAR_3D, [q](SimpleEvent&) { q->select_view_3D(VIEW_MODE_3D); });
                 q->Bind(EVT_GLVIEWTOOLBAR_PREVIEW, [q](SimpleEvent&) { q->select_view_3D(VIEW_MODE_PREVIEW); });
+                if (m_downLoad_controller) {
+                    m_downLoad_controller->Bind(EVT_DOWNLOAD_FILE_COMPLETE, &priv::on_download_complete, this);
+                }
             }
 
             // Drop target:
@@ -2439,14 +2534,14 @@ namespace Slic3r {
                         notification_manager->close_notification_of_type(NotificationType::ExportFinished);
                         notification_manager->push_notification(NotificationType::CustomNotification,
                             NotificationManager::NotificationLevel::RegularNotificationLevel,
-                            format(_L("Successfully unmounted. The device %s(%s) can now be safely removed from the computer."), evt.data.first.name, evt.data.first.path)
+                            format(_L("common_slicepopup_deviceremoved1"), evt.data.first.name, evt.data.first.path)
                         );
                     }
                     else {
                         notification_manager->close_notification_of_type(NotificationType::ExportFinished);
                         notification_manager->push_notification(NotificationType::CustomNotification,
                             NotificationManager::NotificationLevel::ErrorNotificationLevel,
-                            format(_L("Ejecting of device %s(%s) has failed."), evt.data.first.name, evt.data.first.path)
+                            format(_L("common_slicepopup_deviceremoved2"), evt.data.first.name, evt.data.first.path)
                         );
                     }
                     });
@@ -2480,11 +2575,13 @@ namespace Slic3r {
                 this->q->load_files(input_files);
                 });
 
-            this->q->Bind(EVT_START_DOWNLOAD_OTHER_INSTANCE, [](StartDownloadOtherInstanceEvent& evt) {
+            this->q->Bind(EVT_START_DOWNLOAD_OTHER_INSTANCE, [&](StartDownloadOtherInstanceEvent& evt) {
                 BOOST_LOG_TRIVIAL(trace) << "Received url from other instance event.";
                 wxGetApp().mainframe->Raise();
                 for (size_t i = 0; i < evt.data.size(); ++i) {
-                    wxGetApp().start_download(evt.data[i]);
+                    //wxGetApp().start_download(evt.data[i]);
+                    //ANKER_LOG_INFO << "other instance download: " << evt.data[i];
+                    //on_action_request_model_download(evt.data[i]);
                 }
 
                 });
@@ -2500,13 +2597,16 @@ namespace Slic3r {
                 sidebar->collapse(is_collapsed);
             }*/
 
-            // CreatePreViewRightSideBar();
+            CreatePreViewRightSideBar();
 
             create_AI_file = false;
+#if ENABLE_AI
+            // init create_AI_file from config file
             if (wxGetApp().app_config->has("create_AI_file")) {
                 bool val = wxGetApp().app_config->get_bool("create_AI_file");
                 set_create_AI_file(val);
             }
+#endif
         }
 
         Plater::priv::~priv()
@@ -2515,6 +2615,12 @@ namespace Slic3r {
                 delete config;
             // Saves the database of visited (already shown) hints into hints.ini.
             notification_manager->deactivate_loaded_hints();
+            clear_exported_file_cache();
+        }
+
+        DynamicPrintConfig& Plater::get_global_config()
+        {
+            return p->m_global_config;
         }
 
         void Plater::priv::update(unsigned int flags)
@@ -2561,11 +2667,11 @@ namespace Slic3r {
             return previewRightSidePanelSizer;
         }
 
-        void Plater::priv::updatePreViewRightSideBar(bool SlicingProcessCompletedSuss)
+        void Plater::priv::updatePreViewRightSideBar(bool gcode_valid, RightSidePanelUpdateReason reason)
         {
             if (previewRightSidePanel)
             {
-                previewRightSidePanel->UpdateGcodePreviewSideBar(SlicingProcessCompletedSuss);
+                previewRightSidePanel->UpdateGcodePreviewSideBar(gcode_valid, reason);
                 previewRightSidePanel->Refresh();
             }
         }
@@ -2622,10 +2728,18 @@ namespace Slic3r {
 
                 if (sidebarnew) {
                     // fix the problem of flickering when switching gcode preview interface.
-                    sidebarnew->Show(false);
-                    sidebarnew->setMainSizer(CreatePreViewRightSideBar());
-                    previewRightSidePanel->UpdateGcodePreviewSideBar(wxGetApp().plater()->is_preview_loaded());
-                    sidebarnew->Show(true);
+                    //sidebarnew->Show(false);
+                    if (sidebarnew->GetSizer())
+                    {
+                        sidebarnew->GetSizer()->Show(false);
+                    }
+                    sidebarnew->setMainSizer(previewRightSidePanelSizer);
+                    previewRightSidePanel->UpdateGcodePreviewSideBar(wxGetApp().plater()->is_preview_loaded(), SELECT_VIEW_MODE_PREVIEW);
+                    if (sidebarnew->GetSizer())
+                    {
+                        sidebarnew->GetSizer()->Show(true);
+                    }
+                  // sidebarnew->Show(true);
                 }
 
                 if (is_preview_loaded() && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE)
@@ -2637,7 +2751,7 @@ namespace Slic3r {
                 preview->showGcodeLayerToolbar(showGcodeLayerToolbar);
             }
 
-            apply_free_camera_correction(false);            
+            apply_free_camera_correction(false);
         }
 
         void Plater::priv::select_next_view_3D()
@@ -2717,7 +2831,7 @@ namespace Slic3r {
                         appConfig->set("Print Check", "machine_type_nohint", isChecked ? "1" : "0");
                     }
                 });
-                wxSize uiSize = AnkerSize(268, 189);
+                wxSize uiSize(268, 189);
                 m_machineTypeMatchHint->InitUI(uiSize.GetWidth(), uiSize.GetHeight());
                 q->updateMatchHint();
             }
@@ -2759,14 +2873,16 @@ namespace Slic3r {
             preset_bundle->update_compatible(PresetSelectCompatibleType::Never);
 
             // show notification about temporarily installed presets
-            if (!names.empty()) {
+
+        //comment by Samuel 20231106, Discarded  unused notification text
+        /*    if (!names.empty()) {
                 std::string notif_text = into_u8(_L_PLURAL("The preset below was temporarily installed on the active instance of AnkerMake Studio",
                     "The presets below were temporarily installed on the active instance of AnkerMake Studio", names.size())) + ":";
                 for (std::string& name : names)
                     notif_text += "\n - " + name;
                 get_notification_manager()->push_notification(NotificationType::CustomNotification,
                     NotificationManager::NotificationLevel::PrintInfoNotificationLevel, notif_text);
-            }
+            }*/
         }
 
         std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_files, bool load_model, bool load_config, bool imperial_units/* = false*/)
@@ -3171,8 +3287,8 @@ namespace Slic3r {
 
             if (scaled_down) {
                 GUI::show_info(q,
-                    _L("Your object appears to be too large, so it was automatically scaled down to fit your print bed."),
-                    _L("Object too large?"));
+                    _L("common_slicenotice_model2big_content"),
+                    _L("Object too large?"), false);
             }
 
             notification_manager->close_notification_of_type(NotificationType::UpdatedItemsInfo);
@@ -3365,6 +3481,11 @@ namespace Slic3r {
             view3D->deselect_all();
         }
 
+        int Plater::priv::get_object_count()
+        {
+            return model.objects.size();
+        }
+
         void Plater::priv::remove(size_t obj_idx)
         {
             if (view3D->is_layers_editing_enabled())
@@ -3440,7 +3561,7 @@ namespace Slic3r {
 
             // The hiding of the slicing results, if shown, is not taken care by the background process, so we do it here
             //sidebar->show_sliced_info_sizer(false);
-            updatePreViewRightSideBar(false);
+            updatePreViewRightSideBar(false, DELETE_ALL_OBJECT);
 
 
             model.custom_gcode_per_print_z.gcodes.clear();
@@ -3495,9 +3616,11 @@ namespace Slic3r {
             Model new_model = model;
             ModelObject* current_model_object = new_model.objects[obj_idx];
 
+            //take snapshot befor clear supports, seams, and multimaterial painting.
+            Plater::TakeSnapshot snapshot(q, _L("Split to Objects"));
+
             // Before splitting object we have to remove all custom supports, seams, and multimaterial painting.
-            wxGetApp().plater()->clear_before_change_mesh(obj_idx, _u8L("Custom supports, seams and multimaterial painting were "
-                "removed after splitting the object."));
+            wxGetApp().plater()->clear_before_change_mesh(obj_idx, _u8L("common_slicepopup_split1"));
 
             wxBusyCursor wait;
             ModelObjectPtrs new_objects;
@@ -3511,9 +3634,9 @@ namespace Slic3r {
                 if (current_model_object->volumes.size() > 1 && current_model_object->volumes.size() != new_objects.size())
                     notification_manager->push_notification(NotificationType::CustomNotification,
                         NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
-                        _u8L("All non-solid parts (modifiers) were deleted"));
+                        _u8L("common_slicepopup_nonsoliddeleted"));
 
-                Plater::TakeSnapshot snapshot(q, _L("Split to Objects"));
+                //Plater::TakeSnapshot snapshot(q, _L("Split to Objects"));
 
                 remove(obj_idx);
 
@@ -3586,11 +3709,12 @@ namespace Slic3r {
                     };
                 }
 
-                notification_manager->push_notification(
-                    NotificationType::ValidateWarning,
-                    NotificationManager::NotificationLevel::WarningNotificationLevel,
-                    _u8L("WARNING:") + "\n" + text, hypertext, action_fn
-                );
+                // comment by Samuel 20231106, Discarded  unused notification text
+                //notification_manager->push_notification(
+                //    NotificationType::ValidateWarning,
+                //    NotificationManager::NotificationLevel::WarningNotificationLevel,
+                //    _u8L("WARNING:") + "\n" + text, hypertext, action_fn
+                //);
             }
         }
 
@@ -3629,10 +3753,13 @@ namespace Slic3r {
                 // Some previously calculated data on the Print was invalidated.
                 // Hide the slicing results, as the current slicing status is no more valid.
                 //sidebar->show_sliced_info_sizer(false);
+                clear_exported_file_cache();
+
                 if (sidebarnew) {
                     std::string tmpGcodePaht = "";
                     wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(tmpGcodePaht);
-                    updatePreViewRightSideBar(false);
+                    updatePreViewRightSideBar(false, GCODE_INVALID);
+                    wxGetApp().plater()->set_gcode_valid(false);
                 }
                 // Reset preview canvases. If the print has been invalidated, the preview canvases will be cleared.
                 // Otherwise they will be just refreshed.
@@ -3763,8 +3890,8 @@ namespace Slic3r {
                 // Avoid a race condition
                 return false;
             }
-            PrintLog("background_process.empty(): " + std::to_string(this->background_process.empty()) + ", "
-                + "background_process.finished(): " + std::to_string(this->background_process.finished()));
+            ANKER_LOG_INFO << "background_process.empty: " << this->background_process.empty() << ", "
+                << "background_process.finished: " << this->background_process.finished();
             if (!this->background_process.empty() &&
                 (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) == 0 &&
                 (((state & UPDATE_BACKGROUND_PROCESS_FORCE_RESTART) != 0 && !this->background_process.finished()) ||
@@ -3784,14 +3911,56 @@ namespace Slic3r {
             return false;
         }
 
+        void Plater::priv::update_exported_file_cache(fs::path gcode_path)
+        {
+            auto get_temp_path = []()-> boost::filesystem::path {
+                fs::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+                return temp_path;
+            };
+
+            fs::path temp_path = get_temp_path();
+            if (fs::exists(temp_path)) {
+                try {
+                    std::string suffix = ".bak";
+                    std::string filename = (/*wxString::FromUTF8 */ (gcode_path.filename().string())/*.ToStdString(wxConvUTF8)*/ + suffix);
+                    fs::path tmp_cache_file = temp_path / filename;
+                    if (!gcode_path.empty() && fs::exists(gcode_path)) {
+                        std::string error_message;
+                        CopyFileResult copy_ret_val = copy_file(gcode_path.string(), tmp_cache_file.string(), error_message, true);
+                        if (copy_ret_val == CopyFileResult::SUCCESS) {
+                            exported_file_cache = tmp_cache_file.string();
+                        }
+                        else {
+                            ANKER_LOG_ERROR << "copy file failed,ret=" << static_cast<int>(copy_ret_val) << " err msg=" << error_message
+                                << "  from file=" << gcode_path.string() << "  to file:" << tmp_cache_file.string();
+                        }
+                    }
+                }
+                catch(const std::exception& e) {
+                    ANKER_LOG_ERROR << "exception:" << e.what();
+                }
+            }
+        }
+
+        void Plater::priv::clear_exported_file_cache()
+        {
+            if (!exported_file_cache.empty() && fs::exists(fs::path(exported_file_cache))) {
+                boost::nowide::remove(exported_file_cache.c_str());
+            }
+
+            exported_file_cache.clear();
+        }
+
         void Plater::priv::export_gcode(fs::path output_path, bool output_path_on_removable_media, PrintHostJob upload_job)
         {
+            ANKER_LOG_INFO << "output_path :" << output_path.string()<<"     output_path_on_removable_media:"<< output_path_on_removable_media;
             wxCHECK_RET(!(output_path.empty() && upload_job.empty()), "export_gcode: output_path and upload_job empty");
             if (model.objects.empty())
                 return;
 
             if (background_process.is_export_scheduled()) {
                 GUI::show_error(q, _L("Another export job is currently running."));
+                ANKER_LOG_ERROR << "background_process.is_export_scheduled";
                 return;
             }
             // bitmask of UpdateBackgroundProcessReturnState
@@ -3799,25 +3968,39 @@ namespace Slic3r {
             if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
                 view3D->reload_scene(false);
 
-            if ((state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) != 0)
+            if ((state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) != 0) {
+                ANKER_LOG_ERROR << "UPDATE_BACKGROUND_PROCESS_INVALID";
                 return;
+            }
 
             show_warning_dialog = true;
+            fs::path gcode_path;
+            wxString outputFilePath = wxString::FromUTF8(output_path.make_preferred().string());
+            if (outputFilePath.EndsWith(".acode")) {
+                gcode_path = output_path;
+                gcode_path.replace_extension(".gcode");
+            }
+            else
+                gcode_path = output_path;
+
             if (!output_path.empty()) {
-                background_process.schedule_export(output_path.string(), output_path_on_removable_media);
+                background_process.schedule_export(gcode_path.string(), output_path_on_removable_media);
                 notification_manager->push_delayed_notification(NotificationType::ExportOngoing, []() {return true; }, 1000, 0);
             }
             else {
                 background_process.schedule_upload(std::move(upload_job));
             }
 
+            previewRightSidePanel->UpdateGcodePreviewSideBar(true, EXPORT_START);
+
             // If the SLA processing of just a single object's supports is running, restart slicing for the whole object.
             this->background_process.set_task(PrintBase::TaskParams());
             this->restart_background_process(priv::UPDATE_BACKGROUND_PROCESS_FORCE_EXPORT);
 
-            if (create_AI_file)
+            cancel_export = false;
+            if (create_AI_file && outputFilePath.EndsWith(".acode"))
             {
-                // std::cout << "=====export gcode job start===" << std::endl;
+                ANKER_LOG_INFO << "start exporting acode";
                 auto generateTempOutputPath = []() {
                     boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
                     temp_path /= boost::format("aiGcode.akpic").str();
@@ -3846,15 +4029,15 @@ namespace Slic3r {
                     tar.Close();
                 };
 
-
+                exporting_acode = true;
                 std::string akpicName = generateTempOutputPath();
                 boost::nowide::remove(akpicName.c_str());
                 auto picInfo = gcode_result.m_pic_infos;
                 {
-                    cancel_export = false;
                     std::string cstring = "aiGcode.gcode";
                     std::vector<double> anker_param_ai_height_array = { 70, 80, 90, 100, 110, 120 };
                     int totalLayer = picInfo.size() > 5 ? picInfo.size() + (5 * anker_param_ai_height_array.size()) : picInfo.size() + (picInfo.size() * anker_param_ai_height_array.size()) ;
+                    //int totalLayer = picInfo.size() > 5 ? 35 : picInfo.size() + (5 * anker_param_ai_height_array.size());
                     post_gcode::processAiPicture  picWrite(cstring, akpicName, picInfo.size(), totalLayer);
                     auto floatToString = [](float num) {
                         std::ostringstream oss;
@@ -3887,8 +4070,15 @@ namespace Slic3r {
 
                     unsigned int i = 0;
                     for (const auto pi : picInfo) {
-                        if (cancel_export)
+                        if (app_closing) {
+                            ANKER_LOG_INFO << "app_closing, stop exporting task";
+                            cancel_export = true;
                             break;
+                        }
+                        if (cancel_export) {
+                            ANKER_LOG_INFO << "export_gcode cancel ,break";
+                            break;
+                        }
                         float percentage = 0.0;
                         if (pi.layer_id <= 5) {
                             for (int h = 0;  h< anker_param_ai_height_array.size();h++) {
@@ -3897,28 +4087,50 @@ namespace Slic3r {
                         }
                         percentage = write_single_image(pi, i, picInfo.size(), 0.0);
                         i++;
-                        // notify UI to update progress
-                        if (i % 10 == 0) {
+                         //notify UI to update progress
+                        if (i % 10 == 1) {
                             if (export_progress_change_cb)
                                 export_progress_change_cb(percentage);
-                            // to give up cpu for UI updating
-                            wxYield();
+                                // to give up cpu for UI updating
+                                wxYield();
                         }
                     }
                 }
 
                 if (!cancel_export) {
-                    // export complete suss
+                    // picInfo render is complete , pack .gcode and .akpic file into .acode(tar) file
                     if (!output_path.empty()) {
-                        std::string export_path = output_path.string();
-                        boost::filesystem::path filePath(export_path);
-                        //fixme: error check
-                        boost::filesystem::path newPath = generateTempGcodePath();
-                        fs::rename(filePath, newPath);
-                        filePath.replace_extension("acode");
-                        createTar(wxString::FromUTF8(filePath.string()), wxString::FromUTF8(newPath.string()), wxString::FromUTF8(akpicName));
-                        boost::nowide::remove(newPath.string().c_str());
-                        boost::nowide::remove(akpicName.c_str());
+                        boost::filesystem::path aiGcode_path = generateTempGcodePath();
+                        if (fs::exists(gcode_path)) {
+                            try {
+                                std::string error_message = "";
+                                CopyFileResult copy_ret_val = copy_file(gcode_path.string(), aiGcode_path.string(), error_message, output_path_on_removable_media);
+                                if (copy_ret_val == CopyFileResult::SUCCESS) {
+                                    createTar(wxString::FromUTF8(output_path.string()), wxString::FromUTF8(aiGcode_path.string()), wxString::FromUTF8(akpicName));
+                                    boost::nowide::remove(gcode_path.string().c_str());
+                                    boost::nowide::remove(aiGcode_path.string().c_str());
+                                    boost::nowide::remove(akpicName.c_str());
+                                    update_exported_file_cache(output_path);
+                                    notification_manager->push_exporting_finished_notification(last_output_path, last_output_dir_path, false);
+                                }
+                                else {
+                                    ANKER_LOG_ERROR<<"copy file failed,ret="<<static_cast<int>(copy_ret_val)<<" err msg="<< error_message << "  from file=" << gcode_path.string() << "  to file:" << aiGcode_path.string();
+                                }
+                            }
+                            catch (...) {
+                                ANKER_LOG_ERROR << "Unknown error occured during exporting A-code. ";
+                                throw Slic3r::ExportError(_u8L("Unknown error occured during exporting A-code."));
+                            }
+                        }
+                        else {
+                            ANKER_LOG_ERROR<<"gcode file have not grenerated:"<< gcode_path.string();
+                        }
+
+                        previewRightSidePanel->UpdateGcodePreviewSideBar(true, EXPORT_ACODE_COMPLETE);
+                    }
+                    else
+                    {
+                        ANKER_LOG_INFO << "output_path is empty";
                     }
 
                     if (export_progress_change_cb)
@@ -3928,10 +4140,25 @@ namespace Slic3r {
                     // export was interupt, to clean the gcode m_outFile
                     boost::nowide::remove(akpicName.c_str());
                     boost::nowide::remove(output_path.string().c_str());
+                    if (fs::exists(gcode_path))
+                        boost::nowide::remove(gcode_path.string().c_str());
+                    previewRightSidePanel->UpdateGcodePreviewSideBar(true, EXPORT_ACODE_CANCEL);
                 }
 
-                // std::cout << "=====export gcode job done===" << std::endl;
+                exporting_acode = false;
             }
+            else
+            {
+                   //previewRightSidePanel->UpdateGcodePreviewSideBar(true, EXPORT_COMPLETE);
+            }
+
+            if (app_closing) {
+                // ANKER_LOG_INFO << "send wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP";
+                wxCommandEvent event(wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP);
+                GUI::wxGetApp().plater()->GetEventHandler()->ProcessEvent(event);
+            }
+
+            ANKER_LOG_INFO << "export_gcode exit";
         }
 
         unsigned int Plater::priv::update_restart_background_process(bool force_update_scene, bool force_update_preview)
@@ -4090,7 +4317,10 @@ namespace Slic3r {
             ModelVolume* volume = object->volumes[volume_idx];
 
             // clear old seam/support/mmu info
+            wxGetApp().aobj_manipul()->set_dirty();
             q->canvas3D()->reset_main_toolbar_toggled_state();
+            q->canvas3D()->get_gizmos_manager().reset_all_states();
+            q->canvas3D()->get_gizmos_manager().update_data();
             volume->supported_facets.reset();
             volume->seam_facets.reset();
             volume->mmu_segmentation_facets.reset();
@@ -4171,7 +4401,10 @@ namespace Slic3r {
                 return (v1.first == v2.first) && (v1.second == v2.second); }), selected_volumes.end());
 
             // clear old seam/support/mmu info
-			q->canvas3D()->reset_main_toolbar_toggled_state();
+            wxGetApp().aobj_manipul()->set_dirty();
+            q->canvas3D()->reset_main_toolbar_toggled_state();
+            q->canvas3D()->get_gizmos_manager().reset_all_states();
+            q->canvas3D()->get_gizmos_manager().update_data();
             for (int i = 0; i < selected_volumes.size(); i++)
             {
                 const ModelObject* object = model.objects[selected_volumes[i].first];
@@ -4876,6 +5109,7 @@ namespace Slic3r {
             //    this->statusbar()->stop_busy();
             notification_manager->set_slicing_progress_export_possible();
 
+            bool is_export_gcode = q->is_exporting_gcode();
             // Reset the "export G-code path" name, so that the automatic background processing will be enabled again.
             this->background_process.reset_export();
             // This bool stops showing export finished notification even when process_completed_with_error is false
@@ -4908,7 +5142,7 @@ namespace Slic3r {
             }
             if (evt.cancelled()) {
                 //        this->statusbar()->set_status_text(_L("Cancelled"));
-                this->notification_manager->set_slicing_progress_canceled(_u8L("Slicing Cancelled."));
+                this->notification_manager->set_slicing_progress_canceled(_u8L("common_slicepopup_slicingcancel"));
             }
 
             // This updates the "Slice now", "Export G-code", "Arrange" buttons status.
@@ -4928,7 +5162,13 @@ namespace Slic3r {
 
        //    this->sidebar->show_sliced_info_sizer(evt.success());
             if (this->sidebarnew) {
-                updatePreViewRightSideBar(evt.success());
+                if (is_export_gcode) { // export g-code complete
+                    updatePreViewRightSideBar(true, PROCCESS_GCODE_COMPLETE);
+                }
+                else { // slice complete
+                    updatePreViewRightSideBar(evt.success(), evt.cancelled() ? SLICING_CANCEL : PROCCESS_GCODE_COMPLETE);
+                    wxGetApp().plater()->set_gcode_valid(evt.success());
+                }
             }
 
             if (evt.cancelled()) {
@@ -4944,18 +5184,76 @@ namespace Slic3r {
                     notification_manager->stop_delayed_notifications_of_type(NotificationType::ExportOngoing);
                     notification_manager->close_notification_of_type(NotificationType::ExportOngoing);
                 }
+
+                bool is_acode_path = wxString::FromUTF8(last_output_path).EndsWith(".acode");
                 // If writing to removable drive was scheduled, show notification with eject button
                 if (exporting_status == ExportingStatus::EXPORTING_TO_REMOVABLE && !has_error) {
                     show_action_buttons(false);
-                    notification_manager->push_exporting_finished_notification(last_output_path, last_output_dir_path,
-                        // Don't offer the "Eject" button on ChromeOS, the Linux side has no control over it.
-                        platform_flavor() != PlatformFlavor::LinuxOnChromium);
+                    if (!(create_AI_file && is_acode_path)) {
+                        notification_manager->push_exporting_finished_notification(last_output_path, last_output_dir_path,
+                            // Don't offer the "Eject" button on ChromeOS, the Linux side has no control over it.
+                            platform_flavor() != PlatformFlavor::LinuxOnChromium);
+                    }
                     wxGetApp().removable_drive_manager()->set_exporting_finished(true);
                 }
-                else if (exporting_status == ExportingStatus::EXPORTING_TO_LOCAL && !has_error)
-                    notification_manager->push_exporting_finished_notification(last_output_path, last_output_dir_path, false);
+                else if (exporting_status == ExportingStatus::EXPORTING_TO_LOCAL && !has_error) {
+                    if (!(create_AI_file && is_acode_path))
+                        notification_manager->push_exporting_finished_notification(last_output_path, last_output_dir_path, false);
+                }
             }
             exporting_status = ExportingStatus::NOT_EXPORTING;
+        }
+
+        void Plater::priv::on_action_request_model_download(const std::string& url)
+        {
+            ANKER_LOG_INFO << "on_download_import_model url: " << url;
+#ifdef __APPLE__
+            if (!wxGetApp().mainframe->IsActive()) {
+                wxGetApp().mainframe->Raise();
+                wxGetApp().mainframe->SetFocus();
+                wxGetApp().mainframe->Maximize();
+            }
+#endif // 
+            if (m_downLoad_controller) {
+                m_downLoad_controller->Init(url);
+                m_downLoad_controller->StartDownLoad();
+            }
+        }
+
+        void Plater::priv::on_download_complete(wxCommandEvent& evt)
+        {
+            auto open_stl = [&](const wxString &file) {
+                std::vector<fs::path> paths{ boost::filesystem::path(file.wx_str()) };
+                wxString snapshot_label;
+                snapshot_label = _L("Download Object");
+                snapshot_label += ": ";
+                snapshot_label += wxString::FromUTF8(paths.front().filename().string().c_str());
+                Plater::TakeSnapshot snapshot(q, snapshot_label);
+                if (!load_files(paths, true, false, false).empty()) {
+                    wxGetApp().mainframe->update_title();
+                }
+            };
+
+            auto open_3mf = [&](const wxString& file) {
+                if (!wxGetApp().can_load_project())
+                    return;
+
+                wxString input_file;
+                q->load_project(file);
+            };
+
+            auto fileName = evt.GetString();
+            if (!fileName.empty()) {
+                if (fileName.EndsWith(".3mf")) {
+                    open_3mf(fileName);
+                }
+                else if (fileName.EndsWith(".stl") || fileName.EndsWith(".obj")) {
+                    open_stl(fileName);
+                }
+            }
+
+            m_downLoad_controller->OnDownLoadComplete();
+            m_downLoad_controller->StopDownLoad();
         }
 
         void Plater::priv::on_layer_editing_toggled(bool enable)
@@ -5047,39 +5345,56 @@ namespace Slic3r {
                 // specified (even though the position is sane).
                 position = wxDefaultPosition;
 #endif
+
+#ifndef __APPLE__
                 if(sidebarnew)
                     sidebarnew->Freeze();
+#endif
+
                 GLCanvas3D& canvas = *q->canvas3D();
                 canvas.apply_retina_scale(mouse_position);
                 canvas.set_popup_menu_position(mouse_position);
                 q->PopupMenu(menu, position);
                 canvas.clear_popup_menu_position();
+
+#ifndef __APPLE__
                 if (sidebarnew) 
                     sidebarnew->Thaw();
+#endif
             }
         }
 
         void Plater::priv::on_wipetower_moved(Vec3dEvent& evt)
         {
-            DynamicPrintConfig cfg;
-            cfg.opt<ConfigOptionFloat>("wipe_tower_x", true)->value = evt.data(0);
-            cfg.opt<ConfigOptionFloat>("wipe_tower_y", true)->value = evt.data(1);
-#if SHOW_OLD_SETTING_DIALOG
-            wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(cfg);
-#endif
-            wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->load_config(cfg);
+//            DynamicPrintConfig cfg;
+//            cfg.opt<ConfigOptionFloat>("wipe_tower_x", true)->value = evt.data(0);
+//            cfg.opt<ConfigOptionFloat>("wipe_tower_y", true)->value = evt.data(1);
+//#if SHOW_OLD_SETTING_DIALOG
+//            wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(cfg);
+//#endif
+//            wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->load_config(cfg);
+
+            double x = evt.data(0);
+            double y = evt.data(1);
+            auto angle = config->opt_float("wipe_tower_rotation_angle");
+            wxGetApp().sidebarnew().moveWipeTower(x, y, angle);
         }
 
         void Plater::priv::on_wipetower_rotated(Vec3dEvent& evt)
         {
-            DynamicPrintConfig cfg;
-            cfg.opt<ConfigOptionFloat>("wipe_tower_x", true)->value = evt.data(0);
-            cfg.opt<ConfigOptionFloat>("wipe_tower_y", true)->value = evt.data(1);
-            cfg.opt<ConfigOptionFloat>("wipe_tower_rotation_angle", true)->value = Geometry::rad2deg(evt.data(2));
-#if SHOW_OLD_SETTING_DIALOG
-            wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(cfg);
-#endif
-            wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->load_config(cfg);
+//            DynamicPrintConfig cfg;
+//            cfg.opt<ConfigOptionFloat>("wipe_tower_x", true)->value = evt.data(0);
+//            cfg.opt<ConfigOptionFloat>("wipe_tower_y", true)->value = evt.data(1);
+//            cfg.opt<ConfigOptionFloat>("wipe_tower_rotation_angle", true)->value = Geometry::rad2deg(evt.data(2));
+//#if SHOW_OLD_SETTING_DIALOG
+//            wxGetApp().get_tab(Preset::TYPE_PRINT)->load_config(cfg);
+//#endif
+//            wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->load_config(cfg);
+
+            double x = evt.data(0);
+            double y = evt.data(1);
+            auto angle = Geometry::rad2deg(evt.data(2));
+            wxGetApp().sidebarnew().moveWipeTower(x, y, angle);
         }
 
         void Plater::priv::on_update_geometry(Vec3dsEvent<2>&)
@@ -5233,6 +5548,7 @@ namespace Slic3r {
             //item.tooltip = _u8L("3D editor view") + " [" + GUI::shortkey_ctrl_prefix() + "5]";
             item.sprite_id = 0;
             item.left.action_callback = [this]() { if (this->q != nullptr) wxPostEvent(this->q, SimpleEvent(EVT_GLVIEWTOOLBAR_3D)); };
+            item.toggled_callback = [this]() {return current_view_mode == VIEW_MODE_3D; };
             if (!view_toolbar.add_item(item))
                 return false;
 
@@ -5241,6 +5557,7 @@ namespace Slic3r {
             //item.tooltip = _u8L("Preview") + " [" + GUI::shortkey_ctrl_prefix() + "6]";
             item.sprite_id = 1;
             item.left.action_callback = [this]() { if (this->q != nullptr) wxPostEvent(this->q, SimpleEvent(EVT_GLVIEWTOOLBAR_PREVIEW)); };
+            item.toggled_callback = [this]() {return current_view_mode == VIEW_MODE_PREVIEW; };
             if (!view_toolbar.add_item(item))
                 return false;
 
@@ -5294,6 +5611,11 @@ namespace Slic3r {
             return true;
         }
 
+        void Plater::priv::set_preview_layers_slider_values_range(int bottom, int top)
+        {
+            preview->set_layers_slider_values_range(bottom, top);
+        }
+         
         void Plater::priv::update_preview_moves_slider()
         {
             preview->update_moves_slider();
@@ -5491,6 +5813,12 @@ namespace Slic3r {
         {
             if (model.objects.empty() || !m_worker.is_idle()) return false;
             return q->canvas3D()->get_gizmos_manager().get_current_type() == GLGizmosManager::Undefined;
+        }
+
+        bool Plater::priv::can_auto_bed() const
+        {
+            if (model.objects.empty() || !m_worker.is_idle()) return false;
+            return true;
         }
 
         bool Plater::priv::can_layers_editing() const
@@ -5852,15 +6180,25 @@ namespace Slic3r {
         {
             // Initialization performed in the private c-tor
             Bind(wxCUSTOMEVT_SHOW_DEVICELIST_DIALOG, [this](wxCommandEvent& event) {
-                wxGetApp().plater_->showDeviceList();
-                });
+                bool hideList = false;
+                int res = 0;
+                wxStringClientData* pData = static_cast<wxStringClientData*>(event.GetClientObject());
+                if (pData) {                    
+                    pData->GetData().ToInt(&res);
+                    hideList = res == 0 ? false : true;
+                }
+                ANKER_LOG_INFO << "hideList: " << hideList << ", res: " << res;
+                wxGetApp().plater_->UpdateDeviceList(hideList);
+            });
 
             Bind(wxEVT_SHOW, &Plater::on_show, this);
+            Bind(wxEVT_IDLE, &Plater::on_idle, this);
         }
 
         Plater::~Plater()
         {
             Unbind(wxEVT_SHOW, &Plater::on_show, this);
+            clear_acode_extract_path();
         }
 
         bool Plater::is_project_dirty() const { return p->is_project_dirty(); }
@@ -5889,6 +6227,13 @@ namespace Slic3r {
         bool Plater::is_project_temp() const
         {
             return false;
+        }
+
+        void Plater::request_model_download(std::string url)
+        {
+            if (p) {
+                p->on_action_request_model_download(url);
+            }
         }
 
         void Plater::new_project()
@@ -5957,12 +6302,66 @@ namespace Slic3r {
         {
             wxArrayString input_files;
             wxGetApp().import_model(this, input_files);
+            
+            //report: start import model on menu
+            std::string handleType = "import";
+            std::string model_name = std::string("");
+            std::string modelSize = std::string("0");
+            std::string errorCode = "0";
+            std::string errorMsg = std::string("Import model from menu");
+            wxString wxModelName = "";
             if (input_files.empty())
+            {
+                errorCode = "-1";
+                errorMsg = "no model files";
+                std::map<std::string, std::string> buryMap;
+                buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+
+                reportBuryEvent(e_hanlde_model, buryMap);
                 return;
+            }
 
             std::vector<fs::path> paths;
             for (const auto& file : input_files)
-                paths.emplace_back(into_path(file));
+            {
+                paths.emplace_back(into_path(file));                
+            }
+            auto GetFileSize = [](const wxString& filePath) -> wxULongLong {
+                wxFileName fname(filePath);
+                if (fname.FileExists()) {
+                    wxFile file(filePath);
+                    if (file.IsOpened()) {
+                        wxULongLong fileSize = file.Length();
+                        file.Close();
+                        return fileSize;
+                    }
+                    else {
+                        ANKER_LOG_ERROR <<("can't open the file: " + filePath);                        
+                    }
+                }
+                else {
+                    ANKER_LOG_ERROR << ("file not exist: %s", filePath);
+                }
+                return 0;
+            };
+            
+            wxULongLong filesSize = 0;
+            for (const wxString& filePath : input_files)
+            {
+                
+                wxModelName += filePath.ToStdString() + " ";
+                filesSize += GetFileSize(filePath);
+            }
+            modelSize = filesSize.ToString().ToStdString();
+            model_name = wxModelName.ToUTF8().data();
+            std::map<std::string, std::string> buryMap;
+            buryMap.insert(std::make_pair(c_hm_type, handleType));
+            buryMap.insert(std::make_pair(c_hm_file_name, model_name));            
+            buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+            buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+
+            reportBuryEvent(e_hanlde_model, buryMap);
 
             wxString snapshot_label;
             assert(!paths.empty());
@@ -6642,12 +7041,163 @@ namespace Slic3r {
             return false;
         }
 
+        bool Plater::ImportIsACode() const
+        {
+            if (p->preview) {
+                return p->preview->ImportIsACode();
+            }
+            return false;
+        }
+
+        std::string Plater::get_acode_extract_path()
+        {
+            boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+            temp_path /= "acode_extract";
+            return temp_path.string();
+        }
+
+        void Plater::clear_acode_extract_path()
+        {
+            fs::path directory(get_acode_extract_path());
+            if (fs::exists(directory) && fs::is_directory(directory)) {
+                for (auto& file : fs::directory_iterator(directory)) {
+                    try {
+                        fs::remove_all(file);
+                    }
+                    catch (const std::exception& e) {
+                        ANKER_LOG_ERROR << "Error removing file: " << file.path().string() << " - " << e.what() ;
+                    }
+                }
+            }
+        }
+
+        // extract pattern file from .tar to the outputdir
+        bool Plater::ExtractFilesFromTar(const wxString& tarFilePath, const wxString& outputDir, std::string file_pattern_regex) {
+            bool ret = false;
+
+            wxFileInputStream tarFile(tarFilePath);
+            wxTarInputStream tarStream(tarFile);
+
+            const std::regex pattern_file(file_pattern_regex, std::regex::icase);
+            if (tarFile.IsOk() && tarStream.IsOk()) {
+                wxTarEntry* entry = nullptr;
+                while ((entry = tarStream.GetNextEntry()) != nullptr) {
+                    wxString entryName = entry->GetName();
+
+                    if (std::regex_match(entryName.ToStdString(wxConvUTF8), pattern_file))
+                    {
+                        wxString outputPath = wxFileName(outputDir, entryName).GetFullPath();
+
+                        if (entry->IsDir()) {
+                            wxFileName::Mkdir(outputPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+                        }
+                        else {
+                            wxFileOutputStream outputFile(outputPath);
+                            if (outputFile.IsOk()) {
+                                outputFile.Write(tarStream);
+                                ret = true;
+                            }
+                            else {
+                                ANKER_LOG_ERROR << "Error creating output file: " << outputPath;
+                            }
+                        }
+                    }
+                    delete entry;
+                }
+            }
+            else {
+                ANKER_LOG_ERROR<<"Error opening tar file.";
+            }
+
+            return ret;
+        }
+
+        // extract aiGcode.gcode file from .acode(.tar) file
+        wxString Plater::extract_aiGcode_file_from_tar(const wxString& tarFilePath)
+        {
+            auto RenameFile = [&](const wxString& filePath, const wxString& newFileName)->bool {
+                wxFileName fileName(filePath);
+                if (fileName.FileExists()) {
+                    wxString newPath = fileName.GetPath() + wxFILE_SEP_PATH + newFileName;
+                    wxRenameFile(filePath, newPath);
+                    return true;
+                    /*
+                    if (wxRenameFile(filePath, newPath)) {
+                        return true;
+                    }
+                    else {
+                        ANKER_LOG_ERROR<<"Error renaming file:"<< filePath;
+                        return true;
+                    }
+                    */
+                }
+                else {
+                    ANKER_LOG_ERROR<<"File does not exist:"<< filePath;
+                    return false;
+                }
+            };
+
+            auto DeleteFileIfExist = [&](const wxString& filePath)->bool {
+                wxFileName fileName(filePath);
+                if (fileName.FileExists()) {
+                    if (wxRemoveFile(filePath)) 
+                        return true;                    
+                    else 
+                        return false;
+                }
+                return true;
+            };
+
+            auto GetTimestampString = []() -> std::string {
+                auto now = std::chrono::system_clock::now();
+                auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+                return std::to_string(timestamp);
+            };
+
+            wxString aiGcodePath;
+            std::string acode_extract_path_str = get_acode_extract_path();
+            boost::filesystem::path acode_extract_path(acode_extract_path_str);
+            if (!boost::filesystem::exists(boost::filesystem::path(acode_extract_path))) {
+                boost::filesystem::create_directory(acode_extract_path);
+            }
+
+            std::string aiGcodeFile = "aiGcode.gcode";
+            aiGcodePath = wxFileName(acode_extract_path_str, aiGcodeFile).GetFullPath();
+
+            if (ExtractFilesFromTar(tarFilePath.ToStdString(wxConvUTF8), acode_extract_path_str, aiGcodeFile)) {
+                wxFileName tarFile(tarFilePath);
+                wxString tarFileName = tarFile.GetFullName();
+                std::string currTimeStamp = GetTimestampString();
+                wxString aiGcodeFileNewName = tarFileName + "_" + currTimeStamp + "_" + aiGcodeFile;
+
+                if (RenameFile(aiGcodePath, aiGcodeFileNewName))
+                    return wxFileName(acode_extract_path_str, aiGcodeFileNewName).GetFullPath();
+            }
+
+            return "";
+        }
+
         bool Plater::load_files(const wxArrayString& filenames, bool delete_after_load/*=false*/)
         {
             const std::regex pattern_drop(".*[.](stl|obj|amf|3mf|akpro|step|stp|zip)", std::regex::icase);
-            const std::regex pattern_gcode_drop(".*[.](gcode|g)", std::regex::icase);
+            const std::regex pattern_gcode_drop(".*[.](gcode|g|acode)", std::regex::icase);
 
             std::vector<fs::path> paths;
+
+            //report import gocde/acode
+            std::string handleFileName = std::string();
+            std::string fileSize = std::string("0");
+            std::string handleType = std::string("import");
+            std::string handleDuration = std::string("0");
+            auto startTime = wxDateTime::Now();
+            std::string errorCode = std::string("0");
+            std::string errorMsg = std::string("start to import ");
+            wxString files = "";
+
+            for (const auto& filename : filenames)
+                files += filename + " ";
+            handleFileName = files.ToUTF8().data();
+            errorMsg += handleFileName;
 
             // gcode viewer section
             if (wxGetApp().is_gcode_viewer()) {
@@ -6666,27 +7216,66 @@ namespace Slic3r {
                 else if (paths.size() == 1) {
                     ANKER_LOG_INFO << "Import path: " << paths.front();
 #ifdef _WIN32
-                    wxString utf8Path = wxString::FromUTF8(paths.front().string());
-                    load_gcode(utf8Path);
-                    setAKeyPrintSlicerTempGcodePath(utf8Path.ToStdString());
+                    wxString strPath = wxString::FromUTF8(paths.front().string());
 #elif __APPLE__
-                    load_gcode(paths.front().string());
-                    setAKeyPrintSlicerTempGcodePath(paths.front().string());
-#endif // _WIN32
+                    wxString strPath = wxString(paths.front().string());
+#endif
+                    wxString gcodePath;
+                    if (strPath.EndsWith(".acode")) {
+                        wxString aiGcodePath = extract_aiGcode_file_from_tar(strPath);
+                        if (!aiGcodePath.empty())
+                            gcodePath = aiGcodePath;
+                        else {
+                            ANKER_LOG_ERROR << "extract aiGcode.gcode from failed! .acode(.tar) = " << strPath;
+
+                            errorCode = "-1";
+                            errorMsg = "extract aiGcode.gcode from failed! .acode(.tar)";
+                            std::map<std::string, std::string> buryMap;
+                            buryMap.insert(std::make_pair(c_ag_file_name, handleFileName));
+                            buryMap.insert(std::make_pair(c_ag_file_size, fileSize));
+                            buryMap.insert(std::make_pair(c_ag_handle_type, handleType));
+                            buryMap.insert(std::make_pair(c_ag_handle_duration, "0"));
+                            buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                            buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                            reportBuryEvent(e_ag_handle, buryMap);
+
+                            return false;
+                        }
+                        this->p->preview->setImportIsACode(true);
+                    }
+                    else {
+                        gcodePath = strPath;
+                        this->p->preview->setImportIsACode(false);
+                    }
+
+                    load_gcode(gcodePath);
+                    m_last_loaded_gcode = strPath;
+                    setAKeyPrintSlicerTempGcodePath(gcodePath.ToStdString(wxConvUTF8));
 
                     if (p->previewRightSidePanel) {
-                        p->previewRightSidePanel->UpdateGcodePreviewSideBar(true);
+                        p->previewRightSidePanel->UpdateGcodePreviewSideBar(true, strPath.EndsWith(".acode") ? LOAD_ACODE_FILE_FOR_PREVIEW : LOAD_GCODE_FILE_FOR_PREVIEW);
                         this->p->get_current_canvas3D()->zoom_to_bed();
                         ANKER_LOG_INFO << "UpdateGcodePreviewSideBar.";
                     }
-                    
+
+                    std::map<std::string, std::string> buryMap;
+                    buryMap.insert(std::make_pair(c_ag_file_name, handleFileName));
+                    buryMap.insert(std::make_pair(c_ag_file_size, fileSize));
+                    buryMap.insert(std::make_pair(c_ag_handle_type, handleType));
+                    buryMap.insert(std::make_pair(c_ag_handle_duration, "0"));
+                    buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                    buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                    reportBuryEvent(e_ag_handle, buryMap);
                     return true;
                 }
                 return false;
             }
 
-            // editor section
+            // editor section drop to load gcode/acode
             for (const auto& filename : filenames) {
+                
                 fs::path path(into_path(filename));
                 if (std::regex_match(path.string(), pattern_drop))
                     paths.push_back(std::move(path));
@@ -6695,39 +7284,84 @@ namespace Slic3r {
                         start_new_gcodeviewer(&filename);
                     }
                     else {  
-                        ANKER_LOG_INFO << "Import gcode: " << path.string();
+                        ANKER_LOG_INFO << "Import gcode/acode: " << path.string();
                         this->p->preview->setGCodeImportType(true); // Set import gcode type.
+
 #ifdef _WIN32
-                        wxString utf8Path = wxString::FromUTF8(path.string());
-                        setAKeyPrintSlicerTempGcodePath(utf8Path.ToStdString());
+                        wxString strPath = wxString::FromUTF8(path.string());
 #elif __APPLE__
-                        setAKeyPrintSlicerTempGcodePath(path.string());
-#endif // _WIN32
+                        wxString strPath = wxString(path.string());
+#endif
+                        wxString gcodePath;
+
+                        if (strPath.EndsWith(".acode")) {
+                            wxString aiGcodePath = extract_aiGcode_file_from_tar(strPath);
+                            if (!aiGcodePath.empty())
+                                gcodePath = aiGcodePath;
+                            else {
+                                ANKER_LOG_ERROR << "extract aiGcode.gcode from failed! .acode(.tar) = " << strPath;
+                                errorCode = -1;
+                                errorMsg = "extract aiGcode.gcode from failed! .acode(.tar) = " + strPath.ToStdString();
+
+                                std::map<std::string, std::string> buryMap;
+                                buryMap.insert(std::make_pair(c_ag_file_name, handleFileName));
+                                buryMap.insert(std::make_pair(c_ag_file_size, fileSize));
+                                buryMap.insert(std::make_pair(c_ag_handle_type, handleType));
+                                buryMap.insert(std::make_pair(c_ag_handle_duration, "0"));
+                                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+                                
+                                reportBuryEvent(e_ag_handle, buryMap);
+
+                                return false;
+                            }
+                            this->p->preview->setImportIsACode(true);
+                        }
+                        else {
+                            gcodePath = strPath;
+                            this->p->preview->setImportIsACode(false);
+                        }
+
+                        setAKeyPrintSlicerTempGcodePath(gcodePath.ToStdString(wxConvUTF8));
 
                         select_view_3D(VIEW_MODE_PREVIEW);
                         wxGetApp().set_app_mode(GUI_App::EAppMode::GCodeViewer);
 
-#ifdef  _WIN32
-                        load_gcode(utf8Path);
-#elif __APPLE__
-                        load_gcode(path.string());
-#endif //  _WIN32
-                        
+                        load_gcode(gcodePath);
+                        m_last_loaded_gcode = strPath;
+
                        if (p->previewRightSidePanel) {
-                        p->previewRightSidePanel->UpdateGcodePreviewSideBar(true);
-                        }
+                            p->previewRightSidePanel->UpdateGcodePreviewSideBar(true, strPath.EndsWith(".acode") ? LOAD_ACODE_FILE_FOR_PREVIEW : LOAD_GCODE_FILE_FOR_PREVIEW);
+                       }
                         this->p->get_current_canvas3D()->zoom_to_bed();
-                        ANKER_LOG_INFO << "Import gcode end.";
+                        ANKER_LOG_INFO << "Import acode/gcode end.";
+
+                        auto nowTime = wxDateTime::Now();
+                        auto timeDifference = nowTime - startTime;
+                        handleDuration = timeDifference.GetValue().ToString().ToStdString();
                     }
                 }
                 else
                     continue;
             }
             if (paths.empty())
+            {
+                //add by alves import gcode/acode end.
                 // Likely all paths processed were gcodes, for which a G-code viewer instance has hopefully been started.
-                return false;
+                std::map<std::string, std::string> buryMap;
+                buryMap.insert(std::make_pair(c_ag_file_name, handleFileName));
+                buryMap.insert(std::make_pair(c_ag_file_size, fileSize));
+                buryMap.insert(std::make_pair(c_ag_handle_type, handleType));
+                buryMap.insert(std::make_pair(c_ag_handle_duration, handleDuration));
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
 
-            // searches for project files
+                reportBuryEvent(e_ag_handle, buryMap);
+                
+                return false;
+            }
+
+            // searches for project files  drop to start import 3mf and the other files
             for (std::vector<fs::path>::const_reverse_iterator it = paths.rbegin(); it != paths.rend(); ++it) {
                 std::string filename = (*it).filename().string();
                 if (boost::algorithm::iends_with(filename, ".3mf") || boost::algorithm::iends_with(filename, ".amf")) {
@@ -6772,14 +7406,33 @@ namespace Slic3r {
                     case ProjectDropDialog::LoadType::OpenWindow: {
                         wxString f = from_path(*it);
                         start_new_slicer(&f, false, delete_after_load);
+                        errorCode = "-1";
+                        errorMsg = "did not load anything to this instance";
+
+                        std::map<std::string, std::string> buryMap;
+                        buryMap.insert(std::make_pair(c_hm_file_name, filename));                        
+                        buryMap.insert(std::make_pair(c_hm_type, handleType));
+                        buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                        buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+
+                        reportBuryEvent(e_hanlde_model, buryMap);
                         return false; // did not load anything to this instance
                     }
                     case ProjectDropDialog::LoadType::Unknown: {
                         assert(false);
+                        errorCode = "-1";
+                        errorMsg = "unknwon model";
                         break;
                     }
                     }
 
+                    std::map<std::string, std::string> buryMap;
+                    buryMap.insert(std::make_pair(c_hm_file_name, filename));                    
+                    buryMap.insert(std::make_pair(c_hm_type, handleType));
+                    buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                    buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+
+                    reportBuryEvent(e_hanlde_model, buryMap);
                     return true;
                 }
                 else if (boost::algorithm::iends_with(filename, ".zip")) {
@@ -6807,6 +7460,14 @@ namespace Slic3r {
             }
             Plater::TakeSnapshot snapshot(this, snapshot_label);
             load_files(paths);
+
+            std::map<std::string, std::string> buryMap;
+            buryMap.insert(std::make_pair(c_hm_file_name, handleFileName));
+            buryMap.insert(std::make_pair(c_hm_type, handleType));
+            buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+            buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+
+            reportBuryEvent(e_hanlde_model, buryMap);
 
             return true;
         }
@@ -6843,6 +7504,7 @@ namespace Slic3r {
 
         void Plater::select_all() { p->select_all(); }
         void Plater::deselect_all() { p->deselect_all(); }
+        int Plater::get_object_count() { return p->get_object_count(); }
 
         void Plater::remove(size_t obj_idx) { p->remove(obj_idx); }
         void Plater::reset() { p->reset(); }
@@ -6861,6 +7523,8 @@ namespace Slic3r {
             if (p->get_selection().is_empty())
                 return;
 
+            if (!p->can_delete())
+                return;
 
             Plater::TakeSnapshot snapshot(this, _L("Delete Selected Objects"));
             get_ui_job_worker().cancel_all();
@@ -6964,7 +7628,7 @@ namespace Slic3r {
 
            /* wxNumberEntryDialog dialog(parent, msg, prompt, title, value, min, max, wxDefaultPosition);
             wxGetApp().UpdateDlgDarkUI(&dialog);*/
-            AnkerNumberEnterDialog dialog(parent, title.ToStdString(), prompt, min, max, value);
+            AnkerNumberEnterDialog dialog(parent, title.ToStdString(wxConvUTF8), prompt, min, max, value);
             dialog.CenterOnParent();
             if (dialog.ShowModal() == wxID_OK)
                 return dialog.GetValue();
@@ -6980,7 +7644,7 @@ namespace Slic3r {
 
             const size_t init_cnt = obj_idxs.size() == 1 ? p->model.objects[*obj_idxs.begin()]->instances.size() : 1;
             const int num = GetNumberFromUser(" ", _L("Number of the selected object:"),
-                _L("Set number of instances"), init_cnt, 0, 1000, this);
+                _L("common_popup_setnumberofinstances_title"), init_cnt, 0, 1000, this);
             if (num < 0)
                 return;
             TakeSnapshot snapshot(this, wxString::Format(_L("Set numbers of copies to %d"), num));
@@ -7087,20 +7751,22 @@ namespace Slic3r {
             size_t last_id = p->model.objects.size() - 1;
             for (size_t i = 0; i < new_objects.size(); ++i)
                 selection.add_object((unsigned int)(last_id - i), i == 0);
+
+            p->get_current_canvas3D()->get_wxglcanvas()->SetFocus();
         }
 
         bool copyFile(const wxString& sourcePath, const wxString& destinationPath)
         {
             wxFile sourceFile(sourcePath, wxFile::read);
             if (!sourceFile.IsOpened()) {
-                PrintLog("Failed to open source file: " + sourcePath.ToStdString());
+                ANKER_LOG_ERROR << "Failed to open source file: " << sourcePath.ToStdString(wxConvUTF8);
                 return false;
             }
 
             wxFile destinationFile(destinationPath, wxFile::write);
             if (!destinationFile.IsOpened())
             {
-                PrintLog("Failed to open destination file: " + destinationPath.ToStdString());
+                ANKER_LOG_ERROR << "Failed to open destination file: " << destinationPath.ToStdString(wxConvUTF8);
                 return false;
             }
 
@@ -7117,7 +7783,7 @@ namespace Slic3r {
                     bytesCopied += bytesRead;
                 }
                 else {
-                    PrintLog("Failed to read from source file: " + sourcePath.ToStdString());
+                    ANKER_LOG_ERROR << "Failed to read from source file: " << sourcePath.ToStdString(wxConvUTF8);
                     sourceFile.Close();
                     destinationFile.Close();
                     return false;
@@ -7128,20 +7794,134 @@ namespace Slic3r {
             return true;
         }
 
-        void Plater::showDeviceList()
+        bool Plater::ExportGacode()
         {
+            auto ankerNet = AnkerNetInst();
+            if (!ankerNet) {
+                return false;
+            }
+
+            ANKER_LOG_INFO << std::string("get_last_loaded_gcode: ") + get_last_loaded_gcode().ToStdString(wxConvUTF8);
+            if (this->p->preview->is_GcodeImported()) {
+                m_currentPrintGcodeFile = get_last_loaded_gcode().ToStdString(wxConvUTF8);
+            }
+            else {
+                m_currentPrintGcodeFile = "";
+                export_akeyPrint_gcode(m_currentPrintGcodeFile);
+                if (is_cancel_exporting_Gcode()) {
+                    ANKER_LOG_INFO << "exporting gcode is cancel";
+                    return false;
+                }
+            }
+            
+            std::thread::id tid = std::this_thread::get_id();
+            std::hash<std::thread::id> hasher;
+            int id = hasher(tid);
+            ANKER_LOG_INFO << "Plater::showDeviceList thread id: " + std::to_string(id);
+            ModelObjectPtrs modelObjects = model().objects;
+            ANKER_LOG_INFO << "m_currentPrintGcodeFile: " + m_currentPrintGcodeFile;
+                       
+            wxString fileName = "";
+            if (this->p->preview->is_GcodeImported()) {
+                wxString tempGCodeFullName = get_last_loaded_gcode();
+
+                int index = std::string::npos;
+#ifdef _WIN32
+                index = tempGCodeFullName.find_last_of("\\");
+#elif __APPLE__
+                index = tempGCodeFullName.find_last_of("/");
+#endif
+                if (index == std::string::npos) {
+                    ANKER_LOG_ERROR << "Not found gcode: " << get_last_loaded_gcode().ToStdString(wxConvUTF8);
+                    return false;
+                }
+                index++;
+                fileName = tempGCodeFullName.substr(index, tempGCodeFullName.length() - index);
+                //wxString inputFile = wxString::FromUTF8((*modelObjects.begin())->input_file);
+                int index1 = m_currentPrintGcodeFile.find_last_of(".") + 1;
+                if (index1 < 0 || index1 > m_currentPrintGcodeFile.length()) {
+                    ANKER_LOG_ERROR << "m_currentPrintGcodeFile is error, index1: " << index1;
+                    return false;
+                }
+                std::string suffix = m_currentPrintGcodeFile.substr(index1, m_currentPrintGcodeFile.length() - index1);
+
+                int index2 = fileName.find_last_of(".") + 1;
+                if (index2 < 0 || index2 > fileName.length()) {
+                    ANKER_LOG_ERROR << "m_currentPrintGcodeFile is error, index2: " << index2;
+                    return false;
+                }
+                wxString gCodeName = fileName.substr(0, index2 - 1);
+#ifdef _WIN32
+                int index3 = m_currentPrintGcodeFile.find_last_of("\\") + 2;
+#elif __APPLE__
+                int index3 = m_currentPrintGcodeFile.find_last_of("/") + 2;
+#endif
+                std::string destPath = m_currentPrintGcodeFile.substr(0, index3 - 1);
+                wxString wdestPath = wxString::FromUTF8(destPath);
+                wdestPath  += gCodeName + wxString("_bak") + wxString(".") + wxString::FromUTF8(suffix) ;
+                bool cpRet = copyFile(wxString::FromUTF8(m_currentPrintGcodeFile), wdestPath);
+                if (!cpRet) {
+                    ANKER_LOG_ERROR << "CopyFile error! m_currentPrintGcodeFile: " << m_currentPrintGcodeFile;
+                    return false;
+                }
+#ifdef _WIN32
+                ankerNet->SetGcodePath(wdestPath.ToStdString(wxConvUTF8));
+#elif __APPLE__
+                ankerNet->SetGcodePath(wdestPath.ToStdString(wxConvUTF8));
+#endif // _WIN32
+            }
+            else {
+                ankerNet->SetGcodePath(m_currentPrintGcodeFile);
+            }
+            ANKER_LOG_INFO << "m_aKeyPrintGcodePath: " + ankerNet->GetGcodePath();
+
+            return true;
+        }
+
+        void Plater::UpdateDeviceList(bool hideList)
+        {
+            if (m_chooseDeviceDialog) {
+                if (hideList) {
+                    m_chooseDeviceDialog->SetLoadingVisible(false);
+                    m_chooseDeviceDialog->EndModal(wxID_CLOSE);
+                    return;
+                }
+
+                m_chooseDeviceDialog->UpdateGui();
+                m_chooseDeviceDialog->SetLoadingVisible(false);
+            }
+        }
+
+        void Plater::ShowDeviceList()
+        {
+            wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+            wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+            wxSize dialogSize = AnkerSize(400, 370);
+            wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, 
+                mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+            m_chooseDeviceDialog = new AnkerChooseDeviceDialog(nullptr, wxID_ANY, 
+                _L("common_preview_1print_title"), center);
+            ANKER_LOG_INFO << "chooseDeviceDialog show";
+            m_chooseDeviceDialog->ShowModal();
+            delete m_chooseDeviceDialog;
+            m_chooseDeviceDialog = nullptr;
+
+            // fix: the checkbox UI effect change when chooseDeviceDialog popup.
+            p->previewRightSidePanel->UpdateGcodePreviewSideBar(true, REASON_NONE);
         }
 
         // A key print clicked.
         void Slic3r::GUI::Plater::a_key_print_clicked()
         {
-            if (!Datamanger::GetInstance().getAuthToken().empty()) {
-                //Datamanger::GetInstance().getAKeyPrintMachineListEx(this, true);
-                Datamanger::GetInstance().getAKeyPrintMachineListEx(this, false);
-                //showDeviceList();
+            auto ankerNet = AnkerNetInst();
+            if (ankerNet && ankerNet->IsLogined()) {
+                if (ExportGacode()) {
+                    ankerNet->AsyOneKeyPrint();
+                    ShowDeviceList();
+                }
             }
-            else {
-                ANKER_LOG_INFO<<"CALL ShowAnkerWebView() 06";
+            else 
+            {
                 wxGetApp().mainframe->ShowAnkerWebView();
             }
         }
@@ -7156,6 +7936,7 @@ namespace Slic3r {
                 export_gcode(true);
             else
                 reslice();
+            select_view_3D(VIEW_MODE_3D);
             select_view_3D(VIEW_MODE_PREVIEW);
         }
 
@@ -7165,11 +7946,48 @@ namespace Slic3r {
                 p->set_export_progress_change_callback(cb); 
         };
 
-        void Plater::stop_exporting_Gcode()
+        void Plater::set_app_closing(bool v)
         {
             if (p)
-                p->cancel_exporting_Gcode();
+                 p->set_app_closing(v);
         };
+
+        bool Plater::is_exporting()
+        {
+            return is_exporting_gcode() || is_exporting_acode();
+        };
+
+        bool Plater::is_exporting_gcode()
+        {
+            bool ret = false;
+            if (p)
+                ret = p->background_process.is_export_scheduled();
+            return ret;
+        };
+
+        bool Plater::is_exporting_acode()
+        {
+            bool ret = false;
+            if (p)
+                ret = p->is_exporting_acode();
+            return ret;
+        };
+
+        void Plater::stop_exporting_acode()
+        {
+            if (p)
+                p->cancel_exporting_acode();
+        };
+
+
+        bool Plater::is_cancel_exporting_Gcode()
+        {
+            bool ret = false;
+            if (p)
+                ret = p->is_cancel_exporting_Gcode();
+            return ret;
+        };
+        
 
         void Plater::set_create_AI_file_val(bool val)
         {
@@ -7184,6 +8002,20 @@ namespace Slic3r {
                 ret = p->get_create_AI_file();
             return ret;
         };
+
+        void Plater::set_droping_file(bool val)
+        {
+            if (p)
+                p->set_droping_file(val);
+        }
+
+        bool Plater::is_droping_file()
+        {
+            bool ret = false;
+            if (p)
+                ret = p->is_droping_file();
+            return ret;
+        }
 
         void Plater::export_akeyPrint_gcode(std::string& path, bool isAcode)
         {
@@ -7207,11 +8039,19 @@ namespace Slic3r {
                 if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
                     return;
                 //default_output_file = this->p->background_process.output_filepath_for_project(into_path(get_project_filename(".3mf")));
-                boost::filesystem::path tmpDir = boost::filesystem::temp_directory_path();
+
+                //auto wstr_temp = wxStandardPaths::Get().GetUserLocalDataDir() + "\\..\\Temp";
+                auto wstr_temp = wxStandardPaths::Get().GetTempDir();
+                boost::filesystem::path tmpDir(wstr_temp.ToStdWstring());
+
                 if (model().objects.size() > 0) {
                     std::string name = "";
                     if ((*model().objects.begin())) {
                         name = (*model().objects.begin())->name;
+                        while (name.size() > 0 && name[0] == ' ')
+                        {
+                            name.erase(0, 1);
+                        }
                     }
 #ifdef _WIN32
                     default_output_file = tmpDir.string() + "\\" + name;
@@ -7236,37 +8076,100 @@ namespace Slic3r {
             if (index == std::string::npos) {
                 index = tmpGcodePath.length();
             }
-            tmpGcodePath = tmpGcodePath.substr(0, index) + "_bak.gcode";
-            default_output_file = fs::path(Slic3r::fold_utf8_to_ascii(tmpGcodePath));
+            std::string suffix = get_create_AI_file_val() ? ".acode" : ".gcode";
+            tmpGcodePath = tmpGcodePath.substr(0, index) + "_bak"+ suffix;
+            ANKER_LOG_INFO << "  tmpGcodePath:" << tmpGcodePath;
+            default_output_file = fs::path(tmpGcodePath);
             AppConfig& appconfig = *wxGetApp().app_config;
             RemovableDriveManager& removable_drive_manager = *wxGetApp().removable_drive_manager();
             boost::filesystem::path output_path(default_output_file);
             if (!output_path.empty()) {
-                bool path_on_removable_media = removable_drive_manager.set_and_verify_last_save_path(output_path.string());
-                p->notification_manager->new_export_began(path_on_removable_media);
-                p->exporting_status = path_on_removable_media ? ExportingStatus::EXPORTING_TO_REMOVABLE : ExportingStatus::EXPORTING_TO_LOCAL;
-                p->last_output_path = output_path.string();
-                p->last_output_dir_path = output_path.parent_path().string();
-                p->export_gcode(output_path, path_on_removable_media, PrintHostJob());
-                // Storing a path to AppConfig either as path to removable media or a path to internal media.
-                // is_path_on_removable_drive() is called with the "true" parameter to update its internal database as the user may have shuffled the external drives
-                // while the dialog was open.
-                appconfig.update_last_output_dir(output_path.parent_path().string(), path_on_removable_media);
-                path = output_path.string();  
+                bool need_export = true;
+                if (!p->exported_file_cache.empty() && fs::exists(fs::path(p->exported_file_cache))) {
+                    std::string error_message;
+                    CopyFileResult copy_ret_val = copy_file(p->exported_file_cache, output_path.string(), error_message, true);
+                    if (copy_ret_val == CopyFileResult::SUCCESS) {        
+                        need_export = false;
+                    }
+                    else {
+                        ANKER_LOG_ERROR << "copy file failed,ret=" << static_cast<int>(copy_ret_val) << " err msg=" << error_message
+                            << "  from file=" << p->exported_file_cache << "  to file:" << output_path.string();
+                    }
+                }
+                
+                if(need_export)
+                {
+                    bool path_on_removable_media = removable_drive_manager.set_and_verify_last_save_path(output_path.string());
+                    p->notification_manager->new_export_began(path_on_removable_media);
+                    p->exporting_status = path_on_removable_media ? ExportingStatus::EXPORTING_TO_REMOVABLE : ExportingStatus::EXPORTING_TO_LOCAL;
+                    p->last_output_path = output_path.string();
+                    p->last_output_dir_path = output_path.parent_path().string();
+                    p->export_gcode(output_path, path_on_removable_media, PrintHostJob());
+                    // Storing a path to AppConfig either as path to removable media or a path to internal media.
+                    // is_path_on_removable_drive() is called with the "true" parameter to update its internal database as the user may have shuffled the external drives
+                    // while the dialog was open.
+                    appconfig.update_last_output_dir(output_path.parent_path().string(), path_on_removable_media);
+                }
+                path = output_path.string();
             }
         }
 
-        void Plater::export_gcode(bool prefer_removable)
-        {
-            if (p->model.objects.empty())
-                return;
+        void Plater::export_gcode(bool prefer_removable, bool disableAI)
+        {            
+            //report: export gcode
+            std::string fileName = std::string();
+            std::string fileSize = std::string("0"); 
+            std::string handleType = std::string("export");  
+            std::string handleDuration = std::string("0");
+            std::string errorCode = std::string("0");
+            std::string errorMsg = std::string("export gcode");
+            if(disableAI == false && get_create_AI_file_val())
+                errorMsg = std::string("export acode");
+            std::map<std::string, std::string> buryMap;
+            buryMap.insert(std::make_pair(c_ag_file_name, fileName));
+            buryMap.insert(std::make_pair(c_ag_file_size, fileSize));
+            buryMap.insert(std::make_pair(c_ag_handle_type, handleType));
 
-            if (canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
+            if (p->model.objects.empty()) {
+                ANKER_LOG_ERROR << "model.objects.empty";
+
+                errorCode = -1;
+                errorMsg = "model.objects.empty";
+                             
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                reportBuryEvent(e_ag_handle, buryMap);
+
                 return;
+            }
+
+            if (canvas3D()->get_gizmos_manager().is_in_editing_mode(true)) {
+                ANKER_LOG_ERROR << "is_in_editing_mode";
+                errorCode = -1;
+                errorMsg = "is_in_editing_mode";
+                 
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                reportBuryEvent(e_ag_handle, buryMap);
+                
+                return;
+            }
 
 
-            if (p->process_completed_with_error)
+            if (p->process_completed_with_error) {
+                ANKER_LOG_ERROR << "process_completed_with_error";
+                errorCode = -1;
+                errorMsg = "process_completed_with_error";
+                   
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                reportBuryEvent(e_ag_handle, buryMap);
+
                 return;
+            }
 
             // If possible, remove accents from accented latin characters.
             // This function is useful for generating file names to be processed by legacy firmwares.
@@ -7275,16 +8178,46 @@ namespace Slic3r {
                 // Update the background processing, so that the placeholder parser will get the correct values for the ouput file template.
                 // Also if there is something wrong with the current configuration, a pop-up dialog will be shown and the export will not be performed.
                 unsigned int state = this->p->update_restart_background_process(false, false);
-                if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID)
+                if (state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) {
+                    ANKER_LOG_ERROR << "UPDATE_BACKGROUND_PROCESS_INVALID";
+                    errorCode = -1;
+                    errorMsg = "UPDATE_BACKGROUND_PROCESS_INVALID";                    
+                    buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                    buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+                                            
+                    reportBuryEvent(e_ag_handle, buryMap);
                     return;
+                }
                 default_output_file = this->p->background_process.output_filepath_for_project(into_path(get_project_filename(".3mf")));
             }
             catch (const Slic3r::PlaceholderParserError& ex) {
                 // Show the error with monospaced font.
+                ANKER_LOG_ERROR << "show_error 1"<<ex.what();
+
+                std::string errorWhat = ex.what();
+                std::string errorInfo = "show_error 1" + errorWhat;
+                errorCode = -1;
+                errorMsg = errorInfo;
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                reportBuryEvent(e_ag_handle, buryMap);
+                
                 show_error(this, ex.what(), true);
                 return;
             }
             catch (const std::exception& ex) {
+                ANKER_LOG_ERROR << "show_error 2" << ex.what();
+
+                std::string errorWhat = ex.what();
+                std::string errorInfo = "show_error 1" + errorWhat;
+                errorCode = -1;
+                errorMsg = errorInfo;
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                reportBuryEvent(e_ag_handle, buryMap);
+                
                 show_error(this, ex.what(), false);
                 return;
             }
@@ -7307,7 +8240,7 @@ namespace Slic3r {
                 std::string ext = default_output_file.extension().string();
 #endif // !ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
 
-                if (get_create_AI_file_val()) {
+                if (disableAI == false && get_create_AI_file_val()) {
                     // export as .acode file
                     if (default_output_file.extension().string() == ".gcode")
                         default_output_file.replace_extension(".acode");
@@ -7317,14 +8250,16 @@ namespace Slic3r {
                     start_dir,
                     from_path(default_output_file.filename()),
 #if ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
-                    GUI::file_wildcards((printer_technology() == ptFFF) ? (get_create_AI_file_val() ? FT_ACODE : FT_GCODE) : FT_SL1),
+                    GUI::file_wildcards((printer_technology() == ptFFF) ? (disableAI == false && get_create_AI_file_val() ? FT_ACODE : FT_GCODE) : FT_SL1),
 #else
-                    GUI::file_wildcards((printer_technology() == ptFFF) ? (get_create_AI_file_val() ? FT_ACODE : FT_GCODE) : FT_SL1, ext),
+                    GUI::file_wildcards((printer_technology() == ptFFF) ? (disableAI == false && get_create_AI_file_val() ? FT_ACODE : FT_GCODE) : FT_SL1, ext),
 #endif // ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
                     wxFD_SAVE | wxFD_OVERWRITE_PROMPT
                 );
                 if (dlg.ShowModal() == wxID_OK) {
+
                     output_path = into_path(dlg.GetPath());
+                    fileName = output_path.string();
                     while (has_illegal_filename_characters(output_path.filename().string())) {
                         show_error(this, _L("The provided file name is not valid.") + "\n" +
                             _L("The following characters are not allowed by a FAT file system:") + " <>:/\\|?*\"");
@@ -7339,7 +8274,11 @@ namespace Slic3r {
                 }
             }
 
+            ANKER_LOG_INFO << "output_path :" << output_path.string();
             if (!output_path.empty()) {
+
+                auto startTime = wxDateTime::Now();
+
                 bool path_on_removable_media = removable_drive_manager.set_and_verify_last_save_path(output_path.string());
                 p->notification_manager->new_export_began(path_on_removable_media);
                 p->exporting_status = path_on_removable_media ? ExportingStatus::EXPORTING_TO_REMOVABLE : ExportingStatus::EXPORTING_TO_LOCAL;
@@ -7351,23 +8290,83 @@ namespace Slic3r {
                 // while the dialog was open.
                 appconfig.update_last_output_dir(output_path.parent_path().string(), path_on_removable_media);
 
+                auto GetFileSize = [](const wxString& filePath) -> wxULongLong {
+                    wxFileName fname(filePath);
+                    if (fname.FileExists()) {
+                        wxFile file(filePath);
+                        if (file.IsOpened()) {
+                            wxULongLong fileSize = file.Length();
+                            file.Close();
+                            return fileSize;
+                        }
+                        else {
+                            ANKER_LOG_ERROR << ("can't open the file: " + filePath);
+                        }
+                    }
+                    else {
+                        ANKER_LOG_ERROR << ("file not exist: %s", filePath);
+                    }
+                    return 0;
+                };
+
+                auto nowTime = wxDateTime::Now();
+                auto timeDifference = nowTime - startTime;
+                handleDuration = timeDifference.GetValue().ToString().ToStdString();
+                fileSize = GetFileSize(fileName).ToString().ToStdString();
+
+                buryMap.insert(std::make_pair(c_ag_file_name, fileName));
+                buryMap.insert(std::make_pair(c_ag_handle_duration, handleDuration));
+                buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+
+                reportBuryEvent(e_ag_handle, buryMap);
             }
         }
 
         void Plater::export_stl_obj(bool extended, bool selection_only)
         {
-            if (p->model.objects.empty()) { return; }
+            std::string handleType = std::string("export");
+            std::string errorCode = std::string("0");
+            std::string errorMsg = std::string("export obj stl");
+
+            std::map<std::string, std::string> buryMap;
+            buryMap.insert(std::make_pair(c_hm_type, handleType));
+                        
+            if (p->model.objects.empty()) { 
+                errorCode = -1;
+                errorMsg = "model objects is null";
+                buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+                reportBuryEvent(e_hanlde_model, buryMap);
+                return; 
+            }
 
             wxString path = p->get_export_file(FT_OBJECT);
-            if (path.empty()) { return; }
             const std::string path_u8 = into_u8(path);
+            if (path.empty()) { 
+                errorCode = -1;
+                errorMsg = "export path is empty";
+                buryMap.insert(std::make_pair(c_hm_file_name, path_u8));
+                buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+                reportBuryEvent(e_hanlde_model, buryMap);
+                return; 
+            }
 
             wxBusyCursor wait;
 
             const auto& selection = p->get_selection();
             const auto obj_idx = selection.get_object_idx();
             if (selection_only && (obj_idx == -1 || selection.is_wipe_tower()))
+            {
+                errorCode = -1;
+                errorMsg = "selection  objects is unvalid";
+                buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+                buryMap.insert(std::make_pair(c_hm_file_name, path_u8));
+                reportBuryEvent(e_hanlde_model, buryMap);       
                 return;
+            }
 
             // Following lambda generates a combined mesh for export with normals pointing outwards.
             auto mesh_to_export_fff = [this](const ModelObject& mo, int instance_id) {
@@ -7378,9 +8377,13 @@ namespace Slic3r {
                 csg::model_to_csgmesh(mo, Transform3d::Identity(), std::back_inserter(csgmesh),
                     csg::mpartsPositive | csg::mpartsNegative | csg::mpartsDoSplits);
 
-                if (csg::check_csgmesh_booleans(range(csgmesh)) == csgmesh.end()) {
+                auto csgrange = range(csgmesh);
+                if (csg::is_all_positive(csgrange)) {
+                    mesh = TriangleMesh{ csg::csgmesh_merge_positive_parts(csgrange) };
+                }
+                else if (csg::check_csgmesh_booleans(csgrange) == csgrange.end()) {
                     try {
-                        auto cgalm = csg::perform_csgmesh_booleans(range(csgmesh));
+                        auto cgalm = csg::perform_csgmesh_booleans(csgrange);
                         mesh = MeshBoolean::cgal::cgal_to_triangle_mesh(*cgalm);
                     }
                     catch (...) {}
@@ -7388,8 +8391,7 @@ namespace Slic3r {
 
                 if (mesh.empty()) {
                     get_notification_manager()->push_plater_error_notification(
-                        _u8L("Unable to perform boolean operation on model meshes. "
-                            "Only positive parts will be exported."));
+                        _u8L("common_slicepopup_boolean"));
 
                     for (const ModelVolume* v : mo.volumes)
                         if (v->is_model_part()) {
@@ -7515,6 +8517,12 @@ namespace Slic3r {
                 Slic3r::store_stl(path_u8.c_str(), &mesh, true);
             else if (path.Lower().EndsWith(".obj"))
                 Slic3r::store_obj(path_u8.c_str(), &mesh);
+
+            errorMsg = "export success";
+            buryMap.insert(std::make_pair(c_hm_file_name, path_u8));
+            buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+            buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));        
+            reportBuryEvent(e_hanlde_model, buryMap);
             //    p->statusbar()->set_status_text(format_wxstr(_L("STL file exported to %s"), path));
         }
 
@@ -7567,10 +8575,11 @@ namespace Slic3r {
             ThumbnailData thumbnail_data;
             ThumbnailsParams thumbnail_params = { {}, false, true, true, true };
             p->generate_thumbnail(thumbnail_data, THUMBNAIL_SIZE_3MF.first, THUMBNAIL_SIZE_3MF.second, thumbnail_params, Camera::EType::Ortho);
+            SliceModelData slice_data { m_print_time, m_filament};
             bool ret = false;
             try
             {
-                ret = Slic3r::store_3mf(path_u8.c_str(), &p->model, export_config ? &cfg : nullptr, full_pathnames, &thumbnail_data);
+                ret = Slic3r::store_3mf(path_u8.c_str(), &p->model, export_config ? &cfg : nullptr, full_pathnames, &thumbnail_data, &slice_data);
             }
             catch (boost::filesystem::filesystem_error& e)
             {
@@ -7625,14 +8634,54 @@ namespace Slic3r {
 
         void Plater::reslice()
         {
+            //report: start slice
+            std::string fileName = std::string();
+            std::string fileSize = std::string("0");
+            std::string workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+            std::string status = std::string("start");
+            std::string errorCode = std::string("0");
+            std::string errorMsg = std::string("start slice model");
+
+            for (auto object : p->model.objects)
+            {
+                fileName += object->name + " ";
+            }
+            
+            std::map<std::string, std::string> buryMap;
+            buryMap.insert(std::make_pair(c_sm_file_name, fileName));
+            buryMap.insert(std::make_pair(c_sm_file_size, fileSize));
+            buryMap.insert(std::make_pair(c_sm_time, workTime));
+            buryMap.insert(std::make_pair(c_sm_status, status));
+  
+            buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+            buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+
+            reportBuryEvent(e_slice_model, buryMap);
+
+            ANKER_LOG_INFO << "reslice";
             // First, after importing the stl file without slicing, and then importing gcode, reslice will be called.
             if (p->preview->is_GcodeImported()) {
                 return;
             }
+
+            // Anker: Update the state of background process. 
+            if (!this->p->suppressed_backround_processing_update)
+                this->p->update_restart_background_process(false, false);
+
             //this->p->background_process.setState(BackgroundSlicingProcess::STATE_RUNNING);
             // There is "invalid data" button instead "slice now"
             if (p->process_completed_with_error)
+            {
+                errorCode = -1;
+                errorMsg = "There is invalid data button instead slice now";
+                workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+                buryMap.insert(std::make_pair(c_sm_time, workTime));
+                buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+
+                reportBuryEvent(e_slice_model, buryMap);
                 return;
+            }
 
             // In case SLA gizmo is in editing mode, refuse to continue
             // and notify user that he should leave it first.
@@ -7645,6 +8694,15 @@ namespace Slic3r {
             if (!stop_queue(this->get_ui_job_worker(), timeout_ms)) {
                 BOOST_LOG_TRIVIAL(error) << "Could not stop UI job within "
                     << timeout_ms << " milliseconds timeout!";
+
+                errorCode = -1;
+                errorMsg = "milliseconds timeout!";
+                workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+                buryMap.insert(std::make_pair(c_sm_time, workTime));
+                buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+                buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+
+                reportBuryEvent(e_slice_model, buryMap);
                 return;
             }
 
@@ -7664,7 +8722,8 @@ namespace Slic3r {
             // Only restarts if the state is valid.
             this->p->restart_background_process(state | priv::UPDATE_BACKGROUND_PROCESS_FORCE_RESTART);
             
-
+            // update_background_process() reports, that the Print / SLAPrint is invalid, and the error message
+            // don't report add by alves
             if ((state & priv::UPDATE_BACKGROUND_PROCESS_INVALID) != 0)
                 return;
 
@@ -7932,8 +8991,8 @@ namespace Slic3r {
                 std::vector<SFilamentInfo> filamentEditInfo = wxGetApp().mainframe->plater()->sidebarnew().getEditFilamentList();
                 std::vector<std::string> ankerFilamentId, ankerColourId;
                 for (auto iter : filamentEditInfo) {
-                    ankerFilamentId.emplace_back(iter.wxStrFilamentId.ToStdString());
-                    ankerColourId.emplace_back(iter.wxStrColorId.ToStdString());
+                    ankerFilamentId.emplace_back(iter.wxStrFilamentId.ToStdString(wxConvUTF8));
+                    ankerColourId.emplace_back(iter.wxStrColorId.ToStdString(wxConvUTF8));
                 }
 
                 p->config->option<ConfigOptionStrings>("anker_filament_id")->values = ankerFilamentId;
@@ -7966,7 +9025,7 @@ namespace Slic3r {
                     this->set_printer_technology(config.opt_enum<PrinterTechnology>(opt_key));
                    // p->sidebar->show_sliced_info_sizer(false);
                     if (p->sidebarnew) {
-                        p->updatePreViewRightSideBar(false);
+                        p->updatePreViewRightSideBar(false, CONFIG_CHANGE);
                     }
                     p->reset_gcode_toolpaths();
                     p->view3D->get_canvas3d()->reset_sequential_print_clearance();
@@ -8130,6 +9189,9 @@ namespace Slic3r {
             }
             else {
                 this->p->preview->showGcodeLayerToolbar(false);
+                if (p->previewRightSidePanel) {
+                    p->previewRightSidePanel->UpdateGcodePreviewSideBar(true, PLATER_TAB_HIDE);
+                }
                 // Close the filament edit dialog when plater is toggled hidden
                 if (p && p->sidebarnew) {
                     p->sidebarnew->closeFilamentEditDlg();
@@ -8137,6 +9199,17 @@ namespace Slic3r {
             }
             updateMatchHint();
         }
+
+        void Plater::on_idle(wxIdleEvent& evt)
+        {
+            // auto adjust toolbar position so that the toolbar not overlap the first notification msg (NotificationManager::get_notifications_top())
+            if (this->p && this->p->preview && this->IsShown() && is_preview_shown() && is_preview_loaded() && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE && wxGetApp().mainframe->IsIconized() == false) {
+                this->p->preview->CalGcodePreviewToolbarPos();
+            }
+
+            evt.Skip();
+        }
+
 
         void Plater::updateMatchHint()
         {
@@ -8267,10 +9340,11 @@ namespace Slic3r {
         {
             std::vector<std::string> extruder_colors;
 
-            if (!p->config->has("filament_colour")) // in case of a SLA print
-                return extruder_colors;
-
-            extruder_colors = (p->config->option<ConfigOptionStrings>("filament_colour"))->values;
+            const std::vector<SFilamentInfo>& editFilaments = p->sidebarnew->getEditFilamentList();
+            for (int i = 0; i < editFilaments.size(); i++)
+            {
+                extruder_colors.push_back(editFilaments[i].wxStrColor.ToStdString(wxConvUTF8));
+            }
 
             return extruder_colors;
         }
@@ -8360,6 +9434,15 @@ namespace Slic3r {
                 p->take_snapshot(_L("Arrange"));
                 replace_job(w, std::make_unique<ArrangeJob>());
             }
+        }
+
+        void Plater::auto_bed()
+        {
+            if (p->can_auto_bed()) {
+                auto& w = get_ui_job_worker();
+                p->take_snapshot(_L("Auto bed"));
+                replace_job(w, std::make_unique<OrientJob>(this));
+           }
         }
 
         void Plater::set_current_canvas_as_dirty()
@@ -8529,6 +9612,11 @@ namespace Slic3r {
             this->p->suppressed_backround_processing_update = true;
         }
 
+        bool Plater::background_process_running()
+        {
+            return this->p->background_process.running();
+        }
+
         void Plater::mirror(Axis axis) { p->mirror(axis); }
         void Plater::split_object() { p->split_object(); }
         void Plater::split_volume() { p->split_volume(); }
@@ -8638,6 +9726,7 @@ namespace Slic3r {
 
         void Plater::setAKeyPrintSlicerTempGcodePath(const std::string& gcodePath)
         {
+            ANKER_LOG_INFO << "set currentPrintGcodeFile: " << gcodePath;
             m_currentPrintGcodeFile = gcodePath;
         }
 
@@ -8692,6 +9781,11 @@ namespace Slic3r {
         GLToolbar& Plater::get_collapse_toolbar()
         {
             return p->collapse_toolbar;
+        }
+
+        void Plater::set_preview_layers_slider_values_range(int bottom, int top)
+        {
+            p->set_preview_layers_slider_values_range(bottom, top);
         }
 
         void Plater::update_preview_moves_slider()
@@ -8749,6 +9843,7 @@ namespace Slic3r {
         bool Plater::can_split_to_objects() const { return p->can_split_to_objects(); }
         bool Plater::can_split_to_volumes() const { return p->can_split_to_volumes(); }
         bool Plater::can_arrange() const { return p->can_arrange(); }
+        bool Plater::can_auto_bed() const { return p->can_auto_bed(); }
         bool Plater::can_layers_editing() const { return p->can_layers_editing(); }
         bool Plater::can_paste_from_clipboard() const
         {
@@ -8855,15 +9950,68 @@ namespace Slic3r {
             return p->CreatePreViewRightSideBar();
         }
 
+        std::string Plater::GetRightSidePanelUpdateReasonString(RightSidePanelUpdateReason reason)
+        {
+            std::string str = "";
+            switch (reason)
+            {
+            case REASON_NONE:
+                str = "REASON_NONE";
+                break;
+            case LOAD_GCODE_FILE_FOR_PREVIEW:
+                str = "LOAD_GCODE_FILE_FOR_PREVIEW";
+                break;
+            case LOAD_ACODE_FILE_FOR_PREVIEW:
+                str = "LOAD_ACODE_FILE_FOR_PREVIEW";
+                break;
+            case EXPORT_START:
+                str = "EXPORT_START";
+                break;
+            case EXPORT_ACODE_COMPLETE:
+                str = "EXPORT_ACODE_COMPLETE";
+                break;
+            case EXPORT_ACODE_CANCEL:
+                str = "EXPORT_ACODE_CANCEL";
+                break;
+            case PROCCESS_GCODE_COMPLETE:
+                str = "PROCCESS_GCODE_COMPLETE";
+                break;
+            case SLICING_CANCEL:
+                str = "SLICING_CANCEL";
+                break;
+            case GCODE_INVALID:
+                str = "GCODE_INVALID";
+                break;
+            case SELECT_VIEW_MODE_PREVIEW:
+                str = "SELECT_VIEW_MODE_PREVIEW";
+                break;
+            case PLATER_TAB_HIDE:
+                str = "PLATER_TAB_HIDE";
+                break;
+            case DELETE_ALL_OBJECT:
+                str = "DELETE_ALL_OBJECT";
+                break;
+            case CONFIG_CHANGE:
+                str = "CONFIG_CHANGE";
+                break;
+            default:
+                str = "Unknown reason";
+                break;
+            }
+
+            return str + "(" + std::to_string(reason) + ")";
+        }
+
         void Plater::CalcModelObjectSize()
         {
             Selection& selection = wxGetApp().plater()->canvas3D()->get_selection();
             ModelObjectPtrs objects = this->model().objects;
             int obj_idx = selection.get_object_idx();
-
+            int inst_idx = selection.get_instance_idx();
 
             ConfigOptionMode mode = wxGetApp().get_mode();
             if (mode < comExpert || objects.empty() || obj_idx < 0 || int(objects.size()) <= obj_idx ||
+                inst_idx < 0 || int(objects[obj_idx]->instances.size()) <= inst_idx ||
                 objects[obj_idx]->volumes.empty() ||                                            // hack to avoid crash when deleting the last object on the bed
                 (selection.is_single_full_object() && objects[obj_idx]->instances.size() > 1) ||
                 !(selection.is_single_full_instance() || selection.is_single_volume())) {
@@ -8871,11 +10019,11 @@ namespace Slic3r {
                 return;
             }
 
-
             const ModelObject* model_object = objects[obj_idx];
-
-            int inst_idx = selection.get_instance_idx();
-            assert(inst_idx >= 0);
+            if (model_object == nullptr) {
+                ANKER_LOG_INFO << "model_object == nullptr";
+                return;
+            }
 
             bool imperial_units = wxGetApp().app_config->get_bool("use_inches");
             double koef = imperial_units ? ObjectManipulation::mm_to_in : 1.0f;

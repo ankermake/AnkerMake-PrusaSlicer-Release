@@ -82,7 +82,7 @@ public:
 	// Stop the background processing and finalize the bacgkround processing thread, remove temp files.
 	~BackgroundSlicingProcess();
 
-	void update_temp_output_path(bool createAiFile = false);
+	void set_temp_output_path(bool createAiFile = false);
 	std::string get_temp_output_path();
 	void set_fff_print(Print *print) { m_fff_print = print; }
     void set_sla_print(SLAPrint *print) { m_sla_print = print; }

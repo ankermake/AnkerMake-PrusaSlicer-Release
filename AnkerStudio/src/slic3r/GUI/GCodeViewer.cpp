@@ -561,8 +561,9 @@ void GCodeViewer::SequentialView::render(float legend_height)
 {
     marker.render();
     float bottom = wxGetApp().plater()->get_current_canvas3D()->get_canvas_size().get_height();
-    if (wxGetApp().is_editor())
+    if (/*wxGetApp().is_editor()*/ true ) {
         bottom -= wxGetApp().plater()->get_view_toolbar().get_height();
+    }
     gcode_window.render(legend_height, bottom, static_cast<uint64_t>(gcode_ids[current.last]));
 }
 
@@ -832,6 +833,8 @@ void GCodeViewer::load(const GCodeProcessorResult& gcode_result, const Print& pr
             short_time(get_time_dhms(time)) == short_time(get_time_dhms(m_print_statistics.modes[static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Normal)].time)))
             m_time_estimate_mode = PrintEstimatedStatistics::ETimeMode::Normal;
     }
+    m_conflict_result = gcode_result.conflict_result;
+    if (m_conflict_result.has_value()) { m_conflict_result->layer = m_layers.get_l_at(m_conflict_result->_height); }
 }
 
 void GCodeViewer::refresh(const GCodeProcessorResult& gcode_result, const std::vector<std::string>& str_tool_colors)
@@ -2297,9 +2300,11 @@ void GCodeViewer::load_shells(const Print& print)
         if (extruders_count > 1 && config.wipe_tower && !config.complete_objects) {
             const WipeTowerData& wipe_tower_data = print.wipe_tower_data(extruders_count);
             const float depth = wipe_tower_data.depth;
+            const std::vector<std::pair<float, float>> z_and_depth_pairs = print.wipe_tower_data(extruders_count).z_and_depth_pairs;
             const float brim_width = wipe_tower_data.brim_width;
-            m_shells.volumes.load_wipe_tower_preview(config.wipe_tower_x, config.wipe_tower_y, config.wipe_tower_width, depth, max_z, config.wipe_tower_cone_angle, config.wipe_tower_rotation_angle,
-                !print.is_step_done(psWipeTower), brim_width);
+            if (depth != 0.)
+                m_shells.volumes.load_wipe_tower_preview(config.wipe_tower_x, config.wipe_tower_y, config.wipe_tower_width, depth, z_and_depth_pairs, max_z, config.wipe_tower_cone_angle, config.wipe_tower_rotation_angle,
+                    !print.is_step_done(psWipeTower), brim_width);
         }
     }
 
@@ -3791,8 +3796,10 @@ void GCodeViewer::render_legend(float& legend_height)
             double volume = m_print_statistics.volumes_per_extruder.at(extruder_id);
 
             auto [used_filament_m, used_filament_g] = get_used_filament_from_volume(volume, extruder_id);
-            used_filaments_m[extruder_id] = used_filament_m;
-            used_filaments_g[extruder_id] = used_filament_g;
+            if (extruder_id < used_filaments_m.size() && extruder_id < used_filaments_g.size()) {
+                used_filaments_m[extruder_id] = used_filament_m;
+                used_filaments_g[extruder_id] = used_filament_g;
+            }
         }
 
         std::string longest_used_filament_string;
@@ -3848,7 +3855,14 @@ void GCodeViewer::render_legend(float& legend_height)
     if (m_view_type == EViewType::FeatureType)
         append_headers({ _u8L("Feature type"), _u8L("Time"), _u8L("Percentage"), _u8L("Used filament") }, offsets);
     else if (m_view_type == EViewType::Tool)
-        append_headers({ "", _u8L("Used filament"), "", ""}, offsets);
+    {
+        for (int i = 0;i < offsets.size(); i++)
+        {
+            offsets[i] += 80;
+        }
+        append_headers({ "", _u8L("Used filament"), "", "" }, offsets);
+    }
+        
     else
         ImGui::Separator();
 
@@ -3893,9 +3907,11 @@ void GCodeViewer::render_legend(float& legend_height)
         case EViewType::Tool:                 {
             // shows only extruders actually used
             for (unsigned char extruder_id : m_extruder_ids) {
-                if (used_filaments_m[extruder_id] > 0.0 && used_filaments_g[extruder_id] > 0.0)
-                    append_item(EItemType::Rect, m_tool_colors[extruder_id], _u8L("Extruder") + " " + std::to_string(extruder_id + 1),
-                        true, "", 0.0f, 0.0f, offsets, used_filaments_m[extruder_id], used_filaments_g[extruder_id]);
+                if (extruder_id < used_filaments_m.size() && extruder_id < used_filaments_g.size()) {
+                    if (used_filaments_m[extruder_id] > 0.0 && used_filaments_g[extruder_id] > 0.0)
+                        append_item(EItemType::Rect, m_tool_colors[extruder_id], _u8L("Extruder") + " " + std::to_string(extruder_id + 1),
+                            true, "", 0.0f, 0.0f, offsets, used_filaments_m[extruder_id], used_filaments_g[extruder_id]);
+                }
             }
             break;
         }
@@ -4321,53 +4337,53 @@ void GCodeViewer::render_legend(float& legend_height)
     ImGui::Separator();
     ImGui::Spacing();
     ImGui::Spacing();
-    toggle_button(Preview::OptionType::Travel, _u8L("Travel"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::Travel, _u8L("common_preview_sheethover_travel"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendTravel);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::Wipe, _u8L("Wipe"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::Wipe, _u8L("common_preview_sheethover_wipe"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendWipe);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::Retractions, _u8L("Retractions"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::Retractions, _u8L("common_preview_sheethover_retraction"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendRetract);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::Unretractions, _u8L("Deretractions"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::Unretractions, _u8L("common_preview_sheethover_deretraction"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendDeretract);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::Seams, _u8L("Seams"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::Seams, _u8L("common_preview_sheethover_seam"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendSeams);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::ToolChanges, _u8L("Tool changes"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::ToolChanges, _u8L("common_preview_sheethover_toolchange"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendToolChanges);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::ColorChanges, _u8L("Color changes"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::ColorChanges, _u8L("common_preview_sheethover_colorchange"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendColorChanges);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::PausePrints, _u8L("Print pauses"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::PausePrints, _u8L("common_preview_sheethover_pause"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendPausePrints);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::CustomGCodes, _u8L("Custom G-codes"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::CustomGCodes, _u8L("common_preview_sheethover_custom"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendCustomGCodes);
         });
     ImGui::SameLine();
-    toggle_button(Preview::OptionType::CenterOfGravity, _u8L("Center of gravity"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::CenterOfGravity, _u8L("common_preview_sheethover_gravity"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendCOG);
         });
     ImGui::SameLine();
     if (!wxGetApp().is_gcode_viewer()) {
-        toggle_button(Preview::OptionType::Shells, _u8L("Shells"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+        toggle_button(Preview::OptionType::Shells, _u8L("common_preview_sheethover_shell"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
             image_icon(window, pos, size, ImGui::LegendShells);
             });
         ImGui::SameLine();
     }
-    toggle_button(Preview::OptionType::ToolMarker, _u8L("Tool marker"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
+    toggle_button(Preview::OptionType::ToolMarker, _u8L("common_preview_sheethover_toolmarker"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendToolMarker);
         });
 #endif

@@ -266,10 +266,25 @@ void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
         toggle_field(el, have_skirt);
 
     bool have_brim = config->opt_enum<BrimType>("brim_type") != btNoBrim;
-    for (auto el : { "brim_width", "brim_separation" })
-        toggle_field(el, have_brim);
+    //for (auto el : { "brim_width", "brim_separation" })
+    //    toggle_field(el, have_brim);
+    toggle_field("brim_seperation", have_brim);
+    toggle_field("brim_smart_ordering", have_brim);
+    bool have_brim_width = config->opt_enum<BrimType>("brim_type") != btNoBrim && config->opt_enum<BrimType>("brim_type") != btAutoBrim;
+    toggle_field("brim_width", have_brim_width);
     // perimeter_extruder uses the same logic as in Print::extruders()
     toggle_field("perimeter_extruder", have_perimeters || have_brim);
+
+    // hide brim_ears_max_angle and brim_ears_detection_length if brim_ear is not enabled
+    bool have_brim_ear = config->opt_enum<BrimType>("brim_type") == btEar;
+    toggle_field("brim_ears_max_angle", have_brim_ear);
+    toggle_field("brim_ears_detection_length", have_brim_ear);
+    const auto brim_width = config->opt_float("brim_width");
+	//disable brim_ears_max_angle and brim_ears_detection_length if brim_width is 0
+    toggle_field("brim_ears_max_angle", brim_width > 0.f && have_brim_ear);
+	toggle_field("brim_ears_detection_length", brim_width > 0.f && have_brim_ear);
+
+    
 
     bool have_raft = config->opt_int("raft_layers") > 0;
     bool have_support_material = config->opt_bool("support_material") || have_raft;

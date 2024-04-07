@@ -5,6 +5,12 @@ lib
 bin
 .vs
 stl
+*.log
+*.ttf
+*.ps1
+*.user
+*.vcxproj
+*.txt
 ./AnkerStudio/install_dir/
 ./AnkerStudio/build/
 ./AnkerStudio/build/*.*
@@ -49,3 +55,5 @@ stl
 /AnkerStudio/AnkerMake_alpha.url
 /AnkerStudio/uninst.exe
 /AnkerStudio/dump
+/AnkerStudio/CMakeSettings.json
+/AnkerStudio/enc_temp_folder

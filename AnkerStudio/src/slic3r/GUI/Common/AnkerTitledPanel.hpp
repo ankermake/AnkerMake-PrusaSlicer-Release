@@ -27,6 +27,7 @@ public:
 	void setTitleMoveObject(wxWindow* target);
 
 	wxPanel* setContentPanel(wxPanel* content);
+	wxPanel* getContentPanel() { return m_pContentPanel; }
 
 private:
 	void initUI();

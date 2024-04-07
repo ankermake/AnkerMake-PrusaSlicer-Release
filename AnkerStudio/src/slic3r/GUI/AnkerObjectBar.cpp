@@ -17,6 +17,9 @@
 #include "libSlic3r/TriangleMesh.hpp"
 #include "GalleryDialog.hpp"
 
+#define CONFIG_EXTRUDER_KEY "extruder"
+#define CONFIG_LAYER_HEIGHT_KEY "layer_height"
+
 
 static const Slic3r::GUI::Selection& scene_selection()
 {
@@ -61,12 +64,12 @@ static double get_max_layer_height(const int extruder_idx)
 
 static bool can_add_volumes_to_object(const Slic3r::ModelObject* object)
 {
-    bool can = object->volumes.size() > 1;
+    bool can = object ? object->volumes.size() > 1 : false;
 
     if (can && object->is_cut()) {
         int no_connectors_cnt = 0;
         for (const Slic3r::ModelVolume* v : object->volumes)
-            if (!v->is_cut_connector()) {
+            if (v && !v->is_cut_connector()) {
                 if (!v->is_model_part())
                     return true;
                 no_connectors_cnt++;
@@ -106,14 +109,14 @@ static Slic3r::TriangleMesh create_mesh(const std::string& type_name, const Slic
 
 static std::string getVolumeTypeText(Slic3r::ModelVolumeType type)
 {
-    static std::map<Slic3r::ModelVolumeType, std::string> modelVolumeTypeStr = {
-        {Slic3r::ModelVolumeType::INVALID, "invalid"}, 
-        {Slic3r::ModelVolumeType::MODEL_PART, "part"},
-        {Slic3r::ModelVolumeType::NEGATIVE_VOLUME, "negetive"},
-        {Slic3r::ModelVolumeType::PARAMETER_MODIFIER, "modifier"},
-        {Slic3r::ModelVolumeType::SUPPORT_BLOCKER, "blocker"},
-        {Slic3r::ModelVolumeType::SUPPORT_ENFORCER, "enforcer"} };
-    return modelVolumeTypeStr[type];
+    static std::map<Slic3r::ModelVolumeType, wxString> modelVolumeTypeStr = {
+        {Slic3r::ModelVolumeType::INVALID, _L("common_objecelist_modelType_invalid")},
+        {Slic3r::ModelVolumeType::MODEL_PART, _L("common_objecelist_modelType_part")},
+        {Slic3r::ModelVolumeType::NEGATIVE_VOLUME, _L("common_objecelist_modelType_negetive")},
+        {Slic3r::ModelVolumeType::PARAMETER_MODIFIER, _L("common_objecelist_modelType_modifier")},
+        {Slic3r::ModelVolumeType::SUPPORT_BLOCKER, _L("common_objecelist_modelType_blocker")},
+        {Slic3r::ModelVolumeType::SUPPORT_ENFORCER, _L("common_objecelist_modelType_enforcer")} };
+    return modelVolumeTypeStr[type].ToStdString();
 }
 
 AnkerObjectBar::AnkerObjectBar(Slic3r::GUI::Plater* parent)
@@ -139,22 +142,26 @@ AnkerObjectBar::~AnkerObjectBar()
 
 void AnkerObjectBar::change_top_border_for_mode_sizer(bool increase_border)
 {
-    m_pObjectBarView->change_top_border_for_mode_sizer(increase_border);
+    if (m_pObjectBarView)
+        m_pObjectBarView->change_top_border_for_mode_sizer(increase_border);
 }
 
 void AnkerObjectBar::msw_rescale()
 {
-    m_pObjectBarView->msw_rescale();
+    if (m_pObjectBarView)
+        m_pObjectBarView->msw_rescale();
 }
 
 void AnkerObjectBar::sys_color_changed()
 {
-    m_pObjectBarView->sys_color_changed();
+    if (m_pObjectBarView)
+        m_pObjectBarView->sys_color_changed();
 }
 
 void AnkerObjectBar::update_objects_list_extruder_column(size_t extruders_count)
 {
-    m_pObjectBarView->update_objects_list_extruder_column(extruders_count);
+    if (m_pObjectBarView)
+        m_pObjectBarView->update_objects_list_extruder_column(extruders_count);
 
     // update scene
     Slic3r::GUI::wxGetApp().plater()->update();
@@ -178,8 +185,11 @@ void AnkerObjectBar::init_objects()
 
 Slic3r::ModelObject* AnkerObjectBar::object(const int obj_idx) const
 {
-    if (obj_idx < 0)
+    if (m_objects == nullptr || obj_idx < 0)
+    {
+        ANKER_LOG_ERROR << "m_objects is NAN: " << obj_idx;
         return nullptr;
+    }
 
     return (*m_objects)[obj_idx];
 }
@@ -238,7 +248,7 @@ std::vector<AnkerObjectItem*> AnkerObjectBar::add_volumes_to_object_in_list(size
             Slic3r::ModelVolume* volume = object->volumes[i];
 
             ++volume_idx;
-            if ((object->is_cut() && volume->is_cut_connector()) ||
+            if ((object->is_cut() && volume  && volume->is_cut_connector()) ||
                 (printer_technology() == Slic3r::PrinterTechnology::ptSLA && volume->type() == Slic3r::ModelVolumeType::PARAMETER_MODIFIER) ||
                 m_volumeItemsMap[object].find(volume) != m_volumeItemsMap[object].end())
                 continue;
@@ -262,6 +272,11 @@ void AnkerObjectBar::add_object_to_list(size_t obj_idx, bool call_selection_chan
     ANKER_LOG_INFO << "add object to list " << obj_idx << ", " << m_objects->size();
 
     auto model_object = (*m_objects)[obj_idx];
+    if (model_object == nullptr)
+    {
+        ANKER_LOG_ERROR << "model_object is NAN ";
+        return;
+    }
     const wxString& item_name = get_item_name(model_object->name, model_object->is_text());
 
     AnkerObjectItem* objectItem = new AnkerObjectItem;
@@ -269,10 +284,13 @@ void AnkerObjectBar::add_object_to_list(size_t obj_idx, bool call_selection_chan
     objectItem->setObject(model_object);
     m_objectItemsMap[model_object] = objectItem;
     m_pObjectBarView->addObject(objectItem);
-    if (singleSelection)
-        m_pObjectBarView->setSelectedObjectSingle(objectItem);
-    else
-        m_pObjectBarView->setSelectedObjectMulti(objectItem);
+    if (call_selection_changed)
+    {
+        if (singleSelection)
+            m_pObjectBarView->setSelectedObjectSingle(objectItem);
+        else
+            m_pObjectBarView->setSelectedObjectMulti(objectItem);
+    }
 
     // volumes
     add_volumes_to_object_in_list(obj_idx);
@@ -312,6 +330,9 @@ void AnkerObjectBar::add_object_to_list(size_t obj_idx, bool call_selection_chan
     bool hasSupport = false;
     for (Slic3r::ModelVolume* mv : model_object->volumes) 
     {
+        if (mv == nullptr)
+            continue;
+
         if (!mv->seam_facets.empty())
             hasSeam = true;
         if (!mv->supported_facets.empty())
@@ -339,28 +360,36 @@ void AnkerObjectBar::bar_remove()
 {
     ANKER_LOG_INFO << "remove from bar " << m_pObjectBarView->getSelectedCount();
 
-    for (int i = 0; i < m_pObjectBarView->getSelectedCount(); i++)
+    std::vector<AnkerObjectItem*> selectedItems = m_pObjectBarView->getSelectedObjects();
+    for (int i = 0; i < selectedItems.size(); i++)
     {
-        AnkerObjectItem* item = m_pObjectBarView->getSelectedObject(i);
+        bool reSelectFlag = i == selectedItems.size() - 1;
+        AnkerObjectItem* item = selectedItems[i];
+        if (item == nullptr)
+        {
+            ANKER_LOG_ERROR << "selected item is NAN";
+            continue;
+        }
+
         int objectIndex = -1, volumeIndex = -1, instanceIndex = -1;
         getItemID(item, objectIndex, volumeIndex, instanceIndex);
 
         AnkerObjectItem::ItemType type = item->getType();
         if (type == AnkerObjectItem::ITYPE_VOLUME)
         {
-            del_subobject_from_object(objectIndex, volumeIndex, item->getType());
+            del_subobject_from_object(objectIndex, volumeIndex, item->getType(), reSelectFlag);
         }
         else if (type == AnkerObjectItem::ITYPE_INSTANCE)
         {
-            del_subobject_from_object(objectIndex, instanceIndex, item->getType());
+            del_subobject_from_object(objectIndex, instanceIndex, item->getType(), reSelectFlag);
         }
         else if (type == AnkerObjectItem::ITYPE_OBJECT)
         {
-            delete_from_model_and_list(objectIndex);
+            delete_from_model_and_list(objectIndex, reSelectFlag);
         }
         else
         {
-            del_subobject_item(item);
+            del_subobject_item(item, reSelectFlag);
         }
     }
 
@@ -369,14 +398,17 @@ void AnkerObjectBar::bar_remove()
 
 void AnkerObjectBar::delete_object_from_list(const size_t obj_idx)
 {
-    if (obj_idx > -1 && obj_idx < m_objects->size())
+    if (m_objects == nullptr || obj_idx < 0 || obj_idx >= m_objects->size())
+    {
+        ANKER_LOG_ERROR << "m_objects error";
         return;
+    }
 
     ANKER_LOG_INFO << "delete_object_from_list";
 
     Slic3r::ModelObject* targetObj = m_objects->at(obj_idx);
 
-    delViewItem(m_objectItemsMap[targetObj]);
+    delViewItem(m_objectItemsMap[targetObj], true);
 
     AnkerObjectItem* newSelectedItem = m_objectItemsMap.size() > 0 ? m_objectItemsMap.begin()->second : nullptr;
     m_pObjectBarView->setSelectedObjectSingle(newSelectedItem);
@@ -389,12 +421,18 @@ void AnkerObjectBar::delete_volume_from_list(const size_t obj_idx, const size_t 
     ANKER_LOG_INFO << "delete_volume_from_list";
 
     Slic3r::ModelObject* targetModel = (*m_objects)[obj_idx];
+    if (targetModel == nullptr)
+    {
+        ANKER_LOG_ERROR << "targetModel is NAN";
+        return;
+    }
+
     Slic3r::ModelVolume* targetVolume = targetModel->volumes.size() > vol_idx && vol_idx > -1 ? targetModel->volumes[vol_idx] : nullptr;
     auto targetItr = m_volumeItemsMap[targetModel].find(targetVolume);
     auto objectItr = m_objectItemsMap.find(targetModel);
     if (targetItr != m_volumeItemsMap[targetModel].end() && objectItr != m_objectItemsMap.end())
     {
-        delViewItem(targetItr->second);
+        delViewItem(targetItr->second, true);
 
         m_pObjectBarView->selectAll(false);
         m_pObjectBarView->setSelectedObjectSingle(objectItr->second);
@@ -457,7 +495,7 @@ bool AnkerObjectBar::delete_from_model_and_list(const std::vector<AnkerObjectBar
             if (!del_object(item->obj_idx))
                 return false;// continue;
 
-            delViewItem(m_objectItemsMap[obj]);
+            delViewItem(m_objectItemsMap[obj], false);
             //if (was_cut)
             //    update_lock_icons_for_model();
         }
@@ -471,6 +509,8 @@ bool AnkerObjectBar::delete_from_model_and_list(const std::vector<AnkerObjectBar
         update_info_items(id);
     }
 
+    m_pObjectBarView->updateSize();
+
     //m_prevent_list_events = false;
     if (modified_objects_ids.empty())
         return false;
@@ -480,7 +520,7 @@ bool AnkerObjectBar::delete_from_model_and_list(const std::vector<AnkerObjectBar
 }
 
 
-void AnkerObjectBar::delete_from_model_and_list(const size_t obj_idx)
+void AnkerObjectBar::delete_from_model_and_list(const size_t obj_idx, bool reSelectFlag)
 {
     ANKER_LOG_INFO << "delete from model and list objIdx: " << obj_idx;
 
@@ -489,14 +529,17 @@ void AnkerObjectBar::delete_from_model_and_list(const size_t obj_idx)
 
     Slic3r::ModelObject* targetObj = m_objects->at(obj_idx);
 
-    delViewItem(m_objectItemsMap[targetObj]);
+    delViewItem(m_objectItemsMap[targetObj], true);
 
     Slic3r::GUI::wxGetApp().plater()->delete_object_from_model(obj_idx);
 
-    AnkerObjectItem* newSelectedItem = m_objectItemsMap.size() > 0 ? m_objectItemsMap.begin()->second : nullptr;
-    m_pObjectBarView->setSelectedObjectSingle(newSelectedItem);
+    if (reSelectFlag)
+    {
+        AnkerObjectItem* newSelectedItem = m_objectItemsMap.size() > 0 ? m_objectItemsMap.begin()->second : nullptr;
+        m_pObjectBarView->setSelectedObjectSingle(newSelectedItem);
 
-    part_selection_changed();
+        part_selection_changed();
+    }
 }
 
 void AnkerObjectBar::delete_from_model_and_list(Slic3r::ModelObject* obj)
@@ -529,7 +572,7 @@ bool AnkerObjectBar::del_object(const int obj_idx)
     return Slic3r::GUI::wxGetApp().plater()->delete_object_from_model(obj_idx);
 }
 
-bool AnkerObjectBar::del_subobject_item(AnkerObjectItem* item)
+bool AnkerObjectBar::del_subobject_item(AnkerObjectItem* item, bool reSelectFlag)
 {
     if (!item) return false;
 
@@ -573,10 +616,11 @@ bool AnkerObjectBar::del_subobject_item(AnkerObjectItem* item)
     }
     else if (type == AnkerObjectItem::ITYPE_SUPPORT)
     {
-        //Slic3r::GUI::GLGizmoBase* gizmo = Slic3r::GUI::wxGetApp().plater()->canvas3D()->get_gizmos_manager().get_gizmo(Slic3r::GUI::GLGizmosManager::EType::FdmSupports);
-        //Slic3r::GUI::GLGizmoFdmSupports* fsupportGizmo = dynamic_cast<Slic3r::GUI::GLGizmoFdmSupports*>(gizmo);
-        //if (fsupportGizmo)
-        //    fsupportGizmo->reset();
+        if (auto gizmo_base = Slic3r::GUI::wxGetApp().plater()->canvas3D()->get_gizmos_manager().get_gizmo(Slic3r::GUI::GLGizmosManager::EType::FdmSupports)) {
+            if (auto support_gizmo = dynamic_cast<Slic3r::GUI::GLGizmoFdmSupports*>(gizmo_base)) {
+                support_gizmo->reset();
+            }
+        }
 
         Slic3r::GUI::Plater::TakeSnapshot(Slic3r::GUI::wxGetApp().plater_, _L("Remove paint-on supports"));
         for (Slic3r::ModelVolume* mv : (*m_objects)[obj_idx]->volumes)
@@ -598,9 +642,12 @@ bool AnkerObjectBar::del_subobject_item(AnkerObjectItem* item)
     //    update_info_items(obj_idx);
     //}
 
-    delViewItem(item);
-    m_pObjectBarView->setSelectedObjectSingle(newSelectedItem);
-    bar_selection_changed();
+    delViewItem(item, true);
+    if (reSelectFlag)
+    {
+        m_pObjectBarView->setSelectedObjectSingle(newSelectedItem);
+        bar_selection_changed();
+    }
 
     return true;
 }
@@ -658,7 +705,7 @@ bool AnkerObjectBar::del_from_cut_object(bool is_connector, bool is_model_part, 
     return true;
 }
 
-bool AnkerObjectBar::del_subobject_from_object(const int objectID, const int volumeID, AnkerObjectItem::ItemType type)
+bool AnkerObjectBar::del_subobject_from_object(const int objectID, const int volumeID, AnkerObjectItem::ItemType type, bool reSelectFlag)
 {
     if (m_objects == nullptr || objectID < 0 || objectID >= m_objects->size() || volumeID < 0)
     {
@@ -726,7 +773,7 @@ bool AnkerObjectBar::del_subobject_from_object(const int objectID, const int vol
 
         take_snapshot(_L("Delete Subobject"));
 
-        delViewItem(m_volumeItemsMap[object][volume]);
+        delViewItem(m_volumeItemsMap[object][volume], true);
         object->delete_volume(volumeID);
 
         if (object->volumes.size() > 0)
@@ -736,6 +783,13 @@ bool AnkerObjectBar::del_subobject_from_object(const int objectID, const int vol
             {
                 newSelectedItem = volItr->second;
             }
+        }
+
+        if (object->volumes.size() == 1 && object->volumes[0]->config.has(CONFIG_EXTRUDER_KEY))
+        {
+            const Slic3r::ConfigOption* option = object->volumes[0]->config.option(CONFIG_EXTRUDER_KEY);
+			object->config.set_key_value(CONFIG_EXTRUDER_KEY, option->clone());
+            object->volumes[0]->config.erase(CONFIG_EXTRUDER_KEY);
         }
     }
     else if (type == AnkerObjectItem::ItemType::ITYPE_INSTANCE) 
@@ -754,7 +808,7 @@ bool AnkerObjectBar::del_subobject_from_object(const int objectID, const int vol
         }
 
         take_snapshot(_L("Delete Instance"));
-        delViewItem(m_instanceItemsMap[object][volumeID]);
+        delViewItem(m_instanceItemsMap[object][volumeID], true);
         object->delete_instance(volumeID);
 
         if (object->instances.size() > 0 && m_instanceItemsMap[object].size() > 0)
@@ -770,6 +824,7 @@ bool AnkerObjectBar::del_subobject_from_object(const int objectID, const int vol
 
     changed_object(objectID);
 
+    if (reSelectFlag)
 	{
 		m_pObjectBarView->setSelectedObjectSingle(newSelectedItem);
 		bar_selection_changed();
@@ -818,11 +873,12 @@ void AnkerObjectBar::update_volumes(int obj_idx)
         std::vector<AnkerObjectItem*> oldVolumes;
         for (auto itr = volsItr->second.begin(); itr != volsItr->second.end(); itr++)
         {
+            itr->second->inValidate();
             oldVolumes.push_back(itr->second);
         }
         for (int i = 0; i < oldVolumes.size(); i++)
         {
-            delViewItem(oldVolumes[i]);
+            delViewItem(oldVolumes[i], false);
         }
     }
 
@@ -907,7 +963,7 @@ void AnkerObjectBar::decrease_object_instances(const size_t obj_idx, const size_
     groupItem = groupItr->second;
     if (m_instanceItemsMap[obj].size() <= num)
     {
-        delViewItem(groupItem);
+        delViewItem(groupItem, true);
     }
     else
     {
@@ -920,8 +976,10 @@ void AnkerObjectBar::decrease_object_instances(const size_t obj_idx, const size_
 
         for (int i = 0; i < removedItem.size(); i++)
         {
-            delViewItem(removedItem[i]);
+            delViewItem(removedItem[i], false);
         }
+
+        m_pObjectBarView->updateSize();
     }
 
 
@@ -1432,7 +1490,7 @@ void AnkerObjectBar::load_modifier(const wxArrayString& input_files, Slic3r::Mod
         Slic3r::ModelVolume* new_volume = model_object.add_volume(std::move(mesh), type);
         new_volume->name = boost::filesystem::path(input_file).filename().string();
         // set a default extruder value, since user can't add it manually
-        new_volume->config.set_key_value("extruder", new Slic3r::ConfigOptionInt(0));
+        new_volume->config.set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(0));
         // update source data
         new_volume->source.input_file = input_file;
         new_volume->source.object_idx = obj_idx;
@@ -1512,7 +1570,7 @@ void AnkerObjectBar::load_generic_subobject(const std::string& type_name, const 
     const wxString name = _L("Generic") + "-" + _(type_name) + "-" + volTypeName;
     new_volume->name = Slic3r::GUI::into_u8(name);
     // set a default extruder value, since user can't add it manually
-    new_volume->config.set_key_value("extruder", new Slic3r::ConfigOptionInt(0));
+    new_volume->config.set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(0));
     new_volume->source.is_from_builtin_objects = true;
 
     AnkerObjectItem* item = reorder_volumes_and_get_selection(obj_idx, [new_volume](const Slic3r::ModelVolume* volume) { return volume == new_volume; });
@@ -1636,7 +1694,7 @@ void AnkerObjectBar::paste_objects_into_list(const std::vector<size_t>& object_i
 
     for (const size_t object : object_idxs)
     {
-        add_object_to_list(object, false);
+        add_object_to_list(object);
     }
 
     Slic3r::GUI::wxGetApp().plater()->changed_objects(object_idxs);
@@ -1782,11 +1840,11 @@ void AnkerObjectBar::merge(bool to_multipart_object)
                 }
             }
             // save extruder value if it was set
-            if (object->volumes.size() == 1 && find(opt_keys.begin(), opt_keys.end(), "extruder") != opt_keys.end()) {
+            if (object->volumes.size() == 1 && find(opt_keys.begin(), opt_keys.end(), CONFIG_EXTRUDER_KEY) != opt_keys.end()) {
                 Slic3r::ModelVolume* volume = new_object->volumes.back();
-                const Slic3r::ConfigOption* option = from_config.option("extruder");
+                const Slic3r::ConfigOption* option = from_config.option(CONFIG_EXTRUDER_KEY);
                 if (option)
-                    volume->config.set_key_value("extruder", option->clone());
+                    volume->config.set_key_value(CONFIG_EXTRUDER_KEY, option->clone());
             }
 
             // merge layers
@@ -1889,7 +1947,16 @@ void AnkerObjectBar::del_settings_from_config()
     take_snapshot(_(L("Delete Settings")));
 
     m_config = &get_item_config(selectedItem);
+
+    // keep the extruder index config
+    double extruderIndex = -1;
+    if (m_config->has(CONFIG_EXTRUDER_KEY))
+        extruderIndex = m_config->get().opt_int(CONFIG_EXTRUDER_KEY);
+
     m_config->reset();
+
+    if (extruderIndex > -1)
+        m_config->set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(extruderIndex));
     
     if (!is_layer_settings)
     {
@@ -1978,6 +2045,10 @@ int AnkerObjectBar::getVolumeIndex(Slic3r::ModelVolume* target, std::vector<Slic
 
 bool AnkerObjectBar::getItemID(AnkerObjectItem* item, int& objectIndex, int& volumeIndex, int& instanceIndex)
 {
+    if (item == nullptr) {
+        return false;
+    }
+
     Slic3r::ModelObject* modelObject = item->getObject();
     Slic3r::ModelVolume* modelVolume = item->getVolume();
     Slic3r::ModelInstance* modelInstance = item->getInstance();
@@ -2022,38 +2093,22 @@ void AnkerObjectBar::scene_selection_changed()
     ANKER_LOG_INFO << "scene_selection_changed";
 
     Slic3r::GUI::Selection& selection = Slic3r::GUI::wxGetApp().plater()->canvas3D()->get_selection();
-    std::set<unsigned int> select_idxs = selection.get_object_idxs();
-    int single_obj_idx = selection.get_object_idx();
-    const Slic3r::GUI::Selection::InstanceIdxsList select_ins_ids = single_obj_idx > -1 ? selection.get_instance_idxs() : Slic3r::GUI::Selection::InstanceIdxsList();
-    
+    //std::set<unsigned int> select_idxs = selection.get_object_idxs();
+    //int single_obj_idx = selection.get_object_idx();
+    //const Slic3r::GUI::Selection::InstanceIdxsList select_ins_ids = single_obj_idx > -1 ? selection.get_instance_idxs() : Slic3r::GUI::Selection::InstanceIdxsList();
+    const Slic3r::GUI::Selection::IndicesList& select_vol_ids = selection.get_volume_idxs();
+
     //const bool is_part = selection.is_single_volume_or_modifier() && !selection.is_any_connector();
     //if (is_part)
     //    return;
     
     m_pObjectBarView->setSelectedObjectSingle(nullptr);
 
-    if (single_obj_idx > -1)
-    {     
-        Slic3r::ModelObject* instanceObject = single_obj_idx < 0 || single_obj_idx >= m_objects->size() ? nullptr : m_objects->at(single_obj_idx);
-        if (instanceObject && instanceObject->instances.size() > 1)
-        {
-            for (auto itr = select_ins_ids.begin(); itr != select_ins_ids.end(); itr++)
-            {
-                AnkerObjectItem* insItem = m_instanceItemsMap[instanceObject][*itr];
-                if (insItem)
-                    m_pObjectBarView->setSelectedObjectMulti(insItem);
-            }
-
-            select_idxs.erase(single_obj_idx);
-        }
-    }
-
     if (selection.is_any_volume() || selection.is_any_modifier())
     {
         //Slic3r::ModelObject* singleObject = single_obj_idx < 0 || single_obj_idx >= m_objects->size() ? nullptr : m_objects->at(single_obj_idx);
         //if (singleObject)
         {
-            const Slic3r::GUI::Selection::IndicesList& select_vol_ids = selection.get_volume_idxs();
             for (auto itr = select_vol_ids.begin(); itr != select_vol_ids.end(); itr++)
             {
                 int glVolIndex = *itr;
@@ -2075,25 +2130,33 @@ void AnkerObjectBar::scene_selection_changed()
             }
         }
     }
-    else //if (select_idxs.size() > 1)
+    else
     {
-        for (auto itr = select_idxs.begin(); itr != select_idxs.end(); itr++)
+        for (auto itr = select_vol_ids.begin(); itr != select_vol_ids.end(); itr++)
         {
-            int objId = *itr;
-            if (objId == single_obj_idx && select_ins_ids.size() > 1)
-                continue;
+            Slic3r::GLVolume* vol = selection.get_volume(*itr);
+            if (vol)
+            {
+                int objIdx = vol->object_idx();
+                int insIdx = vol->instance_idx();
 
-            //int objectIndex = -1, volumeIndex = -1;
-            //getItemID(m_pObjectBarView->getSelectedObject(), objectIndex, volumeIndex);
-            //if (objId != objectIndex)
-            //{
-            //    m_pObjectBarView->setSelectedObject(objId < 0 || objId >= m_objects->size() ? nullptr : m_objects->at(objId));
-            //}
-
-            Slic3r::ModelObject* selectedObject = objId < 0 || objId >= m_objects->size() ? nullptr : m_objects->at(objId);
-            auto itr2 = m_objectItemsMap.find(selectedObject);
-            if (itr2 != m_objectItemsMap.end())
-                m_pObjectBarView->setSelectedObjectMulti(itr2->second);
+                Slic3r::ModelObject* obj = objIdx < 0 || objIdx >= m_objects->size() ? nullptr : m_objects->at(objIdx);
+                if (obj)
+                {
+                    if (obj->instances.size() <= 1)
+                    {
+                        AnkerObjectItem* insItem = m_objectItemsMap[obj];
+                        if (insItem)
+                            m_pObjectBarView->setSelectedObjectMulti(insItem);
+                    }
+                    else if (insIdx >= 0 && insIdx < m_instanceItemsMap[obj].size())
+                    {
+                        AnkerObjectItem* insItem = m_instanceItemsMap[obj][insIdx];
+                        if (insItem)
+                            m_pObjectBarView->setSelectedObjectMulti(insItem);
+                    }
+                }
+            }
         }
     }
 
@@ -2497,6 +2560,11 @@ void AnkerObjectBar::update_selections_on_canvas()
             //}
         }
 
+        if (item == nullptr) {
+            return;
+        }
+
+        ANKER_LOG_INFO << "add_to_selection-->objectIndex: " << objectIndex << " volumeIndex: " << volumeIndex << " instance_idx: " << instance_idx;
         AnkerObjectItem::ItemType type = item->getType();
 
         //single_selection &= (objectIndex != selection.get_object_idx());
@@ -2531,12 +2599,13 @@ void AnkerObjectBar::update_selections_on_canvas()
 
     // stores current instance idx before to clear the selection
     int instance_idx = selection.get_instance_idx();
-
+    ANKER_LOG_INFO << "getSelectedCount: " << m_pObjectBarView->getSelectedCount();
     if (m_pObjectBarView->getSelectedCount() <= 0)
     {
         selection.remove_all();
         Slic3r::GUI::wxGetApp().plater()->canvas3D()->update_gizmos_on_off_state();
-        Slic3r::GUI::wxGetApp().plater()->canvas3D()->update_main_toolbar_state();
+        //Slic3r::GUI::wxGetApp().plater()->canvas3D()->update_main_toolbar_state();
+        Slic3r::GUI::wxGetApp().plater()->canvas3D()->reset_main_toolbar_toggled_state();
         Slic3r::GUI::wxGetApp().plater()->canvas3D()->render();
         Slic3r::GUI::wxGetApp().plater()->aobject_manipulator()->set_dirty();
         Slic3r::GUI::wxGetApp().plater()->aobject_manipulator()->update_if_dirty();
@@ -2554,10 +2623,12 @@ void AnkerObjectBar::update_selections_on_canvas()
         }
     }
 
+    ANKER_LOG_INFO << "volume_idxs size: " << volume_idxs.size();
     if (selection.contains_all_volumes(volume_idxs))
     {
         // remove
         volume_idxs = selection.get_missing_volume_idxs_from(volume_idxs);
+        ANKER_LOG_INFO << "missing_volume_idxs size: " << volume_idxs.size();
         if (volume_idxs.size() > 0)
         {
             Slic3r::GUI::Plater::TakeSnapshot snapshot(Slic3r::GUI::wxGetApp().plater(), _(L("Selection-Remove from list")), Slic3r::UndoRedo::SnapshotType::Selection);
@@ -2578,10 +2649,13 @@ void AnkerObjectBar::update_selections_on_canvas()
 
     Slic3r::GUI::wxGetApp().plater()->canvas3D()->update_gizmos_on_off_state();
     Slic3r::GUI::wxGetApp().plater()->canvas3D()->update_main_toolbar_state();
+    // do not reset the toggled state of the opened gizmo
+    //Slic3r::GUI::wxGetApp().plater()->canvas3D()->reset_main_toolbar_toggled_state();
     Slic3r::GUI::wxGetApp().plater()->canvas3D()->render();
     Slic3r::GUI::wxGetApp().plater()->aobject_manipulator()->set_dirty();
     Slic3r::GUI::wxGetApp().plater()->aobject_manipulator()->update_if_dirty();
     Slic3r::GUI::wxGetApp().plater()->SetFocus();
+    ANKER_LOG_INFO << "--- update_selections_on_canvas end ---";
 }
 
 void AnkerObjectBar::load_shape_object(const std::string& type_name)
@@ -2598,7 +2672,8 @@ void AnkerObjectBar::load_shape_object(const std::string& type_name)
     // Create mesh
     Slic3r::BoundingBoxf3 bb;
     Slic3r::TriangleMesh mesh = create_mesh(type_name, bb);
-    load_mesh_object(mesh, _u8L("Shape") + "-" + type_name);
+
+    load_mesh_object(mesh, _u8L("Shape") + "-" + _u8L(type_name));
     if (!m_objects->empty())
         m_objects->back()->volumes.front()->source.is_from_builtin_objects = true;
     Slic3r::GUI::wxGetApp().mainframe->update_title();
@@ -2659,7 +2734,7 @@ void AnkerObjectBar::load_mesh_object(const Slic3r::TriangleMesh& mesh,
     if (text_config)
         new_volume->text_configuration = *text_config;
     // set a default extruder value, since user can't add it manually
-    new_volume->config.set_key_value("extruder", new Slic3r::ConfigOptionInt(0));
+    new_volume->config.set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(0));
     new_object->invalidate_bounding_box();
     if (transformation) {
         assert(!center);
@@ -2710,7 +2785,7 @@ void AnkerObjectBar::update_extruder_in_config(AnkerObjectItem* item, int filame
 
     take_snapshot(_(L("Change Extruder")));
 
-    m_config->set_key_value("extruder", new Slic3r::ConfigOptionInt(filamentIndex));
+    m_config->set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(filamentIndex));
 
     // update scene
     Slic3r::GUI::wxGetApp().plater()->update();
@@ -2747,7 +2822,10 @@ void AnkerObjectBar::update_after_undo_redo()
         ++obj_idx;
     }
 
+    m_pObjectBarView->Refresh();
     m_pObjectBarView->updateSize();
+
+    scene_selection_changed();
 
     // update printable states on canvas
     Slic3r::GUI::wxGetApp().plater()->canvas3D()->update_instance_printable_state_for_objects(obj_idxs);
@@ -2881,7 +2959,7 @@ AnkerObjectItem* AnkerObjectBar::add_layer_item(const t_layer_height_range& rang
     if (obj == nullptr) return nullptr;
 
     const Slic3r::DynamicPrintConfig& config = obj->layer_config_ranges[range].get();
-    if (!config.has("extruder"))
+    if (!config.has(CONFIG_EXTRUDER_KEY))
         return nullptr;
 
     AnkerObjectItem* newItem = new AnkerObjectItem;
@@ -2914,15 +2992,15 @@ bool AnkerObjectBar::edit_layer_range(const t_layer_height_range& range, coordf_
     int obj_idx = getObjectIndex(obj, *m_objects);
 
     Slic3r::ModelConfig* config = &(obj->layer_config_ranges)[range];
-    if (fabs(layer_height - config->opt_float("layer_height")) < EPSILON)
+    if (fabs(layer_height - config->opt_float(CONFIG_LAYER_HEIGHT_KEY)) < EPSILON)
         return false;
 
-    const int extruder_idx = config->opt_int("extruder");
+    const int extruder_idx = config->opt_int(CONFIG_EXTRUDER_KEY);
 
     if (layer_height >= get_min_layer_height(extruder_idx) &&
         layer_height <= get_max_layer_height(extruder_idx))
     {
-        config->set_key_value("layer_height", new Slic3r::ConfigOptionFloat(layer_height));
+        config->set_key_value(CONFIG_LAYER_HEIGHT_KEY, new Slic3r::ConfigOptionFloat(layer_height));
         changed_object(obj_idx);
         return true;
     }
@@ -3007,7 +3085,7 @@ wxString AnkerObjectBar::can_add_new_range_after_current(std::pair<double, doubl
     if (const std::pair<coordf_t, coordf_t>& next_range = it_next_range->first; current_range.second <= next_range.first)
     {
         if (current_range.second == next_range.first) {
-            if (next_range.second - next_range.first < get_min_layer_height(it_next_range->second.opt_int("extruder")) + get_min_layer_height(0) - EPSILON)
+            if (next_range.second - next_range.first < get_min_layer_height(it_next_range->second.opt_int(CONFIG_EXTRUDER_KEY)) + get_min_layer_height(0) - EPSILON)
                 return _(L("Cannot insert a new layer range after the current layer range.\n"
                     "The next layer range is too thin to be split to two\n"
                     "without violating the minimum layer height."));
@@ -3108,7 +3186,7 @@ void AnkerObjectBar::add_layer_range_after_current(t_layer_height_range current_
                 const auto old_config = ranges.at(next_range);
                 const coordf_t delta = next_range.second - next_range.first;
                 // Layer height of the current layer.
-                const coordf_t old_min_layer_height = get_min_layer_height(old_config.opt_int("extruder"));
+                const coordf_t old_min_layer_height = get_min_layer_height(old_config.opt_int(CONFIG_EXTRUDER_KEY));
                 // Layer height of the layer to be inserted.
                 const coordf_t new_min_layer_height = get_min_layer_height(0);
                 if (delta >= old_min_layer_height + new_min_layer_height - EPSILON) {
@@ -3146,6 +3224,10 @@ void AnkerObjectBar::add_layer_range_after_current(t_layer_height_range current_
             }
         }
     }
+    else if (const std::pair<coordf_t, coordf_t>& next_range = it_next_range->first; current_range.second > next_range.first)
+    {
+        ANKER_LOG_ERROR<<"current_range.second > next_range.first  ("<< current_range.second<<" >"<< next_range.first<<")";
+    }
 
     if (changed)
         changed_object(obj_idx);
@@ -3166,11 +3248,11 @@ Slic3r::DynamicPrintConfig AnkerObjectBar::get_default_layer_config(const int ob
         Slic3r::GUI::wxGetApp().preset_bundle->sla_prints.get_edited_preset().config;
 
     Slic3r::DynamicPrintConfig config = from_config;
-    coordf_t layer_height = object(obj_idx)->config.has("layer_height") ?
-        object(obj_idx)->config.opt_float("layer_height") :
-        Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config.opt_float("layer_height");
-    config.set_key_value("layer_height", new Slic3r::ConfigOptionFloat(layer_height));
-    config.set_key_value("extruder", new Slic3r::ConfigOptionInt(0));
+    coordf_t layer_height = object(obj_idx)->config.has(CONFIG_LAYER_HEIGHT_KEY) ?
+        object(obj_idx)->config.opt_float(CONFIG_LAYER_HEIGHT_KEY) :
+        Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config.opt_float(CONFIG_LAYER_HEIGHT_KEY);
+    config.set_key_value(CONFIG_LAYER_HEIGHT_KEY, new Slic3r::ConfigOptionFloat(layer_height));
+    config.set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(0));
 
     return config;
 }
@@ -3217,7 +3299,15 @@ void AnkerObjectBar::add_settings_to_item(bool panelFlag, AnkerObjectItem* item)
             Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config :
             Slic3r::GUI::wxGetApp().preset_bundle->sla_prints.get_edited_preset().config;
 
+        // keep the extruder index config
+        double extruderIndex = -1;
+        if (m_config->has(CONFIG_EXTRUDER_KEY))
+            extruderIndex = m_config->get().opt_int(CONFIG_EXTRUDER_KEY);
+
         m_config->assign_config(from_config);
+
+        if (extruderIndex > -1)
+            m_config->set_key_value(CONFIG_EXTRUDER_KEY, new Slic3r::ConfigOptionInt(extruderIndex));
 
         selectedItem->enableCustomConfig(true);
         m_pObjectBarView->updateObject(selectedItem);
@@ -3243,13 +3333,12 @@ void AnkerObjectBar::enableSettingsPanel(bool enable, AnkerObjectItem* item)
         Slic3r::ModelConfig* itemCfg = &(get_item_config(item)/*.getPrintCfg()*/);
         Slic3r::GUI::wxGetApp().plater()->sidebarnew().showRightMenuParameterPanel(objName, itemCfg);
 
-        static bool bindFlag = false;
-        if (!bindFlag)
+        if (!m_bindFlag)
         {
-            bindFlag = true;
+            m_bindFlag = true;
             Slic3r::GUI::wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_ANKER_DELETE_CFG_EDIT, [this](wxCommandEvent& event) {
                 del_settings_from_config();
-                });
+            });
 
             Slic3r::GUI::wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_ANKER_EXIT_RIGHT_MENU_PANEL, [this, item, itemCfg](wxCommandEvent& event) {
                 });
@@ -3318,7 +3407,7 @@ void AnkerObjectBar::update_info_items(size_t obj_idx, AnkerObjectItem::ItemType
     }
     else if (!hasTypeInfo)
     {
-        delViewItem(infoItr->second);
+        delViewItem(infoItr->second, true);
     }
 }
 
@@ -3377,7 +3466,7 @@ void AnkerObjectBar::clearAll(bool sizeUpdateFlag)
     m_groupItemsMap.clear();
 }
 
-void AnkerObjectBar::delViewItem(AnkerObjectItem* item)
+void AnkerObjectBar::delViewItem(AnkerObjectItem* item, bool refresh)
 {
     ANKER_LOG_INFO << "delViewItem";
 
@@ -3388,7 +3477,7 @@ void AnkerObjectBar::delViewItem(AnkerObjectItem* item)
     Slic3r::ModelObject* obj = item->getObject();
     Slic3r::ModelVolume* vol = item->getVolume();
 
-    m_pObjectBarView->removeObject(item);
+    m_pObjectBarView->removeObject(item, true, refresh);
 
     switch (type)
     {
@@ -3457,7 +3546,7 @@ void AnkerObjectBar::delViewItem(AnkerObjectItem* item)
 
         if (m_volumeItemsMap[obj].size() == 1)
         {
-            m_pObjectBarView->removeObject(m_volumeItemsMap[obj].begin()->second);
+            m_pObjectBarView->removeObject(m_volumeItemsMap[obj].begin()->second, true, refresh);
             delete m_volumeItemsMap[obj][0];
             m_volumeItemsMap.erase(obj);
         }
@@ -3479,7 +3568,7 @@ void AnkerObjectBar::delViewItem(AnkerObjectItem* item)
         {
             if (groupItr != m_groupItemsMap[obj].end() && groupItr->second)
             {
-                m_pObjectBarView->removeObject(groupItr->second);
+                m_pObjectBarView->removeObject(groupItr->second, true, refresh);
                 delete groupItr->second;
             }
             m_groupItemsMap[obj].erase(AnkerObjectItem::ITYPE_INSTANCE_GROUP);
@@ -3522,7 +3611,7 @@ void AnkerObjectBar::delViewItem(AnkerObjectItem* item)
             auto groupItr = m_groupItemsMap[obj].find(AnkerObjectItem::ITYPE_LAYER_GROUP);
             if (groupItr != m_groupItemsMap[obj].end() && groupItr->second)
             {
-                m_pObjectBarView->removeObject(groupItr->second);
+                m_pObjectBarView->removeObject(groupItr->second, true, refresh);
                 delete groupItr->second;
             }
             m_groupItemsMap[obj].erase(AnkerObjectItem::ITYPE_LAYER_GROUP);
@@ -3605,7 +3694,26 @@ void AnkerObjectBar::OnItemFilamentClicked(wxCommandEvent& event)
 
     wxVariant* pData = (wxVariant*)(event.GetClientData());
     AnkerObjectItem* item = (AnkerObjectItem*)(pData->GetList()[0]->GetVoidPtr());
-    int newFilamentIndex = pData->GetList()[1]->GetInteger();
+    Slic3r::ModelObject* objectData = (Slic3r::ModelObject*)(pData->GetList()[1]->GetVoidPtr());
+    Slic3r::ModelVolume* volumeData = (Slic3r::ModelVolume*)(pData->GetList()[2]->GetVoidPtr());
+    int newFilamentIndex = pData->GetList()[3]->GetInteger();
+
+    auto itemItr = m_objectItemsMap.find(objectData);
+    auto volumeMapItr = m_volumeItemsMap.find(objectData);
+    if (volumeData == nullptr)
+    {
+        if (itemItr == m_objectItemsMap.end() || item != itemItr->second)
+            return;
+    }
+    else
+    {
+        if (volumeMapItr == m_volumeItemsMap.end())
+            return;
+
+        auto volumeItr = volumeMapItr->second.find(volumeData);
+        if (volumeItr == volumeMapItr->second.end() || item != volumeItr->second)
+            return;
+    }
 
     update_extruder_in_config(item, newFilamentIndex + 1);
 }
@@ -3636,7 +3744,8 @@ void AnkerObjectBar::OnKeyEvent(wxKeyEvent& event)
 }
 
 AnkerObjectItem::AnkerObjectItem()
-    : m_itemType(ITYPE_COUNT)
+    : m_valid(false)
+    , m_itemType(ITYPE_COUNT)
     , m_pObjectData(nullptr)
     , m_pVolumeData(nullptr)
     , m_pInstanceData(nullptr)
@@ -3653,6 +3762,8 @@ AnkerObjectItem::~AnkerObjectItem()
 void AnkerObjectItem::setType(ItemType type)
 {
     m_itemType = type;
+    if (m_itemType != ITYPE_COUNT)
+        m_valid = true;
 }
 
 void AnkerObjectItem::setObject(Slic3r::ModelObject* object)
@@ -3761,13 +3872,13 @@ wxString AnkerObjectItem::getText()
     switch (m_itemType)
     {
     case AnkerObjectItem::ITYPE_OBJECT:
-        text = get_item_name(m_pObjectData->name, m_pObjectData->is_text());
+        text = m_pObjectData ? get_item_name(m_pObjectData->name, m_pObjectData->is_text()) : "NO_DATA";
         break;
     case AnkerObjectItem::ITYPE_VOLUME:
-        text = get_item_name(m_pVolumeData->name, m_pVolumeData->is_text());
+        text = m_pVolumeData ? get_item_name(m_pVolumeData->name, m_pVolumeData->is_text()) : "NO_DATA";
         break;
     case AnkerObjectItem::ITYPE_INSTANCE:
-        text = _L("Instance " + std::to_string(m_instanceIndex + 1));
+        text = wxString::Format(_L("Instance %d"), m_instanceIndex + 1);
         break;
     case AnkerObjectItem::ITYPE_INSTANCE_GROUP:
         text = _L("Instances");
@@ -3776,13 +3887,13 @@ wxString AnkerObjectItem::getText()
         text = _L(wxString::Format(wxT("%.2f"), m_layerRange.first) + "-" + wxString::Format(wxT("%.2f"), m_layerRange.second) + " mm");
         break;
     case AnkerObjectItem::ITYPE_LAYER_GROUP:
-        text = _L("Height Range");
+        text = _L("common_slice_toolpannel_heightranges");
         break;
     case AnkerObjectItem::ITYPE_SEAM:
-        text = _L("Seam Painting");
+        text = _L("common_slice_toolpannel_seampaint");
         break;
     case AnkerObjectItem::ITYPE_SUPPORT:
-        text = _L("Paint-on Support");
+        text = _L("common_slice_toolpannel_paintsupport");
         break;
     case AnkerObjectItem::ITYPE_COUNT:
         text = _L("N/A");
@@ -3800,7 +3911,7 @@ bool AnkerObjectItem::getPrintable()
     bool printable = false;
 
     // TODO: instance
-    if (m_itemType == ITYPE_OBJECT)
+    if (m_itemType == ITYPE_OBJECT && m_pObjectData)
     {
         if (m_pObjectData->instances.size() > 0)
         {
@@ -3812,7 +3923,7 @@ bool AnkerObjectItem::getPrintable()
         else
             printable = m_pObjectData->printable;
     }
-    else if (m_itemType == ITYPE_INSTANCE)
+    else if (m_itemType == ITYPE_INSTANCE && m_pInstanceData)
         printable = m_pInstanceData->printable;
 
     return printable;
@@ -3826,10 +3937,10 @@ bool AnkerObjectItem::hasSetting()
 int AnkerObjectItem::getFilamentIndex()
 {
     int filamentIndex = -1;
-    if (m_itemType == ITYPE_OBJECT)
-        filamentIndex = m_pObjectData->config.has("extruder") ? m_pObjectData->config.extruder() : 1;
-    else if (m_itemType == ITYPE_VOLUME)
-        filamentIndex = m_pVolumeData->config.has("extruder") ? m_pVolumeData->config.extruder() : 1;
+    if (m_itemType == ITYPE_OBJECT && m_pObjectData)
+        filamentIndex = m_pObjectData->config.has(CONFIG_EXTRUDER_KEY) ? m_pObjectData->config.extruder() : 1;
+    else if (m_itemType == ITYPE_VOLUME && m_pVolumeData)
+        filamentIndex = m_pVolumeData->config.has(CONFIG_EXTRUDER_KEY) && m_pVolumeData->config.extruder() > 0 ? m_pVolumeData->config.extruder() : (m_pObjectData->config.has(CONFIG_EXTRUDER_KEY) ? m_pObjectData->config.extruder() : 1);
 
     const std::vector<Slic3r::GUI::SFilamentInfo>& filamentInfos = Slic3r::GUI::wxGetApp().plater()->sidebarnew().getEditFilamentList();
     filamentIndex = std::min((int)(filamentInfos.size()), std::max(filamentIndex, 1));
@@ -3842,5 +3953,13 @@ wxColour AnkerObjectItem::getFilamentColour()
     const std::vector<Slic3r::GUI::SFilamentInfo>& filamentInfos = Slic3r::GUI::wxGetApp().plater()->sidebarnew().getEditFilamentList();
     int filamentIndex = getFilamentIndex();
 
-    return wxColour(filamentInfos[filamentIndex - 1].wxStrColor);
+    // modify by Samule, check index to avoid crash
+    if (filamentIndex < 1 || filamentInfos.size() ==0)
+    {
+        return wxColour("#ffffff");
+    }
+    else
+    {
+        return wxColour(filamentInfos[filamentIndex - 1].wxStrColor);
+    }
 }

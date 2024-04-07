@@ -537,9 +537,15 @@ void GLGizmoEmboss::on_render_input_window(float x, float y, float bottom_limit)
 
     // Not known situation when could happend this is only for sure
     if (!m_is_unknown_font && !m_style_manager.is_active_font())
-        create_notification_not_valid_font("No active font in style. Select correct one.");
+    {
+        wxString strText = _L("common_slicepopup_failfont2");
+        create_notification_not_valid_font(std::string(strText.mb_str(wxConvUTF8)));
+    }
     else if (!m_is_unknown_font && !m_style_manager.get_wx_font().IsOk())
-        create_notification_not_valid_font("WxFont is not loaded properly.");
+    {
+        wxString strText = _L("common_slicepopup_failfont3");
+        create_notification_not_valid_font(std::string(strText.mb_str(wxConvUTF8)));
+    }
 
     // Configuration creation
     double screen_scale = wxDisplay(wxGetApp().plater()).GetScaleFactor();
@@ -3236,9 +3242,7 @@ void GLGizmoEmboss::create_notification_not_valid_font(
     }
     const std::string &face_name = face_name_opt.value_or(face_name_by_wx.value_or(es.path));
     std::string text =
-        GUI::format(_L("Can't load exactly same font(\"%1%\"). "
-                       "Aplication selected a similar one(\"%2%\"). "
-                       "You have to specify font for enable edit text."),
+        GUI::format(_L("common_slicepopup_failfont1"),
                     face_name_3mf, face_name);
     create_notification_not_valid_font(text);
 }

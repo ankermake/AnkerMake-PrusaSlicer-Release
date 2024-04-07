@@ -84,21 +84,40 @@ namespace Slic3r {
         std::string base64_str;
         std::string speed;
         std::string filament_cost;
+        std::array<float, 3> boxSize;
         float print_time;
+
         void reset() {
             base64_str.clear();
             speed.clear();
             filament_cost.clear();
             print_time = 0.0f;
+            boxSize.fill(0.0);
         }
     };
+
+    struct ConflictResult
+    {
+        std::string _objName1;
+        std::string _objName2;
+        double      _height;
+        const void* _obj1; // nullptr means wipe tower
+        const void* _obj2;
+        int         layer = -1;
+        ConflictResult(const std::string& objName1, const std::string& objName2, double height, const void* obj1, const void* obj2)
+            : _objName1(objName1), _objName2(objName2), _height(height), _obj1(obj1), _obj2(obj2)
+        {}
+        ConflictResult() = default;
+    };
+
+    using ConflictResultOpt = std::optional<ConflictResult>;
 
     struct GCodeProcessorResult
     { 
         struct v6InfoStat {
             std::array<std::vector<size_t>, 6> toolChangePos;//T0-T6 Pos
             std::array<std::vector<size_t>, 6> toolChangeTemps;//T0-T6 temps
-            std::array<std::vector<Vec3f>,  6> nextPos;
+            //std::array<std::vector<Vec3f>,  6> nextPos;
             //std::vector<size_t> g1LinePos;
             void reset() {
                 for (auto& vec : toolChangePos) {
@@ -109,10 +128,10 @@ namespace Slic3r {
                     vec.clear(); //
                     vec.shrink_to_fit();
                 }
-                for (auto& vec : nextPos) {
-                    vec.clear(); //
-                    vec.shrink_to_fit();
-                }
+                //for (auto& vec : nextPos) {
+                //    vec.clear(); //
+                //    vec.shrink_to_fit();
+                //}
             }
         };
 
@@ -184,7 +203,7 @@ namespace Slic3r {
         PrintEstimatedStatistics print_statistics;
         std::vector<CustomGCode::Item> custom_gcode_per_print_z;
         std::vector<std::pair<float, std::pair<size_t, size_t>>> spiral_vase_layers;
-
+        ConflictResultOpt conflict_result;
 #if ENABLE_GCODE_VIEWER_STATISTICS
         int64_t time{ 0 };
 #endif // ENABLE_GCODE_VIEWER_STATISTICS
@@ -291,6 +310,7 @@ namespace Slic3r {
             EMoveType move_type{ EMoveType::Noop };
             GCodeExtrusionRole role{ GCodeExtrusionRole::None };
             unsigned int g1_line_id{ 0 };
+            unsigned int remaining_internal_g1_lines;
             unsigned int layer_id{ 0 };
             float distance{ 0.0f }; // mm
             float acceleration{ 0.0f }; // mm/s^2
@@ -306,7 +326,6 @@ namespace Slic3r {
             float time() const;
         };
 
-  
         struct TimeMachine
         {
             struct State
@@ -712,6 +731,12 @@ namespace Slic3r {
         // Move
         void process_G0(const GCodeReader::GCodeLine& line);
         void process_G1(const GCodeReader::GCodeLine& line);
+        enum class G1DiscretizationOrigin {
+            G1,
+            G2G3,
+        };
+        void process_G1(const std::array<std::optional<double>, 4>& axes, const std::optional<double>& feedrate,
+            G1DiscretizationOrigin origin, const std::optional<unsigned int>& remaining_internal_g1_lines);
 
         // Arc Move
         void process_G2_G3(const GCodeReader::GCodeLine& line, bool clockwise);
@@ -852,6 +877,7 @@ namespace Slic3r {
         bool search_for_thumbnail_target(std::string_view line_str, const Vec2d& encode_sizes, std::string& format_str, int task_flag);
         bool detect_thumbnail_end(std::string_view line_str, const std::string& format_str, bool has_searched_tag);
         bool search_for_speed_target(std::string_view line_str, std::string& speed);
+        bool search_for_obj_size(std::string_view line_str, std::array<float, 3>& boxSize);
         bool search_for_filament_cost_target(std::string_view line_str, std::string& filament_cost);
         bool search_for_print_time_target(std::string_view line_str, float& print_time);
    };

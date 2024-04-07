@@ -813,7 +813,12 @@ ScalableBitmap::ScalableBitmap( wxWindow *parent,
     m_px_cnt(px_cnt)
 {
     m_bmp = *get_bmp_bundle(icon_name, px_cnt);
-    m_bitmap = m_bmp.GetBitmapFor(m_parent);
+    if (!m_bmp.IsOk())
+    {
+        ANKER_LOG_ERROR << "m_bmp is not OK";
+        //by Samuel, m_bitmap is never be used, comment this code to avoid crash problem at hear
+       // m_bitmap = m_bmp.GetBitmapFor(m_parent);
+    }
 }
 
 void ScalableBitmap::sys_color_changed()

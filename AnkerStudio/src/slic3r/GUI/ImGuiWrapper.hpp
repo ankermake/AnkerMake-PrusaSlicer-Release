@@ -246,6 +246,11 @@ public:
     static const ImVec4 COL_BUTTON_HOVERED;
     static const ImVec4 COL_BUTTON_ACTIVE;
 
+    static void push_confirm_button_style();
+    static void pop_confirm_button_style();
+    static void push_cancel_button_style();
+    static void pop_cancel_button_style();
+
 private:
     void init_font(bool compress);
     void init_input();

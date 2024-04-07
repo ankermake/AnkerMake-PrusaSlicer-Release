@@ -22,22 +22,23 @@
 #include "AnkerObjectManipulator.hpp"
 #include "AnkerFloatingList.hpp"
 #include "AnkerObjectLayers.hpp"
-
-
 #include "AnkerSideBarNew.hpp"
 
-
+#define ENABLE_AI 1
 
 class wxButton;
 class ScalableButton;
 class wxScrolledWindow;
 class wxString;
+class AnkerChooseDeviceDialog;
+
+wxDECLARE_EVENT(wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP, wxCommandEvent);
 
 namespace Slic3r {
     // use sidebar new
     #define USE_SIDEBAR_NEW 1
 #ifndef __APPLE__
-    #define SIDEBARNEW_WIDGET_WIDTH (360)
+    #define SIDEBARNEW_WIDGET_WIDTH (420)
 #else
     #define SIDEBARNEW_WIDGET_WIDTH (400)
 #endif
@@ -89,6 +90,22 @@ namespace Slic3r {
         {
             VIEW_MODE_3D,
             VIEW_MODE_PREVIEW
+        };
+
+        enum RightSidePanelUpdateReason {
+            REASON_NONE = 0,
+            LOAD_GCODE_FILE_FOR_PREVIEW,
+            LOAD_ACODE_FILE_FOR_PREVIEW,
+            EXPORT_START,
+            EXPORT_ACODE_COMPLETE,
+            EXPORT_ACODE_CANCEL,
+            PROCCESS_GCODE_COMPLETE,
+            SLICING_CANCEL,
+            GCODE_INVALID,
+            SELECT_VIEW_MODE_PREVIEW,
+            PLATER_TAB_HIDE,
+            DELETE_ALL_OBJECT,
+            CONFIG_CHANGE,
         };
 
         class Sidebar : public wxPanel
@@ -200,6 +217,9 @@ namespace Slic3r {
             const SLAPrint& sla_print() const;
             SLAPrint& sla_print();
 
+            ///web download
+            void request_model_download(std::string url);
+
             void new_project();
             void load_project();
             void load_project(const wxString& filename);
@@ -212,12 +232,18 @@ namespace Slic3r {
             void reload_gcode_from_disk();
             void refresh_print();
 
+            std::string get_acode_extract_path();
+            void clear_acode_extract_path();
+            bool ExtractFilesFromTar(const wxString& tarFilePath, const wxString& outputDir, std::string file_pattern_regex = ".*");
+            wxString extract_aiGcode_file_from_tar(const wxString& tarFilePath);
+
             std::vector<size_t> load_files(const std::vector<boost::filesystem::path>& input_files, bool load_model = true, bool load_config = true, bool imperial_units = false);
             // To be called when providing a list of files to the GUI slic3r on command line.
             std::vector<size_t> load_files(const std::vector<std::string>& input_files, bool load_model = true, bool load_config = true, bool imperial_units = false);
             // to be called on drag and drop
             bool load_files(const wxArrayString& filenames, bool delete_after_load = false);
             bool isImportGCode() const;
+            bool ImportIsACode() const;
             void check_selected_presets_visibility(PrinterTechnology loaded_printer_technology);
 
             bool preview_zip_archive(const boost::filesystem::path& input_file);
@@ -287,6 +313,7 @@ namespace Slic3r {
 
             void select_all();
             void deselect_all();
+            int get_object_count();
             void remove(size_t obj_idx);
             void reset();
             void reset_with_confirm();
@@ -304,13 +331,22 @@ namespace Slic3r {
             void cut(size_t obj_idx, size_t instance_idx, const Transform3d& cut_matrix, ModelObjectCutAttributes attributes);
 
             void export_akeyPrint_gcode(std::string &path, bool isAcode = false);
-            void export_gcode(bool prefer_removable);
+            void export_gcode(bool prefer_removable, bool disableAI = false);
             void set_export_progress_change_callback(progressChangeCallbackFunction cb);
-            void stop_exporting_Gcode();
+            void set_app_closing(bool v);
+            bool is_exporting();
+            bool is_exporting_gcode();
+            bool is_exporting_acode();
+            void stop_exporting_acode();
+            bool is_cancel_exporting_Gcode();
             void set_create_AI_file_val(bool val);
             bool get_create_AI_file_val();
+            void set_droping_file(bool val);
+            bool is_droping_file();
             void a_key_print_clicked();
-            void showDeviceList();
+            bool ExportGacode();
+            void UpdateDeviceList(bool hideList);
+            void ShowDeviceList();
             void export_stl_obj(bool extended = false, bool selection_only = false);
             void export_amf();
             bool export_3mf(const boost::filesystem::path& output_path = boost::filesystem::path());
@@ -331,6 +367,7 @@ namespace Slic3r {
             void schedule_background_process(bool schedule = true);
             bool is_background_process_update_scheduled() const;
             void suppress_background_process(const bool stop_background_process);
+            bool background_process_running();
             void send_gcode();
             void eject_drive();
 
@@ -364,7 +401,8 @@ namespace Slic3r {
             void on_show(wxShowEvent& event);
             void on_size(wxSizeEvent& event);
             void on_minimize(wxIconizeEvent& event);
-            void on_maximize(wxMaximizeEvent& event);            
+            void on_maximize(wxMaximizeEvent& event);
+            void on_idle(wxIdleEvent& evt);
             void onSliceNow();
             void updateMatchHint();
 
@@ -391,6 +429,9 @@ namespace Slic3r {
 
             void arrange();
 
+            // Aden add.
+            void auto_bed();
+
             void set_current_canvas_as_dirty();
             void unbind_canvas_event_handlers();
             void reset_canvas_volumes();
@@ -416,6 +457,7 @@ namespace Slic3r {
             bool can_split_to_objects() const;
             bool can_split_to_volumes() const;
             bool can_arrange() const;
+            bool can_auto_bed() const;
             bool can_layers_editing() const;
             bool can_paste_from_clipboard() const;
             bool can_copy_to_clipboard() const;
@@ -451,6 +493,8 @@ namespace Slic3r {
 
             const GLToolbar& get_collapse_toolbar() const;
             GLToolbar& get_collapse_toolbar();
+
+            void set_preview_layers_slider_values_range(int bottom, int top);
 
             void update_preview_moves_slider();
             void enable_preview_moves_slider(bool enable);
@@ -545,6 +589,14 @@ namespace Slic3r {
                 return m_currentPrintGcodeFile;
             };
 
+            void set_gcode_valid(bool valid) {
+                gcode_valid = valid;
+            };
+
+            bool is_gcode_valid() {
+                return gcode_valid;
+            };
+
             std::string get_temp_gcode_output_path();
 
             void CalcModelObjectSize();
@@ -553,7 +605,12 @@ namespace Slic3r {
             void setScaledModelObjectSizeText(wxString sizeText) {m_scaled_model_object_size_text = sizeText;};
             wxString getScaledModelObjectSizeText() { return m_scaled_model_object_size_text; };
             wxBoxSizer* CreatePreViewRightSideBar();
-
+            std::string GetRightSidePanelUpdateReasonString(RightSidePanelUpdateReason reason);
+            void set_sliceModel_data(int second, std::string filament) {
+                m_print_time = second;
+                m_filament = std::move(filament);
+            }
+            DynamicPrintConfig& get_global_config();
         private:
             void reslice_until_step_inner(int step, const ModelObject& object, bool postpone_error_messages);
 
@@ -568,11 +625,19 @@ namespace Slic3r {
 
             wxString m_last_loaded_gcode;
             std::string m_currentPrintGcodeFile;
+            std::string m_onekeyPrintGcodeFile;
             wxString  m_model_object_size_text;
             wxString  m_scaled_model_object_size_text;
+            
+            bool gcode_valid{ false };
+
+            int m_print_time { 0 };
+            std::string m_filament { "--" };
 
             void suppress_snapshots();
             void allow_snapshots();
+
+            AnkerChooseDeviceDialog* m_chooseDeviceDialog = nullptr;
 
             friend class SuppressBackgroundProcessingUpdate;
         };

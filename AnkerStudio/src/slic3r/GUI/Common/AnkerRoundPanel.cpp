@@ -180,6 +180,7 @@ namespace Slic3r {
 			if (m_CurState == state_selected)
 			{
 				SetState(state_normal);
+				//unselect  other panel
 			}
 			else if (m_CurState == state_normal)
 			{
@@ -193,7 +194,7 @@ namespace Slic3r {
 		EVT_LEFT_DOWN(AnkerStateRoundPanel::OnBtnPressed)
 		END_EVENT_TABLE()
 
-		
+
 		AnkerStateRoundTextPanel::AnkerStateRoundTextPanel(wxWindow* parent):AnkerBasePanel(parent), m_pTextCtrl(nullptr)
 		{
 			m_iTextSpan = 3;
@@ -220,10 +221,10 @@ namespace Slic3r {
 			m_pTextCtrl->SetFont(ANKER_FONT_SIZE(8));
 
 			// set font clolor
-			wxColour colour(*wxRED);
+			wxColour colour(*wxWHITE);
 			m_pTextCtrl->SetForegroundColour(colour);
 			m_pTextCtrl->SetSizeHints(AnkerSize(-1,14), AnkerSize(-1, 14));
-			sizer->Add(m_pTextCtrl,0,wxALIGN_CENTRE_VERTICAL|wxALIGN_CENTRE_HORIZONTAL);
+			sizer->Add(m_pTextCtrl,0,wxALIGN_CENTRE_HORIZONTAL);
 			SetSizer(sizer);
 		}
 
@@ -243,10 +244,14 @@ namespace Slic3r {
 			dc.SetFont(ANKER_BOLD_FONT_SIZE(8));
 			wxCoord w2, h2;
 			dc.GetTextExtent(m_strDesc, &w2, &h2);
-			dc.DrawText(m_strDesc, (size.x - w2) / 2, size.GetWidth() - 14);
+			dc.DrawText(m_strDesc, (size.x - w2) / 2, size.y - h2);
 
 			//AnkerStateRoundPanel::OnPaint(event);
 		}	
 
+		BEGIN_EVENT_TABLE(AnkerStateRoundTextPanel, AnkerBasePanel)
+			//EVT_PAINT(AnkerStateRoundTextPanel::OnPaint)
+			//EVT_LEFT_DOWN(AnkerStateRoundTextPanel::OnBtnPressed)
+		END_EVENT_TABLE()
 	}
 }

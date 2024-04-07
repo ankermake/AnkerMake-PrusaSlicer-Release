@@ -15,41 +15,15 @@
 #include "Gizmos/GLGizmosManager.hpp"
 #include "Slic3r/GUI/Common/AnkerMsgDialog.hpp"
 #include "common/AnkerGUIConfig.hpp"
+#include "common/AnkerMulticolorSyncDeviceDialog.hpp"
 #include "common/AnkerBitmapCombox.hpp"
-
+#include "slic3r/Utils/DataMangerUi.hpp"
+#include "AnkerNetBase.h"
+#include "DeviceObjectBase.h"
 
 namespace Slic3r {
     namespace GUI {
-#define COLOUR_BTN_SIZE 25
 
-#define SEPARATOR_HEAD "————— "
-#define SEPARATOR_TAIL " —————"
-#define SYSYTEM_PRESETS "common_slicepannel_parametersselect_title1"
-#define MY_PRESETS "common_slicepannel_parametersselect_title2"
-#define SYSTEM_PRESETS_SEPARATOR wxString::FromUTF8(SEPARATOR_HEAD) + _L(SYSYTEM_PRESETS) + wxString::FromUTF8(SEPARATOR_TAIL)
-#define MY_PRESETS_SEPARATOR wxString::FromUTF8(SEPARATOR_HEAD) + _L(MY_PRESETS) + wxString::FromUTF8(SEPARATOR_TAIL)
-
-#define SIDEBARNEW_PRINTGER_HEIGHT  90  // 109
-#define SIDEBARNEW_PRINTGER_TEXTBTN_SIZER   40 //46
-#define SIDEBARNEW_PRINTGER_HOR_SPAN  10 // 14
-#define SIDEBARNEW_PRINTGER_VER_SPAN  5 // 14
-#define SIDEBARNEW_PRINTGER_COMBO_WIDTH  (SIDEBARNEW_WIDGET_WIDTH - 2* SIDEBARNEW_PRINTGER_HOR_SPAN)  // 276
-
-#ifndef __APPLE__
-#define SIDEBARNEW_PRINTGER_COMBO_VER_SPAN  10
-#define SIDEBARNEW_COMBOBOX_HEIGHT 30
-#else
-#define SIDEBARNEW_PRINTGER_COMBO_VER_SPAN  7
-#define SIDEBARNEW_COMBOBOX_HEIGHT 35
-#endif
-
-#define SIDEBARNEW_FILAMENT_HEIGHT  90 // 111 94
-#define SIDEBARNEW_FILAMENT_TEXTBTN_SIZER  40 // 46
-#define SIDEBARNEW_FILAMENT_PANEL_HEIGHT  (SIDEBARNEW_FILAMENT_HEIGHT - SIDEBARNEW_FILAMENT_TEXTBTN_SIZER)
-#define SIDEBARNEW_FILAMENT_HOR_SPAN  10 // 14
-#define SIDEBARNEW_FILAMENT_VER_SPAN  8 // 14
-
-        
 
         const int MAX_FILAMENT_BUTTON_NUMS = 6;
         enum TimerID {
@@ -65,6 +39,7 @@ namespace Slic3r {
         wxDEFINE_EVENT(wxCUSTOMEVT_UPDATE_FILAMENT_INFO, wxCommandEvent);
         wxDEFINE_EVENT(wxCUSTOMEVT_CHECK_RIGHT_DIRTY_DATA, wxCommandEvent);
         wxDEFINE_EVENT(wxCUSTOMEVT_MAIN_SIZER_CHANGED, wxCommandEvent);
+        wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, wxCommandEvent);
 
         struct AnkerSidebarNew::priv
         {
@@ -76,9 +51,10 @@ namespace Slic3r {
             // Fixed printer configuration panel
             wxPanel* m_printerPanel{ nullptr };
             wxBoxSizer* m_printerSizer{ nullptr };
-            wxFlexGridSizer* m_printerPanelSizer{ nullptr };
 
             // Fixed filament configuration panel
+            std::vector<AnkerPlaterPresetComboBox*> combos_filament;
+            wxBoxSizer* sizer_filaments{ nullptr };
             wxBoxSizer* m_filamentSizer{ nullptr };
             wxPanel* m_filamentPanel{ nullptr };
 
@@ -89,10 +65,6 @@ namespace Slic3r {
             //right key menu parameter panel defualt universal Sizer
 			//wxBoxSizer* m_pRightMenuParameterVSizer{ nullptr };
 			AnkerParameterPanel* m_pAnkerRightMenuParameterPanel{ nullptr };
-
-            // Variable universal configuration panel
-         /*   wxPanel* universalPanel{ nullptr };
-            wxBoxSizer* universalSizer{ nullptr };*/
 
             // custom universal sizer, you can define your generic sizer to replace it
             wxBoxSizer* m_universalCustomSizer{ nullptr };
@@ -112,10 +84,10 @@ namespace Slic3r {
             wxPanel* m_verFilamentPanel{ nullptr };
             wxMenu* m_filamentMenu{ nullptr };
 
-            ScalableButton* m_filamentListToggleBtn{ nullptr };
-            ScalableButton* m_filamentSyncBtn{ nullptr };
+            //ScalableButton* m_filamentListToggleBtn{ nullptr };
+            //ScalableButton* m_filamentSyncBtn{ nullptr };
 
-            AnkerFilamentEditDlg* m_filamentEditDlg{ nullptr };
+            wxWeakRef<AnkerFilamentEditDlg> m_filamentEditDlg{ nullptr };
             std::atomic<bool> m_bSidebarFirstInit{ true };
 
             // extruder info
@@ -129,8 +101,7 @@ namespace Slic3r {
             std::atomic_bool bChangedPrinter{false};
 
             FilamentViewType m_filamentViewType{ multiColorHorView };
-            // add by allen for ankerCfgDlg
-            //PlaterPresetComboBox* m_comboPrinter{nullptr};
+  
             AnkerPlaterPresetComboBox* m_comboPrinter{ nullptr };
 
             int m_marginBase{ 1 };
@@ -141,16 +112,16 @@ namespace Slic3r {
             Search::OptionsSearcher     searcher;
 
             // default select first btn
-            int m_selectdColorBtnIndex{ 1 };
+            int m_selectedColorBtnIndex{ 1 };
+            std::atomic_bool m_bClickedFilament{ false };
+
+            std::string m_strOldFilamentName;
+            std::string m_strNewFilamentName;
+
         };
-        wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, wxCommandEvent);
-        AnkerFilamentEditDlg::AnkerFilamentEditDlg(wxWindow* parent, std::string title, SFilamentEditInfo filamentEditInfo, wxButton* btn)
-            : wxDialog(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize,
-#ifdef __APPLE__
-                wxNO_BORDER | wxSTAY_ON_TOP)
-#else
-            wxNO_BORDER)
-#endif
+       
+        AnkerFilamentEditDlg::AnkerFilamentEditDlg(wxWindow* parent, std::string title, SFilamentEditInfo filamentEditInfo, AnkerBtn* btn)
+            : wxFrame(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxFRAME_FLOAT_ON_PARENT | wxFRAME_TOOL_WINDOW)
             , m_title(title)
             , m_pExitBtn(nullptr)
             , m_pEditColorBtn(btn)
@@ -170,6 +141,16 @@ namespace Slic3r {
                 SetPosition(wxPoint(parent->GetScreenPosition().x - GetSize().x,
                     parent->GetScreenPosition().y));
             }
+            Bind(wxEVT_DPI_CHANGED, [this](wxDPIChangedEvent& event) {
+                //AnkerSize do not work here
+                int old_dpi = event.GetOldDPI().x;
+                int new_dpi = event.GetNewDPI().x;
+                int newWidth = GetSize().x * new_dpi / old_dpi;
+                int newHeight = GetSize().y * new_dpi / old_dpi;
+                SetSize(newWidth, newHeight);
+                Layout();
+                Refresh();
+                });
         }
 
         AnkerFilamentEditDlg::~AnkerFilamentEditDlg() {
@@ -235,27 +216,15 @@ namespace Slic3r {
         }
 
         void AnkerFilamentEditDlg::initFilamentCombox() {
-            wxArrayString   m_arrItems{};
-            int selectedIndex = 0, currentIndex = 0;
-            for (auto iter1 : m_filamentInfoList) {
-                m_arrItems.Add(wxString::FromUTF8(iter1.first.ToStdString()));
-                for (auto iter2 : iter1.second) {
-                    if (0 == m_oldFilamentEditInfo.filamentInfo.wxStrLabelName.Cmp(iter2.wxStrLabelName)) {
-                        currentIndex = selectedIndex;
-                    }
-                }
-                selectedIndex++;
-            }
-
+            wxArrayString m_filamentArrayItems{};
             m_comboFilament = new AnkerPlaterPresetComboBox(this, Slic3r::Preset::TYPE_FILAMENT);
             m_comboFilament->Create(this,
                 wxID_ANY,
                 wxEmptyString,
                 wxDefaultPosition,
                 wxSize(250, AnkerLength(ANKER_COMBOBOX_HEIGHT)),
-                m_arrItems,
+                m_filamentArrayItems,
                 wxNO_BORDER | wxCB_READONLY);
-            m_comboFilament->SetSelection(currentIndex);
             m_comboFilament->SetFont(ANKER_FONT_NO_1);
             m_comboFilament->SetBackgroundColour(wxColour("#434447"));
             m_comboFilament->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
@@ -279,11 +248,6 @@ namespace Slic3r {
             wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
 
             m_comboFilament->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
-
-            // default select
-            if (wxNOT_FOUND == m_comboFilament->GetSelection()) {
-                m_comboFilament->SetSelection(0);
-            }
             m_comboFilament->Bind(wxEVT_COMBOBOX, &AnkerFilamentEditDlg::OnFilamentComboSelected, this);
             m_comboFilament->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& event) {
                 SetCursor(wxCursor(wxCURSOR_HAND));
@@ -291,6 +255,9 @@ namespace Slic3r {
             m_comboFilament->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {
                 SetCursor(wxCursor(wxCURSOR_NONE));
                 });
+
+            // reset filament combox in AnkerFilamentEditDlg
+            resetFilamentCombox();
         }
 
         void AnkerFilamentEditDlg::initColorCombox() {
@@ -313,9 +280,6 @@ namespace Slic3r {
             wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
             m_comboColor->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
 
-            // reset color combox
-            resetColorCombox();
-
             m_comboColor->Bind(wxEVT_COMBOBOX, &AnkerFilamentEditDlg::OnColorComboSelected, this);
             m_comboColor->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& event) {
                 SetCursor(wxCursor(wxCURSOR_HAND));
@@ -323,67 +287,82 @@ namespace Slic3r {
             m_comboColor->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {
                 SetCursor(wxCursor(wxCURSOR_NONE));
                 });
+
+            // reset color combox
+            resetColorCombox();
+        }
+
+        void AnkerFilamentEditDlg::resetFilamentCombox() {
+            std::map<wxString, std::vector<SFilamentInfo>> userFilamentInfoList;
+            int selectionIndex = 1;
+
+            // SYSTEM_PRESETS_SEPARATOR
+            AnkerBitmapComboxItem* comboBoxItem = new AnkerBitmapComboxItem(SYSTEM_PRESETS_SEPARATOR, "");
+            m_comboFilament->SetClientData(m_comboFilament->Append(SYSTEM_PRESETS_SEPARATOR), comboBoxItem);
+            for (auto iter1 : m_filamentInfoList) {
+                // indicates this filament is userFilament
+                if ((iter1.second.size() == 1) && (iter1.second[0].filamentSrcType == userFilamentType)) {
+                    userFilamentInfoList.emplace(std::make_pair(iter1.first, iter1.second));
+                    continue;
+                }
+                // indicates this filament is systemFilament
+                m_comboFilament->Append(iter1.first.ToStdString());
+                if (0 == m_oldFilamentEditInfo.filamentInfo.wxStrLabelType.Cmp(iter1.first)) {
+                    m_comboFilament->SetSelection(selectionIndex);
+                    m_comboFilamentLastSelected = selectionIndex;
+                }
+                selectionIndex++;
+            }
+            // MY_PRESETS_SEPARATOR
+            if (!userFilamentInfoList.empty()) {
+                AnkerBitmapComboxItem* comboBoxItem = new AnkerBitmapComboxItem(MY_PRESETS_SEPARATOR, "");
+                m_comboFilament->SetClientData(m_comboFilament->Append(MY_PRESETS_SEPARATOR), comboBoxItem);
+                selectionIndex++;
+            }
+
+            for (auto iter1 : userFilamentInfoList) {
+                // indicates this filament is userFilament
+                m_comboFilament->Append(iter1.first.ToStdString());
+                if (0 == m_oldFilamentEditInfo.filamentInfo.wxStrLabelType.Cmp(iter1.first)) {
+                    m_comboFilament->SetSelection(selectionIndex);
+                    m_comboFilamentLastSelected = selectionIndex;
+                }
+                selectionIndex++;
+            }
+
+            // default select
+            if (wxNOT_FOUND == m_comboFilament->GetSelection()) {
+                // Skip the first index which is SYSTEM_PRESETS_SEPARATOR
+                int selectionIndex = 1;
+                m_comboFilament->SetSelection(selectionIndex);
+                m_comboFilamentLastSelected = selectionIndex;
+            }
         }
 
         void AnkerFilamentEditDlg::resetColorCombox(bool bInitCreate) {
             int filamentSelection = m_comboFilament->GetSelection();
             wxString selectedText = m_comboFilament->GetString(filamentSelection);
             std::vector<SFilamentInfo> vecAllFilamentInfo = m_filamentInfoList[selectedText];
-            std::vector<SFilamentInfo> vecUserFilamentInfo;
 
-            // add System presets separator
-            AnkerBitmapComboxItem* comboBoxItem = new AnkerBitmapComboxItem(SYSTEM_PRESETS_SEPARATOR, "");
-            m_comboColor->SetClientData(m_comboColor->Append(SYSTEM_PRESETS_SEPARATOR), comboBoxItem);
-            int selectionIndex = 1;
+            int selectionIndex = 0;
             for (auto iter : vecAllFilamentInfo) {
-                if (systemFilamentType == iter.filamentSrcType) {
                     AnkerBitmapComboxItem* comboBoxItem = new AnkerBitmapComboxItem(
-                        wxString::FromUTF8(iter.wxStrColorName.ToStdString()),
+                        iter.wxStrColorName.ToStdString(),
                         wxString::FromUTF8(iter.wxStrColor.ToStdString()));
                     m_comboColor->SetClientData(
-                        m_comboColor->Append(wxString::FromUTF8(iter.wxStrColorName.ToStdString())),
+                        m_comboColor->Append(iter.wxStrColorName.ToStdString()),
                         comboBoxItem);
                     if (bInitCreate && 0 == m_oldFilamentEditInfo.filamentInfo.wxStrColor.Cmp(iter.wxStrColor)
                         && 0 == m_oldFilamentEditInfo.filamentInfo.wxStrLabelName.Cmp(iter.wxStrLabelName)) {
                         m_comboColor->SetSelection(selectionIndex);
-                        m_comboColorLastSelected = selectionIndex;
                     }
                     selectionIndex++;
-                }
-                else {
-                    vecUserFilamentInfo.emplace_back(iter);
-                }
-            }
-            // add My presets separator
-            if (!vecUserFilamentInfo.empty()) {
-                AnkerBitmapComboxItem* comboBoxItem = new AnkerBitmapComboxItem(MY_PRESETS_SEPARATOR, "");
-                m_comboColor->SetClientData(m_comboColor->Append(MY_PRESETS_SEPARATOR), comboBoxItem);
-                selectionIndex++;
-            }
-
-            for (auto iter : vecUserFilamentInfo) {
-                if (userFilamentType == iter.filamentSrcType) {
-                    AnkerBitmapComboxItem* comboBoxItem = new AnkerBitmapComboxItem(
-                        wxString::FromUTF8(iter.wxStrColorName.ToStdString()),
-                        wxString::FromUTF8(iter.wxStrColor.ToStdString()));
-                    m_comboColor->SetClientData(
-                        m_comboColor->Append(wxString::FromUTF8(iter.wxStrColorName.ToStdString())),
-                        comboBoxItem);
-                    if (bInitCreate && 0 == m_oldFilamentEditInfo.filamentInfo.wxStrColor.Cmp(iter.wxStrColor)
-                        && 0 == m_oldFilamentEditInfo.filamentInfo.wxStrLabelName.Cmp(iter.wxStrLabelName)) {
-                        m_comboColor->SetSelection(selectionIndex);
-                        m_comboColorLastSelected = selectionIndex;
-                    }
-                    selectionIndex++;
-                }
             }
 
             // default select
             if (wxNOT_FOUND == m_comboColor->GetSelection()) {
-                // Skip the first index which is SYSTEM_PRESETS_SEPARATOR
-                int selectionIndex = 1;
+                selectionIndex = 0;
                 m_comboColor->SetSelection(selectionIndex);
-                m_comboColorLastSelected = selectionIndex;
             }
         }
 
@@ -400,10 +379,34 @@ namespace Slic3r {
             Close();
         }
 
-        void AnkerFilamentEditDlg::SetEditColorBtnPtr(wxButton* btn) {
+        void AnkerFilamentEditDlg::SetEditColorBtnPtr(AnkerBtn* btn) {
             if (btn != m_pEditColorBtn) {
                 m_pEditColorBtn = btn;
                 ANKER_LOG_INFO << "AnkerFilamentEditDlg SetEditColorBtnPtr success";
+            }
+        }
+
+        //v6 add
+        void AnkerFilamentEditDlg::updateFilamentInfo(SFilamentEditInfo filamentEditInfo)
+        {
+            m_oldFilamentEditInfo = std::move(filamentEditInfo);
+			m_newFilamentEditInfo = m_oldFilamentEditInfo;
+
+            if (!m_comboFilament) {
+                ANKER_LOG_ERROR << "updateFilamentInfo failed, m_comboFilament is nullptr";
+                return;
+            }
+
+            int filamentSelectedIndex = m_comboFilament->FindString(m_oldFilamentEditInfo.filamentInfo.wxStrLabelType);
+
+            m_comboFilament->SetSelection(filamentSelectedIndex);
+
+            if (m_comboColor) {
+                // update color combo
+                m_comboColor->Clear();
+
+                // reset color combox
+                resetColorCombox(true);
             }
         }
 
@@ -411,18 +414,27 @@ namespace Slic3r {
             wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_CHECK_RIGHT_DIRTY_DATA);
             ProcessEvent(evt);
 
-            int index = m_comboFilament->GetSelection();
-            wxString filamentLabelType = m_comboFilament->GetString(index);
-            ANKER_LOG_INFO << "OnFilamentComboSelected enter, filamentLabelType is " << 
-                filamentLabelType.ToStdString().c_str();
-            m_newFilamentEditInfo.filamentInfo.wxStrLabelType = filamentLabelType;
+            int selectionIndex = m_comboFilament->GetSelection();
+            std::string strSelFilamentName = m_comboFilament->GetString(selectionIndex).ToStdString();
+            ANKER_LOG_INFO << "OnFilamentComboSelected enter, filamentLabelType is " << strSelFilamentName;
+            // if user click SYSTEM_PRESETS_SEPARATOR or MY_PRESETS_SEPARATOR,ignore it
+            if (SYSTEM_PRESETS_SEPARATOR == strSelFilamentName
+                || MY_PRESETS_SEPARATOR == strSelFilamentName) {
+                m_comboFilament->SetSelection(m_comboFilamentLastSelected);
+                return;
+            }
+            else {
+                m_comboFilamentLastSelected = selectionIndex;
+            }
+
+            m_newFilamentEditInfo.filamentInfo.wxStrLabelType = strSelFilamentName;
             // update color combo
             m_comboColor->Clear();
-
             // reset color combox
             resetColorCombox(false);
+
             // we still use index 0 to ignore SYSTEM_PRESETS_SEPARATOR
-            m_newFilamentEditInfo.filamentInfo = m_filamentInfoList[filamentLabelType][0];
+            m_newFilamentEditInfo.filamentInfo = m_filamentInfoList[strSelFilamentName][0];
 
             if (!(m_newFilamentEditInfo == m_oldFilamentEditInfo)) {
                 m_oldFilamentEditInfo = m_newFilamentEditInfo;
@@ -434,33 +446,17 @@ namespace Slic3r {
             int selectionIndex = m_comboColor->GetSelection();
             std::string strSelColorName = m_comboColor->GetString(selectionIndex).ToStdString();
             ANKER_LOG_INFO << "OnColorComboSelected enter, strSelColorName is " << strSelColorName.c_str();
-            // if user click SYSTEM_PRESETS_SEPARATOR or MY_PRESETS_SEPARATOR,ignore it
-            if (SYSTEM_PRESETS_SEPARATOR == strSelColorName
-                || MY_PRESETS_SEPARATOR == strSelColorName) {
-                m_comboColor->SetSelection(m_comboColorLastSelected);
-                return;
-            }
-            else {
-                m_comboColorLastSelected = selectionIndex;
-            }
-
-            // check this preset is system preset or user preset
-            int mypresetIndex = m_comboColor->FindString(MY_PRESETS_SEPARATOR);
-            bool bUserPreset = (selectionIndex > mypresetIndex && mypresetIndex > 0) ? true : false;
-
+ 
             int filamentIndex = m_comboFilament->GetSelection();
             wxString filamentLabeltext = m_comboFilament->GetString(filamentIndex);
             for (auto iter : m_filamentInfoList[filamentLabeltext]) {
                 std::string strColorName = wxString::FromUTF8(iter.wxStrColorName.ToStdString()).ToStdString();
                 if ( 0 == strSelColorName.compare(strColorName)) {
                     // we should also compare the source type 
-                    if ((bUserPreset && iter.filamentSrcType == userFilamentType)
-                         || (!bUserPreset && iter.filamentSrcType == systemFilamentType)) {
-                        m_newFilamentEditInfo.filamentInfo = iter;
-                        break;
-                    }
-                    continue;
+                    m_newFilamentEditInfo.filamentInfo = iter;
+                    break;
                 }
+                continue;
             }
 
             if (!(m_newFilamentEditInfo == m_oldFilamentEditInfo)) {
@@ -509,6 +505,11 @@ namespace Slic3r {
 
             // if we have selected new filament colour, we should update the filament info
             Bind(wxCUSTOMEVT_UPDATE_FILAMENT_INFO, &AnkerSidebarNew::onUpdateFilamentInfo, this);
+            Bind(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, [this](wxCommandEvent& event) {
+	            if (p->m_pAnkerParameterPanel)
+		            p->m_pAnkerParameterPanel->reloadData();
+	            });
+
             // if you want to experience the effect of reset and restore sidebar
             // please open the following third lines of code comments
           /*  p->m_timer = new wxTimer(this, timer1);
@@ -523,13 +524,11 @@ namespace Slic3r {
             }
         }
 
-
 		void AnkerSidebarNew::reloadParameterData()
 		{
             if(p->m_pAnkerParameterPanel)
                 p->m_pAnkerParameterPanel->reloadData();
 		}
-
 
 		void AnkerSidebarNew::updatePreset(DynamicPrintConfig& config)
 		{
@@ -661,7 +660,7 @@ namespace Slic3r {
             // 2.printer sizer
             p->m_mainSizer->Add(p->m_printerSizer, 0, wxEXPAND | wxBOTTOM, margin);
             // 3. filament sizer
-            p->m_mainSizer->Add(p->m_filamentSizer, 0, wxEXPAND | wxTop | wxBOTTOM, margin);
+            p->m_mainSizer->Add(p->m_filamentSizer, 0, wxEXPAND | wxBOTTOM, margin);
             // 4.parameterPanel sizer
             
             createPrintParameterSidebar();
@@ -707,19 +706,49 @@ namespace Slic3r {
             }*/
             // Update the printer choosers, update the dirty flags.
             if (p->m_comboPrinter) {
+
                 p->m_comboPrinter->update();
+
+                // auto switch to the printer used last time on start up
+                int selectIdex = p->m_comboPrinter->GetSelection();
+                wxString selectItem = p->m_comboPrinter->GetString(selectIdex);
+                static bool isStartup = true;
+                if (isStartup) {
+                    isStartup = false;
+
+                    wxString last_printer = from_u8(wxGetApp().app_config->get("last_printer"));
+                    if (selectItem != last_printer && !last_printer.empty()) {
+                        wxArrayString items = p->m_comboPrinter->GetStrings();
+                        int i = 0;
+                        for (auto item : items) {
+                            if (item == last_printer) {
+                                wxCommandEvent evt = wxCommandEvent(wxEVT_COMBOBOX);
+                                evt.SetInt(i);
+                                evt.SetEventObject(p->m_comboPrinter);
+                                ProcessEvent(evt);
+                                break;
+                            }
+                            ++i;
+                        }
+                    }
+                }
+
+                if (selectIdex != wxNOT_FOUND) {
+                    std::string printer = into_u8(selectItem);
+                    wxGetApp().app_config->set("last_printer", printer);
+                    // ANKER_LOG_INFO << "set config last_printer selectIdex :" << selectIdex << " :" << printer;
+                }
             }
-            
+
             //// Update the extrudes
             //onExtrudersChange();
 
             // Update the filament choosers to only contain the compatible presets, update the color preview,
             // update the dirty flags.
-            /*if (print_tech == ptFFF) {
-                for (PlaterPresetComboBox* cb : p->combosFilament)
-                    cb->update();
-            }*/
-
+            if (print_tech == ptFFF) {
+	            for (AnkerPlaterPresetComboBox* cb : p->combos_filament)
+		            cb->update();
+            }
         }
 
         void AnkerSidebarNew::updatePresets(Slic3r::Preset::Type preset_type)
@@ -732,19 +761,32 @@ namespace Slic3r {
             {
                 const size_t extruder_cnt = print_tech != ptFFF ? 1 :
                     dynamic_cast<ConfigOptionFloats*>(preset_bundle.printers.get_edited_preset().config.option("nozzle_diameter"))->values.size();
-                const size_t filament_cnt = p->m_filamentInfoList.size() > extruder_cnt ? extruder_cnt : p->m_filamentInfoList.size();
+                const size_t filament_cnt = p->combos_filament.size() > extruder_cnt ? extruder_cnt : p->combos_filament.size();
+
+                //if (extruder_cnt == 1) {
+                //    // Single filament printer, synchronize the filament presets.
+                //    const std::string& name = preset_bundle.filaments.get_selected_preset_name();
+                //    preset_bundle.set_filament_preset(0, name);
+                //} else {
+                //    // fix the bug of #2857
+                //    const std::string& name = preset_bundle.filaments.get_selected_preset_name();
+                //    preset_bundle.set_filament_preset(p->m_selectedColorBtnIndex-1, name);
+                //}
+
+                //// Affiliate filament combox change in filament tab setting
+                //CallAfter([this] {
+                //    onExtrudersChange();
+                //});
+
 
                 if (filament_cnt == 1) {
-                    // Single filament printer, synchronize the filament presets.
-                    const std::string& name = preset_bundle.filaments.get_selected_preset_name();
-                    preset_bundle.set_filament_preset(0, name);
+	                // Single filament printer, synchronize the filament presets.
+	                const std::string& name = preset_bundle.filaments.get_selected_preset_name();
+	                preset_bundle.set_filament_preset(0, name);
                 }
 
-                // Affiliate filament combox change in filament tab setting
-                CallAfter([this] {
-                    onExtrudersChange();
-                });
-
+                for (size_t i = 0; i < filament_cnt; i++)
+	                p->combos_filament[i]->update();
                 break;
             }
 
@@ -774,6 +816,9 @@ namespace Slic3r {
                     updateAllPresetComboboxes();
                     });
                 
+
+                selectDefaultFilament();
+
                 break;
             }
 
@@ -785,23 +830,31 @@ namespace Slic3r {
         }
 
         void AnkerSidebarNew::onExtrudersChange(size_t changedExtruderNums) {
+            if (changedExtruderNums == 0 && getFilamentClickedState()) {
+                setFilamentClickedState(false);
+                return;
+            }
+
             // get filament label and color
             getAllFilamentFromCfg();
+
+            // handle user filament color
+            handleUserFilamentColor();
 
             // get extruder info
             getEditFilamentFromCfg(changedExtruderNums);
 
-            // filament view type
-            p->m_filamentViewType = isMultiFilament() ? (p->m_filamentViewType == multiColorVerView ? multiColorVerView : multiColorHorView): singleColorView;
+            //// filament view type
+            //p->m_filamentViewType = isMultiFilament() ? (p->m_filamentViewType == multiColorVerView ? multiColorVerView : multiColorHorView): singleColorView;
             
             // init ui
             if (p->m_bSidebarFirstInit.load()) {
                 p->m_bSidebarFirstInit.store(false);
                 setAllDefaultSidebar();
             }
-            else {
+          /*  else {
                 updateFilamentInfo(true);
-            }
+            }*/
         }
 
         void AnkerSidebarNew::getEditFilamentFromCfg(size_t changedExtruderNums) {
@@ -869,14 +922,12 @@ namespace Slic3r {
 
             size_t i = 0;
             while (i < numExtruders) {
-                std::string presetName = editFilamentPresets[i];
+                std::string presetName = wxString::FromUTF8(editFilamentPresets[i]).ToStdString();
                 std::string colorName;
                 presetNameSplit(presetName, colorName);
                 // mod by allen for  using default filament when printer preset selection is change
                 if (bUseDefaultFilament) {
                     updateFilamentColourInCfg(presetName, i, false);
-                    // we should update the filament combobox in AnkerConfigDialog
-                    filamentInfoChanged();
                 }
                    
                 SFilamentInfo editFilamentInfo;
@@ -884,21 +935,22 @@ namespace Slic3r {
                 editFilamentInfo.wxStrLabelName = presetName;
 
                 // fill label type to extruderInfo
-                for (auto iter1 : p->m_filamentInfoList) {
-                    for (auto iter2 : iter1.second) {
-                        if (iter2.wxStrLabelName == editFilamentInfo.wxStrLabelName) {
-                            editFilamentInfo.wxStrLabelType = iter1.first;
-                            // fix the problem of inconsistent color and name of filaments
-                            editFilamentInfo.wxStrColor = iter2.wxStrColor;
-                            // add by allen for add anker_filament_id and anker_colour_id
-                            editFilamentInfo.wxStrFilamentId = iter2.wxStrFilamentId;
-                            editFilamentInfo.wxStrColorId = iter2.wxStrColorId;
-                            // add by allen for add filament_type
-                            editFilamentInfo.wxStrLabelType = iter2.wxStrLabelType;
-                            break;
+                auto iter1 = p->m_filamentInfoList.find(editFilamentInfo.wxStrLabelName);
+                // get user filament by key
+                if (iter1 != p->m_filamentInfoList.end()) { 
+                        editFilamentInfo = iter1->second[0];
+                } 
+                else {  //get system filament by value
+                    for (auto iter1 : p->m_filamentInfoList) {
+                        for (auto iter2 : iter1.second) {
+                            if (iter2.wxStrLabelName == editFilamentInfo.wxStrLabelName) {
+                                editFilamentInfo = iter2;
+                                break;
+                            }
                         }
                     }
                 }
+
                 {
                     std::lock_guard<std::mutex> lock(p->editFilamentMtx);
                     // we should clear p->m_editFilamentInfoList first before emplace_back
@@ -909,6 +961,18 @@ namespace Slic3r {
                 }
                 ++i;
             }
+            
+            if (isMultiFilament())
+                updateUserFilament();
+
+            // Increase the preset switching speed of the machine model.
+            if (bUseDefaultFilament) {
+                p->m_selectedColorBtnIndex = 1;
+                m_timer.Bind(wxEVT_TIMER, &AnkerSidebarNew::updateCfgTabTimer, this);
+                m_timer.StartOnce(50);
+                // we should update the filament combobox in AnkerConfigDialog
+                //filamentInfoChanged();
+            }     
         }
 
         void AnkerSidebarNew::getAllFilamentFromCfg() {
@@ -919,13 +983,10 @@ namespace Slic3r {
             size_t defaultPresetsNum = wxGetApp().preset_bundle->filaments.num_default_presets();
             for (size_t i = presets.front().is_visible ? 0 : defaultPresetsNum; i < presets.size(); ++i) {
                 const Preset& preset = presets[i];
-                if (!preset.is_visible || !preset.is_compatible)
+                // not only support the system presets of the filament , but also support the users presets of the filament
+                if (!preset.is_visible || !preset.is_compatible || preset.is_default)
                     continue;
-                // We not only support the system presets of the filament , but also support the users presets of the filament ,mod by allen.
-                if (preset.is_default) {
-                    continue;
-                }
-
+              
                 if (!preset.vendor || !preset.vendor->templates_profile) {
                     SFilamentInfo filamentInfo;
                     filamentInfo.wxStrColor = preset.config.opt_string("filament_colour", (unsigned int)0);
@@ -933,22 +994,41 @@ namespace Slic3r {
                     filamentInfo.wxStrFilamentId = preset.config.opt_string("anker_filament_id", (unsigned int)0);
                     filamentInfo.wxStrColorId = preset.config.opt_string("anker_colour_id", (unsigned int)0);
                     // add by allen for filament_type
-                    std::string filamentType = preset.config.opt_string("filament_type", (unsigned int)0);
+                    filamentInfo.wxStrFilamentType = preset.config.opt_string("filament_type", (unsigned int)0);
                     std::string colorName;
                     // only system filament can get colorName from presetname
                     if(preset.is_system) presetNameSplit(preset.name, colorName);
                     //colorName may be empty,use preset.name instead
-                    filamentInfo.wxStrColorName = colorName.empty() ? preset.name : colorName;
-                    filamentInfo.wxStrLabelType = filamentType;
-                    filamentInfo.wxStrLabelName = preset.name;
-                    filamentInfo.filamentSrcType = preset.is_system ? systemFilamentType : userFilamentType;
-                    auto iter = p->m_filamentInfoList.find(filamentInfo.wxStrLabelType);
-                    if (iter == p->m_filamentInfoList.end()) {
+                    filamentInfo.wxStrColorName = colorName.empty() ? wxString::FromUTF8(preset.name) : wxString::FromUTF8(colorName);
+                    filamentInfo.wxStrLabelType = filamentInfo.wxStrFilamentType;
+                    filamentInfo.wxStrLabelName = wxString::FromUTF8(preset.name);
+                    filamentInfo.filamentSrcType = preset.is_system ? systemFilamentType : userFilamentType;      
+                   
+                    wxString foundKey = (filamentInfo.filamentSrcType) == systemFilamentType ? filamentInfo.wxStrLabelType : filamentInfo.wxStrLabelName;
+                    filamentInfo.wxStrLabelType = foundKey;
+                    auto iter = p->m_filamentInfoList.find(foundKey);
+                    if (iter == p->m_filamentInfoList.end() ) {
                         std::vector<SFilamentInfo> filamentInfoVec(1, filamentInfo);
-                        p->m_filamentInfoList.insert(std::make_pair(filamentInfo.wxStrLabelType, filamentInfoVec));
+                        p->m_filamentInfoList.insert(std::make_pair(foundKey, filamentInfoVec));
                     }
                     else {
                         iter->second.emplace_back(filamentInfo);
+                    }
+                }
+            }
+        }
+
+        void AnkerSidebarNew::handleUserFilamentColor() {
+            for (auto& iter : p->m_filamentInfoList) {
+                // only handle user filament color
+                if (iter.second.size() == 1 && iter.second[0].filamentSrcType == userFilamentType) {
+                    auto systemColor = p->m_filamentInfoList.find(iter.second[0].wxStrFilamentType);
+                    if (systemColor == p->m_filamentInfoList.end())
+                        continue;
+
+                    for (auto iter1 : systemColor->second) {
+                        if (iter1.wxStrColor == iter.second[0].wxStrColor)
+                            iter.second[0].wxStrColorName = iter1.wxStrColorName;
                     }
                 }
             }
@@ -979,30 +1059,38 @@ namespace Slic3r {
         }
 
         void AnkerSidebarNew::createPrinterSiderbar() {
-            p->m_printerSizer = new wxBoxSizer(wxHORIZONTAL);
+            p->m_printerSizer = new wxBoxSizer(wxVERTICAL);
 
-            p->m_printerPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition,
-                AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_PRINTGER_HEIGHT), wxTAB_TRAVERSAL);
+            // titile
+            wxPanel* title_panel = new wxPanel(this);
+            title_panel->SetBackgroundColour(wxColour("#292A2D"));
+            auto titleSizer = new wxBoxSizer(wxHORIZONTAL);
+            titleSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_PRINTGER_TEXTBTN_SIZER));
 
-            p->m_printerPanel->SetBackgroundColour(wxColour("#292A2D"));
-            p->m_printerSizer->Add(p->m_printerPanel, 1, wxEXPAND | wxALL, 0);
-
-            p->m_printerPanelSizer = new wxFlexGridSizer(3, 1, 0, 0);
-            p->m_printerPanelSizer->SetFlexibleDirection(wxBOTH);
-            p->m_printerPanelSizer->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
-            p->m_printerPanel->SetSizer(p->m_printerPanelSizer);
-
-            auto textAndbtnSizer = new wxBoxSizer(wxHORIZONTAL);
-            textAndbtnSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_PRINTGER_TEXTBTN_SIZER));
-
-            auto* text = new wxStaticText(p->m_printerPanel, wxID_ANY, _L("common_slicepannel_title_printer"));            
+            auto* text = new wxStaticText(title_panel, wxID_ANY, _L("common_slicepannel_title_printer"));
             text->SetFont(ANKER_BOLD_FONT_NO_1);
-
             text->SetForegroundColour(wxColour("#FFFFFF"));
             text->SetBackgroundColour(wxColour("#292A2D"));
-            textAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
-            textAndbtnSizer->Add(text, 0, wxALIGN_CENTER_VERTICAL, 0);
-            textAndbtnSizer->AddStretchSpacer(1);
+            titleSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+            titleSizer->Add(text, 0, wxALIGN_CENTER_VERTICAL, 0);
+            titleSizer->AddStretchSpacer(1);
+
+            auto m_pulldown_btn = new ScalableButton(title_panel, wxID_ANY, "pulldown_48x48", "");
+            m_pulldown_btn->SetMaxSize(AnkerSize(25, 32));
+            m_pulldown_btn->SetSize(AnkerSize(25, 32));
+            m_pulldown_btn->Bind(wxEVT_BUTTON, [&, m_pulldown_btn](wxCommandEvent) {
+                this->p->m_printerPanel->Show(!(p->m_printerPanel->IsShown()));
+                p->m_printerPanel->IsShown() ? m_pulldown_btn->SetBitmap_("pulldown_48x48") : m_pulldown_btn->SetBitmap_("pullup_48x48");
+                Layout();
+                Refresh();
+                });
+            titleSizer->Add(m_pulldown_btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+            title_panel->SetSizer(titleSizer);
+
+            // content
+            p->m_printerPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+            p->m_printerPanel->SetBackgroundColour(wxColour("#292A2D"));
+            wxBoxSizer* contentSizer = new wxBoxSizer(wxVERTICAL);
             // add by allen for ankerCfgDlg
             AnkerPlaterPresetComboBox** comboPrinter = &p->m_comboPrinter;
             *comboPrinter = new AnkerPlaterPresetComboBox(p->m_printerPanel, Preset::TYPE_PRINTER);
@@ -1017,157 +1105,239 @@ namespace Slic3r {
             (*comboPrinter)->SetBackgroundColour(wxColour("#434447"));
             (*comboPrinter)->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
             (*comboPrinter)->SetFont(ANKER_FONT_NO_1);
-
-//             (*comboPrinter)->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent& event) {				
-//                 if (p->m_pAnkerParameterPanel)
-//                 {
-//                     p->m_pAnkerParameterPanel->checkDirtyData();
-//                     p->m_pAnkerParameterPanel->reloadData();
-//                 }
-//                 event.Skip(false);
-//                 });
             (*comboPrinter)->set_button_clicked_function([this, comboPrinter]() {
-				if (!comboPrinter)
-					return;
-				ANKER_LOG_INFO << "preset combox of printer clicked";
+                if (!comboPrinter)
+                    return;
+                ANKER_LOG_INFO << "preset combox of printer clicked";
                 (*comboPrinter)->SetFocus();
-				if (p->m_pAnkerParameterPanel)
-				{
-					if(!p->m_pAnkerParameterPanel->checkDirtyData())
+                if (p->m_pAnkerParameterPanel)
+                {
+                    if (!p->m_pAnkerParameterPanel->checkDirtyData())
                         onComboBoxClick(*comboPrinter);
-					//p->m_pAnkerParameterPanel->reloadData();
-				}
-
-				
-				});
+                    //p->m_pAnkerParameterPanel->reloadData();
+                }
+                });
             (*comboPrinter)->set_selection_changed_function([this, comboPrinter](int selection) {
                 if (!comboPrinter)
                     return;
-				ANKER_LOG_INFO << "preset combox of printer clicked";
-				onPresetComboSelChanged(*comboPrinter, selection);
-				});
+                ANKER_LOG_INFO << "preset combox of printer clicked";
+                onPresetComboSelChanged(*comboPrinter, selection);
+
+                selectDefaultFilament();
+                });
 
             wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
             btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
             wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
             wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
             wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-
             (*comboPrinter)->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
-            if ((*comboPrinter)->edit_btn) {
-                textAndbtnSizer->Add((*comboPrinter)->edit_btn, 0, wxALIGN_CENTER_VERTICAL, 0);
-            }
-            textAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
 
-            textAndbtnSizer->ShowItems(true);
-            
-            p->m_printerPanelSizer->Add(textAndbtnSizer, 1, wxALL | wxEXPAND, 0);
+            // btn to open config dialog
+            ScalableButton* EditBtn = new ScalableButton(p->m_printerPanel, wxID_ANY, "configPrinterList", "");
+            EditBtn->SetMaxSize(AnkerSize(25, 32));
+            EditBtn->SetSize(AnkerSize(25, 32));
+            //EditBtn->SetToolTip(_L(""));
+            EditBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent) {
+                if (p->m_comboPrinter)
+                    p->m_comboPrinter->switch_to_tab();
+                }
+            );
 
-            wxPanel* pLine = new wxPanel(p->m_printerPanel, wxID_ANY, wxDefaultPosition, 
-                AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
+            auto comboAndbtnSizer = new wxBoxSizer(wxHORIZONTAL);
+            //comboAndbtnSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_PRINTGER_TEXTBTN_SIZER));
+            comboAndbtnSizer->Add(*comboPrinter, 10, wxALIGN_CENTER_VERTICAL | wxEXPAND, 0);
+            comboAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+            comboAndbtnSizer->Add(EditBtn, 0, wxALIGN_CENTER_VERTICAL, 0);
+
+
+            wxPanel* pLine = new wxPanel(p->m_printerPanel, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
             pLine->SetBackgroundColour(wxColour("#38393C"));
 
-            p->m_printerPanelSizer->Add(pLine, 0, wxEXPAND | wxALL, 0);
-            p->m_printerPanelSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
-            p->m_printerPanelSizer->Add(*comboPrinter, 0,
-                wxEXPAND | wxLEFT | wxRIGHT | wxALIGN_CENTER_VERTICAL, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+            contentSizer->Add(pLine, 0, /*wxEXPAND | */ wxALL, 0);
+            contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
+            contentSizer->Add(comboAndbtnSizer, 1, wxEXPAND |wxLEFT | wxRIGHT | wxALIGN_CENTER_VERTICAL, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+            contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
+            p->m_printerPanel->SetSizer(contentSizer);
+
+            p->m_printerSizer->Add(title_panel, 0, wxEXPAND | wxALL, 0);
+            p->m_printerSizer->Add(p->m_printerPanel, 0, wxEXPAND | wxALL, 0);
         }
 
+
+
         void AnkerSidebarNew::createFilamentSidebar() {
-            p->m_filamentSizer = new wxBoxSizer(wxHORIZONTAL);
-            p->m_filamentPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition,
-                AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_FILAMENT_HEIGHT), wxTAB_TRAVERSAL);
+            p->m_filamentSizer = new wxBoxSizer(wxVERTICAL);
 
-            p->m_filamentPanel->SetBackgroundColour(wxColour("#292A2D"));
-            p->m_filamentSizer->Add(p->m_filamentPanel, 1, wxEXPAND | wxALL, 0);
-            p->m_filamentPanelSizer = new wxFlexGridSizer(3, 1, 1, 2);
-            p->m_filamentPanelSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_FILAMENT_HEIGHT));
+            // titile
+            wxPanel* title_panel = new wxPanel(this);
+            title_panel->SetBackgroundColour(wxColour("#292A2D"));
+            auto titleSizer = new wxBoxSizer(wxHORIZONTAL);
+            titleSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_FILAMENT_TEXTBTN_SIZER));
 
-            p->m_filamentPanel->SetSizer(p->m_filamentPanelSizer);
-
-            auto textAndbtnSizer = new wxBoxSizer(wxHORIZONTAL);
-            textAndbtnSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_FILAMENT_TEXTBTN_SIZER));
-
-            auto* text = new wxStaticText(p->m_filamentPanel, wxID_ANY, _L("common_slicepannel_title_filament"));
+            auto* text = new wxStaticText(title_panel, wxID_ANY, _L("common_slicepannel_title_filament"));
             text->SetFont(ANKER_BOLD_FONT_NO_1);
 
             text->SetForegroundColour(wxColour("#FFFFFF"));
             text->SetBackgroundColour(wxColour("#292A2D"));
-            textAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
-            textAndbtnSizer->Add(text, 0, wxALIGN_CENTER_VERTICAL, 0);
-            textAndbtnSizer->AddStretchSpacer(1);
-            textAndbtnSizer->Add(0, 0, 1, wxEXPAND, 5);
+            titleSizer->AddSpacer(AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
+            titleSizer->Add(text, 0, wxALIGN_CENTER_VERTICAL, 0);
+            titleSizer->AddStretchSpacer(1);
+            titleSizer->Add(0, 0, 1, wxEXPAND, 5);
 
             // List toggle button only show when have multi color
-            p->m_filamentListToggleBtn = new ScalableButton(p->m_filamentPanel, wxID_ANY, "filamentListToggle", "");
+           /* p->m_filamentListToggleBtn = new ScalableButton(p->m_filamentPanel, wxID_ANY, "filamentListToggle", "");
             p->m_filamentListToggleBtn->SetToolTip(_L("common_slicepannel_hover_toggle"));
             p->m_filamentListToggleBtn->Bind(wxEVT_BUTTON, &AnkerSidebarNew::onFilamentListToggle, this);
-            textAndbtnSizer->Add(p->m_filamentListToggleBtn, 0, wxTop | wxRIGHT, AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
+            titleSizer->Add(p->m_filamentListToggleBtn, 0, wxTop | wxRIGHT, AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));*/
 
             // filament sync button only show when have multi color
-            p->m_filamentSyncBtn = new ScalableButton(p->m_filamentPanel, wxID_ANY, "filamentSync", "");
+           /* p->m_filamentSyncBtn = new ScalableButton(p->m_filamentPanel, wxID_ANY, "filamentSync", "");
             p->m_filamentSyncBtn->SetToolTip(_L("common_slicepannel_hover_sync"));
             p->m_filamentSyncBtn->Bind(wxEVT_BUTTON, &AnkerSidebarNew::onSyncFilamentInfo, this);
 
-            textAndbtnSizer->Add(p->m_filamentSyncBtn, 0, wxTop | wxRIGHT, AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
+            titleSizer->Add(p->m_filamentSyncBtn, 0, wxTop | wxRIGHT, AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));*/
 
-            // combo setting open btn show always
-            ScalableButton* filamentEditBtn = new ScalableButton(p->m_filamentPanel, wxID_ANY, "cog", "");
-            filamentEditBtn->SetMaxSize(AnkerSize(25, 32));
-            filamentEditBtn->SetSize(AnkerSize(25, 32));
-
-            filamentEditBtn->SetToolTip(_L("common_slicepannel_hover_presetsetting"));
-            filamentEditBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent) {
-#if SHOW_OLD_SETTING_DIALOG
-                Tab* tab = wxGetApp().get_tab(Preset::TYPE_FILAMENT);
-                if (!tab)
-                    return;
-
-                if (int page_id = wxGetApp().tab_panel()->FindPage(tab); page_id != wxNOT_FOUND)
-                {
-                    wxGetApp().tab_panel()->SetSelection(page_id);
-                    // Switch to Settings NotePad
-                    wxGetApp().mainframe->select_tab();
-                }
-#endif
-                
-                // add by allen for ankerCfgDlg
-                AnkerTab* ankerTab = wxGetApp().getAnkerTab(Preset::TYPE_FILAMENT);
-                if (!ankerTab)
-                    return;
-
-                if (int page_id = wxGetApp().ankerTabPanel()->FindPage(ankerTab); page_id != wxNOT_FOUND)
-                {
-                    wxGetApp().ankerTabPanel()->SetSelection(page_id);
-                    // Switch to Settings NotePad
-                    wxGetApp().mainframe->selectAnkerTab(ankerTab);
-                    // show AnkerConfigDilog
-                    wxGetApp().mainframe->showAnkerCfgDlg();
-                }
+            auto m_pulldown_btn = new ScalableButton(title_panel, wxID_ANY, "pulldown_48x48", "");
+            m_pulldown_btn->SetMaxSize(AnkerSize(25, 32));
+            m_pulldown_btn->SetSize(AnkerSize(25, 32));
+            m_pulldown_btn->Bind(wxEVT_BUTTON, [&, m_pulldown_btn](wxCommandEvent) {
+                this->p->m_filamentPanel->Show(!(p->m_filamentPanel->IsShown()));
+                p->m_filamentPanel->IsShown() ? m_pulldown_btn->SetBitmap_("pulldown_48x48") : m_pulldown_btn->SetBitmap_("pullup_48x48");
+                Layout();
+                Refresh();
                 });
-            textAndbtnSizer->Add(filamentEditBtn, 0, wxTop | wxRIGHT, AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
+            titleSizer->Add(m_pulldown_btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+            title_panel->SetSizer(titleSizer);
 
-            p->m_filamentPanelSizer->Add(textAndbtnSizer, 1, wxALL | wxEXPAND, 0);
+            // content
+            p->m_filamentPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+            p->m_filamentPanel->SetBackgroundColour(wxColour("#292A2D"));
+
+            p->m_filamentPanelSizer = new wxFlexGridSizer(3, 1, 1, 2);
+           // p->m_filamentPanelSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_FILAMENT_HEIGHT));
+            auto contentSizer = p->m_filamentPanelSizer;
+
+            // wxBoxSizer* contentSizer = new wxBoxSizer(wxVERTICAL);
+            p->m_filamentPanel->SetSizer(contentSizer);
 
             // separate line
             wxPanel* pLine = new wxPanel(p->m_filamentPanel, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
             pLine->SetBackgroundColour(wxColour("#38393C"));
-
-            p->m_filamentPanelSizer->Add(pLine, 1, wxEXPAND | wxTop, SIDEBARNEW_FILAMENT_VER_SPAN);
+            contentSizer->Add(pLine, 1, wxEXPAND | wxTop, SIDEBARNEW_FILAMENT_VER_SPAN);
 
             // update filament info
-            updateFilamentInfo();
+            //updateFilamentInfo();
+
+            const int margin_5 = int(0.5 * wxGetApp().em_unit());// 5;
+
+            auto init_combo = [this, margin_5, contentSizer](AnkerPlaterPresetComboBox** comboFilament, wxString label, Preset::Type preset_type, bool filament) {
+                auto text_and_btn_sizer = new wxBoxSizer(wxHORIZONTAL);
+
+                auto* text = new wxStaticText(p->m_filamentPanel, wxID_ANY, label);
+                text->SetFont(wxGetApp().small_font());
+                text_and_btn_sizer->Add(text, 1, wxEXPAND);
+
+                *comboFilament = new AnkerPlaterPresetComboBox(p->m_filamentPanel, preset_type);
+                (*comboFilament)->Create(p->m_filamentPanel,
+                    wxID_ANY,
+                    wxEmptyString,
+                    wxDefaultPosition,
+                    AnkerSize(SIDEBARNEW_PRINTGER_COMBO_WIDTH, SIDEBARNEW_COMBOBOX_HEIGHT),
+                    wxNO_BORDER | wxCB_READONLY,
+                    wxDefaultValidator,
+                    "");
+                (*comboFilament)->SetBackgroundColour(wxColour("#434447"));
+                (*comboFilament)->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+                (*comboFilament)->SetFont(ANKER_FONT_NO_1);
+
+
+                wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
+                btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
+                wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                (*comboFilament)->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
+
+                (*comboFilament)->set_button_clicked_function([this, comboFilament]() {
+                    if (!comboFilament)
+                        return;
+                    ANKER_LOG_INFO << "preset combox of filament clicked";
+                    (*comboFilament)->SetFocus();
+                    if (p->m_pAnkerParameterPanel)
+                    {
+                        if (!p->m_pAnkerParameterPanel->checkDirtyData())
+                            onComboBoxClick(*comboFilament);
+                        //p->m_pAnkerParameterPanel->reloadData();
+                    }
+                    });
+                (*comboFilament)->set_selection_changed_function([this, comboFilament](int selection) {
+                    if (!comboFilament)
+                        return;
+                    ANKER_LOG_INFO << "preset combox of filament clicked";
+                    onPresetComboSelChanged(*comboFilament, selection);
+                    
+                    // should reselect preset of print
+                    std::string strPrintPresetName;
+                    Slic3r::GUI::wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->get_current_preset_name(strPrintPresetName);
+                    wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->select_preset(Preset::remove_suffix_modified(strPrintPresetName));
+
+                    p->m_pAnkerParameterPanel->reloadDataEx();
+                   /* wxCommandEvent comboboxChangedEvt = wxCommandEvent(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED);
+                    comboboxChangedEvt.SetEventObject(this);
+                    wxPostEvent(&wxGetApp().plater()->sidebarnew(), comboboxChangedEvt);*/
+                    });
+
+
+                /*if ((*comboFilament)->edit_btn)
+                    text_and_btn_sizer->Add((*comboFilament)->edit_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT,
+                        int(0.3 * wxGetApp().em_unit()));*/
+
+                        //auto* sizer_presets = p->m_filamentPanelSizer;
+
+                        // btn to open config dialog
+                ScalableButton* EditBtn = new ScalableButton(p->m_filamentPanel, wxID_ANY, "configPrinterList", "");
+                EditBtn->SetMaxSize(AnkerSize(25, 32));
+                EditBtn->SetSize(AnkerSize(25, 32));
+                //EditBtn->SetToolTip(_L(""));
+                EditBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent) {
+                    if (p->combos_filament[0])
+                        (p->combos_filament[0])->switch_to_tab();
+                    }
+                );
+
+                // Hide controls, which will be shown/hidden in respect to the printer technology
+                text->Show(preset_type == Preset::TYPE_PRINTER);
+                (*comboFilament)->set_extruder_idx(0);
+
+                auto comboAndbtnSizer = new wxBoxSizer(wxHORIZONTAL);
+                //comboAndbtnSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_PRINTGER_TEXTBTN_SIZER));
+                comboAndbtnSizer->Add(*comboFilament, 1, wxALIGN_CENTER_VERTICAL | wxEXPAND, 0);
+                comboAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+                comboAndbtnSizer->Add(EditBtn, 0, wxALIGN_CENTER_VERTICAL, 0);
+
+                contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
+                contentSizer->Add(comboAndbtnSizer, 0,
+                    wxEXPAND | wxLEFT | wxRIGHT | wxALIGN_CENTER_VERTICAL, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
+                contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
+            };
+
+            p->combos_filament.push_back(nullptr);
+            init_combo(&p->combos_filament[0], _L("Filament"), Preset::TYPE_FILAMENT, true);
+
+            p->m_filamentSizer->Add(title_panel, 0, wxEXPAND | wxALL, 0);
+            p->m_filamentSizer->Add(p->m_filamentPanel, 0, wxEXPAND | wxALL, 0);
         }
+
 
         void AnkerSidebarNew::createPrintParameterSidebar()
         {
-
             if (!p->m_pParameterVSizer)
                 p->m_pParameterVSizer = new wxBoxSizer(wxVERTICAL);
 
             if (!p->m_pAnkerParameterPanel)
             {   
-                p->m_pAnkerParameterPanel = new AnkerParameterPanel(this, wxID_ANY);
+                p->m_pAnkerParameterPanel = new AnkerParameterPanel(this,mode_global, wxID_ANY);
                 p->m_pAnkerParameterPanel->Bind(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED, [this](wxCommandEvent& event) {
                     wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED);
                     evt.SetEventObject(this);                    
@@ -1186,19 +1356,16 @@ namespace Slic3r {
                 p->m_pAnkerParameterPanel->SetBackgroundColour(wxColour("#292A2D"));
                 p->m_pAnkerParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
                 p->m_pAnkerParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
-                p->m_pParameterVSizer->Add(p->m_pAnkerParameterPanel, wxEXPAND | wxALL, wxEXPAND | wxALL, 0);
+                p->m_pParameterVSizer->Add(p->m_pAnkerParameterPanel, 1, wxEXPAND);
                 p->m_pParameterVSizer->AddSpacer(4);
             }
         }
 
 		void AnkerSidebarNew::createRightMenuPrintParameterSidebar()
 		{
-			//if (!p->m_pRightMenuParameterVSizer)
-			//	p->m_pRightMenuParameterVSizer = new wxBoxSizer(wxVERTICAL);
-
 			if (!p->m_pAnkerRightMenuParameterPanel)
 			{
-				p->m_pAnkerRightMenuParameterPanel = new AnkerParameterPanel(this, wxID_ANY);
+				p->m_pAnkerRightMenuParameterPanel = new AnkerParameterPanel(this, mode_model, wxID_ANY);
                 p->m_pAnkerRightMenuParameterPanel->showRightParameterpanel();
 				p->m_pAnkerRightMenuParameterPanel->Bind(wxCUSTOMEVT_ANKER_DELETE_CFG_EDIT, [this](wxCommandEvent& event) {
                     this->Freeze();
@@ -1286,30 +1453,29 @@ namespace Slic3r {
             this->Thaw();
         }
 
-        void AnkerSidebarNew::updateFilamentBtnColor(SFilamentEditInfo* filamentEditInfo, wxButton* editColorBtn) {
+        void AnkerSidebarNew::updateFilamentBtnColor(SFilamentEditInfo* filamentEditInfo, AnkerBtn* editColorBtn) {
            if (editColorBtn && filamentEditInfo) {
                editColorBtn->SetBackgroundColour(wxColour(filamentEditInfo->filamentInfo.wxStrColor));
+               editColorBtn->SetFont(ANKER_BOLD_FONT_NO_2);
                wxColour foreColor = wxColour(255, 255, 255);
                if (wxColour(filamentEditInfo->filamentInfo.wxStrColor).GetLuminance() > 0.6)
                    foreColor = wxColour(0, 0, 0);
                editColorBtn->SetForegroundColour(foreColor);
 
-               editColorBtn->SetToolTip(filamentEditInfo->filamentInfo.wxStrColorName);
+               editColorBtn->SetToolTip(filamentEditInfo->filamentInfo.wxStrLabelName);
 
                wxWindowList& siblings = editColorBtn->GetParent()->GetChildren();
                for (wxWindowList::iterator it = siblings.begin(); it != siblings.end(); ++it)
                {
                    wxStaticText* colorBtnText = dynamic_cast<wxStaticText*>(*it);
                    if (colorBtnText) {
-                       wxString wxStrTitle = wxString::FromUTF8(
-                           filamentEditInfo->filamentInfo.wxStrLabelName.ToStdString());
+                       wxString wxStrTitle = filamentEditInfo->filamentInfo.wxStrLabelName.ToStdString();
                        if (wxStrTitle.size() > 30)
                            wxStrTitle = wxStrTitle.substr(0, 20) + "..." + wxStrTitle.substr(wxStrTitle.size() - 10);
                        colorBtnText->SetLabelText(wxStrTitle);
                        break;
                    }
                }
-
                editColorBtn->Refresh();
            }
         }
@@ -1326,6 +1492,11 @@ namespace Slic3r {
 
         void AnkerSidebarNew::onSize(wxSizeEvent& evt) {
             updateFilamentEditDlgPos();
+            //p->m_pAnkerRightMenuParameterPanel->Fit();
+            p->m_pAnkerRightMenuParameterPanel->Refresh();
+            //by samuel,only need to fit in parent window
+           // p->m_pAnkerParameterPanel->Fit();
+            p->m_pAnkerParameterPanel->Refresh();
             evt.Skip();
         }
         
@@ -1436,6 +1607,28 @@ namespace Slic3r {
                 respect_mode ? m_mode : comExpert, search_inputs);
         }
 
+        std::map < wxString, PARAMETER_GROUP> AnkerSidebarNew::getGlobalParamInfo()
+        {
+            std::map < wxString, PARAMETER_GROUP> resultInfo;
+            if (p->m_pAnkerParameterPanel != nullptr)
+            {
+                resultInfo = p->m_pAnkerParameterPanel->getAllPrintParamInfos();
+            }
+            return resultInfo;
+        }
+
+        std::map < wxString, PARAMETER_GROUP> AnkerSidebarNew::getModelParamInfo()
+        {
+            std::map < wxString, PARAMETER_GROUP> resultInfo;
+            if (p->m_pAnkerRightMenuParameterPanel != nullptr)
+            {
+                resultInfo = p->m_pAnkerRightMenuParameterPanel->getAllPrintParamInfos();
+            }
+            return resultInfo;
+        }
+
+
+
         Search::OptionsSearcher& AnkerSidebarNew::get_searcher()
         {
             return p->searcher;
@@ -1451,22 +1644,7 @@ namespace Slic3r {
         void AnkerSidebarNew::update_mode()
         {
             m_mode = wxGetApp().get_mode();
-
-            /*  update_reslice_btn_tooltip();
-              update_mode_sizer();*/
-
             wxWindowUpdateLocker noUpdates(this);
-
-            /* if (m_mode == comSimple)
-             {
-                 p->object_manipulation->set_coordinates_type(ECoordinatesType::World);
-             }*/
-
-            //p->object_list->get_sizer()->Show(m_mode > comSimple);
-
-            //p->object_list->unselect_objects();
-            //p->object_list->update_selections();
-
             Layout();
         }
 
@@ -1495,9 +1673,9 @@ namespace Slic3r {
              p->m_pAnkerParameterPanel->getItemList(list, listType);
         }
 
-        void AnkerSidebarNew::setItemValue(const wxString tabName, const wxString& widgetLabel, wxVariant data)
+        void AnkerSidebarNew::setItemValue(const wxString tabName, const wxString& configOptionKey, wxVariant data)
         {
-            p->m_pAnkerParameterPanel->setItemValue(tabName, widgetLabel, data);
+            p->m_pAnkerParameterPanel->setItemValue(tabName, configOptionKey, data);
         }
 
         void AnkerSidebarNew::openSupportMaterialPage(wxString itemName, wxString text)
@@ -1514,8 +1692,35 @@ namespace Slic3r {
             return m_bLoadProjectFile.load();
         }
 
+        void AnkerSidebarNew::updateCfgTabPreset() {
+            // update filament colour to ini
+            updateFilamentColourInCfg(p->m_editFilamentInfoList[p->m_selectedColorBtnIndex - 1].wxStrLabelName.ToUTF8().data(),
+                p->m_selectedColorBtnIndex - 1);
+
+            // update filament colour info  for object list and clour
+            filamentInfoChanged(p->m_selectedColorBtnIndex);
+        }
+
+        void AnkerSidebarNew::renameUserFilament(const std::string& oldFilamentName, const std::string& newFilamentName) {
+            p->m_strOldFilamentName = oldFilamentName;
+            p->m_strNewFilamentName = newFilamentName;
+        }
+
+        void AnkerSidebarNew::setFilamentClickedState(bool bClickedFialment) {
+            p->m_bClickedFilament.store(bClickedFialment);
+        }
+
+        bool AnkerSidebarNew::getFilamentClickedState() {
+            return p->m_bClickedFilament.load();
+        }
+
+        void AnkerSidebarNew::moveWipeTower(double x, double y, double rotate)
+        {
+            p->m_pAnkerParameterPanel->moveWipeTower(x, y, rotate);
+        }
+
         void AnkerSidebarNew::modifyExtrudersInfo(const std::vector<SFilamentEditInfo> filamentInfoList, 
-            bool bRemove, int removeIndex) {
+                                                  bool bRemove, int removeIndex) {
 
             DynamicPrintConfig* cfg = &wxGetApp().preset_bundle->printers.get_edited_preset().config;
             DynamicPrintConfig cfg_new = *cfg;
@@ -1563,8 +1768,8 @@ namespace Slic3r {
             p->m_singleFilamentPanel->SetSizer(filamentBtnSizer);
 
             // hide sync and edit btn
-            p->m_filamentListToggleBtn->Show(false);
-            p->m_filamentSyncBtn->Show(false);
+            //p->m_filamentListToggleBtn->Show(false);
+            /*p->m_filamentSyncBtn->Show(false);*/
 
             // horizontalSizer
             wxBoxSizer* horizontalSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -1572,8 +1777,9 @@ namespace Slic3r {
                 SIDEBARNEW_FILAMENT_PANEL_HEIGHT));
 
             // btn
-            auto* colorBtn = new wxButton(p->m_singleFilamentPanel, ID_FILAMENT_COLOUR_BTN, wxT(""), wxDefaultPosition,
+            AnkerBtn* colorBtn = new AnkerBtn(p->m_singleFilamentPanel, ID_FILAMENT_COLOUR_BTN, wxDefaultPosition,
                 AnkerSize(COLOUR_BTN_SIZE, COLOUR_BTN_SIZE), wxBORDER_NONE);
+            colorBtn->SetRadius(4);
             updateFilamentColorBtnPtr(colorBtn);
             // right mouse click
             colorBtn->Bind(wxEVT_RIGHT_DOWN, &AnkerSidebarNew::onFilamentMenuOpen, this);
@@ -1590,6 +1796,7 @@ namespace Slic3r {
                 });
 
             colorBtn->SetToolTip(_L(p->m_editFilamentInfoList[0].wxStrColorName));
+            colorBtn->SetFont(ANKER_BOLD_FONT_NO_2);
             wxColour foreColor = wxColour(255, 255, 255);
             if (wxColour(p->m_editFilamentInfoList[0].wxStrColor).GetLuminance() > 0.6)
                 foreColor = wxColour(0, 0, 0);
@@ -1601,7 +1808,7 @@ namespace Slic3r {
 
             horizontalSizer->AddSpacer(6);
             // staticText
-            wxString wxStrTitle = wxString::FromUTF8(p->m_editFilamentInfoList[0].wxStrLabelName.ToStdString());
+            wxString wxStrTitle = p->m_editFilamentInfoList[0].wxStrLabelName.ToStdString();
             if (wxStrTitle.size() > 30)
                 wxStrTitle = wxStrTitle.substr(0, 20) + "..." + wxStrTitle.substr(wxStrTitle.size() - 10);
 
@@ -1648,25 +1855,28 @@ namespace Slic3r {
             p->m_horFilamentPanel->SetSizer(filamentPanelSizer);
 
             // show sync and edit btn
-            p->m_filamentListToggleBtn->Show(true);
-            p->m_filamentSyncBtn->Show(true);
+            //p->m_filamentListToggleBtn->Show(true);
+            //p->m_filamentSyncBtn->Show(true);
 
             filamentPanelSizer->AddSpacer(AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
             for (int i = 0; i < p->m_editFilamentInfoList.size(); i++) {
-                // mod by allen for filament hover
+                // for filament hover
                 auto horFilamentPanel = new AnkerHighlightPanel(p->m_horFilamentPanel, wxID_ANY, wxDefaultPosition,
                     AnkerSize(ankerHighlightPanelHeight, ankerHighlightPanelHeight));
                 auto* filamentBtnSizer = new wxBoxSizer(wxHORIZONTAL);
                 horFilamentPanel->SetSizer(filamentBtnSizer);
-                auto* colorBtn = new wxButton(horFilamentPanel, ID_FILAMENT_COLOUR_BTN, std::to_string(i + 1),
+                
+                AnkerBtn* colorBtn = new AnkerBtn(horFilamentPanel, ID_FILAMENT_COLOUR_BTN,
                     wxDefaultPosition, AnkerSize(COLOUR_BTN_SIZE, COLOUR_BTN_SIZE), wxBORDER_NONE);
-                colorBtn->SetFont(ANKER_FONT_NO_2);
+                colorBtn->SetText(std::to_string(i + 1));
+                colorBtn->SetRadius(4);
+                colorBtn->SetFont(ANKER_BOLD_FONT_NO_2);
                 filamentBtnSizer->Add(colorBtn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 
                     AnkerLength(3));
                 wxColour foreColor = wxColour(255, 255, 255);
                 if (wxColour(p->m_editFilamentInfoList[i].wxStrColor).GetLuminance() > 0.6)
                     foreColor = wxColour(0, 0, 0);
-                colorBtn->SetForegroundColour(foreColor);
+                colorBtn->SetTextColor(foreColor);
                 colorBtn->SetBackgroundColour(wxColour(p->m_editFilamentInfoList[i].wxStrColor));
                 colorBtn->SetToolTip(_L(p->m_editFilamentInfoList[i].wxStrLabelName));
                 // right mouse click
@@ -1688,7 +1898,7 @@ namespace Slic3r {
                 filamentPanelSizer->AddSpacer(13);
 
                 // highlight the selected color btn
-                if (i + 1 == p->m_selectdColorBtnIndex) {
+                if (i + 1 == p->m_selectedColorBtnIndex) {
                     horFilamentPanel->setMouseClickStatus();
                     updateFilamentColorBtnPtr(colorBtn);
                 }
@@ -1706,11 +1916,11 @@ namespace Slic3r {
             p->m_verFilamentPanel->SetSizer(filamentBtnSizer);
 
             // show sync and edit btn
-            p->m_filamentListToggleBtn->Show(true);
-            p->m_filamentSyncBtn->Show(true);
+            //p->m_filamentListToggleBtn->Show(true);
+            //p->m_filamentSyncBtn->Show(true);
           
             for (int i = 0; i < p->m_editFilamentInfoList.size(); i++) {
-                // mod by allen for filament hover
+                // for filament hover
                 auto horFilamentPanel = new AnkerHighlightPanel(p->m_verFilamentPanel, wxID_ANY, wxDefaultPosition,
                     AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 42));
 
@@ -1722,14 +1932,17 @@ namespace Slic3r {
                 horizontalSizer->AddSpacer(15);
                 // btn
                 wxString strBtnText = wxString::Format(wxT("%d"), i + 1);
-                auto* colorBtn = new wxButton(horFilamentPanel, ID_FILAMENT_COLOUR_BTN, strBtnText, wxDefaultPosition,
+                auto* colorBtn = new AnkerBtn(horFilamentPanel, ID_FILAMENT_COLOUR_BTN, wxDefaultPosition,
                     AnkerSize(COLOUR_BTN_SIZE, COLOUR_BTN_SIZE), wxBORDER_NONE);
+                colorBtn->SetRadius(4);
+                colorBtn->SetText(strBtnText);
+                colorBtn->SetFont(ANKER_BOLD_FONT_NO_2);
                 colorBtn->SetBackgroundColour(wxColour(p->m_editFilamentInfoList[i].wxStrColor));
                 horizontalSizer->Add(colorBtn, 0, wxALIGN_CENTER_VERTICAL, 0);
                 wxColour foreColor = wxColour(255, 255, 255);
                 if (wxColour(p->m_editFilamentInfoList[i].wxStrColor).GetLuminance() > 0.6)
                     foreColor = wxColour(0, 0, 0);
-                colorBtn->SetForegroundColour(foreColor);
+                colorBtn->SetTextColor(foreColor);
                 // right mouse click
                 colorBtn->Bind(wxEVT_RIGHT_DOWN, &AnkerSidebarNew::onFilamentMenuOpen, this);
                 // left mouse click
@@ -1747,7 +1960,7 @@ namespace Slic3r {
                 colorBtn->SetToolTip(_L(p->m_editFilamentInfoList[i].wxStrLabelName));
                 horizontalSizer->AddSpacer(10);
                 // staticText1
-                wxString wxStrTitle = wxString::FromUTF8(p->m_editFilamentInfoList[i].wxStrLabelName.ToStdString());
+                wxString wxStrTitle = p->m_editFilamentInfoList[i].wxStrLabelName.ToStdString();
                 if (wxStrTitle.size() > 30)
                     wxStrTitle = wxStrTitle.substr(0, 20) + "..." + wxStrTitle.substr(wxStrTitle.size() - 10);
                 auto* staticText = new wxStaticText(horFilamentPanel, wxID_ANY,
@@ -1791,7 +2004,7 @@ namespace Slic3r {
                 filamentBtnSizer->Add(line, 1, wxLEFT | wxRIGHT | wxEXPAND, 5);
 
                 // highlight the selected color btn
-                if (i+ 1 == p->m_selectdColorBtnIndex) {
+                if (i+ 1 == p->m_selectedColorBtnIndex) {
                     horFilamentPanel->setMouseClickStatus();
                     updateFilamentColorBtnPtr(colorBtn);
                 }
@@ -1866,21 +2079,21 @@ namespace Slic3r {
 
         void AnkerSidebarNew::onFilamentMenuOpen(wxMouseEvent& event) {
             //wxButton* btn = (wxButton*)(event.m_callbackUserData);
-            wxButton* btn = dynamic_cast<wxButton*>(event.GetEventObject());
+            wxControl* btn = dynamic_cast<wxControl*>(event.GetEventObject());
             AnkerHighlightPanel* parentPanel = (AnkerHighlightPanel*)(btn->GetParent());
 
             uint32_t colorBtnIndex = 0;
-            wxButton* siblingBtn = nullptr;
+            AnkerBtn* siblingBtn = nullptr;
             // get sibling color btn
             wxWindowList& siblings = parentPanel->GetChildren();
             for (wxWindowList::iterator it = siblings.begin(); it != siblings.end(); ++it)
             {
-                siblingBtn = dynamic_cast<wxButton*>(*it);
+                siblingBtn = dynamic_cast<AnkerBtn*>(*it);
                 if (!siblingBtn)
                     continue;
                 if (ID_FILAMENT_COLOUR_BTN == siblingBtn->GetId()) {
                     // indicates this btn is color btn, not edit icon btn
-                    siblingBtn->GetLabelText().ToUInt(&colorBtnIndex);
+                    siblingBtn->GetText().ToUInt(&colorBtnIndex);
                     break;
                 }
             }
@@ -1895,7 +2108,7 @@ namespace Slic3r {
                 p->m_filamentMenu = new wxMenu(wxT(""));
                 p->m_filamentMenu->Append(ID_FILAMENT_EDIT, _L("common_slicepannel_filamentedit_title"));
                 if (p->m_filamentViewType != singleColorView && p->m_editFilamentInfoList.size() > 1) {
-                    p->m_filamentMenu->Append(ID_FILAMENT_REMOVE, _L("common_slicepannel_filament_remove"));
+                    //p->m_filamentMenu->Append(ID_FILAMENT_REMOVE, _L("common_slicepannel_filament_remove"));
                 }
             }
 
@@ -1911,9 +2124,12 @@ namespace Slic3r {
             // and only the last button has remove menu item ; add by allen at 20230625 for product manager
             if (p->m_filamentViewType != singleColorView && p->m_editFilamentInfoList.size() > 1 && 
                 colorBtnIndex == p->m_editFilamentInfoList.size() ) {
-                p->m_filamentMenu->Append(ID_FILAMENT_REMOVE, _L("common_slicepannel_filament_remove"));
+                //p->m_filamentMenu->Append(ID_FILAMENT_REMOVE, _L("common_slicepannel_filament_remove"));
             }
             
+            // record selected color btn index
+            p->m_selectedColorBtnIndex = colorBtnIndex;
+
             wxVariant eventData;
             eventData.ClearList();
             eventData.Append(wxVariant(siblingBtn));
@@ -1930,21 +2146,21 @@ namespace Slic3r {
 
         void AnkerSidebarNew::onFilamentBtnLeftClicked(wxMouseEvent& event) {
             //wxButton* btn = (wxButton*)(event.m_callbackUserData);
-            wxButton* btn = dynamic_cast<wxButton*>(event.GetEventObject());
+            wxControl* btn = dynamic_cast<wxControl*>(event.GetEventObject()); 
             AnkerHighlightPanel* parentPanel = (AnkerHighlightPanel*)(btn->GetParent());
 
             uint32_t colorBtnIndex = 0;
-            wxButton* siblingBtn = nullptr;
+            AnkerBtn* siblingBtn = nullptr;
             // get sibling color btn
             wxWindowList& siblings = parentPanel->GetChildren();
             for (wxWindowList::iterator it = siblings.begin(); it != siblings.end(); ++it)
             {
-                siblingBtn = dynamic_cast<wxButton*>(*it);
+                siblingBtn = dynamic_cast<AnkerBtn*>(*it);
                 if (!siblingBtn)
                     continue;
                 if (ID_FILAMENT_COLOUR_BTN == siblingBtn->GetId()) {
                     // indicates this btn is color btn, not edit icon btn
-                    siblingBtn->GetLabelText().ToUInt(&colorBtnIndex);
+                    siblingBtn->GetText().ToUInt(&colorBtnIndex);
                     break;
                 }
             }
@@ -1955,20 +2171,24 @@ namespace Slic3r {
             }
 
             // record selected color btn index
-            p->m_selectdColorBtnIndex = colorBtnIndex;
+            p->m_selectedColorBtnIndex = colorBtnIndex;
             // left double click on colour btn and static text, left down on edit btn
             if (event.LeftDClick() || event.GetId() == ID_FILAMENT_EDIT_BTN) {
-                //  highlight parent panel only in multi colour
-                if (parentPanel && isMultiFilament() && !parentPanel->getMouseClickStatus())
-                    parentPanel->setMouseClickStatus();
-
                 ANKER_LOG_INFO << "onFilamentBtnLeftClicked enter, is double click, index is " << colorBtnIndex;
                 onFilmentEditSelected(colorBtnIndex, siblingBtn);
             }
             else { // event.LeftDown()
-                 // highlight parent panel only in multi colour
-                if (parentPanel && isMultiFilament() && !parentPanel->getMouseClickStatus())
-                    parentPanel->setMouseClickStatus();
+                if (p->m_filamentEditDlg && p->m_filamentEditDlg->IsShown()) {
+                    int btnIndex = p->m_selectedColorBtnIndex;
+                    SFilamentEditInfo filamentEditInfo;
+                    filamentEditInfo.editIndex = btnIndex;
+                    {
+                        std::lock_guard<std::mutex> lock(p->editFilamentMtx);
+                        filamentEditInfo.filamentInfo = p->m_editFilamentInfoList[btnIndex - 1];
+                    }
+                    p->m_filamentEditDlg->SetEditColorBtnPtr(siblingBtn);
+                    p->m_filamentEditDlg->updateFilamentInfo(filamentEditInfo);
+                }
             }
 
             // post wxCUSTOMEVT_CLICK_FILAMENT_BTN event
@@ -1982,6 +2202,17 @@ namespace Slic3r {
             wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_CLICK_FILAMENT_BTN);
             evt.SetClientData(new wxVariant(eventData));
             wxPostEvent(this, evt);
+
+            //  After selecting new consumables for the multi-color model, it is necessary to update the relevant preset display in the AnkerCfgTable
+            if (isMultiFilament()) {
+                setFilamentClickedState(true);
+                m_timer.Bind(wxEVT_TIMER, &AnkerSidebarNew::updateCfgTabTimer, this);
+                m_timer.StartOnce(250);
+            }
+            
+            // highlight parent panel only in multi colour
+            if (parentPanel && isMultiFilament() && !parentPanel->getMouseClickStatus())
+                parentPanel->setMouseClickStatus();
         }
 
         void AnkerSidebarNew::onFilamentTextLeftClicked(wxMouseEvent& event) {
@@ -1989,17 +2220,17 @@ namespace Slic3r {
             // mod by allen for filament hover
             AnkerHighlightPanel* parentPanel = (AnkerHighlightPanel*)(staticText->GetParent());
             uint32_t colorBtnIndex = 0;
-            wxButton* siblingBtn = nullptr;
+            AnkerBtn* siblingBtn = nullptr;
             // get sibling color btn
             wxWindowList& siblings = parentPanel->GetChildren();
             for (wxWindowList::iterator it = siblings.begin(); it != siblings.end(); ++it)
             {
-                siblingBtn = dynamic_cast<wxButton*>(*it);
+                siblingBtn = dynamic_cast<AnkerBtn*>(*it);
                 if (!siblingBtn)
                     continue;
                 if (ID_FILAMENT_COLOUR_BTN  == siblingBtn->GetId()) {
                     // indicates this btn is color btn, not edit icon btn
-                    siblingBtn->GetLabelText().ToUInt(&colorBtnIndex);
+                    siblingBtn->GetText().ToUInt(&colorBtnIndex);
                     break;
                 }
             }
@@ -2009,7 +2240,7 @@ namespace Slic3r {
                 colorBtnIndex = 1;
             }
             // record selected color btn index
-            p->m_selectdColorBtnIndex = colorBtnIndex;
+            p->m_selectedColorBtnIndex = colorBtnIndex;
 
             if (event.LeftDClick()) {
                 // left double click, highlight parent panel only in multi colour
@@ -2041,8 +2272,8 @@ namespace Slic3r {
             wxVariant* pData = (wxVariant*)(event.m_callbackUserData);
             wxVariantList list = pData->GetList();
             unsigned int btnIndex = 0;
-            wxButton* btn = (wxButton*)(list[0]->GetWxObjectPtr());
-            btn->GetLabelText().ToUInt(&btnIndex);
+            AnkerBtn* btn = (AnkerBtn*)(list[0]->GetWxObjectPtr());
+            btn->GetText().ToUInt(&btnIndex);
             // for single filament
             if (0 == btnIndex) {
                 btnIndex = 1;
@@ -2063,7 +2294,7 @@ namespace Slic3r {
             }
         }
 
-        void AnkerSidebarNew::onFilmentEditSelected(const uint32_t btnIndex, wxButton* btn) {
+        void AnkerSidebarNew::onFilmentEditSelected(const uint32_t btnIndex, AnkerBtn* btn) {
             ANKER_LOG_INFO << "onFilmentEditSelected enter,btn index is " << btnIndex <<
                 ",labelName is " << p->m_editFilamentInfoList[btnIndex - 1].wxStrLabelName <<
                 ",colorName is " << p->m_editFilamentInfoList[btnIndex - 1].wxStrColor;
@@ -2077,12 +2308,15 @@ namespace Slic3r {
                 filamentEditInfo.filamentInfo.wxStrLabelType = p->m_editFilamentInfoList[btnIndex - 1].wxStrLabelType;
             }
             
-            if (p->m_filamentEditDlg)
-                wxDELETE(p->m_filamentEditDlg);
-            p->m_filamentEditDlg = new AnkerFilamentEditDlg(p->m_filamentPanel, _L("common_slicepannel_filamentedit_title").ToStdString(), filamentEditInfo, btn);
-            p->m_filamentEditDlg->SetPosition(wxPoint(p->m_filamentEditDlg->GetPosition().x - 8,
-                p->m_filamentEditDlg->GetPosition().y));
-            
+            if (p->m_filamentEditDlg != nullptr) {
+                AnkerFilamentEditDlg* dialog = p->m_filamentEditDlg.get();
+                wxDELETE(dialog);
+            }
+            p->m_filamentEditDlg = new AnkerFilamentEditDlg(p->plater, _L("common_slicepannel_filamentedit_title").ToStdString(), filamentEditInfo, btn);
+            auto panelPos = p->m_filamentPanel->GetScreenPosition();
+            p->m_filamentEditDlg->SetPosition(wxPoint(panelPos.x - p->m_filamentEditDlg->GetSize().x - 8, panelPos.y));
+            p->m_filamentEditDlg->Layout();
+
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, [this](wxCommandEvent&event) {
 
                 if(p->m_pAnkerParameterPanel)
@@ -2092,11 +2326,19 @@ namespace Slic3r {
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_CHECK_RIGHT_DIRTY_DATA, [this](wxCommandEvent& event) {
                 p->m_pAnkerParameterPanel->checkDirtyData();
             });
+            //listen m_filamentPanel's size event, because we needs m_filamentPanel's correct screen position
+            p->m_filamentPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
+                if (p->m_filamentEditDlg != nullptr) {
+                    auto panelPos = p->m_filamentPanel->GetScreenPosition();
+                    p->m_filamentEditDlg->SetPosition(wxPoint(panelPos.x - p->m_filamentEditDlg->GetSize().x - 8, panelPos.y));
+                }
+                event.Skip();
+            });
 
             p->m_filamentEditDlg->Show();
         }
 
-        void AnkerSidebarNew::onFilamentRemoveSelected(const uint32_t btnIndex, wxButton* btn) {
+        void AnkerSidebarNew::onFilamentRemoveSelected(const uint32_t btnIndex, AnkerBtn* btn) {
             ANKER_LOG_INFO << "onFilamentRemoveSelected enter,btn index is " << btnIndex;
             std::vector<SFilamentEditInfo> filamentEditInfoList;
             {
@@ -2130,6 +2372,12 @@ namespace Slic3r {
 
             // update data in mmu
             wxGetApp().plater()->get_current_canvas3D()->get_gizmos_manager().update_data();
+
+            // remove extruder
+            removeCfgTabExtruders();
+
+            // update filament immediately
+            onExtrudersChange();
         }
 
         void AnkerSidebarNew::onUpdateFilamentInfo(wxCommandEvent& event) {
@@ -2137,7 +2385,7 @@ namespace Slic3r {
             if (pData) {
                 wxVariantList list = pData->GetList();
                 SFilamentEditInfo* filamentEditInfo = (SFilamentEditInfo*)(list[0]->GetVoidPtr());
-                wxButton* editColorBtn = (wxButton*)(list[1]->GetVoidPtr());
+                AnkerBtn* editColorBtn = (AnkerBtn*)(list[1]->GetVoidPtr());
                 if (!filamentEditInfo) {
                     ANKER_LOG_ERROR << "recv wxCUSTOMEVT_UPDATE_FILAMENT_INFO, filamentEditInfo is invalid.";
                     return;
@@ -2156,13 +2404,13 @@ namespace Slic3r {
                 }
 
                 // update filament colour to ini
-                updateFilamentColourInCfg(filamentInfo.wxStrLabelName.ToStdString(), editIndex - 1);
+                updateFilamentColourInCfg(filamentInfo.wxStrLabelName.ToUTF8().data(), editIndex - 1);
 
                 // update filament layout
                 updateFilamentBtnColor(filamentEditInfo, editColorBtn);
 
                 // update filament colour info  for object list and clour
-                filamentInfoChanged();
+                filamentInfoChanged(editIndex);
 
                 // add by allen for fixing use filament_colour instead of extruder_colour
                 // post wxCUSTOMEVT_UPDATE_FILAMENT_INFO event
@@ -2177,9 +2425,79 @@ namespace Slic3r {
             }
         }
 
+        void AnkerSidebarNew::removeCfgTabExtruders() {
+            // Delete the number of extruders while deleting consumables.
+            AnkerTabPrinter* ankerTab = (AnkerTabPrinter*)wxGetApp().getAnkerTab(Preset::TYPE_PRINTER);
+            if (!ankerTab) {
+                ANKER_LOG_ERROR << "removeCfgTabExtruders failed, ankerTab is nullptr";
+                return;
+            }
+                
+            ankerTab->extruders_count_changed(p->m_editFilamentInfoList.size());
+            ankerTab->init_options_list(); // m_options_list should be updated before UI updating
+            ankerTab->update_dirty();
+        }
+
         // add by aden for sync filament info
         void AnkerSidebarNew::onSyncFilamentInfo(wxCommandEvent& event) {
- 
+            /********************************** sync filament test code ******************************/
+           /* std::vector<SFilamentInfo> syncFilamentInfos(p->m_editFilamentInfoList.size());
+            std::reverse_copy(p->m_editFilamentInfoList.begin(), p->m_editFilamentInfoList.end(),
+                syncFilamentInfos.begin());
+            syncFilamentInfo(syncFilamentInfos);
+            return;*/
+            /********************************** sync filament test code ******************************/
+            auto ankerNet = AnkerNetInst();
+            if (!ankerNet) {
+                return;
+            }
+            if (ankerNet->IsLogined() == false) {
+                wxGetApp().mainframe->ShowAnkerWebView();
+                return;
+            }
+
+            wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+            wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+            wxSize dialogSize = AnkerSize(400, 320);
+            wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+            AnkerMulticolorSyncDeviceDialog multiColorDialog(nullptr, wxID_ANY, _L("common_popup_filamentsync_title1"), "", center, dialogSize);
+            multiColorDialog.setSliderBarWindow(this);
+            Bind(wxCUSTOMEVT_MULTICOLOR_PICKED, [this](wxCommandEvent& event) {
+                wxStringClientData* pData = static_cast<wxStringClientData*>(event.GetClientObject());
+                if (pData)
+                {
+                    m_multiColorSelectedSn = pData->GetData().ToStdString();
+                }
+
+                });
+
+            int result = multiColorDialog.ShowAnkerModal();
+            if (wxID_OK == result) {
+                if (!m_multiColorSelectedSn.empty()) {
+                    DeviceObjectBasePtr deviceObject = CurDevObject(m_multiColorSelectedSn);
+                    if (deviceObject) {
+                        auto multiColorData = deviceObject->GetMtSlotData();
+                        auto DecimalToHex = [](int64_t decimalValue) {
+                            wxString hexStr;
+                            hexStr.Printf(wxT("%llx"), decimalValue);
+                            return  hexStr;
+                        };
+                        std::vector<SFilamentInfo> syncFilamentInfos;
+                        for (int i = 0; i < multiColorData.size(); i++) {
+                            SFilamentInfo sFilamentInfo;
+                            sFilamentInfo.wxStrFilamentId = DecimalToHex(multiColorData[i].materialId);
+                            sFilamentInfo.wxStrColorId = DecimalToHex(multiColorData[i].colorId);
+                            
+                            syncFilamentInfos.push_back(sFilamentInfo);
+                            ANKER_LOG_INFO << "i: " << i << ", wxStrFilamentId: " << sFilamentInfo.wxStrFilamentId.ToStdString() << 
+                                ", wxStrColorId: " << sFilamentInfo.wxStrColorId.ToStdString();
+                        }
+                        
+                        syncFilamentInfo(syncFilamentInfos);
+                    }
+                }
+            }
+            m_multiColorSelectedSn = "";
         }
 
         void AnkerSidebarNew::updateCfgComboBoxPresets(Slic3r::Preset::Type presetType) {
@@ -2218,34 +2536,37 @@ namespace Slic3r {
             wxGetApp().plater()->update_filament_colors_in_full_config();
         }
 
-        void AnkerSidebarNew::filamentInfoChanged() {
+        void AnkerSidebarNew::filamentInfoChanged(int editIndex) {
             if (!wxGetApp().mainframe || !wxGetApp().mainframe->m_ankerCfgDlg) {
                 return;
             }
+
             // update selected choice of filament preset in filament tab
             AnkerTab* filamentAnkerTab = wxGetApp().getAnkerTab(Preset::TYPE_FILAMENT);
+            // Increase the preset switching speed of the machine model.
             if (filamentAnkerTab) {
                 updateCfgComboBoxPresets(Preset::TYPE_FILAMENT);
-                // reselect filament preset to show the right print config 
-                AnkerTabPresetComboBox* ankerComboBox = wxGetApp().mainframe->m_ankerCfgDlg->GetAnkerTabPresetCombo(Preset::TYPE_FILAMENT);
-                int selection = ankerComboBox->GetSelection();
-                std::string presetName = ankerComboBox->GetString(selection).ToUTF8().data();
-                filamentAnkerTab->select_preset(Preset::remove_suffix_modified(presetName));
-                ANKER_LOG_INFO << "new selected filament preset name is " << presetName;
+                //// reselect filament preset to show the right print config 
+                //AnkerTabPresetComboBox* ankerComboBox = wxGetApp().mainframe->m_ankerCfgDlg->GetAnkerTabPresetCombo(Preset::TYPE_FILAMENT);
+                //int selection = ankerComboBox->GetSelection();
+                //std::string presetName = ankerComboBox->GetString(selection).ToUTF8().data();
+                //filamentAnkerTab->select_preset(Preset::remove_suffix_modified(presetName));
+                //ANKER_LOG_INFO << "new selected filament preset name is " << presetName;
             }
-         
+       
+            // Change the interaction for switching print and filament presets.
             AnkerTab* printAnkerTab = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
-            // mod by allen for Change the interaction for switching print and filament presets.
-            if (printAnkerTab) {
+            if (printAnkerTab && editIndex <= 1) {
                 updateCfgComboBoxPresets(Preset::TYPE_PRINT);
-                // reselect print preset to show the right print config 
-                AnkerTabPresetComboBox* ankerComboBox = wxGetApp().mainframe->m_ankerCfgDlg->GetAnkerTabPresetCombo(Preset::TYPE_PRINT);
-                int selection = ankerComboBox->GetSelection();
-                std::string presetName = ankerComboBox->GetString(selection).ToUTF8().data();
-                printAnkerTab->select_preset(Preset::remove_suffix_modified(presetName));
-                ANKER_LOG_INFO << "new selected print preset name is " << presetName;
-            }
+                //// Note: need reselect print preset to show the right print config 
+                //AnkerTabPresetComboBox* ankerComboBox = wxGetApp().mainframe->m_ankerCfgDlg->GetAnkerTabPresetCombo(Preset::TYPE_PRINT);
+                //int selection = ankerComboBox->GetSelection();
+                //std::string presetName = ankerComboBox->GetString(selection).ToUTF8().data();
+                //printAnkerTab->select_preset(Preset::remove_suffix_modified(presetName));
 
+                //ANKER_LOG_INFO << "new selected print preset name is " << presetName;
+            }
+            
             // update data in mmu
             wxGetApp().plater()->get_current_canvas3D()->get_gizmos_manager().update_data();
             // update data in objectbar
@@ -2258,7 +2579,7 @@ namespace Slic3r {
         }
 
         // ensure the edit color btn ptr is valid int m_filamentEditDlg when filament panel is changed
-        void AnkerSidebarNew::updateFilamentColorBtnPtr(wxButton* colorBtn) {
+        void AnkerSidebarNew::updateFilamentColorBtnPtr(AnkerBtn* colorBtn) {
             if (p->m_filamentEditDlg && colorBtn && colorBtn->GetId() == ID_FILAMENT_COLOUR_BTN)
                 p->m_filamentEditDlg->SetEditColorBtnPtr(colorBtn); 
         }
@@ -2373,5 +2694,61 @@ namespace Slic3r {
             return m_sizerFlags;
 		}
 
+        void AnkerSidebarNew::updateCfgTabTimer(wxTimerEvent&) {
+            updateCfgTabPreset();
+        }
+
+        void AnkerSidebarNew::updateUserFilament() {
+            if (p->m_strOldFilamentName.empty()){
+                return;
+            }
+            ANKER_LOG_INFO << "updateUserFilament enter, oldFilamentName is " << p->m_strNewFilamentName
+                << ", newFilamentName is " << p->m_strNewFilamentName;
+
+            SFilamentInfo newFilament;
+           //rename user filament
+            auto newFilamentIter = p->m_filamentInfoList.find(wxString::FromUTF8(p->m_strNewFilamentName));
+            if (newFilamentIter != p->m_filamentInfoList.end()) {  // should be user filament
+                newFilament = newFilamentIter->second[0];
+            }
+            else {  // should be system filament
+                for (auto mapIter : p->m_filamentInfoList) {
+                    for (auto filamentIter : mapIter.second) {
+                        if (filamentIter.wxStrLabelName != wxString::FromUTF8(p->m_strNewFilamentName))
+                            continue;
+                        newFilament = filamentIter;
+                    }
+                }
+            }
+           
+            int index = 0;
+            for (auto& iter : p->m_editFilamentInfoList) {
+                index++;
+                if (iter.wxStrLabelName != wxString::FromUTF8(p->m_strOldFilamentName)) {
+                    continue;
+                }
+                // we should use new filament info to replace the old filament info
+                iter = newFilament;
+                wxGetApp().preset_bundle->set_filament_preset(index-1, iter.wxStrLabelName.ToUTF8().data());
+                ANKER_LOG_INFO << "updateUserFilament enter, set newFilament success, index is " << index - 1
+                    << ", newFilamentName is " << iter.wxStrLabelName.ToStdString();
+            }
+
+            p->m_strNewFilamentName.clear();
+            p->m_strOldFilamentName.clear();
+        }
+
+        void AnkerSidebarNew::selectDefaultFilament() {
+            // fix the bug of zz_3d_pc#3420 and zz_3d_pc#3422 to select default filament after changed printer
+            Slic3r::DynamicPrintConfig* config = &wxGetApp().preset_bundle->printers.get_edited_preset().config;
+            if (!config)
+                return;
+            // default filament presets
+            std::vector<std::string> defaultFilamentPresets;
+            defaultFilamentPresets = config->option<ConfigOptionStrings>("default_filament_profile")->values;
+            if (defaultFilamentPresets.empty())
+                return;
+            wxGetApp().getAnkerTab(Preset::TYPE_FILAMENT)->select_preset(Preset::remove_suffix_modified(defaultFilamentPresets[0]));
+        }
 	}
 }    // namespace Slic3r::GUI
