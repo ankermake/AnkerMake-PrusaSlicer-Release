@@ -390,7 +390,6 @@ typedef struct _COUNTRY_INFO
 }COUNTRY_INFO, * pCOUNTRY_INFO;
 
 
-
 typedef struct _USER_INFO
 {
     std::string user_id = std::string();
