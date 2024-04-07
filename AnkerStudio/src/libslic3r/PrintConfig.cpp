@@ -3830,6 +3830,12 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(10.));
 
+    def = this->add("move_inward", coBool);
+    def->label = L("Move inward before retraction");
+    def->tooltip = L("This flag will move the nozzle inside the loop before retraction to minimize the possible blob.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool{ false });
+
     def = this->add("xy_size_compensation", coFloat);
     def->label = L("X-Y contour compensation");
     def->category = L("Advanced");

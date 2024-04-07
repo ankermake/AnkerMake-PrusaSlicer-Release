@@ -198,6 +198,15 @@ private:
 	AnkerStaticText* m_contextText = nullptr;
 };
 
+class AnkerDialogIconTextOkPanel : public AnkerBox
+{
+public:
+	using EventCallBack_T = std::function<void(wxCommandEvent&)>;
+	AnkerDialogIconTextOkPanel(EventCallBack_T callback, const wxString& context = "", const std::string& iconPath = "",
+		const wxSize& size = wxDefaultSize,  wxWindow* parent = nullptr);
+	~AnkerDialogIconTextOkPanel();
+};
+
 class AnkerDialogBase : public wxDialog
 {
 public:

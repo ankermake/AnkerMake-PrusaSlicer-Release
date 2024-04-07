@@ -176,6 +176,80 @@ void AnkerHyperlink::drawPrintFailWrapText(wxPaintDC &dc, wxString& text, int wr
     }
 }
 
+wxString GetNextLineNonEnglishStr(wxString& text, wxDC& dc, int maxWidth) {
+	wxString line;
+	for (wxString::const_iterator it = text.begin(); it != text.end(); ++it) {
+		line += *it;
+		wxCoord width, height;
+		dc.GetTextExtent(line, &width, &height);
+		if (width > maxWidth) {
+			line.RemoveLast();
+			text = text.Mid(line.length()).Trim();
+			return line;
+		}
+	}
+	text.clear();
+	return line;
+}
+
+wxString GetNextLineEnglishStr(wxString& text, wxDC& dc, int maxWidth) {
+	wxString line;
+	wxString space = " ";
+	wxCoord spaceWidth, height;
+	dc.GetTextExtent(space, &spaceWidth, &height);
+
+	wxCoord width = 0;
+	size_t lastSpace = wxString::npos;
+
+	for (size_t i = 0; i < text.length(); ++i) {
+		width += dc.GetTextExtent(text[i]).GetWidth();
+
+		if (text[i] == ' ') {
+			lastSpace = i;
+		}
+
+		if (width > maxWidth) {
+			if (lastSpace != wxString::npos) {
+				line = text.Mid(0, lastSpace);
+				text = text.Mid(lastSpace + 1).Trim();
+			}
+			else {
+				line = text.Mid(0, i);
+				text = text.Mid(i).Trim();
+			}
+			return line;
+		}
+	}
+
+	line = text;
+	text.clear();
+	return line;
+}
+
+void AnkerHyperlink::drawWrapText(wxPaintDC &dc, wxString& text, int wrapWidth)
+{
+	wxFont font = dc.GetFont();
+	wxCoord lineHeight = dc.GetMultiLineTextExtent("Test").GetHeight();
+
+	wxString remainingText = text;
+	int y = 0;
+	while (!remainingText.empty()) {
+		wxString line;
+
+		int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+		if ( wxLanguage::wxLANGUAGE_ENGLISH == type || wxLanguage::wxLANGUAGE_ENGLISH_US == type) {
+			line = GetNextLineEnglishStr(remainingText, dc, wrapWidth);
+		}
+		else{
+			line = GetNextLineNonEnglishStr(remainingText, dc, wrapWidth);
+		}
+
+		dc.DrawText(line, 0, y);
+		y += lineHeight;
+	}
+}
+
+
 void AnkerHyperlink::OnPaint(wxPaintEvent& event)
 {
 	wxPaintDC dc(this);

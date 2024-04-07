@@ -2025,7 +2025,6 @@ namespace Slic3r {
 
             wxBoxSizer* CreatePreViewRightSideBar();
             void updatePreViewRightSideBar(bool gcode_valid, RightSidePanelUpdateReason reason = REASON_NONE);
-
             void UpdateCurrentViewType(GCodeViewer::EViewType type);
             bool is_preview_shown() const { return current_panel == preview; }
             bool is_preview_loaded() const { return preview->is_loaded(); }
@@ -8267,7 +8266,7 @@ namespace Slic3r {
 
            /* wxNumberEntryDialog dialog(parent, msg, prompt, title, value, min, max, wxDefaultPosition);
             wxGetApp().UpdateDlgDarkUI(&dialog);*/
-            AnkerNumberEnterDialog dialog(parent, title.ToStdString(), prompt, min, max, value);
+            AnkerNumberEnterDialog dialog(parent, title.ToStdString(wxConvUTF8), prompt, min, max, value);
             dialog.CenterOnParent();
             if (dialog.ShowModal() == wxID_OK)
                 return dialog.GetValue();
@@ -8986,10 +8985,7 @@ namespace Slic3r {
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
                 ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
-                reportBuryEvent(e_hanlde_model, buryMap);
                 return; 
-            }
-
             wxString path = p->get_export_file(FT_OBJECT);
             const std::string path_u8 = into_u8(path);
             if (path.empty()) { 
@@ -9428,16 +9424,6 @@ namespace Slic3r {
                 p->report_slicing_buryevt("start", "-1", "milliseconds timeout!");
 
                 return;
-            }
-
-            if (printer_technology() == ptSLA) {
-                for (auto& object : model().objects)
-                    if (object->sla_points_status == sla::PointsStatus::NoPoints)
-                        object->sla_points_status = sla::PointsStatus::Generating;
-            }
-
-            //FIXME Don't reslice if export of G-code or sending to OctoPrint is running.
-            // bitmask of UpdateBackgroundProcessReturnState
             unsigned int state = this->p->update_background_process(true);
             if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
                 this->p->view3D->reload_scene(false);

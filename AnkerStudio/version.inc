@@ -3,9 +3,18 @@
 
 set(SLIC3R_APP_NAME "AnkerMake Studio")
 set(SLIC3R_APP_KEY "AnkerMake Studio")
+<<<<<<< HEAD
 set(SLIC3R_VERSION "1.5.25")
 # if using for internal iteration minor version, please set it like "_1", otherwise leave it blank
 set(SLIC3R_MIN_VER "")
 set(SLIC3R_BUILD_ID "AnkerMake Studio-${SLIC3R_VERSION}${SLIC3R_MIN_VER}")
 set(SLIC3R_RC_VERSION "1,5,25,0")
 set(SLIC3R_RC_VERSION_DOTS "1.5.25.0")
+=======
+set(SLIC3R_VERSION "1.5.21")
+# if using for internal iteration minor version, please set it like "_1", otherwise leave it blank
+set(SLIC3R_MIN_VER "")
+set(SLIC3R_BUILD_ID "AnkerMake Studio-${SLIC3R_VERSION}${SLIC3R_MIN_VER}")
+set(SLIC3R_RC_VERSION "1,5,21,0")
+set(SLIC3R_RC_VERSION_DOTS "1.5.21.0")
+>>>>>>> 84b4984 (feat: 1.5.21 open source)

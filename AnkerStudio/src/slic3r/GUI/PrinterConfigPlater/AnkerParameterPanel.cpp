@@ -3321,6 +3321,18 @@ void AnkerParameterPanel::ChangeViewMode(int the_mode)
 		m_pExportBtn->Show();
 		m_pPrintBtn->Show();
 	}
+	// TRN Settings Tabs: Button in toolbar: "Remove/Delete"
+	wxString title = format_wxstr(_L("%1% Preset"), action);
+	// TRN "remove/delete"
+	if (current_preset.is_default ||
+		//wxID_YES != wxMessageDialog(parent(), msg, title, wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION).ShowModal())
+		AnkerMsgDialog::MsgResult::MSG_OK != AnkerMessageBox(Slic3r::GUI::wxGetApp().mainframe, msg.ToStdString(wxConvUTF8), title.ToStdString(wxConvUTF8)))
+		return;
+
+	// Select will handle of the preset dependencies, of saving & closing the depending profiles, and
+	// finally of deleting the preset.
+	//this->select_preset("", true);
+	Slic3r::GUI::wxGetApp().getAnkerTab(prestType)->select_preset("", true);
 
 
 	Layout();

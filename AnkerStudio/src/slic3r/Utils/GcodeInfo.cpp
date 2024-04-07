@@ -187,7 +187,11 @@ void GcodeInfo::GetMachineInfoFromGCode(const string& utf8GcodeFilePath,
 	isAnkerBrand = false;
 	machineType = DEVICE_UNKNOWN_TYPE;
 
+<<<<<<< HEAD
 	auto filePath = wxString::FromUTF8(utf8GcodeFilePath).ToStdString();
+=======
+	auto filePath = wxString::FromUTF8(utf8GcodeFilePath).ToStdString();	
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 	ifstream file(filePath);
 	if (!file.is_open()) {
 		ANKER_LOG_ERROR << "open file failed: " << filePath << ", " << utf8GcodeFilePath;

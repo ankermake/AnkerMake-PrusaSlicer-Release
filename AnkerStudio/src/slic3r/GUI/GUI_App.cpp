@@ -144,7 +144,7 @@
 // The default retention temp gcode file is 2 days
 #define TEMP_GCODE_SAVE_DAYS 2
 
-//-1 donot want to get webview2,1 get the webview2£¬0 webview2 work well
+//-1 donot want to get webview2,1 get the webview2 webview2 work well
 #define USER_BEHAVIOR_NORMAL   "0"
 #define USER_BEHAVIOR_CANCEL   "-1"
 #define USER_BEHAVIOR_GET       "1"
