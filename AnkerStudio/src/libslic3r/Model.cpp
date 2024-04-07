@@ -1166,15 +1166,18 @@ const BoundingBoxf3& ModelObject::raw_bounding_box() const
 // This returns an accurate snug bounding box of the transformed object instance, without the translation applied.
 BoundingBoxf3 ModelObject::instance_bounding_box(size_t instance_idx, bool dont_translate) const
 {
+    ANKER_LOG_INFO << "enter instance_bounding_box:" << instance_idx;
     BoundingBoxf3 bb;
     const Transform3d inst_matrix = dont_translate ?
         this->instances[instance_idx]->get_transformation().get_matrix_no_offset() :
         this->instances[instance_idx]->get_transformation().get_matrix();
 
+    ANKER_LOG_INFO << "start transformed_bounding_box";
     for (ModelVolume *v : this->volumes) {
         if (v != nullptr && v->is_model_part())
             bb.merge(v->mesh().transformed_bounding_box(inst_matrix * v->get_matrix()));
     }
+    ANKER_LOG_INFO << "exit instance_bounding_box";
     return bb;
 }
 

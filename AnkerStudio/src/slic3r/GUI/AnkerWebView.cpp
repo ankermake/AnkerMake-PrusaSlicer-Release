@@ -70,9 +70,6 @@ AnkerWebView::~AnkerWebView()
 	m_loadTimer = nullptr;
 
 	ANKER_LOG_INFO << "end webview destroy";
-}
-
-void AnkerWebView::onLogOut()
 {
 	if (m_forceClose) return;
 	if (!m_webBegin)

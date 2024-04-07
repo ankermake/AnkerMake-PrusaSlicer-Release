@@ -171,8 +171,8 @@ namespace Slic3r {
                 std::string printerName(item.mb_str());
                 std::string machineType = GetMachineType(printerName);
                 std::string NozzleSize = GetNozzleSize(printerName);
-                //if (printerName == "¡ª¡ª¡ª¡ª¡ª System presets ¡ª¡ª¡ª¡ª¡ª") { seq++;  continue; }
-                //if (printerName == "¡ª¡ª¡ª¡ª¡ª My Presets ¡ª¡ª¡ª¡ª¡ª") { return; }
+                //if (printerName == "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ System presets ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½") { seq++;  continue; }
+                //if (printerName == "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ My Presets ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½") { return; }
                 static bool isSystemPresets = true;
                 if (isSystemPresets) {
                     if (printerName.find("System presets") != std::string::npos) { 
@@ -1357,7 +1357,6 @@ namespace Slic3r {
             comboAndbtnSizer->Add(*comboPrinter, 10, wxALIGN_CENTER_VERTICAL | wxEXPAND, 0);
             comboAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             comboAndbtnSizer->Add(EditBtn, 0, wxALIGN_CENTER_VERTICAL, 0);
-
             contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
             contentSizer->Add(comboAndbtnSizer, 1, wxEXPAND |wxLEFT | wxRIGHT | wxALIGN_CENTER_VERTICAL, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
@@ -2630,6 +2629,14 @@ namespace Slic3r {
                 });
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_CHECK_RIGHT_DIRTY_DATA, [this](wxCommandEvent& event) {
                 p->m_pAnkerGlobalParameterPanel->checkDirtyData();
+            });
+            //listen m_filamentPanel's size event, because we needs m_filamentPanel's correct screen position
+            p->m_filamentPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
+                if (p->m_filamentEditDlg != nullptr) {
+                    auto panelPos = p->m_filamentPanel->GetScreenPosition();
+                    p->m_filamentEditDlg->SetPosition(wxPoint(panelPos.x - p->m_filamentEditDlg->GetSize().x - 8, panelPos.y));
+                }
+                event.Skip();
             });
             //listen m_filamentPanel's size event, because we needs m_filamentPanel's correct screen position
             p->m_filamentPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {

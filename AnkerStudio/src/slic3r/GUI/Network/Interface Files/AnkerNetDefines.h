@@ -329,11 +329,7 @@ typedef struct _FeedBackInfo {
     std::string logZipPath = "";
 }FeedBackInfo;
 /*********************************************************************************************************/
-
 //https://make-app-us-qa.eufylife.com/v2/passport/login
-typedef struct _LOGIN_DATA
-{
-    std::string captcha_id = std::string();
     std::string answer = std::string();
 
     std::string web_callback = std::string();
@@ -386,7 +382,6 @@ typedef struct _COUNTRY_INFO
     std::string code = std::string();
 
 }COUNTRY_INFO, * pCOUNTRY_INFO;
-
 
 
 typedef struct _USER_INFO

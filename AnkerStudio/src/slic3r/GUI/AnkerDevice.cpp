@@ -2741,7 +2741,6 @@ void AnkerDeviceControl::showMsgFrame(const NetworkMsg& msg)
 
 		DatamangerUi::GetInstance().ShowNextAlertMsg();
 	});
-
 	if (parentWindow) {
 		parentWindow->Bind(wxEVT_DESTROY, [this, parentWindow](wxWindowDestroyEvent& event) {
 			ANKER_LOG_INFO << "parentWindow destroy.";

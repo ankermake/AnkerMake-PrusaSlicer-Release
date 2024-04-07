@@ -302,6 +302,10 @@ protected:
 
 	void showMsgLV0Dialog(const NetworkMsg& msg);
 	void showMsgLV1Dialog(const NetworkMsg& msg);
+<<<<<<< HEAD
+=======
+	void showMsgLV3Dialog(const NetworkMsg& msg);
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
 	void OnShow(wxShowEvent& event);
 
 private:
