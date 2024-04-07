@@ -6,6 +6,7 @@
 #include <functional>
 #include <boost/signals2.hpp>
 #include "AnkerNetDefines.h"
+#include "../basetype.hpp"
 
 namespace AnkerNet
 {
@@ -40,16 +41,11 @@ public:
 		CallBackFunction callbackfunc,
 		ProgressCallback progressCallbackFunc,
 		bool isBlock = false,
-		unsigned int nTimeOut = 600) = 0;
+		unsigned int nTimeOut = 0) = 0;
 
-	//get current env type
-	virtual int getCurrentEnvironmentType() = 0;
 	//post feedback by http
 	//it is a async interface
 	virtual void AsyPostFeedBack(FeedBackInfo info) = 0;
-	virtual void PostGetPrintStopReasons(PrintStopReasons &reasons, const std::string& station_sn) = 0;
-	// post get slice tips by http
-	virtual inline bool PostGetSliceTips(SliceTips& sliceTips) = 0;
 
 	//set callback for Recover Curl , triggered when curl return CURLE_COULDNT_RESOLVE_HOST
 	virtual void SetCallback_RecoverCurl(NormalCallBack callback) = 0;
@@ -57,16 +53,9 @@ public:
 	virtual void SetCallback_OtaInfoRecv(CallBack_OtaInfoRecv callback) = 0;
 	//set callback for update filament info , triggered when receive filament info and is newer than local
 	virtual void SetCallback_FilamentRecv(NormalCallBack callback) = 0;
-	virtual void SetCallback_GetMsgCenterConfig(CallBack_MsgCenterCfg callback) = 0;
-	virtual void SetCallback_GetMsgCenterRecords(CallBack_MsgCenterRecords callback) = 0;
-	virtual void SetCallback_GetMsgCenterErrorCodeInfo(CallBack_MsgCenterErrCodeInfo callback) = 0;
-	virtual void SetCallback_GetMsgCenterStatus(CallBack_MsgCenterStatus callback) = 0;	
-	virtual void SetCallback_CommentFlagsRecv(CommentFlagsCallBack callback) = 0;
 	//set callback for process http error , triggered when http interface return error
 	virtual void SetsendSigHttpError(sendSigHttpError_T function) = 0;
 
-	virtual void GetMsgCenterRecords(const int& newType, const int& num, const int& page,bool isSyn = false) = 0;
-	virtual void GetMsgCenterStatus() = 0;
 	//get nick name of user
 	virtual std::string GetNickName() = 0;
 	//get download url of Avatar of user
@@ -91,11 +80,9 @@ public:
 
 	//check whether user is logined
 	virtual bool IsLogined() = 0;
-	//remove msg item by msgids
-	virtual void removeMsgByIds(const std::vector<int>& msgList,bool isSyn = false) = 0;
 	//log out and clear data and status
 	virtual void logout() = 0;
-	virtual void logoutToServer() = 0;
+
 	//refresh device list
 	//it is a async interface
 	virtual void AsyRefreshDeviceList() = 0;
@@ -121,6 +108,8 @@ public:
 	virtual void SetsendSigToUpdateDeviceStatus(sendSigToUpdateDeviceStatus_T function) = 0;
 	//set callback for update transfer status on ui , triggered when transfer is running or stopped.
 	virtual void SetsendSigToTransferFileProgressValue(sendSigToTransferFileProgressValue_T function) = 0;
+	//set callback for show message box on ui ,triggered when device post error to software
+	virtual void SetsendSigToMessageBox(sendSigToMessageBox_T function) = 0;
 	//set callback for show device list dialog ,triggered when exec AsyOneKeyPrint and device is found
 	virtual void SetsendShowDeviceListDialog(sendShowDeviceListDialog_T function) = 0;
 	//set callback for get general exception msg from outside , triggered before trigger sendSigToMessageBox_T
@@ -132,8 +121,8 @@ public:
 	virtual inline std::tuple<int, std::string> PostUpdateDataShared(const std::vector<std::pair<int, std::string>>& param_type) = 0;
 	virtual std::vector<std::tuple<std::string, int>> PostGetMemberType() = 0;
 
-	// p2p operator start
-	virtual void StartP2pOperator(P2POperationType type, const std::string& sn, const std::string& filePath) = 0;
+	//set P2POperationType
+	virtual void setP2POperationType(P2POperationType type) = 0;
 
 	// p2p video
 	//close video stream and release data
@@ -155,24 +144,17 @@ public:
 	virtual void setP2PVideoStreamCtrlAbnormalCallBack(SnCallBackFunc callBackFunc) = 0;
 	virtual void setCameraLightStateCallBack(SnStateCallBackFunc callBackFunc) = 0;
 	virtual void setVideoModeCallBack(SnStateCallBackFunc callBackFunc) = 0;
+	virtual boost::signals2::connection videoStopSussConnect(const boost::signals2::slot<void(const std::string&)>& slot) = 0;
 
 	//set callback for update PrivayChoice and update login status on ui,trigger when user login success
 	virtual void setWebLoginCallBack(PrivayChoiceCb privayCb, LoginFinishCb loginCb) = 0;
 	//process js msg from web page ,mainly for login,and return process result
 	virtual void ProcessWebScriptMessage(const std::string& webContent, WebJsProcessRet& JsProcessRet) = 0;
-
-	//get user info
-	virtual std::string GetUserInfo() = 0;
-
-	virtual void reportCommentData(StarCommentData data) = 0;
-
-	// process something after web login finish 
-	virtual void ProcessWebLoginFinish() = 0;
 };
 
 }
 
-typedef AnkerNet::AnkerNetBase* (*GetAnkerNet_T)();
+typedef AnkerNetBase* (*GetAnkerNet_T)();
 typedef int (*GetAnkerNetMappingVersion_T)();
 
 #endif // !ANKER_NET_BASE_H

@@ -26,8 +26,6 @@ public:
     virtual std::string GetPrintFile() = 0;
     virtual std::string GetFileName() = 0;
 
-    virtual void GetMsgCenterInfo(std::string&errorCode,std::string& errorLevel) = 0;    
-
     virtual int GetProcess() = 0;
     virtual int64_t GetTime() = 0;
 
@@ -71,7 +69,6 @@ public:
     // Mqtt Ctrl CMD.
     virtual void SetLocalPrintData(const VrCardInfoMap& vrCardInfoMap, const std::string& filepath = "") = 0;
     virtual void SetRemotePrintData(const VrCardInfoMap& vrCardInfoMap, const std::string& filepath = "") = 0;
-    virtual void SendErrWinResToMachine(const std::string& errorCode, const std::string& errorLevel) = 0;
     virtual void setDevicePrintPause() = 0;
     virtual void setDevicePrintStop() = 0;
     virtual void setDevicePrintResume() = 0;
@@ -133,8 +130,6 @@ public:
 
     virtual void SetDeviceFunctions() = 0;
     virtual bool GetPreheatFunction() const = 0;
-    virtual void SendSwitchInfoToDevice(const std::string& cmd, bool isOpen) = 0;
-    virtual std::tuple<bool, std::string> RecvSwitchInfoFromDevice() = 0;
 };
 
 }

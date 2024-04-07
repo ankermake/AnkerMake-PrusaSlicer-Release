@@ -2580,7 +2580,10 @@ namespace Slic3r {
         bool save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data, bool zip64);
         static void add_transformation(std::stringstream &stream, const Transform3d &tr);
     private:
+<<<<<<< HEAD
         void _publish(Model &model);
+=======
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
         bool _save_model_to_file(const std::string& filename, Model& model, const DynamicPrintConfig* config, const ThumbnailData* thumbnail_data, const SliceModelData* slice_data);
         bool _add_content_types_file_to_archive(mz_zip_archive& archive);
         bool _add_thumbnail_file_to_archive(mz_zip_archive& archive, const ThumbnailData& thumbnail_data);

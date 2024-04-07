@@ -1388,6 +1388,7 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
         bool inPathSection = false;
         std::vector<boost::filesystem::path> config_files;
         while (std::getline(file, line)) {
+<<<<<<< HEAD
             if (file.bad()) {
                 break;
             }
@@ -1399,6 +1400,9 @@ std::pair<PresetsConfigSubstitutions, size_t> PresetBundle::load_configbundle(
                 line = std::string(it, line.end());
             }
             
+=======
+            // Ignore blank lines and comments
+>>>>>>> 84b4984 (feat: 1.5.21 open source)
             if (line.empty() || line[0] == ';' || line[0] == '#') continue;
 
             // Check if it is a section line.   
