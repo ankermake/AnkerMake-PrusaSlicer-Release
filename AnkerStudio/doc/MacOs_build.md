@@ -43,7 +43,7 @@ The library and include path for dependencies should reference `AnkerStudio\src\
 
 	1. update deps_arm_dir to src/AnkerStudio/deps/deps_build/destdir in src/AnkerStudio/gen_xcode_proj.sh 
 	2. mkdir -p src/AnkerStudio/build_xcode/src/Debug
-	3. run the src/gen_xcode_proj.sh to generate XCode project
+	3. bash src/gen_xcode_proj.sh to generate XCode project
 
 Note that `deps_arm_dir` must be absolute path. A relative path will not work.
 Note that `mkdir -p src/AnkerStudio/build_xcode/src/Debug` change to `mkdir -p src/AnkerStudio/build_xcode/src/Release` when you select release build.
