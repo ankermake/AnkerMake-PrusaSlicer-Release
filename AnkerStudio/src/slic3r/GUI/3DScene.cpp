@@ -312,6 +312,20 @@ void GLVolume::set_mmu_render_data_from_model_volume(const ModelVolume& model_vo
     mmu_mesh->finalize_triangle_indices();
 }
 
+void GLVolume::set_mmu_render_data_from_model_volume(const ModelVolume& model_volume)
+{
+    if (model_volume.mmu_segmentation_facets.empty()) {
+        return;
+    }
+    GUI::GLTriangleSelector selector(model_volume.mesh());
+    selector.deserialize(model_volume.mmu_segmentation_facets.get_data(), false);
+    auto max_size = 6;
+    mmu_mesh = std::make_shared<GLSimpleMesh>((max_size + 1 ) * 2);
+    selector.set_mmu_render_data(mmu_mesh, max_size);
+    mmu_mesh->finalize_vertices();
+    mmu_mesh->finalize_triangle_indices();
+}
+
 ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
 {
     ColorRGBA color;
