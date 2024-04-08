@@ -20,8 +20,10 @@ Following platforms are currently supported to compile:
 - Windows 64-bit, [Compile Guide](AnkerStudio/doc/Windows_build.md)
 - Mac 64-bit, [Compile Guide](AnkerStudio/doc/MacOs_build.md)
 
+You can add an issue to the if there is a problem compiling or running.
+
 # Report issue
-You can add an issue to the [github tracker](https://github.com/ankermake/AnkerMake-PrusaSlicer-Release/issues) if **it isn't already present.**
+You can add an issue to the [github tracker](https://github.com/ankermake/AnkerMake-PrusaSlicer-Release/issues) if there are any questions.
 
 ## License
 	
