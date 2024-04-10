@@ -35,17 +35,18 @@ class AnkerLayerRangeEditor : public wxTextCtrl
     bool                m_call_kill_focus   { false };
     wxString            m_valid_value;
     AnkerEditorType          m_type;
-
+    t_layer_height_range*     m_range {nullptr};
     std::function<void(AnkerEditorType)> m_set_focus_data;
 
 public:
     AnkerLayerRangeEditor(   AnkerObjectLayers* objLayer,
                         wxWindow* parent,
+                        t_layer_height_range* range,
                         const wxString& value = wxEmptyString,
                         AnkerEditorType type = Ak_etUndef,
                         std::function<void(AnkerEditorType)>     set_focus_data_fn   = [](AnkerEditorType)      {;},
                         // callback parameters: new value, from enter, dont't update panel UI (when called from edit field's kill focus handler for the PlusMinusButton)
-                        std::function<bool(coordf_t, bool, bool)> edit_fn       = [](coordf_t, bool, bool) {return false; }
+                        std::function<bool(t_layer_height_range*, coordf_t, bool, bool)> edit_fn       = [](t_layer_height_range* , coordf_t, bool, bool) {return false; }
                         );
     ~AnkerLayerRangeEditor() {}
 
@@ -69,6 +70,8 @@ class AnkerObjectLayers // : public OG_Settings
 
     t_layer_height_range m_top_layer_range;
     
+    std::vector<t_layer_height_range> m_ranges;
+
     int m_rangeCnt;
 
     wxWindow* m_parent{ nullptr };

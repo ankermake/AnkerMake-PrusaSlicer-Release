@@ -28,6 +28,9 @@ void HalfModalDialog::InitDialogPanel(int dialogType)
     if (m_panel == nullptr) {
         return;
     }
+
+    m_panel->SetOkBtnCallBack(m_okBtnCallBack);
+
     wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(m_panel, 1, wxEXPAND);
     SetSizer(sizer);
@@ -48,6 +51,20 @@ void HalfModalDialog::ShowAnker(int dialogType)
 {
     InitDialogPanel(dialogType);
     Show(true);
+}
+
+void HalfModalDialog::ShowNoTitle(AnkerDialogIconTextOkPanel::EventCallBack_T callback)
+{
+    auto dialogPanel = new AnkerDialogIconTextOkPanel(callback, m_context, "", m_size, this);
+    wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+    sizer->Add(dialogPanel, 1, wxEXPAND);
+    SetSizer(sizer);
+    Show(true);
+}
+
+void HalfModalDialog::SetOkBtnCallBack(AnkerDialogBtnCallBack_T callback)
+{
+    m_okBtnCallBack = callback;
 }
 
 void HalfModalDialog::HideWindow(bool hide)
@@ -74,7 +91,6 @@ void HalfModalDialog::CheckWindowShow()
 PartialModalCancalOkPanel::PartialModalCancalOkPanel(wxWindow* parent, const wxString& title, 
     const wxSize& size, const wxString& context) : 
     AnkerDialogDisplayTextCancelOkPanel(parent, title, size, context)
-
 {
 }
 
@@ -94,6 +110,9 @@ void PartialModalCancalOkPanel::okButtonClicked(wxCommandEvent& event)
     if (dialog) {
         dialog->Close();
     }
+    if (m_okBtnCallBack) {
+        m_okBtnCallBack(event);
+    }
 }
 
 PartialModalOkPanel::PartialModalOkPanel(wxWindow* parent, const wxString& title, 
@@ -109,40 +128,7 @@ void PartialModalOkPanel::okButtonClicked(wxCommandEvent& event)
     if (dialog) {
         dialog->Close();
     }
-}
-
-HalfModalPanel::HalfModalPanel(wxWindow* parent, wxWindowID id, const wxString& title,
-    const wxString& context, const wxPoint& pos, const wxSize& size, 
-    long style, const wxString& name)  : 
-    wxPanel(parent, id, pos, size)
-{
-    m_dialog = new HalfModalDialog(this, id, title, context, pos, size, style, name);
-    wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(m_dialog, 1, wxEXPAND);
-    SetSizer(sizer);
-}
-
-void HalfModalPanel::InitDialogPanel(int dialogType)
-{
-    
-
-
-}
-
-void HalfModalPanel::ShowAnkerModal(int dialogType)
-{
-    m_dialog->ShowAnker(dialogType);
-    Show();
-}
-
-void HalfModalPanel::OnMouseEvents(wxMouseEvent& event)
-{
-    std::cout << "HalfModalPanel::OnMouseEvents.\n";
-    event.Skip();
-}
-
-void HalfModalPanel::OnKeyDown(wxKeyEvent& event)
-{
-    std::cout << "HalfModalPanel::OnKeyDown.\n";
-    event.Skip();
+    if (m_okBtnCallBack) {
+        m_okBtnCallBack(event);
+    }
 }

@@ -81,6 +81,7 @@ public:
     CustomPopupMenu(wxWindow* parent);
     void SetSelectedMenuItem(wxString text);
     void setMenuItemWidth(int w);
+    int GetMenuItemWidth();
     void setMenuItemHeight(int h);
     void setFontSize(int size);
     void setLeftMargin(int value);
@@ -210,6 +211,7 @@ public:
 	~AnkerVideo();
     void InitGUI();
     void SetOnlineOfflineState(bool state);
+    bool IsOffLine();
     void SetSN(std::string sn);
 
     void OnPlayBtnClicked(wxCommandEvent& event);
@@ -276,6 +278,7 @@ private:
 	//wxStaticText* m_videoStatusMsg;
 	//wxButton* m_retryBtn;
 
+    bool m_isVideoSuport = true;
     bool m_onlineOfflineState = true;  // true: online ; false:offline
 
     videoState currVideoState = Video_State_None;

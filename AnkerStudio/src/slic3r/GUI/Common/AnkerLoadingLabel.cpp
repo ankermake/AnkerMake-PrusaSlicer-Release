@@ -31,7 +31,7 @@ AnkerLoadingLabel::AnkerLoadingLabel()
 
 AnkerLoadingLabel::~AnkerLoadingLabel()
 {
-
+	m_loadingTimer->Stop();
 }
 
 void AnkerLoadingLabel::startLoading()
@@ -43,7 +43,6 @@ void AnkerLoadingLabel::startLoading()
 	m_labelStatus = Load_Ing;
 	Refresh();
 	Layout();
-
 }
 
 void AnkerLoadingLabel::stopLoading()
@@ -91,7 +90,6 @@ void AnkerLoadingLabel::OnPaint(wxPaintEvent& event)
 		imgName.Printf(wxT("preparingVideo%s.png"), (wxString::Format(wxT("%d"), m_imgIndex)));
 
 		bitmap = wxImage(wxString::FromUTF8(Slic3r::var(imgName.ToStdString())), wxBITMAP_TYPE_PNG);
-
 	}
 
 	if(!m_strbgColor.IsEmpty())
@@ -126,8 +124,7 @@ void AnkerLoadingLabel::OnTimer(wxTimerEvent& event)
 		}
 
 		Refresh();
-	}
-	
+	}	
 }
 
 void AnkerLoadingLabel::init()

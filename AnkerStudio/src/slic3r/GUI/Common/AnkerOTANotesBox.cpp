@@ -1,6 +1,46 @@
 #include "AnkerOTANotesBox.hpp"
 #include "../GUI_App.hpp"
 
+void SetCenterPanelContent(AnkerBox* m_centerPanel, const wxString& version,
+    const wxString& context, const wxSize& size, const wxColour& bgColour) {
+    const int interval = AnkerLength(16);
+    const int interval2 = AnkerLength(12);
+
+    // version info
+    wxSizer* versionSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxString versionStr;
+    versionStr.Printf(_L("common_popup_ota_newversion"), version);
+    wxSize versionSize = AnkerSize(size.GetWidth() - 2 * interval, 20);
+    wxStaticText* versionLabel = new wxStaticText(m_centerPanel, wxID_ANY,
+        versionStr, wxDefaultPosition, versionSize);
+    versionLabel->SetBackgroundColour(bgColour);
+    versionLabel->SetForegroundColour(wxColour("#FFFFFF"));
+    versionLabel->SetFont(ANKER_FONT_NO_1);
+    versionSizer->AddSpacer(interval);
+    versionSizer->Add(versionLabel);
+    versionSizer->AddSpacer(interval);
+
+    // release notes (content)
+    wxSize textSize(size.GetWidth() - 2 * interval, AnkerLength(150));
+    wxTextCtrl* textCtrl = new wxTextCtrl(m_centerPanel, wxID_ANY, context,
+        wxDefaultPosition, textSize, wxTE_MULTILINE | wxTE_READONLY | wxNO_BORDER);
+    textCtrl->SetBackgroundColour(wxColour("#292A2D"));
+    textCtrl->SetForegroundColour(wxColour("#FFFFFF"));
+    textCtrl->SetFont(ANKER_FONT_NO_1);
+
+    wxBoxSizer* textSizer = new wxBoxSizer(wxHORIZONTAL);
+    textSizer->AddSpacer(interval);
+    textSizer->Add(textCtrl);
+    textSizer->AddSpacer(interval);
+
+    m_centerPanel->GetSizer()->AddSpacer(interval2);
+    m_centerPanel->GetSizer()->Add(versionSizer);
+    m_centerPanel->GetSizer()->AddSpacer(interval2 / 2);
+    m_centerPanel->GetSizer()->Add(textSizer);
+    m_centerPanel->GetSizer()->AddSpacer(interval2);
+    m_centerPanel->GetSizer()->Layout();
+}
+
 AnkerOtaNotesNormalPanel::AnkerOtaNotesNormalPanel(
     wxWindow* parent, const wxString& title, 
     const wxString& version, const wxString& context, const wxSize& size) :
@@ -9,53 +49,8 @@ AnkerOtaNotesNormalPanel::AnkerOtaNotesNormalPanel(
     setOkBtnText(_L("common_popup_ota_button1"));
     bindBtnEvent();
 
-    int interval = 16;
-    int versionBtnHeight = 20;
-    wxPoint versionPos(interval, interval);
-    m_centerPanel->GetSizer()->AddSpacer(interval);
-    wxSizer* versionSizer = new wxBoxSizer(wxHORIZONTAL);
-    versionSizer->AddSpacer(interval);
-    wxString versionStr;
-    versionStr.Printf(_L("common_popup_ota_newversion"), version);
-    wxStaticText* versionLabel = new wxStaticText(m_centerPanel, wxID_ANY, versionStr, versionPos, AnkerSize(468, versionBtnHeight));
-    versionLabel->SetBackgroundColour(GetBackgroundColour());
-    versionLabel->SetForegroundColour(wxColour("#FFFFFF"));
-    wxFont font = ANKER_FONT_NO_1;
-    versionLabel->SetFont(font);
-    versionSizer->Add(versionLabel);
-    m_centerPanel->GetSizer()->Add(versionSizer);
-    //m_centerPanel->GetSizer()->AddSpacer(interval / 2);
-
-    wxPoint contextPos(interval, versionPos.y + versionBtnHeight + interval);
-    int scrolledHeight = 140;
-
-    int textWidth = size.GetWidth() - interval * 2 - 10 * 2;
-    wxSize textSize = getTextSize(versionLabel, context);
-    int textY = (textSize.x * textSize.y) / (textWidth - 2 * interval);
-    if (textY < scrolledHeight) {
-        textY = 140;
-    }
-    else {
-        (textY % scrolledHeight) ? (textY = textY + textY % scrolledHeight + 20) : (textY = textY + 20);
-    }
-    
-    textSize = AnkerSize(textWidth, textY);
-
-#ifdef _WIN32
-    wxTextCtrl* textCtrl = new wxTextCtrl(m_centerPanel, wxID_ANY, context, contextPos, AnkerSize(size.GetWidth(), textY), wxTE_MULTILINE | wxTE_READONLY | wxNO_BORDER);
-#elif __APPLE__
-    wxTextCtrl* textCtrl = new wxTextCtrl(m_centerPanel, wxID_ANY, context, contextPos, AnkerSize(size.GetWidth() - interval * 2, textY), wxTE_MULTILINE | wxTE_READONLY | wxNO_BORDER);
-#endif
-    //->SetWindowStyleFlag(textCtrl->GetWindowStyleFlag() & ~wxBORDER_MASK);
-    wxBoxSizer* textSizer = new wxBoxSizer(wxHORIZONTAL);
-    textSizer->AddSpacer(interval / 2);
-    textCtrl->SetBackgroundColour(wxColour("#292A2D"));
-    textCtrl->SetForegroundColour(wxColour("#FFFFFF"));
-    textCtrl->SetFont(font);
-    textSizer->Add(textCtrl, wxSizerFlags(1).Expand().Border(wxALL, interval));
-
-    m_centerPanel->GetSizer()->Add(textSizer);
-    m_centerPanel->GetSizer()->AddSpacer(interval);
+    SetCenterPanelContent(m_centerPanel, version, context, size, GetBackgroundColour());
+    Layout();
 }
 
 AnkerOtaNotesNormalPanel::~AnkerOtaNotesNormalPanel()
@@ -120,55 +115,11 @@ AnkerOtaNotesForcedPanel::AnkerOtaNotesForcedPanel(wxWindow* parent, const wxStr
     AnkerDialogOkPanel(parent, title, size)
 {
     setOkBtnText(_L("common_popup_ota_button1"));
-
-    int interval = 16;
-    int versionBtnHeight = 20;
-    wxPoint versionPos(interval, interval);
-    m_centerPanel->GetSizer()->AddSpacer(interval);
-    wxSizer* versionSizer = new wxBoxSizer(wxHORIZONTAL);
-    versionSizer->AddSpacer(interval);
-    wxString versionStr;
-    versionStr.Printf(_L("common_popup_ota_newversion"), version);
-    wxStaticText* versionLabel = new wxStaticText(m_centerPanel, wxID_ANY, versionStr, versionPos, AnkerSize(468, versionBtnHeight));
-    versionLabel->SetBackgroundColour(GetBackgroundColour());
-    versionLabel->SetForegroundColour(wxColour("#FFFFFF"));
-    wxFont font = ANKER_FONT_NO_1;
-    versionLabel->SetFont(font);
-    versionSizer->Add(versionLabel);
-    m_centerPanel->GetSizer()->Add(versionSizer);
-    m_centerPanel->GetSizer()->AddSpacer(interval);
-
-    wxPoint contextPos(interval, versionPos.y + versionBtnHeight + interval);
-    int scrolledHeight = 140;
-    wxScrolledWindow* scrolledWindow = new wxScrolledWindow(m_centerPanel, wxID_ANY, contextPos, AnkerSize(size.GetWidth(), scrolledHeight));
-    scrolledWindow->SetScrollbars(0, interval, 0, 100);
-
-    int textWidth = size.GetWidth() - interval * 2 - 10 * 2;
-    wxSize textSize = getTextSize(versionLabel, context);
-    int textY = (textSize.x * textSize.y) / (textWidth - 2 * interval);
-    if (textY < scrolledHeight) {
-        textY = 140;
-    }
-    else {
-        (textY % scrolledHeight) ? (textY = textY + textY % scrolledHeight + 20) : (textY = textY + 20);
-    }
-    textSize = AnkerSize(textWidth, textY);
-    wxStaticText* staticText = new wxStaticText(scrolledWindow, wxID_ANY, context, wxPoint(interval, interval), textSize);
-    wxBoxSizer* textSizer = new wxBoxSizer(wxHORIZONTAL);
-    textSizer->AddSpacer(interval);
-    staticText->Wrap(180);
-    staticText->SetBackgroundColour(wxColour("#292A2D"));
-    staticText->SetForegroundColour(wxColour("#FFFFFF"));
-    staticText->SetFont(font);
-    textSizer->Add(staticText, 1, wxALIGN_CENTER | wxALL, 10);
-    textSizer->AddSpacer(interval);
-
-    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    scrolledWindow->SetSizer(sizer);
-    sizer->Add(textSizer, 1, wxEXPAND);
-    m_centerPanel->GetSizer()->Add(scrolledWindow);
     hideCloseButton(true);
     disableCloseButton(true);
+
+    SetCenterPanelContent(m_centerPanel, version, context, size, GetBackgroundColour());
+    Layout();
 }
 
 AnkerOtaNotesForcedPanel::~AnkerOtaNotesForcedPanel()

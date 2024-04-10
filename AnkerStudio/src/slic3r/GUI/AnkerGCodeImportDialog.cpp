@@ -1,23 +1,35 @@
+#include <cmath>
 #include "AnkerGCodeImportDialog.hpp"
 #include "AnkerBtn.hpp"
 #include "GUI_App.hpp"
 
 #include "libslic3r/Utils.hpp"
- #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
 #include "slic3r/GUI/Common/AnkerGUIConfig.hpp"
 #include "slic3r/GUI/Common/AnkerMsgDialog.hpp"
 #include "slic3r/GUI/Common/AnkerLoadingMask.hpp"
 #include "slic3r/GUI/Common/AnkerTitledPanel.hpp"
+#include "slic3r/GUI/Common/AnkerMaterialMappingPanel.h"
 #include "slic3r/Utils/WxFontUtils.hpp"
-
+#include "slic3r/GUI/FilamentMaterialConvertor.hpp"
+#include "slic3r/Utils/GcodeInfo.hpp"
+#include "AnkerNetBase.h"
+#include "DeviceObjectBase.h"
+#include "../AnkerComFunction.hpp"
 #ifdef _WIN32
 #include <dbt.h>
 #include <shlobj.h>
 #endif // _WIN32
 
+extern AnkerPlugin* pAnkerPlugin;
+
 #include <time.h>
 #include <chrono>
+#include <slic3r/Utils/DataMangerUi.hpp>
+
+#define SIMILARITY_LEVEL 0.85
+
 
 
 wxDEFINE_EVENT(wxCUSTOMEVT_FILEITEM_CLICKED, wxCommandEvent);
@@ -28,7 +40,8 @@ AnkerGCodeImportDialog::AnkerGCodeImportDialog(std::string currentDeviceSn, wxWi
 	, m_localImportDefaultDir(".")
 	, m_pFileSelectPanel(nullptr)
 	, m_pFileInfoPanel(nullptr)
-	, m_pFinishedPanel (nullptr)
+	, m_pV6FileInfoPanel(nullptr)
+	, m_pFinishedPanel(nullptr)
 	, m_pFSComputerWidget(nullptr)
 	, m_pFSEmptyWidget(nullptr)
 	, m_pFSStorageListWidget(nullptr)
@@ -42,10 +55,11 @@ AnkerGCodeImportDialog::AnkerGCodeImportDialog(std::string currentDeviceSn, wxWi
 	, m_pPrintTimeText(nullptr)
 	, m_pSearchTextCtrl(nullptr)
 	, m_pLoadingMask(nullptr)
-	, m_currentMode(FSM_NONE)
+	, m_currentMode(Slic3r::GUI::FSM_NONE)
 	, m_fileListUpdateReq(false)
 	, m_gcodeInfoReq(false)
 	, m_gcodePreviewWaiting(false)
+	, m_pMaterialMappingViewModel(new Slic3r::GUI::AnkerMaterialMappingViewModel())
 {
 	m_dialogColor = wxColour(PANEL_BACK_LIGHT_RGB_INT);
 	m_textLightColor = wxColour(TEXT_LIGHT_RGB_INT);
@@ -67,14 +81,14 @@ AnkerGCodeImportDialog::AnkerGCodeImportDialog(std::string currentDeviceSn, wxWi
 
 AnkerGCodeImportDialog::~AnkerGCodeImportDialog()
 {
-
+	delete m_pMaterialMappingViewModel;
+	m_pMaterialMappingViewModel = nullptr;
 }
 
 size_t onDownLoadFinishedCallBack(char* dest, size_t size, size_t nmemb, void* userp)
 {
 	return size * nmemb;
 }
-
 
 void onDownLoadProgress(double dltotal, double dlnow, double ultotal, double ulnow)
 {
@@ -83,7 +97,179 @@ void onDownLoadProgress(double dltotal, double dlnow, double ultotal, double uln
 
 void AnkerGCodeImportDialog::requestCallback(int type)
 {
+	auto ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		return;
+	}
 
+	DeviceObjectBasePtr currentDev = ankerNet->getDeviceObjectFromSn(m_currentDeviceSn);
+	if (!currentDev) {
+		ANKER_LOG_ERROR << "get empty deviceObject, please check and retry";
+		return;
+	}
+
+	if (type == aknmt_command_type_e::AKNMT_CMD_FILE_LIST_REQUEST)
+	{
+		ANKER_LOG_INFO << "current command type: file list request";
+
+		m_fileListUpdateReq = false;
+		auto fileList = currentDev->getDeviceFileList();
+		wxScrolledWindow* fileListWidget = m_currentMode == Slic3r::GUI::FSM_STORAGE ? m_pFSStorageListWidget : m_pFSUSBListWidget;
+		wxScrolledWindow* anotherListWidget = m_currentMode == Slic3r::GUI::FSM_STORAGE ? m_pFSUSBListWidget : m_pFSStorageListWidget;
+		if (fileList.size() > 0)
+		{
+			fileListWidget->GetSizer()->Clear();
+			fileListWidget->DestroyChildren();
+			m_gfItemList.clear();
+
+			for (auto itr = fileList.begin(); itr != fileList.end(); itr++)
+			{
+				AnkerGCodeFileItem* item = new AnkerGCodeFileItem(fileListWidget);
+				item->setFileName(wxString::FromUTF8(itr->name).ToStdString());
+				item->setFilePath(wxString::FromUTF8(itr->path).ToStdString());
+				time_t time = itr->timestamp;
+				struct tm* timeP = gmtime(&time);
+				time_t PTime = time + (8 * 60 * 60);
+				timeP = gmtime(&time);
+				std::string timeStr = std::to_string(timeP->tm_year + 1900) + "."
+					+ std::to_string(timeP->tm_mon + 1) + "."
+					+ std::to_string(timeP->tm_mday) + " "
+					+ std::to_string(timeP->tm_hour) + ":"
+					+ std::to_string(timeP->tm_min);
+				item->setFileTimeStr(timeStr);
+				item->Bind(wxEVT_LEFT_UP, &AnkerGCodeImportDialog::OnFileItemClicked, this);
+				fileListWidget->GetSizer()->Add(item, 0, wxEXPAND | wxALIGN_LEFT, 0);
+
+				m_gfItemList.push_back(item);
+			}
+
+			fileListWidget->Show(true);
+			anotherListWidget->Show(false);
+			m_pFSEmptyWidget->Show(false);
+		}
+		else
+		{
+			fileListWidget->Show(false);
+			anotherListWidget->Show(false);
+			m_pFSEmptyWidget->Show(true);
+		}
+
+		Layout();
+
+		setLoadingVisible(false);
+	}
+	else if (type == aknmt_command_type_e::AKNMT_CMD_GCODE_FILE_REQUEST)
+	{
+		ANKER_LOG_INFO << "current command type: gcode file request";
+		m_gcodeInfoReq = false;
+
+		auto gcodeInfo = currentDev->GetGcodeInfo();
+		if (currentDev->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)
+		{
+			//TODO: for V6 should get gcode and device filament maping info 
+			m_pMaterialMappingViewModel->clear();
+			setFileInfoFilament(std::to_string(gcodeInfo.filamentUsed) + gcodeInfo.filamentUnit);
+			m_pMaterialMappingViewModel->m_filamentCost = std::to_string(gcodeInfo.filamentUsed) + gcodeInfo.filamentUnit;
+			int leftTime = gcodeInfo.leftTime;
+			m_pMaterialMappingViewModel->m_PrintTime = setFileInfoTime(leftTime);
+
+			// request image from server: gcodeInfo->completeUrl
+			wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
+			setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
+
+			image.Rescale(160, 160);
+			image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
+			m_pMaterialMappingViewModel->m_previewImage = image;
+			//update View Model
+			SetRemotetMappingInfoToViewModel();
+			m_pMaterialMappingViewModel->m_FileSelectMode = m_importResult.m_srcType;
+			switch2FileInfo(m_gcodeInfoFilePath);
+		}
+		else
+		{
+			setFileInfoFilament(std::to_string(gcodeInfo.filamentUsed) + gcodeInfo.filamentUnit);
+			int leftTime = gcodeInfo.leftTime;
+			setFileInfoTime(leftTime);
+			wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
+			setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
+			switch2FileInfo(m_gcodeInfoFilePath);
+		}
+
+		m_gcodeInfoFilePath = "";
+		setLoadingVisible(false);
+		Layout();
+		Refresh();
+		m_gcodePreviewWaiting = true;
+	}
+	else if (m_gcodePreviewWaiting && type == aknmt_command_type_e::AKNMT_CMD_THUMBNAIL_UPLOAD_NOTICE && !currentDev->GetThumbnail().empty())
+	{
+		ANKER_LOG_INFO << "current command type: thumbnail notice";
+
+		auto gcodeInfo = currentDev->GetGcodeInfo();
+		std::string url = currentDev->GetThumbnail();
+		wxString filePath = std::string();
+
+		wxStandardPaths standarPaths = wxStandardPaths::Get();
+		filePath = standarPaths.GetUserDataDir();
+		// Todo: check the file status when the cache is existed
+		filePath = filePath + "/cache/" + wxString::FromUTF8(gcodeInfo.fileName)  + ".png";
+
+#ifndef __APPLE__
+		filePath.Replace("\\", "/");
+#endif       
+
+		//if file not exists
+		std::string filePathStr = filePath.ToStdString(wxConvUTF8);
+		wxImage image;
+		bool tempExist = wxFileExists(filePath);
+		if (tempExist && wxImage::CanRead(filePath))
+		{
+			image = wxImage(filePath, wxBITMAP_TYPE_PNG);
+		}
+
+		if ((!tempExist || !image.IsOk()) && url.size() > 0)
+		{
+			if (tempExist)
+				wxRemoveFile(filePathStr);
+
+			ankerNet->AsyDownLoad(
+				url,
+				filePathStr,
+				this,
+				onDownLoadFinishedCallBack,
+				onDownLoadProgress, true);
+
+			if (wxImage::CanRead(filePath))
+				image = wxImage(filePath, wxBITMAP_TYPE_PNG);
+		}
+
+		if (!image.IsOk())
+		{
+			image = wxImage(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
+		}
+		else
+		{
+			if (currentDev->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)
+			{
+				if (image.IsOk())
+				{
+					image.Rescale(160, 160);
+					image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
+					m_pMaterialMappingViewModel->m_previewImage = image;
+				}
+			}
+			else 
+			{
+				if (image.IsOk())
+				{
+					setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
+					Layout();
+					Refresh();
+				}
+			}
+		}
+		m_gcodePreviewWaiting = false;
+	}
 }
 
 void AnkerGCodeImportDialog::setFileInfoSpeed(std::string str)
@@ -123,23 +309,31 @@ void AnkerGCodeImportDialog::setFileInfoFilament(std::string str)
 	m_importResult.m_filamentStr = str;
 }
 
-void AnkerGCodeImportDialog::setFileInfoTime(int seconds)
+std::string AnkerGCodeImportDialog::setFileInfoTime(int seconds)
 {
 	int hours = seconds / 60 / 60;
 	int minutes = seconds / 60 % 60;
 	std::string newTime = "";
 	if (hours > 0)
+	{
 		newTime += std::to_string(hours) + "h";
+	}
 	if (minutes > 0)
-		newTime += std::to_string(minutes) + "min";
+	{
+		newTime += std::to_string(minutes) + "mins";
+	}
 	if (newTime.empty())
+	{
 		newTime = "--";
-
+	}
+	
 	m_pPrintTimeText->SetLabelText(newTime);
 
 	Layout();
 
 	m_importResult.m_timeSecond = seconds;
+
+	return newTime;
 }
 
 void AnkerGCodeImportDialog::setPreviewImage(int width, int height, unsigned char* data, unsigned char* alpha, bool freeFlag)
@@ -159,18 +353,24 @@ void AnkerGCodeImportDialog::setPreviewImage(int width, int height, unsigned cha
 	m_importResult.m_previewImage = image;
 }
 
-void AnkerGCodeImportDialog::switch2FileSelect(FileSelectMode mode)
+void AnkerGCodeImportDialog::switch2FileSelect(Slic3r::GUI::FileSelectMode mode)
 {
 	m_pFileSelectPanel->Show(true);
-	m_pFileInfoPanel ->Show(false);
+	m_pFileInfoPanel->Show(false);
 	m_pFinishedPanel->Show(false);
+
+#if ENABLE_V6
+	if (m_pV6FileInfoPanel != nullptr)
+	{
+		m_pV6FileInfoPanel->Show(false);
+	}
+#endif // ENABLE_V6
 
 	//SetTitle(L"Select File");
 	m_pTitledPanel->setTitle(/*L"Select File"*/_("common_print_filepath_title"));
 	//SetSizer(m_pFileSelectVSizer, false);
 
 	switch2FSMode(mode);
-
 	Layout();
 	Refresh();
 }
@@ -178,7 +378,22 @@ void AnkerGCodeImportDialog::switch2FileSelect(FileSelectMode mode)
 void AnkerGCodeImportDialog::switch2FileInfo(std::string filepath, std::string strTitleName)
 {
 	m_pFileSelectPanel->Show(false);
-	m_pFileInfoPanel->Show(true);
+#if ENABLE_V6
+	if (IsV6Printer())
+	{
+		wxPanel* contentPanel = m_pTitledPanel->getContentPanel();
+		m_pMaterialMappingViewModel->m_gcodeFilePath = filepath;
+		initV6FileInfoSizer(contentPanel, m_pMaterialMappingViewModel);
+		m_pV6FileInfoPanel->Show(true);
+		m_pV6FileInfoPanel->Refresh();
+	}
+	else
+#endif // ENABLE_V6
+
+	{
+		m_pFileInfoPanel->Show(true);
+	}
+
 	m_pFinishedPanel->Show(false);
 
 	int lastSlashIndex = filepath.find_last_of("\\");
@@ -191,18 +406,27 @@ void AnkerGCodeImportDialog::switch2FileInfo(std::string filepath, std::string s
 	m_importResult.m_filePath = filepath;
 
 	if (!strTitleName.empty()) {
-        int lastSlashIndex1 = strTitleName.find_last_of("\\");
-        lastSlashIndex1 = lastSlashIndex1 < 0 ? strTitleName.find_last_of("/") : lastSlashIndex1;
-        int subStrStart1 = lastSlashIndex1 >= 0 ? lastSlashIndex1 + 1 : 0;
-        int subStrLen1 = lastSlashIndex1 >= 0 ? filepath.size() - lastSlashIndex1 : filepath.size();
+		int lastSlashIndex1 = strTitleName.find_last_of("\\");
+		lastSlashIndex1 = lastSlashIndex1 < 0 ? strTitleName.find_last_of("/") : lastSlashIndex1;
+		int subStrStart1 = lastSlashIndex1 >= 0 ? lastSlashIndex1 + 1 : 0;
+		int subStrLen1 = lastSlashIndex1 >= 0 ? filepath.size() - lastSlashIndex1 : filepath.size();
 		filename = subStrStart1 >= strTitleName.size() ? "" : strTitleName.substr(subStrStart1, subStrLen1);
 	}
-   
-	wxString wxFileName = wxString(filename);
+
+	// remove the last _bak symbol
+	std::string toErase = "_bak";
+	size_t pos = filename.rfind(toErase);
+	if (pos != std::string::npos)
+	{
+		// Erase it
+		filename.erase(pos, toErase.length());
+	}
+	wxString wxFileName = wxString(filename.c_str(),wxConvUTF8);
 	//SetTitle(wxFileName);
 	m_pTitledPanel->setTitle(wxFileName);
 	//SetSizer(m_pFileInfoVSizer, false);
 
+	m_pFileSelectPanel->Refresh();
 	Layout();
 	Refresh();
 }
@@ -212,6 +436,7 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 	m_pFileSelectPanel->Show(false);
 	m_pFileInfoPanel->Show(false);
 	m_pFinishedPanel->Show(true);
+	//m_pV6FileInfoPanel->Show(false);
 
 	m_importResult = result;
 
@@ -246,7 +471,7 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 	int hours = seconds / 60 / 60;
 	int minutes = seconds / 60 % 60;
 	seconds = seconds % 60;
-	std::string newTime = 
+	std::string newTime =
 		(hours > 0 ? std::to_string(hours) + "h" : "") +
 		(minutes > 0 || seconds <= 0 ? std::to_string(minutes) + "min" : "") +
 		(hours <= 0 && minutes <= 0 && seconds > 0 ? std::to_string(seconds) + "s" : "");
@@ -254,6 +479,109 @@ void AnkerGCodeImportDialog::switch2PrintFinished(bool success, GCodeImportResul
 
 	Layout();
 	Refresh();
+}
+
+double AnkerGCodeImportDialog::getColorDistance(wxColour firstColor, wxColour secondColor)
+{
+	return sqrt(
+		pow(firstColor.GetRed() - secondColor.GetRed(), 2) + 
+		pow(firstColor.GetBlue() - secondColor.GetBlue(), 2) +
+		pow(firstColor.GetGreen() - secondColor.GetGreen(), 2)
+	);
+}
+
+double AnkerGCodeImportDialog::getColorSimilarity(wxColour firstColor, wxColour secondColor) 
+{
+	double distance = getColorDistance(firstColor, secondColor);
+	return 1 - distance / sqrt(pow(255, 2) * 3);
+}
+
+int AnkerGCodeImportDialog::autoMatchSlotInx(Slic3r::GUI::GcodeFilementInfo& gcodeInfo, std::vector<Slic3r::GUI::DeviceFilementInfo> devcieInfoVec)
+{
+	int iMappedInx = -1;
+	//disble auto match slot 
+	return iMappedInx;
+	std::vector<Slic3r::GUI::DeviceFilementInfo> CandidateDevcieFilamentInfoVec;
+	//filter all slots info to get candidateInfo
+	for (int i = 0; i< devcieInfoVec.size();i++)
+	{
+		if (devcieInfoVec[i].iFilamentId == gcodeInfo.iFilamentId)
+		{
+			if (devcieInfoVec[i].iCoLorId == gcodeInfo.iCoLorId )
+			{
+				if (!devcieInfoVec[i].bIsEdit)
+				{
+					iMappedInx = devcieInfoVec[i].iNozzelInx;
+					return iMappedInx;
+				}
+			}
+			else
+			{
+				float fColorSimilarity = getColorSimilarity(gcodeInfo.filamentColor, devcieInfoVec[i].filamentColor);
+				if (fColorSimilarity > SIMILARITY_LEVEL)
+				{
+					devcieInfoVec[i].fApproximateDegree = fColorSimilarity;
+					CandidateDevcieFilamentInfoVec.push_back(devcieInfoVec[i]);
+				}
+			}
+		}
+	}
+
+	//traver candidateInfoVec to get the best Filament inx
+	int iFoundInx = -1,iFoundEditInx = -1;
+	for (int j = 0; j < CandidateDevcieFilamentInfoVec.size();j++)
+	{
+		if (CandidateDevcieFilamentInfoVec[j].iCoLorId == gcodeInfo.iCoLorId)
+		{
+			//edit filament 
+			iMappedInx = CandidateDevcieFilamentInfoVec[j].iNozzelInx;
+			return iMappedInx;
+		}
+
+		if (!CandidateDevcieFilamentInfoVec[j].bIsEdit)
+		{
+			if (iFoundInx == -1)
+			{
+				iFoundInx = j;
+			}
+			else
+			{
+				if (CandidateDevcieFilamentInfoVec[iFoundInx].fApproximateDegree < CandidateDevcieFilamentInfoVec[j].fApproximateDegree)
+				{
+					iFoundInx = j;
+				}
+			}
+		}
+		
+		if (iFoundInx == -1)
+		{
+			if (iFoundEditInx == -1)
+			{
+				iFoundEditInx = j;
+			}
+			else
+			{
+				if (CandidateDevcieFilamentInfoVec[iFoundEditInx].fApproximateDegree < CandidateDevcieFilamentInfoVec[j].fApproximateDegree)
+				{
+					iFoundEditInx = j;
+				}
+			}
+		}
+	}
+
+	if (iFoundInx != -1)
+	{
+		iMappedInx = CandidateDevcieFilamentInfoVec[iFoundInx].iNozzelInx;
+		return iMappedInx;
+	}
+
+	if (iFoundEditInx != -1)
+	{
+		iMappedInx = CandidateDevcieFilamentInfoVec[iFoundEditInx].iNozzelInx;
+		return iMappedInx;
+	}
+
+	return iMappedInx;
 }
 
 void AnkerGCodeImportDialog::initUI()
@@ -296,48 +624,47 @@ void AnkerGCodeImportDialog::initUI()
 		wxBoxSizer* pFileSelectVSizer = new wxBoxSizer(wxVERTICAL);
 		m_pFileSelectPanel->SetSizer(pFileSelectVSizer);
 		mainVSizer->Add(m_pFileSelectPanel, 1, wxEXPAND, 0);
-
 		pFileSelectVSizer->AddSpacer(9);
 
 		{
 			wxBoxSizer* buttonTabSizer = new wxBoxSizer(wxHORIZONTAL);
 			pFileSelectVSizer->Add(buttonTabSizer, 0, wxALIGN_CENTER, 0);
 
-            m_pComputerBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
-            m_pComputerBtn->SetMinSize(AnkerSize(90, 24));
-            m_pComputerBtn->SetMaxSize(AnkerSize(90, 24));
-            m_pComputerBtn->SetText(/*L"Computer"*/_("common_print_filepath_title1"));
-            m_pComputerBtn->SetBackgroundColour(m_dialogColor);
-            m_pComputerBtn->SetRadius(4);
-            m_pComputerBtn->SetTextColor(m_textDarkColor);
-            m_pComputerBtn->SetFont(ANKER_FONT_NO_1);
-            m_pComputerBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnComputerBtn, this);
+			m_pComputerBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+			m_pComputerBtn->SetMinSize(AnkerSize(90, 24));
+			m_pComputerBtn->SetMaxSize(AnkerSize(90, 24));
+			m_pComputerBtn->SetText(_("common_print_filepath_title1"));
+			m_pComputerBtn->SetBackgroundColour(m_dialogColor);
+			m_pComputerBtn->SetRadius(4);
+			m_pComputerBtn->SetTextColor(m_textDarkColor);
+			m_pComputerBtn->SetFont(ANKER_FONT_NO_1);
+			m_pComputerBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnComputerBtn, this);
 			m_pComputerBtn->SetBackRectColour(m_dialogColor);
-            buttonTabSizer->Add(m_pComputerBtn, 0, wxEXPAND, 0);
+			buttonTabSizer->Add(m_pComputerBtn, 0, wxEXPAND, 0);
 
-            m_pStorageBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
-            m_pStorageBtn->SetMinSize(AnkerSize(90, 24));
-            m_pStorageBtn->SetMaxSize(AnkerSize(90, 24));
-            m_pStorageBtn->SetText(/*L"Storage"*/_("common_print_filepath_title2"));
-            m_pStorageBtn->SetBackgroundColour(m_dialogColor);
-            m_pStorageBtn->SetRadius(4);
-            m_pStorageBtn->SetTextColor(m_textDarkColor);
-            m_pStorageBtn->SetFont(ANKER_FONT_NO_1);
-            m_pStorageBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnStorageBtn, this);
+			m_pStorageBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+			m_pStorageBtn->SetMinSize(AnkerSize(90, 24));
+			m_pStorageBtn->SetMaxSize(AnkerSize(90, 24));
+			m_pStorageBtn->SetText(_("common_print_filepath_title2"));
+			m_pStorageBtn->SetBackgroundColour(m_dialogColor);
+			m_pStorageBtn->SetRadius(4);
+			m_pStorageBtn->SetTextColor(m_textDarkColor);
+			m_pStorageBtn->SetFont(ANKER_FONT_NO_1);
+			m_pStorageBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnStorageBtn, this);
 			m_pStorageBtn->SetBackRectColour(m_dialogColor);
-            buttonTabSizer->Add(m_pStorageBtn, 0, wxEXPAND, 0);
-            
-            m_pUSBBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
-            m_pUSBBtn->SetMinSize(AnkerSize(90, 24));
-            m_pUSBBtn->SetMaxSize(AnkerSize(90, 24));
-            m_pUSBBtn->SetText(/*L"USB"*/_("common_print_filepath_title3"));
-            m_pUSBBtn->SetBackgroundColour(m_dialogColor);
-            m_pUSBBtn->SetRadius(4);
-            m_pUSBBtn->SetTextColor(m_textDarkColor);
-            m_pUSBBtn->SetFont(ANKER_FONT_NO_1);
-            m_pUSBBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnUSBBtn, this);
+			buttonTabSizer->Add(m_pStorageBtn, 0, wxEXPAND, 0);
+
+			m_pUSBBtn = new AnkerBtn(m_pFileSelectPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_CENTER);
+			m_pUSBBtn->SetMinSize(AnkerSize(90, 24));
+			m_pUSBBtn->SetMaxSize(AnkerSize(90, 24));
+			m_pUSBBtn->SetText(_("common_print_filepath_title3"));
+			m_pUSBBtn->SetBackgroundColour(m_dialogColor);
+			m_pUSBBtn->SetRadius(4);
+			m_pUSBBtn->SetTextColor(m_textDarkColor);
+			m_pUSBBtn->SetFont(ANKER_FONT_NO_1);
+			m_pUSBBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnUSBBtn, this);
 			m_pUSBBtn->SetBackRectColour(m_dialogColor);
-            buttonTabSizer->Add(m_pUSBBtn, 0, wxEXPAND, 0);
+			buttonTabSizer->Add(m_pUSBBtn, 0, wxEXPAND, 0);
 		}
 
 		{
@@ -415,9 +742,14 @@ void AnkerGCodeImportDialog::initUI()
 	// File Info Sizer
 	initFileInfoSizer(contentPanel);
 
+	//#if ENABLE_V6
+	//
+	//	initV6FileInfoSizer(contentPanel);
+	//#endif // ENABLE_V6
+
 	initFinishedSizer(contentPanel);
 
-	switch2FileSelect(FSM_COMPUTER);
+	switch2FileSelect(Slic3r::GUI::FSM_COMPUTER);
 }
 
 void AnkerGCodeImportDialog::SimulateData()
@@ -462,7 +794,7 @@ void AnkerGCodeImportDialog::SimulateData()
 	gcodeFilementInfo.strfilamentColor = "#fffff";
 	gcodeFilementInfo.strFilamentName = "PLA";
 
-	filamentMap.insert(std::make_pair(gcodeFilementInfo,m_PrinterFilamentVec[0]));
+	filamentMap.insert(std::make_pair(gcodeFilementInfo, m_PrinterFilamentVec[0]));
 
 	gcodeFilementInfo.strfilamentColor = "#123456";
 	gcodeFilementInfo.strFilamentName = "PLA+";
@@ -563,22 +895,26 @@ bool AnkerGCodeImportDialog::initFSListSizer(wxWindow* parent)
 
 bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 {
+
+
 	m_pFileInfoPanel = new wxPanel(parent);
 	wxBoxSizer* pFileInfoVSizer = new wxBoxSizer(wxVERTICAL);
 	m_pFileInfoPanel->SetSizer(pFileInfoVSizer);
 	parent->GetSizer()->Add(m_pFileInfoPanel, 1, wxEXPAND, 0);
-
 	pFileInfoVSizer->AddSpacer(AnkerLength(40));
-
 	// preview image
 	wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
 	wxImage image = bitmapEx.ConvertToImage();
 
-	//
-	Datamanger& dm = Datamanger::GetInstance();
-	DeviceObjectPtr currentDev = dm.getDeviceObjectFromSn(m_currentDeviceSn);
-	if(currentDev) {
-		if (currentDev->devicePartsType == DEVICE_PARTS_NO)
+	//todo,tab,test when merge network download process
+	auto ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		return true;
+	}
+
+	DeviceObjectBasePtr currentDev = ankerNet->getDeviceObjectFromSn(m_currentDeviceSn);
+	if (currentDev) {
+		if (!currentDev->IsMultiColorDevice())
 		{
 			image.Rescale(160, 160);
 			image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
@@ -588,7 +924,7 @@ bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 			image.Rescale(115, 115);
 			image.Replace(0, 0, 0, m_dialogColor.Red(), m_dialogColor.Green(), m_dialogColor.Blue());
 		}
-	}	
+	}
 
 	wxBitmap scaledBitmap(image);
 	m_pPreviewImage = new wxStaticBitmap(m_pFileInfoPanel, wxID_ANY, scaledBitmap);
@@ -596,9 +932,9 @@ bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 	m_pPreviewImage->SetMaxSize(scaledBitmap.GetSize());
 	m_pPreviewImage->SetBackgroundColour(m_dialogColor);
 
-	if(currentDev)
+	if (currentDev)
 	{
-		if (currentDev->devicePartsType == DEVICE_PARTS_NO)
+		if (!currentDev->IsMultiColorDevice())
 		{
 			pFileInfoVSizer->Add(m_pPreviewImage, 1, wxEXPAND | wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, 32);
 		}
@@ -623,38 +959,6 @@ bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 	splitLineCtrl->SetMaxSize(wxSize(264, 1));
 	splitLineCtrl->SetMinSize(wxSize(264, 1));
 	pFileInfoVSizer->Add(splitLineCtrl, 0, wxALIGN_CENTER_HORIZONTAL | wxTOP | wxBOTTOM, 8);
-
-	//m_pFileInfoVSizer->AddSpacer(16);
-
-	// speed
-	{
-		//by Samuel, no need to display speed info
-		/*wxBoxSizer* speedSizer = new wxBoxSizer(wxHORIZONTAL);
-		speedSizer->SetMinSize(AnkerSize(264, 32));
-		pFileInfoVSizer->Add(speedSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
-
-		wxImage speedBitmap = wxImage(wxString::FromUTF8(Slic3r::var("printer_speed.png")), wxBITMAP_TYPE_PNG);
-		wxStaticBitmap* speedIcon = new wxStaticBitmap(m_pFileInfoPanel, wxID_ANY, speedBitmap);
-		speedIcon->SetMinSize(speedBitmap.GetSize());
-		speedSizer->Add(speedIcon, 0, wxALIGN_LEFT | wxRIGHT | wxTOP | wxBOTTOM, 8);
-
-		wxStaticText* speedText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "Speed"_("common_print_previewpopup_speed"));
-		speedText->SetBackgroundColour(m_dialogColor);
-		speedText->SetForegroundColour(m_textDarkColor);
-		speedText->SetFont(ANKER_FONT_NO_1);
-		speedText->Fit();
-		speedSizer->Add(speedText, 0, wxALIGN_LEFT | wxTOP | wxBOTTOM, 8);
-
-		speedSizer->AddStretchSpacer(1);
-
-		m_pSpeedText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "X5.0(250mm/s)");
-		m_pSpeedText->SetBackgroundColour(m_dialogColor);
-		m_pSpeedText->SetForegroundColour(m_textLightColor);
-		m_pSpeedText->SetFont(ANKER_BOLD_FONT_NO_1);
-		m_pSpeedText->Fit();
-		speedSizer->Add(m_pSpeedText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 9);*/
-	}
-
 
 	// filament
 	{
@@ -683,8 +987,6 @@ bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 		m_pFilamentText->Fit();
 		filamentSizer->Add(m_pFilamentText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
 	}
-
-	//pFileInfoVSizer->AddSpacer(16);
 
 	// print time
 	{
@@ -726,15 +1028,30 @@ bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 	m_pPrintBtn->SetMinSize(AnkerSize(264, 24));
 	m_pPrintBtn->SetMaxSize(AnkerSize(264, 24));
 	m_pPrintBtn->SetText(/*L"Start Printing"*/_("common_print_taskbar_buttonstart"));
-	m_pPrintBtn->SetDisableTextColor(wxColor(105,105,108));
+	m_pPrintBtn->SetDisableTextColor(wxColor(105, 105, 108));
 	m_pPrintBtn->SetBackgroundColour(wxColor("#62D361"));
 	m_pPrintBtn->SetRadius(4);
 	m_pPrintBtn->SetTextColor(wxColor("#FFFFFF"));
 	m_pPrintBtn->SetFont(ANKER_BOLD_FONT_NO_1);
 	m_pPrintBtn->SetBackRectColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
 	m_pPrintBtn->Bind(wxEVT_BUTTON, &AnkerGCodeImportDialog::OnPrintBtn, this);
-	buttonSizer->Add(m_pPrintBtn, 1, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT , 24);
+	buttonSizer->Add(m_pPrintBtn, 1, wxEXPAND | wxALIGN_CENTER | wxLEFT | wxRIGHT, 24);
 
+	return true;
+}
+
+bool AnkerGCodeImportDialog::initV6FileInfoSizer(wxWindow* parent, Slic3r::GUI::AnkerMaterialMappingViewModel* pMaterialMappingViewModel)
+{
+	using namespace Slic3r::GUI;
+	if (m_pV6FileInfoPanel != nullptr)
+	{
+		parent->GetSizer()->Detach(m_pV6FileInfoPanel);
+		m_pV6FileInfoPanel->Destroy();
+	}
+	m_pV6FileInfoPanel = new AnkerMaterialMappingPanel(parent, m_currentDeviceSn, pMaterialMappingViewModel);
+	auto panel = dynamic_cast<AnkerMaterialMappingPanel*>(m_pV6FileInfoPanel);
+	panel->SetGcodeImportDialog(dynamic_cast<wxDialog*>(this));
+	parent->GetSizer()->Add(m_pV6FileInfoPanel, 1, wxEXPAND, 0);
 	return true;
 }
 
@@ -758,7 +1075,7 @@ bool AnkerGCodeImportDialog::initFinishedSizer(wxWindow* parent)
 	pFinishedVSizer->Add(m_pFinishedStatusImage, 0, wxALIGN_CENTER_HORIZONTAL, 0);
 
 	m_pFinishedStatusText = new wxStaticText(m_pFinishedPanel, wxID_ANY, /*"Success"*/_("common_print_taskpannelfinished_completed"),
-												wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
+		wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
 	m_pFinishedStatusText->SetWindowStyle(wxALIGN_CENTER_HORIZONTAL);
 	m_pFinishedStatusText->SetMinSize(AnkerSize(120, 30));
 	m_pFinishedStatusText->SetSize(AnkerSize(120, 30));
@@ -878,7 +1195,7 @@ bool AnkerGCodeImportDialog::initFinishedSizer(wxWindow* parent)
 	return true;
 }
 
-void AnkerGCodeImportDialog::switch2FSMode(FileSelectMode mode)
+void AnkerGCodeImportDialog::switch2FSMode(Slic3r::GUI::FileSelectMode mode)
 {
 	if (m_currentMode != mode)
 	{
@@ -901,19 +1218,19 @@ void AnkerGCodeImportDialog::switch2FSMode(FileSelectMode mode)
 
 		switch (mode)
 		{
-		case AnkerGCodeImportDialog::FSM_COMPUTER:
+		case Slic3r::GUI::FSM_COMPUTER:
 			m_pComputerBtn->SetBackgroundColour(m_btnFocusColor);
 			m_pComputerBtn->SetTextColor(m_btnFocusTextColor);
 			m_pComputerBtn->SetFont(ANKER_BOLD_FONT_NO_1);
 			m_pFSComputerWidget->Show(true);
 			break;
-		case AnkerGCodeImportDialog::FSM_STORAGE:
+		case Slic3r::GUI::FSM_STORAGE:
 			m_pStorageBtn->SetBackgroundColour(m_btnFocusColor);
 			m_pStorageBtn->SetTextColor(m_btnFocusTextColor);
 			m_pStorageBtn->SetFont(ANKER_BOLD_FONT_NO_1);
 			m_pFSEmptyWidget->Show(true);
 			break;
-		case AnkerGCodeImportDialog::FSM_USB:
+		case Slic3r::GUI::FSM_USB:
 			m_pUSBBtn->SetBackgroundColour(m_btnFocusColor);
 			m_pUSBBtn->SetTextColor(m_btnFocusTextColor);
 			m_pUSBBtn->SetFont(ANKER_BOLD_FONT_NO_1);
@@ -921,7 +1238,7 @@ void AnkerGCodeImportDialog::switch2FSMode(FileSelectMode mode)
 			break;
 		default:
 			break;
-		}	
+		}
 
 		m_currentMode = mode;
 
@@ -940,7 +1257,7 @@ void AnkerGCodeImportDialog::setLoadingVisible(bool visible)
 	// loading frame
 	if (m_pLoadingMask == nullptr)
 	{
-		m_pLoadingMask = new AnkerLoadingMask(this, 15000, false);
+		m_pLoadingMask = new AnkerLoadingMask(this, 30000, false);
 		m_pLoadingMask->setText("");
 		m_pLoadingMask->Bind(wxANKEREVT_LOADING_TIMEOUT, &AnkerGCodeImportDialog::OnLoadingTimeout, this);
 	}
@@ -958,30 +1275,39 @@ void AnkerGCodeImportDialog::setLoadingVisible(bool visible)
 	m_pLoadingMask->Show(visible);
 	if (visible)
 		m_pLoadingMask->start();
-	else 
+	else
 		m_pLoadingMask->stop();
 }
 
 void AnkerGCodeImportDialog::OnComputerBtn(wxCommandEvent& event)
 {
-	switch2FSMode(FSM_COMPUTER);
+	switch2FSMode(Slic3r::GUI::FSM_COMPUTER);
 }
 
 void AnkerGCodeImportDialog::OnStorageBtn(wxCommandEvent& event)
 {
-	switch2FSMode(FSM_STORAGE);
+    //report: read print file onStorage
+	std::string diskType = "storage";
+	std::string deviceSn = m_currentDeviceSn;
+	std::string errorCode = std::string("0");
+	std::string errorMsg = std::string("get storage file");
+
+	std::map<std::string, std::string> buryMap;
+	buryMap.insert(std::make_pair(c_rpf_disk_type, diskType));
+	buryMap.insert(std::make_pair(c_rpf_device_sn, deviceSn));
+	buryMap.insert(std::make_pair(c_rpf_error_code, errorCode));
+	buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+
+	switch2FSMode(Slic3r::GUI::FSM_STORAGE);
 
 	// update file list
 	m_pFSStorageListWidget->GetSizer()->Clear();
 
-	Datamanger& dm = Datamanger::GetInstance();
-	DeviceObjectPtr currentDev = dm.getDeviceObjectFromSn(m_currentDeviceSn);
-	
+	DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
 	if (currentDev == nullptr)
 		return;
 
-	MqttType::FileList fileList;
-	currentDev->getDeviceLocalFileLists(fileList);
+	currentDev->getDeviceLocalFileLists();
 
 	m_pFSStorageListWidget->Show(false);
 	m_pFSUSBListWidget->Show(false);
@@ -991,23 +1317,35 @@ void AnkerGCodeImportDialog::OnStorageBtn(wxCommandEvent& event)
 
 	setLoadingVisible(true);
 	m_fileListUpdateReq = true;
+	
+	reportBuryEvent(e_read_printer_file, buryMap);
+	
 }
 
 void AnkerGCodeImportDialog::OnUSBBtn(wxCommandEvent& event)
-{
-	switch2FSMode(FSM_USB);
+{	
+	//report: read print file on usb
+	std::string diskType = "usb";
+	std::string deviceSn = m_currentDeviceSn;
+	std::string errorCode = std::string("0");
+	std::string errorMsg = std::string("get usb file");
+
+	std::map<std::string, std::string> buryMap;
+	buryMap.insert(std::make_pair(c_rpf_disk_type, diskType));
+	buryMap.insert(std::make_pair(c_rpf_device_sn, deviceSn));
+	buryMap.insert(std::make_pair(c_rpf_error_code, errorCode));
+	buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+
+	switch2FSMode(Slic3r::GUI::FSM_USB);
 
 	// update file list
 	m_pFSUSBListWidget->GetSizer()->Clear();
 
-	Datamanger& dm = Datamanger::GetInstance();
-	DeviceObjectPtr currentDev = dm.getDeviceObjectFromSn(m_currentDeviceSn);
-
+	DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
 	if (currentDev == nullptr)
 		return;
 
-	MqttType::FileList fileList;
-	currentDev->getDeviceUsbFileLists(fileList);
+	currentDev->getDeviceUsbFileLists();
 
 	m_pFSStorageListWidget->Show(false);
 	m_pFSUSBListWidget->Show(false);
@@ -1017,6 +1355,9 @@ void AnkerGCodeImportDialog::OnUSBBtn(wxCommandEvent& event)
 
 	setLoadingVisible(true);
 	m_fileListUpdateReq = true;
+
+	reportBuryEvent(e_read_printer_file, buryMap);
+	
 }
 
 void AnkerGCodeImportDialog::OnSearchBtn(wxCommandEvent& event)
@@ -1078,16 +1419,14 @@ void AnkerGCodeImportDialog::OnFileItemClicked(wxMouseEvent& event)
 
 	m_importResult.m_srcType = m_currentMode;
 
-	Datamanger& dm = Datamanger::GetInstance();
-	DeviceObjectPtr currentDev = dm.getDeviceObjectFromSn(m_currentDeviceSn);
-
+	DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
 	if (currentDev == nullptr)
 		return;
 
 	wxString filePath = item->getFilePath().ToStdString();
-
-	m_gcodeInfoFilePath = filePath.ToStdString();
 	std::string filePathUTF8 = filePath.ToUTF8().data();
+	m_gcodeInfoFilePath = filePathUTF8;
+	ANKER_LOG_INFO << "send request gcode info";
 	currentDev->setRequestGCodeInfo(filePathUTF8);
 
 	m_gcodeInfoReq = true;
@@ -1104,6 +1443,24 @@ void AnkerGCodeImportDialog::OnShow(wxShowEvent& event)
 
 void AnkerGCodeImportDialog::OnLoadingTimeout(wxCommandEvent& event)
 {
+	//report: read print file time out
+	std::string diskType = std::string();
+	std::string deviceSn = m_currentDeviceSn;
+	std::string errorCode = std::string("-1");
+	std::string errorMsg = std::string("read the file timeout");
+	if (m_currentMode == Slic3r::GUI::FileSelectMode::FSM_STORAGE)
+		diskType = "usb";
+	else if(m_currentMode == Slic3r::GUI::FileSelectMode::FSM_STORAGE)
+		diskType = "storage";
+	else
+		diskType = "other";
+
+	std::map<std::string, std::string> buryMap;
+	buryMap.insert(std::make_pair(c_rpf_disk_type, diskType));
+	buryMap.insert(std::make_pair(c_rpf_device_sn, deviceSn));
+	buryMap.insert(std::make_pair(c_rpf_error_code, errorCode));
+	buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+
 	// TODO
 	if (m_fileListUpdateReq)
 	{
@@ -1120,9 +1477,12 @@ void AnkerGCodeImportDialog::OnLoadingTimeout(wxCommandEvent& event)
 
 	ANKER_LOG_INFO << "AnkerGCodeImportDialog: OnLoadingTimeout";
 
-	std::string levelReminder = /*"Failed to connect to the machine"*/_("common_print_filepathnotice_loadingfail").ToStdString();
-	std::string title = /*"Error"*/_("common_print_taskpannelfinished_failed").ToStdString();
+	std::string levelReminder = /*"Failed to connect to the machine"*/_("common_print_filepathnotice_loadingfail").ToStdString(wxConvUTF8);
+	std::string title = /*"Error"*/_("common_print_taskpannelfinished_failed").ToStdString(wxConvUTF8);
 	AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, levelReminder, title, false);
+	
+	reportBuryEvent(e_read_printer_file, buryMap);
+	
 }
 
 void AnkerGCodeImportDialog::OnMove(wxMoveEvent& event)
@@ -1141,6 +1501,19 @@ void AnkerGCodeImportDialog::OnMove(wxMoveEvent& event)
 	}
 }
 
+bool AnkerGCodeImportDialog::IsV6Printer()
+{
+	bool bIsV6Printer = false;
+
+	DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
+	if (currentDev != nullptr && currentDev->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)
+	{
+		bIsV6Printer = true;
+	}
+
+	return bIsV6Printer;
+}
+
 void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 {
 	wxFileDialog openFileDialog(this, (/*"Open GCode File"*/_("common_print_filepath_computernotice")), m_localImportDefaultDir, "",
@@ -1154,43 +1527,212 @@ void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 	std::string resultFilePath = resultOriFilePath.ToUTF8().data();
 	// do not set the UTF data to wxString which will let wxString be empty
 	//wxString resultFilePath = wxString(fileNameT);
-	PrintLog("AnkerGCodeImportDialog ===== import gcode file path: " + resultOriFilePath.ToStdString());
+	ANKER_LOG_INFO << "===== import gcode file path: " + resultOriFilePath.ToStdString();
 	// filepath may contains special characters and couldn't be converted to unicode
-    if (!resultOriFilePath.empty() && resultFilePath.empty()) {
-        std::string title = /*"AnkerSlicer Warning"*/_("common_popup_titlenotice").ToStdString();
-        std::string content = /*"The file path may contain special characters like '+#%-' that cannot be converted to unicode,so it will be ignored"*/_("common_print_filepath_errorfile").ToStdString();
-        AnkerMessageBox(nullptr, content, title, false);
-    }
-
-    switch2FileInfo(resultFilePath, std::string(resultOriFilePath.mb_str()));
-
-	m_localImportDefaultDir = resultOriFilePath.substr(0, resultOriFilePath.find_last_of("\\")).ToStdString();
-
-	Slic3r::GCodeProcessor processor;
-	Slic3r::GCodeProcessorResultExt out;
-	// we still open the file which filepath may contains special characters
-	processor.process_file_ext(resultOriFilePath.ToUTF8().data(), out);
-
-	// get the print info from gcode
-	// set the info to dialog
-
-	//setFileInfoSpeed(out.speed);
-	setFileInfoFilament(out.filament_cost.empty() ? "--" : out.filament_cost);
-	setFileInfoTime(out.print_time);
-
-	wxImage image;
-	if (!out.base64_str.empty())
+	if (!resultOriFilePath.empty() && resultFilePath.empty()) {
+		std::string title = /*"AnkerSlicer Warning"*/_("common_popup_titlenotice").ToStdString(wxConvUTF8);
+		std::string content = /*"The file path may contain special characters like '+#%-' that cannot be converted to unicode,so it will be ignored"*/_("common_print_filepath_errorfile").ToStdString(wxConvUTF8);
+		AnkerMessageBox(nullptr, content, title, false);
+	}
+	//TODO: need refactor code 
+	DeviceObjectBasePtr deviceObject = CurDevObject(m_currentDeviceSn);
+	if (deviceObject != nullptr && deviceObject->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)
 	{
-		image = Slic3r::GCodeThumbnails::base64ToImage<wxImage, wxMemoryInputStream>(out.base64_str);
+		m_pMaterialMappingViewModel->clear();
+		m_localImportDefaultDir = resultOriFilePath.substr(0, resultOriFilePath.find_last_of("\\")).ToStdString();
+		Slic3r::GCodeProcessor processor;
+		Slic3r::GCodeProcessorResultExt out;
+		// we still open the file which filepath may contains special characters
+		processor.process_file_ext(resultOriFilePath.ToUTF8().data(), out);
+
+		// get the print info from gcode
+		// set the info to dialog
+		std::string strFilamentCost = out.filament_cost.empty() ? "--" : out.filament_cost;
+		setFileInfoFilament(strFilamentCost);
+		m_pMaterialMappingViewModel->m_filamentCost = strFilamentCost;
+		m_pMaterialMappingViewModel->m_PrintTime = setFileInfoTime(out.print_time);
+
+		wxImage image;
+		if (!out.base64_str.empty())
+		{
+			image = Slic3r::GCodeThumbnails::base64ToImage<wxImage, wxMemoryInputStream>(out.base64_str);
+		}
+
+		if (!image.IsOk())
+		{
+			wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
+			image = bitmapEx.ConvertToImage();
+		}
+		m_pMaterialMappingViewModel->m_previewImage = image;
+		setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
+		std::string strFilePath = std::string(resultOriFilePath.mb_str(wxConvUTF8));
+		SetMappingInfoToViewModel(strFilePath);
+		switch2FileInfo(resultFilePath, std::string(resultOriFilePath.mb_str()));
+	}
+	else
+	{
+		switch2FileInfo(resultFilePath, std::string(resultOriFilePath.mb_str()));
+		m_localImportDefaultDir = resultOriFilePath.substr(0, resultOriFilePath.find_last_of("\\")).ToStdString();
+
+		Slic3r::GCodeProcessor processor;
+		Slic3r::GCodeProcessorResultExt out;
+		// we still open the file which filepath may contains special characters
+		processor.process_file_ext(resultOriFilePath.ToUTF8().data(), out);
+
+		// get the print info from gcode
+		// set the info to dialog
+
+		//setFileInfoSpeed(out.speed);
+		setFileInfoFilament(out.filament_cost.empty() ? "--" : out.filament_cost);
+		setFileInfoTime(out.print_time);
+
+		wxImage image;
+		if (!out.base64_str.empty())
+		{
+			image = Slic3r::GCodeThumbnails::base64ToImage<wxImage, wxMemoryInputStream>(out.base64_str);
+		}
+
+		if (!image.IsOk())
+		{
+			wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
+			image = bitmapEx.ConvertToImage();
+		}
+
+		setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
+	}	
+}
+
+void AnkerGCodeImportDialog::SetMappingInfoToViewModel(std::string& strGcodeFilePath)
+{
+	// V6 printer should show material mapping dialog 
+	DeviceObjectBasePtr deviceObject = CurDevObject(m_currentDeviceSn);
+	if (deviceObject != nullptr && deviceObject->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)
+	{
+		using namespace Slic3r;
+		GcodeInfo::ParseGcodeInfoToViewModel(strGcodeFilePath, m_pMaterialMappingViewModel);
+		std::vector<CardInfo> gcodeInfoVec = GcodeInfo::GetColorMaterialIdInfo(strGcodeFilePath);
+		using namespace Slic3r::GUI;
+		std::vector<DeviceFilementInfo> devcieInfoVec;
+		{
+			ANKER_LOG_INFO << "begin get slot change notice for gcode map info";
+			auto multiColorData = deviceObject->GetMtSlotData();
+			for (int i = 0; i < multiColorData.size(); i++)
+			{
+				DeviceFilementInfo devcieInfo;
+				devcieInfo.iNozzelInx = multiColorData[i].cardIndex;
+				if (multiColorData[i].edit_status == 1)
+				{
+					devcieInfo.bIsEdit = true;
+				}
+				if (multiColorData[i].rfid == 0 && multiColorData[i].edit_status == 0)
+				{
+					devcieInfo.iCoLorId = 0;
+					devcieInfo.iFilamentId = 0;
+					ANKER_LOG_INFO << "unknown material received, nozzel index is : " << multiColorData[i].cardIndex;
+				}
+				else
+				{
+					devcieInfo.iNozzelInx = multiColorData[i].cardIndex;
+					devcieInfo.iCoLorId = multiColorData[i].colorId;
+					devcieInfo.iFilamentId = multiColorData[i].materialId;
+					devcieInfo.filamentColor = wxColor(FilamentMaterialConvertor::ConvertColorId(devcieInfo.iCoLorId));
+					devcieInfo.strMaterialName = FilamentMaterialConvertor::ConvertFilamentIdToCategory(devcieInfo.iFilamentId);
+				}
+				devcieInfo.nozzleStatus = multiColorData[i].nozzle_status;
+				devcieInfoVec.push_back(devcieInfo);
+			}			
+		}
+		//get G-CODE inlfo 
+		for (int j = 0; j < gcodeInfoVec.size(); j++)
+		{
+			GcodeFilementInfo gcodeInfo;
+			gcodeInfo.iFilamentId = gcodeInfoVec[j].materialId;
+			gcodeInfo.iNozzelInx = gcodeInfoVec[j].index;
+			gcodeInfo.iCoLorId = gcodeInfoVec[j].colorId;
+			gcodeInfo.filamentColor = wxColor(FilamentMaterialConvertor::ConvertColorId(gcodeInfoVec[j].colorId));
+			gcodeInfo.strMaterialName = FilamentMaterialConvertor::ConvertFilamentIdToCategory(gcodeInfoVec[j].materialId);
+			m_pMaterialMappingViewModel->m_curFilamentMap.insert(std::make_pair(gcodeInfo, devcieInfoVec));
+			//set -1 represent have no default selected item
+			int iMapInx = autoMatchSlotInx(gcodeInfo, devcieInfoVec);
+			m_pMaterialMappingViewModel->m_SelectedFilamentInxVec.push_back(iMapInx);
+		}
+	}
+}
+
+void AnkerGCodeImportDialog::SetRemotetMappingInfoToViewModel()
+{
+	DeviceObjectBasePtr deviceObject = CurDevObject(m_currentDeviceSn);
+	if (deviceObject != nullptr && deviceObject->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)
+	{
+		using namespace Slic3r;
+		std::vector<CardInfo> gcodeInfoVec;
+		auto gCodeInfo = deviceObject->GetGcodeInfo();
+		for (int j = 0; j < gCodeInfo.m_gFileNozzles.size(); j++)
+		{
+			CardInfo slotInfoTmp;
+			//by samuel, vindex equal -1 means an invalid nozzle,should not setting the mapping info 
+			if (gCodeInfo.m_gFileNozzles[j].vindex == -1)
+			{
+				continue;
+			}
+			slotInfoTmp.index = gCodeInfo.m_gFileNozzles[j].vindex;
+			slotInfoTmp.colorId = gCodeInfo.m_gFileNozzles[j].vcolorId;
+			slotInfoTmp.materialId = gCodeInfo.m_gFileNozzles[j].materialId;
+			gcodeInfoVec.push_back(slotInfoTmp);
+		}
+
+		using namespace Slic3r::GUI;
+		std::vector<DeviceFilementInfo> devcieInfoVec;
+		{
+			ANKER_LOG_INFO << "begin get slot change notice for gcode map info";
+			auto multiColorData = deviceObject->GetMtSlotData();
+			for (int i = 0; i < multiColorData.size(); i++)
+			{
+				DeviceFilementInfo devcieInfo;
+				devcieInfo.iNozzelInx = multiColorData[i].cardIndex;
+				if (multiColorData[i].edit_status == 1)
+				{
+					devcieInfo.bIsEdit = true;
+				}
+				if (multiColorData[i].rfid == 0 && multiColorData[i].edit_status == 0)
+				{
+					devcieInfo.iCoLorId = 0;
+					devcieInfo.iFilamentId = 0;
+					ANKER_LOG_INFO << "unknown material received, nozzel index is : " << multiColorData[i].cardIndex;
+				}
+				else
+				{
+					devcieInfo.iNozzelInx = multiColorData[i].cardIndex;
+					devcieInfo.iCoLorId = multiColorData[i].colorId;
+					devcieInfo.iFilamentId = multiColorData[i].materialId;
+					devcieInfo.filamentColor = wxColor(FilamentMaterialConvertor::ConvertColorId(devcieInfo.iCoLorId));
+					devcieInfo.nozzleStatus = multiColorData[i].nozzle_status;
+					devcieInfo.strMaterialName = FilamentMaterialConvertor::ConvertFilamentIdToCategory(devcieInfo.iFilamentId);
+				}
+				devcieInfo.nozzleStatus = multiColorData[i].nozzle_status;
+				devcieInfoVec.push_back(devcieInfo);
+			}
+		}
+		//get G-CODE inlfo 
+		for (int j = 0; j < gcodeInfoVec.size(); j++)
+		{
+			// filter the invalid info 
+			if (gcodeInfoVec[j].index != -1)
+			{
+				GcodeFilementInfo gcodeInfo;
+				gcodeInfo.iFilamentId = gcodeInfoVec[j].materialId;
+				gcodeInfo.iNozzelInx = gcodeInfoVec[j].index;
+				gcodeInfo.iCoLorId = gcodeInfoVec[j].colorId;
+				gcodeInfo.filamentColor = wxColor(FilamentMaterialConvertor::ConvertColorId(gcodeInfoVec[j].colorId));
+				gcodeInfo.strMaterialName = FilamentMaterialConvertor::ConvertFilamentIdToCategory(gcodeInfoVec[j].materialId);
+				m_pMaterialMappingViewModel->m_curFilamentMap.insert(std::make_pair(gcodeInfo, devcieInfoVec));
+				//set -1 represent have no default selected item
+				int iMapInx = autoMatchSlotInx(gcodeInfo, devcieInfoVec);
+				m_pMaterialMappingViewModel->m_SelectedFilamentInxVec.push_back(iMapInx);
+			}
+		}
 	}
 
-	if (!image.IsOk())
-	{
-		wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
-		image = bitmapEx.ConvertToImage();
-	}
-
-	setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
 }
 
 void AnkerGCodeImportDialog::OnPrintBtn(wxCommandEvent& event)
@@ -1303,7 +1845,7 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 		dc.SetPen(pen);
 		dc.SetTextForeground(wxColour(255, 255, 255));
 		wxPoint startPoint = wxPoint(2, 1);
-		wxPoint endPoint = wxPoint(321, 1);
+		wxPoint endPoint = wxPoint(AnkerLength(321), 1);
 		dc.DrawLine(startPoint, endPoint);
 	}
 
@@ -1327,7 +1869,19 @@ void AnkerGCodeFileItem::OnPaint(wxPaintEvent& event)
 		dc.SetFont(ANKER_BOLD_FONT_NO_1);
 		dc.SetTextForeground(wxColour(255, 255, 255));
 		wxPoint textPoint = wxPoint(42, 13);
-		dc.DrawText(m_fileName, textPoint);
+
+		wxCoord textWidth, textHeight;
+		dc.GetTextExtent(m_fileName, &textWidth, &textHeight);
+		int rightMargin = 4;
+		int widthLimit = this->GetSize().GetWidth() - textPoint.x - rightMargin;
+		if (textWidth > widthLimit) {
+			// ellipsized the string if it's too long
+			wxString ellipsizedString = wxControl::Ellipsize(m_fileName, dc, wxELLIPSIZE_MIDDLE, widthLimit);
+			dc.DrawText(ellipsizedString, textPoint);
+		}
+		else {
+			dc.DrawText(m_fileName, textPoint);
+		}
 	}
 
 	// draw file path

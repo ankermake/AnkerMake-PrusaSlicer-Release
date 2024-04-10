@@ -2,6 +2,7 @@
 #include  <wx/panel.h>
 #include  <wx/sizer.h>
 #include "AnkerBtn.hpp"
+#include "AnkerDevice.hpp"
 #include "Common/AnkerCombinButton.h"
 
 wxDECLARE_EVENT(wxCUSTOMEVT_ON_CLICK_LOGON, wxCommandEvent);
@@ -40,6 +41,7 @@ namespace Slic3r {
 			AnkerCombinButton* m_pHomeButton{ nullptr };
 			AnkerCombinButton* m_pLoginButton{ nullptr };
 			AnkerCombinButton* m_pSliceButton{ nullptr };
+			AnkerCombinButton* m_pPrintButton{ nullptr };
 			wxBoxSizer* m_pSizer{nullptr};
 			wxBookCtrlBase* m_pPrintTab{nullptr};
 			//collection of all control function  page buttons

@@ -45,6 +45,7 @@
 #include <boost/nowide/fstream.hpp>
 #include <boost/nowide/convert.hpp>
 #include <boost/nowide/cstdio.hpp>
+#include "../slic3r/GUI/Security/AnkerSecurity.hpp"
 
 // We are using quite an old TBB 2017 U7, which does not support global control API officially.
 // Before we update our build servers, let's use the old API, which is deprecated in up to date TBB.
@@ -93,7 +94,59 @@ static boost::log::trivial::severity_level level_to_boost(unsigned level)
     default: return boost::log::trivial::trace;
     }
 }
+extern std::string logBaseInfo()
+{
+	// print miliseconds
+	auto now = std::chrono::system_clock::now();
+	auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+	auto epoch = now_ms.time_since_epoch();
+	auto value = std::chrono::duration_cast<std::chrono::milliseconds>(epoch);
+	std::time_t t = std::chrono::system_clock::to_time_t(now);
+	std::tm* now_tm = std::localtime(&t);
+	std::ostringstream oss;
+	oss << std::put_time(now_tm, "%Y-%m-%d %H:%M:%S");
+	oss << '.' << std::setfill('0') << std::setw(3) << value.count() % 1000;
+	std::string currentTime = oss.str();
 
+	auto id = std::this_thread::get_id();
+	std::stringstream ss;
+	ss << id;
+	std::string threadId = ss.str();
+	std::string baseInfo = "[" + currentTime + "|" + threadId + "]";
+
+	return baseInfo;
+}
+
+extern std::string AnkerEncrypt(std::string logContent, int& strLength)
+{
+	std::string resContent = "";
+
+	int plainTextLength = logContent.length();
+
+	uint8_t* pCipherTextdata = nullptr;	
+	uint32_t pCipherTextLength = 0;
+
+	uint8_t* pPlainTextdata = (uint8_t*)malloc(sizeof(uint8_t) * (plainTextLength + 17));
+	memcpy(pPlainTextdata, logContent.c_str(), plainTextLength);
+
+	int res = Slic3r::elog_ct_block_generate(pPlainTextdata, plainTextLength,
+		&pCipherTextdata, &pCipherTextLength);
+
+	std::string strCipherText = "";
+	for (int i = 0; i < pCipherTextLength; i++)
+		strCipherText += pCipherTextdata[i];
+
+	strLength = pCipherTextLength;
+	resContent = strCipherText;
+
+	if (pPlainTextdata)
+	{
+		free(pPlainTextdata);
+		pPlainTextdata = nullptr;
+	}
+
+	return resContent;
+}
 void set_logging_level(unsigned int level)
 {
     logSeverity = level_to_boost(level);
@@ -1035,6 +1088,25 @@ std::string xml_escape(std::string text, bool is_marked/* = false*/)
 
     return text;
 }
+
+
+
+// Declassify String, eg: abcdefghijk -> abc*****ijk   maskPercentage is the Percentage of '*'
+std::string MaskingString(const std::string& inStr, double maskPercentage) {
+	if (inStr.length() < 5) {
+		return "*****";
+	}
+
+	int maskLength = static_cast<int>(inStr.length() * maskPercentage);
+
+	int prefixLength = (inStr.length() - maskLength) / 2;
+	int suffixLength = inStr.length() - maskLength - prefixLength;
+
+	std::string outStr = inStr.substr(0, prefixLength) + std::string(maskLength, '*') + inStr.substr(inStr.length() - suffixLength, suffixLength);
+
+	return outStr;
+}
+
 
 // Definition of escape symbols https://www.w3.org/TR/REC-xml/#AVNormalize
 // During the read of xml attribute normalization of white spaces is applied

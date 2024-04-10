@@ -146,18 +146,21 @@ void Downloader::start_download(const std::string& full_url)
 #else
     std::string escaped_url = FileGet::escape_url(full_url.substr(24));
 #endif
-	if (!boost::starts_with(escaped_url, "https://") || !FileGet::is_subdomain(escaped_url, "printables.com")) {
-		std::string msg = format(_L("Download won't start. Download URL doesn't point to https://printables.com : %1%"), escaped_url);
-		BOOST_LOG_TRIVIAL(error) << msg;
-		NotificationManager* ntf_mngr = wxGetApp().notification_manager();
-		ntf_mngr->push_notification(NotificationType::CustomNotification, NotificationManager::NotificationLevel::RegularNotificationLevel, msg);
-		return;
-	}
+
+	// comment by Samuel 20231106, Discarded  unused notification text
+	//if (!boost::starts_with(escaped_url, "https://") || !FileGet::is_subdomain(escaped_url, "printables.com")) {
+	//	std::string msg = format(_L("Download won't start. Download URL doesn't point to https://printables.com : %1%"), escaped_url);
+	//	BOOST_LOG_TRIVIAL(error) << msg;
+	//	NotificationManager* ntf_mngr = wxGetApp().notification_manager();
+	//	ntf_mngr->push_notification(NotificationType::CustomNotification, NotificationManager::NotificationLevel::RegularNotificationLevel, msg);
+	//	return;
+	//}
 	
 	std::string text(escaped_url);
     m_downloads.emplace_back(std::make_unique<Download>(id, std::move(escaped_url), this, m_dest_folder));
 	NotificationManager* ntf_mngr = wxGetApp().notification_manager();
-	ntf_mngr->push_download_URL_progress_notification(id, m_downloads.back()->get_filename(), std::bind(&Downloader::user_action_callback, this, std::placeholders::_1, std::placeholders::_2));
+	//comment by Samuel 20231106, Discarded  unused notification text
+	//ntf_mngr->push_download_URL_progress_notification(id, m_downloads.back()->get_filename(), std::bind(&Downloader::user_action_callback, this, std::placeholders::_1, std::placeholders::_2));
 	m_downloads.back()->start();
 	BOOST_LOG_TRIVIAL(debug) << "started download";
 }

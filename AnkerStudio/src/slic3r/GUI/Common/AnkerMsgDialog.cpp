@@ -44,10 +44,10 @@ AnkerMsgDialog::~AnkerMsgDialog()
 void AnkerMsgDialog::setTitle(std::string title)
 {
     m_title = title;
-    SetTitle(m_title);
+    SetTitle(wxString::FromUTF8(m_title));
     if (m_pTitleText)
     {
-        m_pTitleText->SetLabelText(title);
+        m_pTitleText->SetLabelText(wxString::FromUTF8(title));
         Refresh();
     }
 }
@@ -61,7 +61,7 @@ void AnkerMsgDialog::setMessage(wxString message)
 
         m_pMessageText->SetLabel(message);
         //m_pMessageText->Wrap(352);
-        Slic3r::GUI::WxFontUtils::setText_wrap(m_pMessageText, 352, message, langType);
+        Slic3r::GUI::WxFontUtils::setText_wrap(m_pMessageText, m_pMessageText->GetSize().GetWidth(), message, langType);
         m_pMessageText->Fit();
         Fit();
         Refresh();
@@ -80,7 +80,7 @@ void AnkerMsgDialog::setOKText(std::string text)
     m_okText = text;
     if (m_pOKBtn)
     {
-        m_pOKBtn->SetText(text);
+        m_pOKBtn->SetText(wxString::FromUTF8(text));
         Refresh();
     }
 }
@@ -90,7 +90,7 @@ void AnkerMsgDialog::setCancelText(std::string text)
     m_cancelText = text;
     if (m_pCancelBtn)
     {
-        m_pCancelBtn->SetText(text);
+        m_pCancelBtn->SetText(wxString::FromUTF8(text));
         Refresh();
     }
 }
@@ -225,3 +225,4 @@ void AnkerMsgDialog::OnCancelButtonClicked(wxCommandEvent& event)
     EndModal(wxID_OK);
     Hide();
 }
+

@@ -15,6 +15,7 @@
 
 namespace Slic3r {
 
+const double GCodeWriter::slope_threshold = 3 * PI / 180;
 // static
 bool GCodeWriter::supports_separate_travel_acceleration(GCodeFlavor flavor)
 {
@@ -245,11 +246,12 @@ std::string GCodeWriter::toolchange(unsigned int extruder_id)
     return gcode.str();
 }
 
-std::string GCodeWriter::set_speed(double F, const std::string &comment, const std::string &cooling_marker) const
+std::string GCodeWriter::set_speed(double F, const std::string &comment, const std::string &cooling_marker)
 {
     assert(F > 0.);
     assert(F < 100000.);
 
+    m_current_speed = F;
     GCodeG1Formatter w;
     w.emit_f(F);
     w.emit_comment(this->config.gcode_comments, comment);
@@ -257,11 +259,12 @@ std::string GCodeWriter::set_speed(double F, const std::string &comment, const s
     return w.string();
 }
 
-std::string GCodeWriter::set_speed_withE(double F, const std::string& comment, const std::string& cooling_marker) const
+std::string GCodeWriter::set_speed_withE(double F, const std::string& comment, const std::string& cooling_marker)
 {
     assert(F > 0.);
     assert(F < 100000.);
 
+    m_current_speed = F;
     GCodeG1Formatter w;
     w.emit_e(m_extrusion_axis, m_extruder->extrude(0.0).second);
     w.emit_f(F);
@@ -293,8 +296,10 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
 
     /*  If target Z is lower than current Z but higher than nominal Z we
         don't perform the Z move but we only move in the XY plane and
-        adjust the nominal Z by reducing the lift amount that will be 
+        adjust the nominal Z by reducing the lift amount that will be
         used for unlift. */
+    auto first_layer_travel_speed = this->config.option<ConfigOptionFloat>("first_layer_travel_speed");
+    float travel_speed = this->m_is_first_layer ? first_layer_travel_speed->value : this->config.travel_speed.value;
     if (!this->will_move_z(point.z())) {
         double nominal_z = m_pos.z() - m_lifted;
         m_lifted -= (point.z() - nominal_z);
@@ -304,12 +309,64 @@ std::string GCodeWriter::travel_to_xyz(const Vec3d &point, const std::string &co
             m_lifted = 0.;
         return this->travel_to_xy(to_2d(point));
     }
-    
+    else{
+        std::string slop_move;
+        //BBS: minus plate offset
+        Vec3d source = { m_pos(0), m_pos(1), m_pos(2) };
+        Vec3d target = { point(0), point(1), point(2) };
+        Vec3d delta = target - source;
+        Vec2d delta_no_z = { delta(0), delta(1) };
+        //BBS: don'need slope travel because we don't know where is the source position the first time
+        //BBS: Also don't need to do slope move or spiral lift if x-y distance is absolute zero
+        if (delta(2) > EPSILON && delta_no_z.norm() != 0.0f) {
+            //BBS: SpiralLift
+            if (m_to_lift_type == LiftType::ltSpiralLift || (this->m_is_first_layer && source.norm() < EPSILON)) {
+                //BBS: todo: check the arc move all in bed area, if not, then use lazy lift
+                double radius = delta(2) / (2 * PI * atan(GCodeWriter::slope_threshold));
+                Vec2d ij_offset = radius * delta_no_z.normalized();
+                ij_offset = { -ij_offset(1), ij_offset(0) };
+                slop_move = this->_spiral_travel_to_z(target(2), ij_offset, comment + "spiral lift Z");
+            }
+            //BBS: LazyLift
+            else if ((m_to_lift_type == LiftType::ltLazyLift || m_change_layer_lift_z )&&
+                atan2(delta(2), delta_no_z.norm()) < GCodeWriter::slope_threshold) {
+                //BBS: check whether we can make a travel like
+                //   _____
+                //  /       to make the z list early to avoid to hit some warping place when travel is long.
+                Vec2d temp = delta_no_z.normalized() * delta(2) / tan(GCodeWriter::slope_threshold);
+                Vec3d slope_top_point = Vec3d(temp(0), temp(1), delta(2)) + source;
+                GCodeG1Formatter w0;
+                w0.emit_xyz(slope_top_point);
+                w0.emit_f(travel_speed * 60.0);
+                //BBS
+                w0.emit_comment(this->config.gcode_comments, comment + "lazy lift");
+                slop_move = w0.string();
+            }
+            else if (m_to_lift_type == LiftType::ltNormalLift || m_change_layer_lift_z) {
+                slop_move = _travel_to_z(target.z(), comment + "normal lift Z");
+            }
+        }
+        else if(this->m_is_first_layer) {
+            slop_move = _travel_to_z(target.z(), comment + "normal lift Z");
+        }
+
+        std::string xy_z_move;
+        {
+            GCodeG1Formatter w0;
+            w0.emit_xy(Vec2d(target.x(), target.y()));
+            w0.emit_f(travel_speed * 60.0);
+            w0.emit_comment(this->config.gcode_comments, comment);
+            xy_z_move = w0.string();
+        }
+        m_lifted = 0;
+        m_pos = point;
+        return slop_move + xy_z_move;
+    }
+
     /*  In all the other cases, we perform an actual XYZ move and cancel
         the lift. */
     m_lifted = 0;
     m_pos = point;
-    auto first_layer_travel_speed = this->config.option<ConfigOptionFloat>("first_layer_travel_speed");
 
     GCodeG1Formatter w;
     w.emit_xyz(point);
@@ -353,6 +410,22 @@ std::string GCodeWriter::_travel_to_z(double z, const std::string &comment)
     return w.string();
 }
 
+std::string GCodeWriter::_spiral_travel_to_z(double z, const Vec2d& ij_offset, const std::string& comment)
+{
+    m_pos(2) = z;
+
+    double speed = m_is_first_layer ? this->config.get_abs_value("first_layer_travel_speed") : this->config.travel_speed.value;
+
+    std::string output = "G17\n";
+    GCodeG2G3Formatter w(true);
+    w.emit_z(z);
+    w.emit_ij(ij_offset);
+    w.emit_string(" P1 ");
+    w.emit_f(speed * 60.0);
+    w.emit_comment(this->config.gcode_comments, comment);
+    return output + w.string();
+}
+
 bool GCodeWriter::will_move_z(double z) const
 {
     /* If target Z is lower than current Z but higher than nominal Z
@@ -372,6 +445,22 @@ std::string GCodeWriter::extrude_to_xy(const Vec2d &point, double dE, const std:
 
     GCodeG1Formatter w;
     w.emit_xy(point);
+    w.emit_e(m_extrusion_axis, m_extruder->extrude(dE).second);
+    w.emit_comment(this->config.gcode_comments, comment);
+    return w.string();
+}
+
+//BBS: generate G2 or G3 extrude which moves by arc
+//point is end point which means X and Y axis
+//center_offset is I and J axis
+std::string GCodeWriter::extrude_arc_to_xy(const Vec2d& point, const Vec2d& center_offset, double dE, const bool is_ccw, const std::string& comment)
+{
+    m_pos.x() = point.x();
+    m_pos.y() = point.y();
+
+    GCodeG2G3Formatter w(is_ccw);
+    w.emit_xy(point);
+    w.emit_ij(center_offset);
     w.emit_e(m_extrusion_axis, m_extruder->extrude(dE).second);
     w.emit_comment(this->config.gcode_comments, comment);
     return w.string();
@@ -488,7 +577,7 @@ std::string GCodeWriter::lift()
     }
     if (m_lifted == 0 && target_lift > 0) {
         m_lifted = target_lift;
-        return this->_travel_to_z(m_pos.z() + target_lift, "lift Z");
+        //return this->_travel_to_z(m_pos.z() + target_lift, "lift Z");
     }
     return {};
 }
@@ -497,7 +586,7 @@ std::string GCodeWriter::unlift()
 {
     std::string gcode;
     if (m_lifted > 0) {
-        gcode += this->_travel_to_z(m_pos.z() - m_lifted, "restore layer Z");
+        //gcode += this->_travel_to_z(m_pos.z() - m_lifted, "restore layer Z");
         m_lifted = 0;
     }
     return gcode;

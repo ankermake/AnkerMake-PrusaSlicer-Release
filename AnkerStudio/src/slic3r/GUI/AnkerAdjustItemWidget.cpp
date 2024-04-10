@@ -10,8 +10,6 @@
 BEGIN_EVENT_TABLE(AnkerAdjustItemWidget, wxControl)
 EVT_LEFT_DOWN(AnkerAdjustItemWidget::OnClick)
 EVT_PAINT(AnkerAdjustItemWidget::OnPaint)
-EVT_ENTER_WINDOW(AnkerAdjustItemWidget::OnEnter)
-EVT_LEAVE_WINDOW(AnkerAdjustItemWidget::OnLeave)
 EVT_LEFT_DOWN(AnkerAdjustItemWidget::OnPressed)
 EVT_SIZE(AnkerAdjustItemWidget::OnSize)
 END_EVENT_TABLE()
@@ -24,8 +22,7 @@ AnkerAdjustItemWidget::AnkerAdjustItemWidget(wxWindow* parent,
 	const wxSize& size /*= wxDefaultSize*/)
 	: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 {
-	SetBackgroundColour(wxColour("#343538"));	
-	//m_arrowStatusImg = "arrow_right.png";
+	SetBackgroundColour(wxColour("#343538"));		
 	m_arrowStatusImg = "arrow_right.disable.png";
 }
 
@@ -47,14 +44,14 @@ void AnkerAdjustItemWidget::setLogo(const std::string& logo)
 }
 
 
-void AnkerAdjustItemWidget::setTitle(const std::string& title)
+void AnkerAdjustItemWidget::setTitle(const wxString& title)
 {
 	m_title = title;
 	Refresh();
 }
 
 
-void AnkerAdjustItemWidget::setContent(const std::string& content)
+void AnkerAdjustItemWidget::setContent(const wxString& content)
 {
 	m_content = content;
 	Refresh();
@@ -77,31 +74,17 @@ void AnkerAdjustItemWidget::setStatus(bool isDisabel)
 	Refresh();
 }
 
-void AnkerAdjustItemWidget::OnEnter(wxMouseEvent& event)
-{
-
-}
-
-
 void AnkerAdjustItemWidget::OnSize(wxSizeEvent& event)
 {
 	Refresh();
-}
-
-void AnkerAdjustItemWidget::OnLeave(wxMouseEvent& event)
-{
-
 }
 
 void AnkerAdjustItemWidget::OnPressed(wxMouseEvent& event)
 {
 	if (m_status)
 	{
-		m_status = false;
-		m_arrowStatusImg = "arrow_right.disable.png";
 		wxCommandEvent evt = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED);
-		ProcessEvent(evt);		
-		Refresh();
+		ProcessEvent(evt);				
 	}
 }
 
@@ -110,13 +93,9 @@ void AnkerAdjustItemWidget::OnClick(wxMouseEvent& event)
 
 	if (m_status)
 	{
-		m_status = false;
-		m_arrowStatusImg = "arrow_right.disable.png";
 		wxCommandEvent evt = wxCommandEvent(wxEVT_COMMAND_BUTTON_CLICKED);
 		ProcessEvent(evt);		
-		Refresh();
 	}
-
 }
 
 void AnkerAdjustItemWidget::OnPaint(wxPaintEvent& event)
@@ -158,7 +137,7 @@ void AnkerAdjustItemWidget::OnPaint(wxPaintEvent& event)
 		wxBrush brush(titleColor);
 		wxPen pen(titleColor);
 		dc.SetTextForeground(titleColor);
-		wxPoint textPoint = wxPoint(9, 9);
+		wxPoint textPoint = wxPoint(9, 5);
 		dc.DrawText(m_title, textPoint);
 	}
 
@@ -168,7 +147,7 @@ void AnkerAdjustItemWidget::OnPaint(wxPaintEvent& event)
 		wxPen pen(contentColor);
 		dc.SetTextForeground(contentColor);
 		
-		wxPoint textPoint = wxPoint(9, 1.3* Slic3r::GUI::wxGetApp().em_unit() + size.GetHeight());
+		wxPoint textPoint = wxPoint(9, AnkerLength(6) + size.GetHeight());
 		dc.DrawText(m_content, textPoint);
 	}
 

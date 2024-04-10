@@ -15,22 +15,23 @@ AnkerPopupWidget::~AnkerPopupWidget()
 
 }
 
-void AnkerPopupWidget::AddItem(wxString key, wxString text)
+void AnkerPopupWidget::AddItem(wxString tab, wxString optionKey, wxString optionLabel, wxString optionGroup)
 {
 	if (m_pScrolledVSizer)
 	{
-		AnkerSearchItem* pItem = new AnkerSearchItem(m_scrolledWindow, key, text, ANKER_FONT_NO_1, wxID_ANY);
-		pItem->Bind(wxCUSTOMEVT_ANKER_ITEM_CLICKED, [this, key, text](wxCommandEvent&event) {
+		AnkerSearchItem* pItem = new AnkerSearchItem(m_scrolledWindow, tab, optionKey, optionLabel, optionGroup, ANKER_FONT_NO_1, wxID_ANY);
+		pItem->Bind(wxCUSTOMEVT_ANKER_ITEM_CLICKED, [this, tab, optionKey, optionLabel](wxCommandEvent&event) {
 			wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_ITEM_CLICKED);
 			wxVariant eventData;
 			eventData.ClearList();
-			eventData.Append(wxVariant(key));
-			eventData.Append(wxVariant(text));
+			eventData.Append(wxVariant(tab));
+			eventData.Append(wxVariant(optionKey));
+			eventData.Append(wxVariant(optionLabel));
 			evt.SetClientData(new wxVariant(eventData));
 
 			ProcessEvent(evt);
 			});
-		m_itemMap.insert(std::make_pair(text, pItem));
+		m_itemMap.insert(std::make_pair(optionKey, pItem));
 		pItem->SetMaxSize(wxSize(-1, 30));		
 		pItem->SetMinSize(wxSize(-1, 30));		
 		m_pScrolledVSizer->Add(pItem, wxEXPAND | wxALL, wxEXPAND | wxALL, 0);
@@ -39,32 +40,39 @@ void AnkerPopupWidget::AddItem(wxString key, wxString text)
 }
 
 
-void AnkerPopupWidget::AddItem(const std::map<wxString, std::vector<wxString>>& searchMap)
+//itemData: tab--{optionkey, [optionLabel, group]}
+void AnkerPopupWidget::AddItem(const std::map<wxString, std::map<wxString, std::vector<wxString> >>& itemData)
 {
 	if (m_pScrolledVSizer)
 	{
-		auto iter = searchMap.begin();
-		while (iter != searchMap.end())
+		auto iter = itemData.begin();
+		while (iter != itemData.end())
 		{
-			auto iterEx = iter->second.begin();			
+			auto iterEx = iter->second.begin();	
 
 			while (iterEx != iter->second.end())
 			{
-				wxString key = iter->first;
-				wxString text = (*iterEx);
+				if ((*iterEx).second.size() != 2)
+					continue;
 
-				AnkerSearchItem* pItem = new AnkerSearchItem(m_scrolledWindow, key, text, ANKER_FONT_NO_1, wxID_ANY);
-				pItem->Bind(wxCUSTOMEVT_ANKER_ITEM_CLICKED, [this, key, text](wxCommandEvent& event) {
+				wxString tab = iter->first;                  // tab
+				wxString optionKey = (*iterEx).first;        // option key
+				wxString optionLabel = (*iterEx).second[0];  // option label
+				wxString optionGroup = (*iterEx).second[1];  // option group
+
+				AnkerSearchItem* pItem = new AnkerSearchItem(m_scrolledWindow, tab, optionKey, optionLabel, optionGroup, ANKER_FONT_NO_1, wxID_ANY);
+				pItem->Bind(wxCUSTOMEVT_ANKER_ITEM_CLICKED, [this, tab, optionKey, optionLabel](wxCommandEvent& event) {
 					wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_ITEM_CLICKED);
 					wxVariant eventData;
 					eventData.ClearList();
-					eventData.Append(wxVariant(key));
-					eventData.Append(wxVariant(text));
+					eventData.Append(wxVariant(tab));
+					eventData.Append(wxVariant(optionKey));
+					eventData.Append(wxVariant(optionLabel));
 					evt.SetClientData(new wxVariant(eventData));
 
 					ProcessEvent(evt);
 					});
-				m_itemMap.insert(std::make_pair(text, pItem));
+				m_itemMap.insert(std::make_pair(optionKey, pItem));
 				pItem->SetMaxSize(wxSize(-1, 30));
 				pItem->SetMinSize(wxSize(-1, 30));
 				m_pScrolledVSizer->Add(pItem, wxEXPAND | wxALL, wxEXPAND | wxALL, 0);
@@ -78,8 +86,9 @@ void AnkerPopupWidget::AddItem(const std::map<wxString, std::vector<wxString>>& 
 	}
 }
 
-//searchMap tab--labelList
-void AnkerPopupWidget::showResMap(const std::map<wxString, std::vector<wxString>>& searchMap)
+
+//searchMap tab--{optionkey, optionLabel}
+void AnkerPopupWidget::showResMap(const std::map<wxString, std::map<wxString, wxString>>& searchMap)
 {
 	if (!m_pScrolledVSizer)	
 		return;
@@ -105,15 +114,16 @@ void AnkerPopupWidget::showResMap(const std::map<wxString, std::vector<wxString>
 	{
 		wxString tab = searchIter->first;
 
-		auto labelListIter = searchIter->second.begin();
+		auto optionListIter = searchIter->second.begin();
 		//labelList
-		while (labelListIter != searchIter->second.end())
+		while (optionListIter != searchIter->second.end())
 		{
-			wxString labelValue = (*labelListIter);
+			wxString optionKey = (*optionListIter).first;
+			wxString labelValue = (*optionListIter).second;
 
 			//find item from label-Item map				
 
-			auto item = m_itemMap.find(labelValue);
+			auto item = m_itemMap.find(optionKey);
 			if (item != m_itemMap.end())
 			{					
 				item->second->Show();					
@@ -123,7 +133,7 @@ void AnkerPopupWidget::showResMap(const std::map<wxString, std::vector<wxString>
 				item->second->Hide();
 			}
 
-			++labelListIter;
+			++optionListIter;
 		}
 
 		++searchIter;
@@ -179,14 +189,18 @@ END_EVENT_TABLE()
 IMPLEMENT_DYNAMIC_CLASS(AnkerSearchItem, wxControl)
 
 AnkerSearchItem::AnkerSearchItem(wxWindow* parent,
+								 wxString  tab,
 								 wxString  key,
 								 wxString text,
+								 wxString group,
 								 wxFont font,
 								 wxWindowID winid /*= wxID_ANY*/, 
 								 const wxPoint& pos /*= wxDefaultPosition*/,
 								 const wxSize& size /*= wxDefaultSize*/)
-								 : m_key(key)
+								 : m_tab(tab)
+								 , m_key(key)
 								 , m_text(text)
+								 , m_group(group)
 								 , m_font(font)
 								 , m_textColor(wxColour("#FFFFFF"))
 								 , m_bgColor(wxColour("#3A3B3F"))
@@ -254,6 +268,9 @@ void AnkerSearchItem::OnPaint(wxPaintEvent& event)
 
 	dc.SetFont(m_font);
 	dc.SetTextForeground(m_textColor);
-	dc.DrawText(m_text,wxPoint(12,8));
+	if (m_group.empty())
+		dc.DrawText(m_text,wxPoint(12,8));
+	else
+		dc.DrawText(m_group + " : " + m_text, wxPoint(12, 8));
 
 }

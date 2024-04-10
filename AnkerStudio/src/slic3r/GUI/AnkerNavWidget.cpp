@@ -1,12 +1,14 @@
 #include "AnkerNavWidget.hpp"
 #include "wx/univ/theme.h"
 #include "wx/artprov.h"
-#include "../Utils/DataManger.hpp"
 #include "libslic3r/Utils.hpp"
 #include "wxExtensions.hpp"
 #include "Common/AnkerGUIConfig.hpp"
 #include "GUI_App.hpp"
 #include "I18N.hpp"
+#include <slic3r/Utils/DataMangerUi.hpp>
+#include "AnkerNetBase.h"
+#include "DeviceObjectBase.h"
 
 #define BTN_BACKGROUND_COLOR "#292A2D"
 #define BTN_HOVER_COLOR		 "#354138"
@@ -29,6 +31,11 @@ AnkerBtnList::AnkerBtnList(wxWindow* parent,
 
 void AnkerBtnList::clearExpiredTab(const std::string& sn)
 {
+	AnkerNetBase* ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		return;
+	}
+
 	for (auto iter = m_tabBtnList.begin(); iter != m_tabBtnList.end(); )
 	{
 		wxStringClientData* pIterSnId = static_cast<wxStringClientData*>((*iter)->GetClientObject());
@@ -36,7 +43,7 @@ void AnkerBtnList::clearExpiredTab(const std::string& sn)
 		if (pIterSnId)
 		{
 			widgetId = pIterSnId->GetData().ToStdString();
-			if (!Datamanger::GetInstance().checkSnExist(widgetId))
+			if (!ankerNet->getDeviceObjectFromSn(widgetId))
 			{
 				delete* iter;
 				iter = m_tabBtnList.erase(iter);
@@ -44,18 +51,14 @@ void AnkerBtnList::clearExpiredTab(const std::string& sn)
 			else
 			{
 				(*iter)->setBtnStatus(NORMAL_BTN);
-				auto deviceObj = Datamanger::GetInstance().getDeviceObjectFromSn(widgetId);
+				auto deviceObj = CurDevObject(widgetId);
 				if(deviceObj)
-					(*iter)->setTabBtnName(deviceObj->station_name);
+					(*iter)->setTabBtnName(deviceObj->GetStationName());
 				++iter;
 			}
 		}
 	}
-
-// 	if(m_tabBtnList.size() > 0)
-// 		m_tabBtnList.at(0)->setBtnStatus(SELECT_BTN);
 }
-
 
 bool AnkerBtnList::checkTabExist(const std::string& sn)
 {
@@ -131,17 +134,24 @@ bool AnkerBtnList::InsertTab(const size_t& index, const std::string& tabName, co
 	static int btnIndex = 0;
 	AnkerTabBtn* pBtn = new AnkerTabBtn(m_pScrolledWindow, snID, wxID_ANY, wxTabName);
 
+	DeviceObjectBasePtr deviceObj = CurDevObject(snID);
+
+	if (!deviceObj)
+	{
+		ANKER_LOG_ERROR << "insert tab fail for sn:" << snID;
+		return false;
+	}
 	wxVariant myData(snID);
-	if (Datamanger::GetInstance().getDeviceTypeFromSn(snID) == DEVICE_UNKNOWN_TYPE)//default show
+	if (deviceObj->GetDeviceType() == DEVICE_V8111_TYPE)//default show
 	{
 		pBtn->setIcon("V8111_device_n.png");
 	}
-	else if (Datamanger::GetInstance().getDeviceTypeFromSn(snID) == DEVICE_UNKNOWN_TYPE)
+	else if (deviceObj->GetDeviceType() == DEVICE_V8110_TYPE)
 	{
 		pBtn->setIcon("V8110_device_n.png");
 	}
 
-	if (!Datamanger::GetInstance().checkDeviceStatusFromSn(snID))
+	if (!deviceObj->IsOnlined())
 		pBtn->setOnlineStatus(false);
 
 	pBtn->SetClientObject(new wxStringClientData(myData));
@@ -173,8 +183,7 @@ bool AnkerBtnList::InsertTab(const size_t& index, const std::string& tabName, co
 			(*iter)->setBtnStatus(NORMAL_BTN);
 			iter++;
 		}
-
-		});
+	});
 
 	btnIndex++;
 	return true;
@@ -393,14 +402,15 @@ void AnkerTabBtn::OnPaint(wxPaintEvent& event)
 
 	dc.SetFont(ANKER_FONT_NO_1);
 	wxSize textSize = dc.GetTextExtent(m_tabName);
+	int textHeight = textSize.GetHeight();
+
+#ifdef __APPLE__
+	wxFontMetrics metrics = dc.GetFontMetrics();
+	textHeight = metrics.ascent + metrics.descent;
+#endif // !__APPLE__
 
 	textPoint.x = 18 + m_icon.GetWidth();
-
-#ifndef __APPLE__
-	textPoint.y = (GetRect().GetHeight() - textSize.GetHeight()) / 2;
-#else
-	textPoint.y = (GetRect().GetHeight() - textSize.GetHeight()/2) / 2;
-#endif // !__APPLE__
+	textPoint.y = (GetRect().GetHeight() - textHeight) / 2;
 
 	logoPoint.x = GetRect().GetWidth() - 12 - m_offlineIcon.GetWidth();
 	logoPoint.y = (GetRect().GetHeight() - m_offlineIcon.GetHeight()) / 2;
@@ -598,8 +608,16 @@ void AnkerNavBar::InitUi()
 		wxClientDC dc(this);
 		dc.SetFont(pTitleText->GetFont());
 		wxSize titleSize = dc.GetTextExtent(_L("common_print_printerlist_title"));
-		pTitleText->SetMinSize(AnkerSize(120, titleSize.GetHeight()));
-		pTitleText->SetSize(AnkerSize(120, titleSize.GetHeight()));
+		int textHeight = titleSize.GetHeight();
+
+#ifdef __APPLE__
+		wxFontMetrics metrics = dc.GetFontMetrics();
+		textHeight = metrics.ascent + metrics.descent;
+#endif // !__APPLE__
+
+
+		pTitleText->SetMinSize(AnkerSize(120, textHeight));
+		pTitleText->SetSize(AnkerSize(120, textHeight));
 		
 		wxImage btnImage = wxImage(wxString::FromUTF8(Slic3r::var("update_ccw_icon.png")), wxBITMAP_TYPE_PNG);
 		btnImage.Rescale(16, 16, wxIMAGE_QUALITY_HIGH);
@@ -614,7 +632,7 @@ void AnkerNavBar::InitUi()
 			ANKER_LOG_INFO << "reload devs list";
 			wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_BTN_CLICKED);			
 			wxPostEvent(this, evt);
-			});
+		});
 
 #ifdef _WIN32
 		m_reloadBtn->SetWindowStyle(wxBORDER_NONE);				
@@ -643,13 +661,11 @@ void AnkerNavBar::InitUi()
 	{
 		m_navBarList = new AnkerBtnList(this, wxID_ANY, wxPoint(0, 0), wxSize(214, 705));
 		m_navBarList->Bind(wxCUSTOMEVT_SWITCH_DEVICE, [this](wxCommandEvent& event) {
-
 			wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_SWITCH_DEVICE);
 			evt.SetClientObject(event.GetClientObject());
 			wxPostEvent(this->GetParent(), evt);
-			});
-		pMainVSizer->Add(m_navBarList, wxEXPAND, wxALIGN_CENTER, 0);
-		
+		});
+		pMainVSizer->Add(m_navBarList, wxEXPAND, wxALIGN_CENTER, 0);		
 	}
 
 	{
@@ -665,14 +681,17 @@ void AnkerNavBar::InitUi()
 		wxStaticText* pEmptyText = new wxStaticText(m_emptyPanel,
 			wxID_ANY,
 			_L("common_print_statusnotice_noprinter"));
-		pEmptyText->SetForegroundColour(wxColour("#999999"));		
+		pEmptyText->SetForegroundColour(wxColour("#999999"));	
+		pEmptyText->SetFont(ANKER_FONT_NO_1);
+		wxString emptyText = Slic3r::GUI::WrapEveryCharacter(_L("common_print_statusnotice_noprinter"), ANKER_FONT_NO_1,140);
 		pEmptyText->Wrap(142);
+		pEmptyText->SetLabelText(emptyText);
 		wxClientDC dc(this);
 		dc.SetFont(pEmptyText->GetFont());
 		wxSize size = dc.GetTextExtent(_L("common_print_statusnotice_noprinter"));
-		int textHeight = (size.GetWidth()/142 + 2)* size.GetHeight();
+		int textHeight = (size.GetWidth()/150 + 3)* size.GetHeight();
 
-		pEmptyText->SetMinSize(wxSize(142, textHeight));
+		pEmptyText->SetMinSize(AnkerSize(150, textHeight));
 		
 
 		pEmptyPanelHSizer->AddSpacer(36);

@@ -8,6 +8,7 @@
 #include "../Notebook.hpp"
 #include "../MainFrame.hpp"
 #include "../common/AnkerGUIConfig.hpp"
+#include "../Plater.hpp"
 
 
 wxDEFINE_EVENT(wxCUSTOMEVT_UPDATE_PARAMETERS_PANEL, wxCommandEvent);
@@ -57,14 +58,14 @@ namespace Slic3r {
 #ifdef _MSW_DARK_MODE
                 if (!wxGetApp().tabs_as_menu())
 #if _HIDE_CONTROL_FOR_ANKERCFGDLG_
-                    dynamic_cast<Notebook*>(m_rightPanel)->AddPage(panel, /*panel->title()*/"", /*bmp_name*/"");
+                    dynamic_cast<Notebook*>(m_rightPanel)->AddPage(panel, panel->title()/*""*/, /*bmp_name*/"");
 #else
                     dynamic_cast<Notebook*>(m_rightPanel)->AddPage(panel, panel->title(), bmp_name);
 #endif
 
                 else
 #endif
-                    m_rightPanel->AddPage(panel, ""/*panel->title()*/);
+                    m_rightPanel->AddPage(panel, /*""*/panel->title());
             }
             m_rightPanel->SetSelection(0);
             panel->OnActivate();
@@ -96,6 +97,7 @@ namespace Slic3r {
 
             // set size and pos
             SetSize(wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_HEIGHT));
+            SetMinSize(wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_HEIGHT));
             CenterOnParent();
 
             // set dialog icon
@@ -158,205 +160,207 @@ namespace Slic3r {
 
             // content sizer
             {
-                m_contentSizer = new wxBoxSizer(wxHORIZONTAL);
+                /*m_contentSizer = new wxBoxSizer(wxHORIZONTAL);*/
 
                 // left panel sizer
                 {
-                    m_leftPanelSizer = new wxBoxSizer(wxVERTICAL);
-                    m_leftPanelSizer->SetMinSize(wxSize(ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
-                    m_contentSizer->Add(m_leftPanelSizer, 0, wxEXPAND | wxALL, 0);
+                    //m_leftPanelSizer = new wxBoxSizer(wxVERTICAL);
+                    //m_leftPanelSizer->SetMinSize(wxSize(ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
+                    //m_contentSizer->Add(m_leftPanelSizer, 0, wxEXPAND | wxALL, 0);
 
-                    m_leftPanel = new wxPanel(this);
-                    m_leftPanel->SetSize(wxSize(ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
-                    m_leftPanelSizer->Add(m_leftPanel, 0, wxEXPAND | wxALL, 0);
+                    //m_leftPanel = new wxPanel(this);
+					/* m_leftPanel->SetSize(wxSize(ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
+					 m_leftPanelSizer->Add(m_leftPanel, 0, wxEXPAND | wxALL, 0);*/
 
-                    // left main sizer
-                    auto leftMainSizer = new wxBoxSizer(wxVERTICAL);
-                    m_leftPanel->SetSizer(leftMainSizer);
+                    //// left main sizer
+                    //auto leftMainSizer = new wxBoxSizer(wxVERTICAL);
+                    //m_leftPanel->SetSizer(leftMainSizer);
 
-                    // left preset panel
-                    m_leftPresetPanel = new wxPanel(m_leftPanel);
-                    m_leftPresetPanel->SetSize(wxSize(ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH, -1));
+                    //// left preset panel
+                    //m_leftPresetPanel = new wxPanel(m_leftPanel);
+                   /* m_leftPresetPanel->SetSize(wxSize(ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH, -1));*/
 
-                    // left preset sizer 
-                    leftMainSizer->Add(m_leftPresetPanel, 0, wxTop | wxEXPAND, 8);
-                    auto leftPresetSizer = new wxBoxSizer(wxVERTICAL);
-                    m_leftPresetPanel->SetSizer(leftPresetSizer);
+                    //// left preset sizer 
+                    //leftMainSizer->Add(m_leftPresetPanel, 0, wxTop | wxEXPAND, 8);
+                    //auto leftPresetSizer = new wxBoxSizer(wxVERTICAL);
+                    //m_leftPresetPanel->SetSizer(leftPresetSizer);
 
-                    leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBO_TITLE_SPAN / 3));
-                    // printer preset
+                    //leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBO_TITLE_SPAN / 3));
+                    //// printer preset
                     {
                         // printer preset title
-                        auto printerTitle = new wxStaticText(m_leftPresetPanel, wxID_ANY, _L("common_slicepannel_title_printer"));
-                        printerTitle->SetBackgroundColour(wxColour("#333438"));
-                        printerTitle->SetForegroundColour(wxColour("#FFFFFF"));
-                        printerTitle->SetFont(ANKER_BOLD_FONT_NO_1);
-                        printerTitle->SetMinSize(AnkerSize(-1, 20));
-                        leftPresetSizer->Add(printerTitle, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_TITLE_LEFT_PANLE_SPAN);
+						/*auto printerTitle = new wxStaticText(m_leftPresetPanel, wxID_ANY, _L("common_slicepannel_title_printer"));
+						printerTitle->SetBackgroundColour(wxColour("#333438"));
+						printerTitle->SetForegroundColour(wxColour("#FFFFFF"));
+						printerTitle->SetFont(ANKER_BOLD_FONT_NO_1);
+						printerTitle->SetMinSize(AnkerSize(-1, 20));
+						leftPresetSizer->Add(printerTitle, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_TITLE_LEFT_PANLE_SPAN);
 
-                        leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBOBOX_SPAN));
+						leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBOBOX_SPAN));*/
 
                         // printer preset combox
-                        m_printerPresetsChoice = new AnkerTabPresetComboBox(m_leftPresetPanel, Preset::TYPE_PRINTER);
-                        m_printerPresetsChoice->Create(m_leftPresetPanel,
-                            wxID_ANY,
-                            wxEmptyString,
-                            wxDefaultPosition,
-                            wxSize(ANKER_CONFIG_DIALOG_COMBO_WIDTH, ANKER_COMBOBOX_HEIGHT),
-                            wxNO_BORDER | wxCB_READONLY,
-                            wxDefaultValidator,
-                            "");
-                        m_printerPresetsChoice->SetFont(ANKER_FONT_NO_1);
-                        m_printerPresetsChoice->SetBackgroundColour(wxColour("#333438"));
-                        m_printerPresetsChoice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
-                        wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
-                        btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
-                        wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        m_printerPresetsChoice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
-                        // add by allen for ankerCfgDlg preset combobox focus highlight
-                        m_printerPresetsChoice->set_button_clicked_function([this]() {
-                            ANKER_LOG_INFO << "preset combox of printer clicked";
-                            onComboBoxClick(m_printerPresetsChoice);
-                            });
-                        m_printerPresetsChoice->Bind(wxEVT_COMBOBOX_CLOSEUP, &AnkerConfigDlg::onComboBoxCloseUp, this);
+                        //m_printerPresetsChoice = new AnkerTabPresetComboBox(m_leftPresetPanel, Preset::TYPE_PRINTER);
+                        //m_printerPresetsChoice->Create(m_leftPresetPanel,
+                        //    wxID_ANY,
+                        //    wxEmptyString,
+                        //    wxDefaultPosition,
+                        //    wxSize(ANKER_CONFIG_DIALOG_COMBO_WIDTH, ANKER_COMBOBOX_HEIGHT),
+                        //    wxNO_BORDER | wxCB_READONLY,
+                        //    wxDefaultValidator,
+                        //    "");
+                        //m_printerPresetsChoice->SetFont(ANKER_FONT_NO_1);
+                        //m_printerPresetsChoice->SetBackgroundColour(wxColour("#333438"));
+                        //m_printerPresetsChoice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+                        //wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
+                        //btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
+                        //wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //m_printerPresetsChoice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
+                        //// add by allen for ankerCfgDlg preset combobox focus highlight
+                        //m_printerPresetsChoice->set_button_clicked_function([this]() {
+                        //    ANKER_LOG_INFO << "preset combox of printer clicked";
+                        //    onComboBoxClick(m_printerPresetsChoice);
+                        //    });
+                        //m_printerPresetsChoice->Bind(wxEVT_COMBOBOX_CLOSEUP, &AnkerConfigDlg::onComboBoxCloseUp, this);
 
-                        m_printerPresetsChoice->set_selection_changed_function([this](int selection) {
-                            onAnkerTabComboSelChanged(m_printerPresetsChoice, selection);
-                            });
-                        m_printerPresetsChoice->Bind(wxEVT_RIGHT_DOWN, &AnkerConfigDlg::onPresetRightClick, this);
-                        leftPresetSizer->Add(m_printerPresetsChoice, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_COMBOBOX_LEFT_PANLE_SPAN);
-                        m_printerPresetsChoice->update();
+                        //m_printerPresetsChoice->set_selection_changed_function([this](int selection) {
+                        //    ChangeAnkerTabComboSel(m_printerPresetsChoice, selection);
+                        //    });
+                        //m_printerPresetsChoice->Bind(wxEVT_RIGHT_DOWN, &AnkerConfigDlg::onPresetRightClick, this);
+                        ////leftPresetSizer->Add(m_printerPresetsChoice, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_COMBOBOX_LEFT_PANLE_SPAN);
+                        //m_printerPresetsChoice->update();
                     }
 
-                    leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBO_TITLE_SPAN));
-                    // Filament preset
+                    //leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBO_TITLE_SPAN));
+                    //// Filament preset
                     {
                         // Filament title
-                        auto filamentTitle = new wxStaticText(m_leftPresetPanel, wxID_ANY, _L("common_slicepannel_title_filament"));
+                       /* auto filamentTitle = new wxStaticText(m_leftPresetPanel, wxID_ANY, _L("common_slicepannel_title_filament"));
                         filamentTitle->SetBackgroundColour(wxColour("#333438"));
                         filamentTitle->SetForegroundColour(wxColour("#FFFFFF"));
                         filamentTitle->SetFont(ANKER_BOLD_FONT_NO_1);
                         filamentTitle->SetMinSize(AnkerSize(-1, 20));
                         leftPresetSizer->Add(filamentTitle, 0, wxLEFT | wxEXPAND, ANKER_CONFIG_DIALOG_TITLE_LEFT_PANLE_SPAN);
 
-                        leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBOBOX_SPAN));
+                        leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBOBOX_SPAN));*/
                         // Filament preset combox
-                        m_filamentPresetsChoice = new AnkerTabPresetComboBox(m_leftPresetPanel, Preset::TYPE_FILAMENT);
-                        m_filamentPresetsChoice->Create(m_leftPresetPanel,
-                            wxID_ANY,
-                            wxEmptyString,
-                            wxDefaultPosition,
-                            wxSize(ANKER_CONFIG_DIALOG_COMBO_WIDTH, ANKER_COMBOBOX_HEIGHT),
-                            wxNO_BORDER | wxCB_READONLY,
-                            wxDefaultValidator,
-                            "");
-                        m_filamentPresetsChoice->SetFont(ANKER_FONT_NO_1);
-                        m_filamentPresetsChoice->SetBackgroundColour(wxColour("#333438"));
-                        m_filamentPresetsChoice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
-                        wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
-                        btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
-                        wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        m_filamentPresetsChoice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
-                        // add by allen for ankerCfgDlg preset combobox focus highlight
-                        m_filamentPresetsChoice->set_button_clicked_function([this]() {
-                            ANKER_LOG_INFO << "preset combox of filament clicked";
-                            onComboBoxClick(m_filamentPresetsChoice);
-                            });
-                        m_filamentPresetsChoice->Bind(wxEVT_COMBOBOX_CLOSEUP, &AnkerConfigDlg::onComboBoxCloseUp, this);
+                        //m_filamentPresetsChoice = new AnkerTabPresetComboBox(m_leftPresetPanel, Preset::TYPE_FILAMENT);
+                        //m_filamentPresetsChoice->Show(false);
+                        //m_filamentPresetsChoice->Create(m_leftPresetPanel,
+                        //    wxID_ANY,
+                        //    wxEmptyString,
+                        //    wxDefaultPosition,
+                        //    wxSize(ANKER_CONFIG_DIALOG_COMBO_WIDTH, ANKER_COMBOBOX_HEIGHT),
+                        //    wxNO_BORDER | wxCB_READONLY,
+                        //    wxDefaultValidator,
+                        //    "");
+                        //m_filamentPresetsChoice->SetFont(ANKER_FONT_NO_1);
+                        //m_filamentPresetsChoice->SetBackgroundColour(wxColour("#333438"));
+                        //m_filamentPresetsChoice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+                        //wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
+                        //btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
+                        //wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //m_filamentPresetsChoice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
+                        //// add by allen for ankerCfgDlg preset combobox focus highlight
+                        //m_filamentPresetsChoice->set_button_clicked_function([this]() {
+                        //    ANKER_LOG_INFO << "preset combox of filament clicked";
+                        //    onComboBoxClick(m_filamentPresetsChoice);
+                        //    });
+                        //m_filamentPresetsChoice->Bind(wxEVT_COMBOBOX_CLOSEUP, &AnkerConfigDlg::onComboBoxCloseUp, this);
 
-                        m_filamentPresetsChoice->set_selection_changed_function([this](int selection) {
-                            onAnkerTabComboSelChanged(m_filamentPresetsChoice, selection);
-                            // mod by allen for Change the interaction for switching print and filament presets.
-                            CallAfter([=] {
-                                int selection = m_printPresetsChoice->GetSelection();
-                                onAnkerTabComboSelChanged(m_printPresetsChoice, selection);
-                                });
-                            });
+                        //m_filamentPresetsChoice->set_selection_changed_function([this](int selection) {
+                        //    ChangeAnkerTabComboSel(m_filamentPresetsChoice, selection);
+                        //    // mod by allen for Change the interaction for switching print and filament presets.
+                        //    CallAfter([=] {
+                        //        int selection = m_printPresetsChoice->GetSelection();
+                        //        ChangeAnkerTabComboSel(m_printPresetsChoice, selection);
+                        //        });
+                        //    });
 
-                        m_filamentPresetsChoice->Bind(wxEVT_RIGHT_DOWN, &AnkerConfigDlg::onPresetRightClick, this);
-                        leftPresetSizer->Add(m_filamentPresetsChoice, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_COMBOBOX_LEFT_PANLE_SPAN);
-                        m_filamentPresetsChoice->update();
+                        //m_filamentPresetsChoice->Bind(wxEVT_RIGHT_DOWN, &AnkerConfigDlg::onPresetRightClick, this);
+                        ////leftPresetSizer->Add(m_filamentPresetsChoice, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_COMBOBOX_LEFT_PANLE_SPAN);
+                        //m_filamentPresetsChoice->update();
                     }
 
-                    leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBO_TITLE_SPAN));
+                    //leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBO_TITLE_SPAN));
                     // print preset
                     {
                         // print title
-                        auto printTitle = new wxStaticText(m_leftPresetPanel, wxID_ANY, _L("common_slicepannel_printsetting_title"));
+                       /* auto printTitle = new wxStaticText(m_leftPresetPanel, wxID_ANY, _L("common_slicepannel_printsetting_title"));
                         printTitle->SetBackgroundColour(wxColour("#333438"));
                         printTitle->SetForegroundColour(wxColour("#FFFFFF"));
                         printTitle->SetFont(ANKER_BOLD_FONT_NO_1);
                         printTitle->SetMinSize(AnkerSize(-1, 20));
                         leftPresetSizer->Add(printTitle, 0, wxLEFT | wxEXPAND, ANKER_CONFIG_DIALOG_TITLE_LEFT_PANLE_SPAN);
 
-                        leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBOBOX_SPAN));
+                        leftPresetSizer->AddSpacer((ANKER_CONFIG_DIALOG_COMBOBOX_SPAN));*/
                         // print preset combox
-                        m_printPresetsChoice = new AnkerTabPresetComboBox(m_leftPresetPanel, Preset::TYPE_PRINT);
-                        m_printPresetsChoice->Create(m_leftPresetPanel,
-                            wxID_ANY,
-                            wxEmptyString,
-                            wxDefaultPosition,
-                            wxSize(ANKER_CONFIG_DIALOG_COMBO_WIDTH, ANKER_COMBOBOX_HEIGHT),
-                            wxNO_BORDER | wxCB_READONLY,
-                            wxDefaultValidator,
-                            "");
-                        m_printPresetsChoice->SetFont(ANKER_FONT_NO_1);
-                        m_printPresetsChoice->SetBackgroundColour(wxColour("#333438"));
-                        // add by allen for ankerCfgDlg default preset combobox focus highlight
-                        m_printPresetsChoice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
-                        //m_printPresetsChoice->setColor(wxColour("#506853"), wxColour("#506853"), wxColour("#62D361"));
-                        m_lastSelectPreset = m_printPresetsChoice;
-                        wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
-                        btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
-                        wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
-                        m_printPresetsChoice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
-                        // add by allen for ankerCfgDlg preset combobox focus highlight
-                        m_printPresetsChoice->set_button_clicked_function([this]() {
-                            ANKER_LOG_INFO << "preset combox of print clicked";
-                            onComboBoxClick(m_printPresetsChoice);
-                            });
-                        m_printPresetsChoice->Bind(wxEVT_COMBOBOX_CLOSEUP, &AnkerConfigDlg::onComboBoxCloseUp, this);
+                        //m_printPresetsChoice = new AnkerTabPresetComboBox(m_leftPresetPanel, Preset::TYPE_PRINT);
+                        //m_printPresetsChoice->Show(false);
+                        //m_printPresetsChoice->Create(m_leftPresetPanel,
+                        //    wxID_ANY,
+                        //    wxEmptyString,
+                        //    wxDefaultPosition,
+                        //    wxSize(ANKER_CONFIG_DIALOG_COMBO_WIDTH, ANKER_COMBOBOX_HEIGHT),
+                        //    wxNO_BORDER | wxCB_READONLY,
+                        //    wxDefaultValidator,
+                        //    "");
+                        //m_printPresetsChoice->SetFont(ANKER_FONT_NO_1);
+                        //m_printPresetsChoice->SetBackgroundColour(wxColour("#333438"));
+                        //// add by allen for ankerCfgDlg default preset combobox focus highlight
+                        //m_printPresetsChoice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+                        ////m_printPresetsChoice->setColor(wxColour("#506853"), wxColour("#506853"), wxColour("#62D361"));
+                        //m_lastSelectPreset = m_printPresetsChoice;
+                        //wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
+                        //btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
+                        //wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+                        //m_printPresetsChoice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
+                        //// add by allen for ankerCfgDlg preset combobox focus highlight
+                        //m_printPresetsChoice->set_button_clicked_function([this]() {
+                        //    ANKER_LOG_INFO << "preset combox of print clicked";
+                        //    onComboBoxClick(m_printPresetsChoice);
+                        //    });
+                        //m_printPresetsChoice->Bind(wxEVT_COMBOBOX_CLOSEUP, &AnkerConfigDlg::onComboBoxCloseUp, this);
 
-                        m_printPresetsChoice->set_selection_changed_function([this](int selection) {
-                            onAnkerTabComboSelChanged(m_printPresetsChoice, selection);
-                            });
+                        //m_printPresetsChoice->set_selection_changed_function([this](int selection) {
+                        //    ChangeAnkerTabComboSel(m_printPresetsChoice, selection);
+                        //    });
 
-                        m_printPresetsChoice->Bind(wxEVT_RIGHT_DOWN, &AnkerConfigDlg::onPresetRightClick, this);
-                        leftPresetSizer->Add(m_printPresetsChoice, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_COMBOBOX_LEFT_PANLE_SPAN);
-                        m_printPresetsChoice->update();
+                        //m_printPresetsChoice->Bind(wxEVT_RIGHT_DOWN, &AnkerConfigDlg::onPresetRightClick, this);
+                        ////leftPresetSizer->Add(m_printPresetsChoice, 0, wxLEFT | wxRIGHT | wxEXPAND, ANKER_CONFIG_DIALOG_COMBOBOX_LEFT_PANLE_SPAN);
+                        //m_printPresetsChoice->update();
                     }
 
-                    // split line
-                    wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-                    splitLineCtrl->SetBackgroundColour(wxColour("#484A51"));
-                    splitLineCtrl->SetMaxSize(wxSize(1, 10000));
-                    splitLineCtrl->SetMinSize(wxSize(1, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
-                    m_contentSizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
+                    //// split line
+                    //wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
+                    //splitLineCtrl->SetBackgroundColour(wxColour("#484A51"));
+                    //splitLineCtrl->SetMaxSize(wxSize(1, 10000));
+                    //splitLineCtrl->SetMinSize(wxSize(1, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
+                    //m_contentSizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
 
                     // right panel sizer
                     {
                         m_rightPanelSizer = new wxBoxSizer(wxVERTICAL);
-                        m_rightPanelSizer->SetMinSize(wxSize(ANKER_CONFIG_DIALOG_WIDTH - ANKER_CONFIG_DIALOG_LFEF_PANEL_WIDTH - 1, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
-                        m_contentSizer->Add(m_rightPanelSizer, 1, wxEXPAND | wxALL, 0);
+                        m_rightPanelSizer->SetMinSize(wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
+                        //m_contentSizer->Add(m_rightPanelSizer, 1, wxEXPAND | wxALL, 0);
 
 #ifdef _MSW_DARK_MODE
                         if (wxGetApp().tabs_as_menu()) {
-                            m_rightPanel = new wxSimplebook(this, wxID_ANY, wxDefaultPosition, wxSize(ANKER_CONFIG_DIALOG_RIGHT_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT),
+                            m_rightPanel = new wxSimplebook(this, wxID_ANY, wxDefaultPosition, wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT),
                                 wxNB_TOP | wxTAB_TRAVERSAL | wxNB_NOPAGETHEME);
                             wxGetApp().UpdateDarkUI(m_rightPanel);
                         }
                         else {
 #if _HIDE_CONTROL_FOR_ANKERCFGDLG_
-                            m_rightPanel = new Notebook(this, wxID_ANY, wxDefaultPosition, wxSize(ANKER_CONFIG_DIALOG_RIGHT_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT),
+                            m_rightPanel = new Notebook(this, wxID_ANY, wxDefaultPosition, wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT),
                                 wxNB_LEFT | wxTAB_TRAVERSAL | wxNB_NOPAGETHEME);
 #else
-                            m_rightPanel = new Notebook(this, wxID_ANY, wxDefaultPosition, wxSize(ANKER_CONFIG_DIALOG_RIGHT_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT),
+                            m_rightPanel = new Notebook(this, wxID_ANY, wxDefaultPosition, wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT),
                                 wxNB_TOP | wxTAB_TRAVERSAL | wxNB_NOPAGETHEME);
 #endif
                         }
@@ -364,7 +368,7 @@ namespace Slic3r {
                         // modify by dhf to disable showing page tab
                         m_rightPanel = new wxSimplebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNB_LEFT | wxTAB_TRAVERSAL | wxNB_NOPAGETHEME);
 #endif
-                        m_rightPanel->SetMinSize(wxSize(ANKER_CONFIG_DIALOG_RIGHT_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
+                        m_rightPanel->SetMinSize(wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT));
 #ifdef __WXMSW__
                         m_rightPanel->Bind(wxEVT_BOOKCTRL_PAGE_CHANGED, [this](wxBookCtrlEvent& e) {
 #else
@@ -379,8 +383,11 @@ namespace Slic3r {
 
                             wxWindow* panel = m_rightPanel->GetCurrentPage();
                             AnkerTab* tab = dynamic_cast<AnkerTab*>(panel);
-                            if (tab)
+                            if (tab) {
                                 tab->force_update();
+                                SetTitle(tab->title());
+                            }
+                                
 
                             // There shouldn't be a case, when we try to select a tab, which doesn't support a printer technology
                             const auto printer_tech = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
@@ -401,15 +408,14 @@ namespace Slic3r {
                             m_rightPanel->GetSelection();
                             });
 
-                        m_rightPanelSizer->Add(m_rightPanel, 1, wxEXPAND, 0);
-                        m_rightPanelSize = wxSize(ANKER_CONFIG_DIALOG_RIGHT_PANEL_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT);
+                        m_rightPanelSizer->Add(m_rightPanel, 1, wxEXPAND | wxALL, 0);
+                        m_rightPanelSize = wxSize(ANKER_CONFIG_DIALOG_WIDTH, ANKER_CONFIG_DIALOG_CONTENT_HEIGHT);
                     }
 
                 }
-                m_mainSizer->Add(m_contentSizer, 0, wxEXPAND | wxALL, 0);
+                m_mainSizer->Add(m_rightPanelSizer, 1, wxEXPAND | wxALL, 0);
             }
         }
-
 
         wxIcon AnkerConfigDlg::mainFrameIcon() {
 #if _WIN32
@@ -453,8 +459,8 @@ namespace Slic3r {
         }
 
         void AnkerConfigDlg::OnSize(wxSizeEvent & event) {
-            m_contentSizer->SetMinSize(wxSize(event.GetSize().GetWidth(), event.GetSize().GetHeight()));
-            int rightPanelWidth = (this->GetClientRect().GetWidth() - m_leftPanel->GetClientRect().GetWidth());
+            m_rightPanelSizer->SetMinSize(wxSize(event.GetSize().GetWidth(), event.GetSize().GetHeight()));
+            int rightPanelWidth = (this->GetClientRect().GetWidth()/* - m_leftPanel->GetClientRect().GetWidth()*/);
             int contentHeight = (this->GetClientRect().GetHeight());
             m_rightPanelSize = wxSize(rightPanelWidth, contentHeight);
 
@@ -551,7 +557,7 @@ namespace Slic3r {
             CloseDlg();
         }
 
-        void AnkerConfigDlg::onAnkerTabComboSelChanged(AnkerTabPresetComboBox * presetChoice, const int selection) {
+        void AnkerConfigDlg::ChangeAnkerTabComboSel(AnkerTabPresetComboBox * presetChoice, const int selection) {
             if (!presetChoice->selection_is_changed_according_to_physical_printers()) {
                 if (!presetChoice->is_selected_physical_printer())
                     wxGetApp().preset_bundle->physical_printers.unselect_printer();
@@ -566,6 +572,7 @@ namespace Slic3r {
 				ProcessEvent(evt);
             }
         }
+
         void AnkerConfigDlg::onComboBoxCloseUp(wxCommandEvent& event) {    
             AnkerTabPresetComboBox* comboBox = dynamic_cast<AnkerTabPresetComboBox*>(event.GetEventObject());
             comboBox->setColor(wxColour("#506853"), wxColour("#506853") ,
@@ -592,23 +599,23 @@ namespace Slic3r {
             {
             case Preset::TYPE_PRINTER: {
                 const Preset& preset = wxGetApp().preset_bundle->printers.get_edited_preset();
-                bRenamePresetOpMenu = ankerTab->m_preset_bundle->physical_printers.has_selection()
+                bDeletePresetOpMenu = ankerTab->m_preset_bundle->physical_printers.has_selection()
                     || (!preset.is_default && !preset.is_system);
-                bDeletePresetOpMenu = !preset.is_default && !preset.is_system && !preset.is_external &&
+                bRenamePresetOpMenu = !preset.is_default && !preset.is_system && !preset.is_external &&
                     !wxGetApp().preset_bundle->physical_printers.has_selection();
                 break;
             }
             case Preset::TYPE_FILAMENT: {
                 const Preset& preset = wxGetApp().preset_bundle->filaments.get_edited_preset();
-                bRenamePresetOpMenu = (!preset.is_default && !preset.is_system);
-                bDeletePresetOpMenu = !preset.is_default && !preset.is_system && !preset.is_external &&
+                bDeletePresetOpMenu = (!preset.is_default && !preset.is_system);
+                bRenamePresetOpMenu = !preset.is_default && !preset.is_system && !preset.is_external &&
                     !wxGetApp().preset_bundle->physical_printers.has_selection();
                 break;
             }
             case Preset::TYPE_PRINT: {
                 const Preset& preset = wxGetApp().preset_bundle->prints.get_edited_preset();
-                bRenamePresetOpMenu = (!preset.is_default && !preset.is_system);
-                bDeletePresetOpMenu = !preset.is_default && !preset.is_system && !preset.is_external &&
+                bDeletePresetOpMenu = (!preset.is_default && !preset.is_system);
+                bRenamePresetOpMenu = !preset.is_default && !preset.is_system && !preset.is_external &&
                     !wxGetApp().preset_bundle->physical_printers.has_selection();
                 break;
             }
@@ -731,23 +738,30 @@ namespace Slic3r {
 
         void AnkerConfigDlg::CloseDlg() {
             ANKER_LOG_INFO << "AnkerConfigDlg CloseDlg enter";
-            bool bHandled = handleDirtyPreset();
-            // if bHandled is true means has saved or discharged,if bHandled is false means has canceled,should not close dialog
-            if (bHandled) {
-                ANKER_LOG_INFO << "AnkerConfigDlg CloseDlg handleDirtyPreset return true,will exit";
-                // Modify it to a modal dialog box according to product requirements
-                Hide();
-                EndModal(wxID_ANY);
-                return;
-            }
-            ANKER_LOG_INFO << "AnkerConfigDlg CloseDlg handleDirtyPreset return false, means canceled, will ignore";
+            Hide();
+            EndModal(wxID_ANY);
+            //bool bHandled = handleDirtyPreset();
+            //// if bHandled is true means has saved or discharged,if bHandled is false means has canceled,should not close dialog
+            //if (bHandled) {
+            //    ANKER_LOG_INFO << "AnkerConfigDlg CloseDlg handleDirtyPreset return true,will exit";
+            //    // Modify it to a modal dialog box according to product requirements
+            //    Hide();
+            //    EndModal(wxID_ANY);
+            //    // restrore multicolor filament after dischard extruders removed
+            //    if (wxGetApp().plater()->sidebarnew().isMultiFilament()) {
+            //        wxGetApp().plater()->sidebarnew().onExtrudersChange();
+            //    }
+            //    
+            //    return;
+            //}
+            //ANKER_LOG_INFO << "AnkerConfigDlg CloseDlg handleDirtyPreset return false, means canceled, will ignore";
         }
 
         void AnkerConfigDlg::msw_rescale() {
             // should not call Fit otherwise the size is changed when dpi changed
             //Fit();
             Layout();
-            int rightPanelWidth = (this->GetClientRect().GetWidth() - m_leftPanel->GetClientRect().GetWidth());
+            int rightPanelWidth = (this->GetClientRect().GetWidth()/* - m_leftPanel->GetClientRect().GetWidth()*/);
             int contentHeight = (this->GetClientRect().GetHeight());
             m_rightPanelSize = wxSize(rightPanelWidth, contentHeight);
             

@@ -181,6 +181,12 @@ Preview::Preview(
         load_print();
 }
 
+void Preview::set_layers_slider_values_range(int bottom, int top)
+{
+    m_layers_slider->SetHigherValue(std::min(top, m_layers_slider->GetMaxValue()));
+    m_layers_slider->SetLowerValue(std::max(bottom, m_layers_slider->GetMinValue()));
+}
+
 bool Preview::init(wxWindow* parent, Bed3D& bed, Model* model)
 {
     if (!Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0 /* disable wxTAB_TRAVERSAL */))
@@ -477,8 +483,17 @@ void Preview::CalGcodePreviewToolbarPos(/*int mainWindowClientX, int mainWindowC
         return;
     }
 
+    Plater* plater = wxGetApp().plater();
+    if (!plater)
+        return;
+
    // int PlaterTabHeight = 0;        //toolbar->calculateLayoutAndResize();
-    int bottomMargin = 12;   // " slicing finish notification WindowHeight"
+    int bottomMargin = 12;
+    if (plater->get_notification_manager()->get_notification_count() > 0) {
+        int bottomMarginMAX = 180;
+        bottomMargin = plater->get_notification_manager()->get_notification_top(bottomMarginMAX);   // " slicing finish notification WindowHeight"
+    }
+
     int xRel = 0, yRel = 0;
 
     //wxRect FrameClinetRect = GetParent()->GetParent()->GetClientRect();
@@ -638,7 +653,6 @@ void Preview::check_layers_slider_values(std::vector<CustomGCode::Item>& ticks_f
 
 void Preview::update_layers_slider(const std::vector<double>& layers_z, bool keep_z_range)
 {
-
    // std::cout<< "=====update_layers_slider" << std::endl;
 #ifndef USE_ANKER_SLIDER
     // Save the initial slider span.
@@ -783,15 +797,17 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
 
             if (DoubleSlider::check_color_change(object, i, num_layers, true, [this, object](const Layer*) {
                 NotificationManager* notif_mngr = wxGetApp().plater()->get_notification_manager();
-                notif_mngr->push_notification(
-                    NotificationType::SignDetected, NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
-                    _u8L("NOTE:") + "\n" +
-                    format(_u8L("Sliced object \"%1%\" looks like a logo or a sign"), object->model_object()->name) + "\n",
-                    _u8L("Apply color change automatically"),
-                    [this](wxEvtHandler*) {
-                        m_layers_slider->auto_color_change();
-                        return true;
-                    });
+
+                // comment by Samuel 20231106, Discarded  unused notification text
+                //notif_mngr->push_notification(
+                //    NotificationType::SignDetected, NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
+                //    _u8L("NOTE:") + "\n" +
+                //    format(_u8L("Sliced object \"%1%\" looks like a logo or a sign"), object->model_object()->name) + "\n",
+                //    _u8L("Apply color change automatically"),
+                //    [this](wxEvtHandler*) {
+                //        m_layers_slider->auto_color_change();
+                //        return true;
+                //    });
 
                 notif_mngr->apply_in_preview();
                 return true;
@@ -955,7 +971,7 @@ void Preview::update_moves_slider()
         toolbar->SetMovesSliderAlternateValues(alternate_values);
         toolbar->SetMovesSliderMaxValue(int(values.size()) - 1);
         toolbar->SetMovesSliderMinValue(values.front() - 1 - view.endpoints.first);
-        toolbar->SetMovesSliderValue(values.back() - 1 - view.endpoints.first);
+        toolbar->SetMovesSliderValue(int(values.size()) - 1);
     }
 #endif
 }

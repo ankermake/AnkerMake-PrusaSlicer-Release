@@ -308,7 +308,7 @@ void GLGizmoMove3D::set_input_window_state(bool on)
 
     ANKER_LOG_INFO << "GLGizmoMove3D: " << on;
 
-    std::string panelFlag = get_name(false, false);
+    std::string panelFlag = "GLGizmoMove3D";
     if (on)
     {
         wxGetApp().plater()->sidebarnew().setMainSizer();

@@ -1168,7 +1168,7 @@ static void init_boundary(AvoidCrossingPerimeters::Boundary *boundary, Polygons 
 }
 
 // Plan travel, which avoids perimeter crossings by following the boundaries of the layer.
-Polyline AvoidCrossingPerimeters::travel_to(const GCode &gcodegen, const Point &point, bool *could_be_wipe_disabled)
+Polyline AvoidCrossingPerimeters::travel_to(const GCode &gcodegen, const Point &point, bool *could_be_wipe_disabled, bool* avoid_crossing_perimeters_via_lift_z)
 {
     // If use_external, then perform the path planning in the world coordinate system (correcting for the gcodegen offset).
     // Otherwise perform the path planning in the coordinate system of the active object.
@@ -1194,6 +1194,7 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCode &gcodegen, const Point &
             travel_intersection_count = avoid_perimeters(m_internal, startf.cast<coord_t>(), endf.cast<coord_t>(), *gcodegen.layer(), result_pl);
             result_pl.points.front()  = start;
             result_pl.points.back()   = end;
+            *avoid_crossing_perimeters_via_lift_z = gcodegen.config().avoid_crossing_perimeters_via_lift_z ? true : false;
         }
     } else if(use_external) {
         // Initialize m_external only when exist any external travel for the current layer.
@@ -1205,10 +1206,11 @@ Polyline AvoidCrossingPerimeters::travel_to(const GCode &gcodegen, const Point &
             travel_intersection_count = avoid_perimeters(m_external, startf.cast<coord_t>(), endf.cast<coord_t>(), *gcodegen.layer(), result_pl);
             result_pl.points.front()  = start;
             result_pl.points.back()   = end;
+            *avoid_crossing_perimeters_via_lift_z = gcodegen.config().avoid_crossing_perimeters_via_lift_z ? true : false;
         }
     }
 
-    if(result_pl.empty()) {
+    if(result_pl.empty()|| *avoid_crossing_perimeters_via_lift_z) {
         // Travel line is completely outside the bounding box.
         result_pl                 = {start, end};
         travel_intersection_count = 0;

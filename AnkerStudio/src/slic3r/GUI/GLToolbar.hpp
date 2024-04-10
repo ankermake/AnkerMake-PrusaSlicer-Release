@@ -21,6 +21,7 @@ wxDECLARE_EVENT(EVT_GLTOOLBAR_ADD, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLTOOLBAR_DELETE, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLTOOLBAR_DELETE_ALL, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLTOOLBAR_ARRANGE, SimpleEvent);
+wxDECLARE_EVENT(EVT_GLTOOLBAR_AUTO_BED, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLTOOLBAR_COPY, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLTOOLBAR_PASTE, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLTOOLBAR_MORE, SimpleEvent);
@@ -38,6 +39,7 @@ public:
     typedef std::function<void()> ActionCallback;
     typedef std::function<bool()> VisibilityCallback;
     typedef std::function<bool()> EnablingCallback;
+    typedef std::function<bool()> ToggledCallback;
     typedef std::function<void(float, float, float, float)> RenderCallback;
 
     enum EType : unsigned char
@@ -100,6 +102,7 @@ public:
         bool visible;
         VisibilityCallback visibility_callback;
         EnablingCallback enabling_callback;
+        ToggledCallback toggled_callback;
 
         Data();
     };
@@ -107,6 +110,7 @@ public:
     static const ActionCallback Default_Action_Callback;
     static const VisibilityCallback Default_Visibility_Callback;
     static const EnablingCallback Default_Enabling_Callback;
+    static const ToggledCallback Default_Toggled_Callback;
     static const RenderCallback Default_Render_Callback;
 
 private:
@@ -138,6 +142,7 @@ public:
     bool is_disabled() const { return (m_state == Disabled) || (m_state == HoverDisabled); }
     bool is_hovered() const { return (m_state == Hover) || (m_state == HoverPressed) || (m_state == HoverDisabled); }
     bool is_pressed() const { return (m_state == Pressed) || (m_state == HoverPressed); }
+    bool is_toggled() const { return (m_state == Pressed) || (m_state == HoverPressed); }
     bool is_visible() const { return m_data.visible; }
     bool is_separator() const { return m_type == Separator; }
 
@@ -154,6 +159,8 @@ public:
     bool update_visibility();
     // returns true if the state changes
     bool update_enabled_state();
+    // returns true if the state changes
+    bool update_toggled_state();
 
     void render(const GLCanvas3D& parent, unsigned int tex_id, float left, float right, float bottom, float top, unsigned int tex_width, unsigned int tex_height, unsigned int icon_size) const;
 
@@ -364,6 +371,8 @@ private:
     bool update_items_visibility();
     // returns true if any item changed its state
     bool update_items_enabled_state();
+    // returns true if any item changed its state
+    bool update_items_toggeld_state();
 };
 
 } // namespace GUI

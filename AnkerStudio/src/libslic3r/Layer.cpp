@@ -155,7 +155,7 @@ static void connect_layer_slices(
                                 // Second source contour of this expolygon was found.
                                 if (i > j)
                                     std::swap(i, j);
-                                if (i >= m_offset_above)
+                                if (i >= m_offset_above || j < m_offset_above)
                                     continue;
                                 assert(assert_intersection_valid(i, j));
                                 goto end;
@@ -445,6 +445,7 @@ void Layer::make_perimeters()
     std::vector<uint32_t>                                   layer_region_ids;
     std::vector<std::pair<ExtrusionRange, ExtrusionRange>>  perimeter_and_gapfill_ranges;
     ExPolygons                                              fill_expolygons;
+    ExPolygons                                              fill_no_overlap;
     std::vector<ExPolygonRange>                             fill_expolygons_ranges;
     SurfacesPtr                                             surfaces_to_merge;
     SurfacesPtr                                             surfaces_to_merge_temp;
@@ -473,6 +474,7 @@ void Layer::make_perimeters()
     	        
                 perimeter_and_gapfill_ranges.clear();
                 fill_expolygons.clear();
+                fill_no_overlap.clear();
                 fill_expolygons_ranges.clear();
                 surfaces_to_merge.clear();
 
@@ -503,10 +505,11 @@ void Layer::make_perimeters()
     		                done[it - m_regions.begin()] = true;
     		            }
     		        }
-
+                
     	        if (layer_region_ids.size() == 1) {  // optimization
-    	            (*layerm)->make_perimeters((*layerm)->slices(), perimeter_and_gapfill_ranges, fill_expolygons, fill_expolygons_ranges);
-                    this->sort_perimeters_into_islands((*layerm)->slices(), region_id, perimeter_and_gapfill_ranges, std::move(fill_expolygons), fill_expolygons_ranges, layer_region_ids);
+    	            (*layerm)->make_perimeters((*layerm)->slices(), perimeter_and_gapfill_ranges, fill_expolygons, fill_no_overlap, fill_expolygons_ranges);
+                    this->sort_perimeters_into_islands((*layerm)->slices(), region_id, perimeter_and_gapfill_ranges, 
+                        std::move(fill_expolygons), std::move(fill_no_overlap), fill_expolygons_ranges, layer_region_ids);
     	        } else {
     	            SurfaceCollection new_slices;
     	            // Use the region with highest infill rate, as the make_perimeters() function below decides on the gap fill based on the infill existence.
@@ -539,9 +542,11 @@ void Layer::make_perimeters()
                             i = j;
                         }
     	            }
+
     	            // make perimeters
-    	            layerm_config->make_perimeters(new_slices, perimeter_and_gapfill_ranges, fill_expolygons, fill_expolygons_ranges);
-                    this->sort_perimeters_into_islands(new_slices, region_id_config, perimeter_and_gapfill_ranges, std::move(fill_expolygons), fill_expolygons_ranges, layer_region_ids);
+    	            layerm_config->make_perimeters(new_slices, perimeter_and_gapfill_ranges, fill_expolygons, fill_no_overlap, fill_expolygons_ranges);
+                    this->sort_perimeters_into_islands(new_slices, region_id_config, perimeter_and_gapfill_ranges,
+                        std::move(fill_expolygons), std::move(fill_no_overlap), fill_expolygons_ranges, layer_region_ids);
     	        }
     	    }
         }
@@ -559,6 +564,8 @@ void Layer::sort_perimeters_into_islands(
     const std::vector<std::pair<ExtrusionRange, ExtrusionRange>>    &perimeter_and_gapfill_ranges,
     // Fill expolygons produced for all source slices above.
     ExPolygons                                                      &&fill_expolygons,
+    // Fill no overlap expolygons produced for all source slices above.
+    ExPolygons                                                      &&fill_no_overlap,
     // Fill expolygon ranges sorted by the source slices.
     const std::vector<ExPolygonRange>                               &fill_expolygons_ranges,
     // If the current layer consists of multiple regions, then the fill_expolygons above are split by the source LayerRegion surfaces.
@@ -651,6 +658,7 @@ void Layer::sort_perimeters_into_islands(
             for (uint32_t region_idx : layer_region_ids) {
                 LayerRegion &l = *m_regions[region_idx];
                 l.m_fill_expolygons = intersection_ex(l.slices().surfaces, fill_expolygons);
+                l.fill_no_overlap_expolygons = intersection_ex(l.slices().surfaces, fill_no_overlap);
                 l.m_fill_expolygons_bboxes.reserve(l.fill_expolygons().size());
                 for (const ExPolygon &expolygon : l.fill_expolygons()) {
                     BoundingBox bbox = get_extents(expolygon);
@@ -733,6 +741,7 @@ void Layer::sort_perimeters_into_islands(
             } while (sort_region_id != -1);
         } else {
             this_layer_region.m_fill_expolygons        = std::move(fill_expolygons);
+            this_layer_region.fill_no_overlap_expolygons = std::move(fill_no_overlap);
             this_layer_region.m_fill_expolygons_bboxes = std::move(fill_expolygons_bboxes);
         }
     }
@@ -858,6 +867,24 @@ void Layer::sort_perimeters_into_islands(
     }
 }
 
+void Layer::export_lslices_to_svg(const char* path) const
+{
+    BoundingBox bbox;
+    for (const auto& lslice : lslices)
+        bbox.merge(get_extents(lslice));
+
+    Point legend_size = export_surface_type_legend_to_svg_box_size();
+    Point legend_pos(bbox.min(0), bbox.max(1));
+    bbox.merge(Point(std::max(bbox.min(0) + legend_size(0), bbox.max(0)), bbox.max(1) + legend_size(1)));
+
+    SVG svg(path, bbox);
+    const float transparency = 0.5f;
+    for (const auto& lslice : lslices)
+        svg.draw(lslice, "black", transparency);
+    export_surface_type_legend_to_svg(svg, legend_pos);
+    svg.Close();
+}
+
 void Layer::export_region_slices_to_svg(const char *path) const
 {
     BoundingBox bbox;
@@ -897,7 +924,7 @@ void Layer::export_region_fill_surfaces_to_svg(const char *path) const
     SVG svg(path, bbox);
     const float transparency = 0.5f;
     for (const auto *region : m_regions)
-        for (const auto &surface : region->slices())
+        for (const auto &surface : region->fill_surfaces())
             svg.draw(surface.expolygon, surface_type_to_color_name(surface.surface_type), transparency);
     export_surface_type_legend_to_svg(svg, legend_pos);
     svg.Close();
@@ -908,6 +935,75 @@ void Layer::export_region_fill_surfaces_to_svg_debug(const char *name) const
 {
     static size_t idx = 0;
     this->export_region_fill_surfaces_to_svg(debug_out_path("Layer-fill_surfaces-%s-%d.svg", name, idx ++).c_str());
+}
+
+//BBS: method to simplify support path
+void Layer::simplify_support_entity_collection(ExtrusionEntityCollection* entity_collection)
+{
+    for (size_t i = 0; i < entity_collection->entities.size(); i++) {
+        if (ExtrusionEntityCollection* collection = dynamic_cast<ExtrusionEntityCollection*>(entity_collection->entities[i]))
+            this->simplify_support_entity_collection(collection);
+        else if (ExtrusionPath* path = dynamic_cast<ExtrusionPath*>(entity_collection->entities[i]))
+            this->simplify_support_path(path);
+        else if (ExtrusionMultiPath* multipath = dynamic_cast<ExtrusionMultiPath*>(entity_collection->entities[i]))
+            this->simplify_support_multi_path(multipath);
+        else if (ExtrusionLoop* loop = dynamic_cast<ExtrusionLoop*>(entity_collection->entities[i]))
+            this->simplify_support_loop(loop);
+        else
+            throw Slic3r::InvalidArgument("Invalid extrusion entity supplied to simplify_support_entity_collection()");
+    }
+}
+//BBS: method to simplify support path
+void Layer::simplify_support_path(ExtrusionPath* path)
+{
+    const auto print_config = this->object()->print()->config();
+    const bool spiral_mode = print_config.spiral_vase;
+    const bool enable_arc_fitting = print_config.enable_arc_fitting;
+    const auto scaled_resolution = scaled<double>(print_config.gcode_resolution.value);
+
+    if (enable_arc_fitting &&
+        !spiral_mode) {
+        path->simplify_by_fitting_arc(SCALED_SUPPORT_RESOLUTION);
+    }
+    else {
+    	path->simplify(scaled_resolution);
+    }
+}
+//BBS: method to simplify support path
+void Layer::simplify_support_multi_path(ExtrusionMultiPath* multipath)
+{
+    const auto print_config = this->object()->print()->config();
+    const bool spiral_mode = print_config.spiral_vase;
+    const bool enable_arc_fitting = print_config.enable_arc_fitting;
+    const auto scaled_resolution = scaled<double>(print_config.gcode_resolution.value);
+
+    for (size_t i = 0; i < multipath->paths.size(); ++i) {
+        if (enable_arc_fitting &&
+            !spiral_mode) {
+            multipath->paths[i].simplify_by_fitting_arc(SCALED_SUPPORT_RESOLUTION);
+        }
+        else {
+        	multipath->paths[i].simplify(scaled_resolution);
+        }
+    }
+}
+//BBS: method to simplify support path
+void Layer::simplify_support_loop(ExtrusionLoop* loop)
+{
+    const auto print_config = this->object()->print()->config();
+    const bool spiral_mode = print_config.spiral_vase;
+    const bool enable_arc_fitting = print_config.enable_arc_fitting;
+    const auto scaled_resolution = scaled<double>(print_config.gcode_resolution.value);
+
+    for (size_t i = 0; i < loop->paths.size(); ++i) {
+        if (enable_arc_fitting &&
+            !spiral_mode) {
+            loop->paths[i].simplify_by_fitting_arc(SCALED_SUPPORT_RESOLUTION);
+        }
+        else {
+        	loop->paths[i].simplify(scaled_resolution);
+        }
+    }
 }
 
 BoundingBox get_extents(const LayerRegion &layer_region)

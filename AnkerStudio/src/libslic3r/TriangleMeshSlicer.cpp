@@ -1329,10 +1329,22 @@ static Polygons make_loops(
     // Try to close gaps.
     // Do it in two rounds, first try to connect in the same direction only,
     // then try to connect the open polylines in reversed order as well.
-#if 0
-    for (double max_gap : { EPSILON, 0.001, 0.1, 1., 2. }) {
-        chain_open_polylines_close_gaps(open_polylines, *loops, max_gap, false);
-        chain_open_polylines_close_gaps(open_polylines, *loops, max_gap, true);
+#if 1
+    auto allConnected = [&]() {
+        bool all_connected = true;
+        for (OpenPolyline& opLine : open_polylines) {
+            if (!opLine.consumed) {
+                all_connected = false;
+                break;
+            }
+        }
+        return all_connected;
+    };
+    for (double max_gap : {0.1, 2., 5.}) {
+        if (allConnected())
+            break;
+        chain_open_polylines_close_gaps(open_polylines, loops, max_gap, false);
+        chain_open_polylines_close_gaps(open_polylines, loops, max_gap, true);
     }
 #else
     const double max_gap = 2.; //mm
@@ -1919,6 +1931,10 @@ std::vector<ExPolygons> slice_mesh_ex(
                     simplified.reserve(expolygons.size());
                     for (const ExPolygon &ex : expolygons)
                         append(simplified, ex.simplify(resolution));
+
+                    for (ExPolygon& ex : simplified)
+                        ex.simplify_only_front(resolution);
+
                     expolygons = std::move(simplified);
                 }
             }

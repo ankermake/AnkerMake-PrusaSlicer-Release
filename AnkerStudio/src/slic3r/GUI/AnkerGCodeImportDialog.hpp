@@ -2,13 +2,12 @@
 #define _ANKER_GCODE_IMPORT_DIALOG_H_
 
 #include "wx/wx.h"
-#include "slic3r/Utils/DataManger.hpp"
-
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/signals2/connection.hpp>
 #include "Common/AnkerBaseCtls.h"
-
-
+#include "ViewModel/AnkerMaterialMappingViewModel.h"
+#include "AnkerNetDefines.h"
+using namespace AnkerNet;
 
 wxDECLARE_EVENT(wxCUSTOMEVT_FILEITEM_CLICKED, wxCommandEvent);
 class AnkerBtn;
@@ -53,16 +52,9 @@ private:
 class AnkerGCodeImportDialog : public wxDialog
 {
 public:
-	enum FileSelectMode
-	{
-		FSM_NONE,
-		FSM_COMPUTER,
-		FSM_STORAGE,
-		FSM_USB
-	};
 	struct GCodeImportResult
 	{
-		FileSelectMode m_srcType;
+		Slic3r::GUI::FileSelectMode m_srcType;
 		std::string m_fileName;
 		std::string m_filePath;
 
@@ -103,16 +95,32 @@ public:
 	// use these after init
 	void setFileInfoSpeed(std::string str);
 	void setFileInfoFilament(std::string str);
-	void setFileInfoTime(int seconds);
+	std::string setFileInfoTime(int seconds);
 	void setPreviewImage(int width, int height, unsigned char* data, unsigned char* alpha = nullptr, bool freeFlag = true);
 
-	void switch2FileSelect(FileSelectMode mode);
+	void switch2FileSelect(Slic3r::GUI::FileSelectMode  mode);
 	void switch2FileInfo(std::string filepath, std::string strTitleName="");
 	void switch2PrintFinished(bool success, GCodeImportResult& result);
 
 	void requestCallback(int type = -1);
 
 	GCodeImportResult& getImportResult() { return m_importResult; }
+
+	VrCardInfoMap& getUserConfigMaterialMap()
+	{
+		VrCardInfoMap ConfigMaterialVec;
+		if (m_pMaterialMappingViewModel != nullptr)
+		{
+			ConfigMaterialVec = m_pMaterialMappingViewModel->m_vrCardInfoMap;
+		}
+		return ConfigMaterialVec;
+	};
+	void setViewModel(Slic3r::GUI::AnkerMaterialMappingViewModel* pViewModel) {m_pMaterialMappingViewModel = pViewModel;}
+
+	int autoMatchSlotInx(Slic3r::GUI::GcodeFilementInfo& gcodeInfo, std::vector<Slic3r::GUI::DeviceFilementInfo> devcieInfoVec);
+
+	double getColorDistance(wxColour firstColor, wxColour secondColor);
+	double getColorSimilarity(wxColour firstColor, wxColour secondColor);
 
 private:
 	void initUI();
@@ -121,9 +129,10 @@ private:
 	bool initFSEmptySizer(wxWindow* parent);
 	bool initFSListSizer(wxWindow* parent);
 	bool initFileInfoSizer(wxWindow* parent);
+	bool initV6FileInfoSizer(wxWindow* parent, Slic3r::GUI::AnkerMaterialMappingViewModel* pMaterialMappingViewModel);
 	bool initFinishedSizer(wxWindow* parent);
 
-	void switch2FSMode(FileSelectMode mode);
+	void switch2FSMode(Slic3r::GUI::FileSelectMode mode);
 	void setLoadingVisible(bool visible);
 
 	void OnComputerBtn(wxCommandEvent& event);
@@ -139,6 +148,9 @@ private:
 	void OnShow(wxShowEvent& event);
 	void OnLoadingTimeout(wxCommandEvent& event);
 	void OnMove(wxMoveEvent& event);
+	bool IsV6Printer();
+	void SetMappingInfoToViewModel(std::string& strGcodeFilePath);
+	void SetRemotetMappingInfoToViewModel();
 
 private:
 	bool m_gcodePreviewWaiting;
@@ -152,7 +164,7 @@ private:
 	wxColour m_btnFocusTextColor;
 	wxColour m_splitLineColor;
 
-	FileSelectMode m_currentMode;
+	Slic3r::GUI::FileSelectMode m_currentMode;
     AnkerBtn* m_pComputerBtn;
     AnkerBtn* m_pStorageBtn;
     AnkerBtn* m_pUSBBtn;
@@ -170,6 +182,7 @@ private:
 	wxPanel* m_pFileSelectPanel;
 	wxPanel* m_pFileInfoPanel;
 	wxPanel* m_pFinishedPanel;
+	wxPanel* m_pV6FileInfoPanel;
 
 	// finish sizer
 	AnkerBtn* m_pPrintBtn;
@@ -187,7 +200,6 @@ private:
 	bool m_fileListUpdateReq;
 	bool m_gcodeInfoReq;
 	std::string m_gcodeInfoFilePath;
-	MqttType::FileList m_remoteFileList;
 	boost::signals2::connection m_connect;
 
 	wxTextCtrl* m_pSearchTextCtrl;
@@ -195,6 +207,8 @@ private:
 
 	std::map<filamentInfo, printFilamentInfo> filamentMap;
 	std::vector<printFilamentInfo> m_PrinterFilamentVec;
+
+	Slic3r::GUI::AnkerMaterialMappingViewModel* m_pMaterialMappingViewModel;
 };
 
 #endif // _ANKER_GCODE_IMPORT_DIALOG_H_

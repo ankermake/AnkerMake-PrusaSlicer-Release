@@ -2,7 +2,7 @@
 #include "wx/dc.h"
 #include "GUI_App.hpp"
 #include "Common/AnkerGUIConfig.hpp"
-
+#include <wx/graphics.h>
 
 BEGIN_EVENT_TABLE(AnkerBtn, wxControl)
 EVT_PAINT(AnkerBtn::OnPaint)
@@ -21,6 +21,7 @@ AnkerBtn::AnkerBtn() : m_norImg(nullptr), m_pressedImg(nullptr),
 					   m_enterImg(nullptr), m_disableImg(nullptr),
 					   m_radius(0), m_btnStatus(NormalBtnStatus), m_isUsedBg(false)
 {
+	SetBackgroundStyle(wxBG_STYLE_PAINT);
 }
 
 AnkerBtn::AnkerBtn(wxWindow* parent, wxWindowID id,
@@ -380,34 +381,35 @@ void AnkerBtn::OnPaint(wxPaintEvent& event)
 
 	//draw text
 	if (!m_btnText.IsEmpty())
-	{		
+	{
 		wxSize widgetSize = dc.GetSize();
 		int x = 0;
 		int y = 0;
- 
-		if (!m_btnTextFont.IsNull())		
+
+		if (!m_btnTextFont.IsNull())
 			dc.SetFont(m_btnTextFont);
- 
+
 		wxSize textSize = dc.GetTextExtent(m_btnText);
- 
-		if((widgetSize.GetWidth() - textSize.GetWidth()) % 2 == 0)
+
+		if ((widgetSize.GetWidth() - textSize.GetWidth()) % 2 == 0)
 			x = (widgetSize.GetWidth() - textSize.GetWidth()) / 2;
 		else
 			x = (widgetSize.GetWidth() - textSize.GetWidth()) / 2 + 1;
+
 		int textHeight = textSize.GetHeight();
 
 #ifdef __APPLE__
-		//textHeight = textHeight / 2;
+		wxFontMetrics metrics = dc.GetFontMetrics();
+		textHeight = metrics.ascent + metrics.descent;
 #endif // !__APPLE__
 
-
-		if((widgetSize.GetHeight() - textSize.GetHeight()) % 2 == 0)
+		if ((widgetSize.GetHeight() - textHeight) % 2 == 0)
 			y = (widgetSize.GetHeight() - textHeight) / 2;
 		else
 			y = (widgetSize.GetHeight() - textHeight) / 2 - 1;
-				
-		wxPoint realPoint(x, y);
 
+
+		wxPoint realPoint(x, y);
 		dc.SetBackgroundMode(wxTRANSPARENT);
 		if(DisableBtnStatus != m_btnStatus)
 			dc.SetTextForeground(m_textNorColor);
@@ -415,6 +417,15 @@ void AnkerBtn::OnPaint(wxPaintEvent& event)
 			dc.SetTextForeground(m_textDisableColor);
 		dc.DrawText(m_btnText, realPoint.x, realPoint.y);
 	}
+}
+
+bool AnkerBtn::IsEnglishString(const wxString& str) {
+	for (size_t i = 0; i < str.length(); ++i) {
+		if (!wxIsalpha(str[i]) && !wxIspunct(str[i]) && !wxIsspace(str[i]) && !wxIsascii(str[i])) {
+			return false;
+		}
+	}
+	return true;
 }
 
 void AnkerBtn::DrawBackground(wxDC* dc)
@@ -735,33 +746,29 @@ bool AnkerChooseBtn::Create(wxWindow* parent,
 void AnkerChooseBtn::setBtnStatus(AnkerChooseBtnStatus status)
 {
 	m_btnStatus = status;
+	wxClientDC dc(this);
 	if (m_btnStatus != ChooseBtn_Select)
 	{
-		wxClientDC dc(this);
 		dc.SetFont(m_TextFont);
-		wxSize textSize = dc.GetTextExtent(m_Text);
-
-		wxSize winSize;
-		winSize.SetWidth(textSize.GetWidth() + 16);
-		winSize.SetHeight(textSize.GetHeight() + 8);
-		SetMaxSize(winSize);
-		SetMinSize(winSize);
-		SetSize(winSize);
 	}
 	else
 	{
-		wxClientDC dc(this);
 		dc.SetFont(m_TextSelectFont);
-		wxSize textSize = dc.GetTextExtent(m_Text);
-
-		wxSize winSize;
-		winSize.SetWidth(textSize.GetWidth() + 16);
-		winSize.SetHeight(textSize.GetHeight() + 8);
-		SetMaxSize(winSize);
-		SetMinSize(winSize);
-		SetSize(winSize);
 	}
+	wxSize textSize = dc.GetTextExtent(m_Text);
+	int textHeight = textSize.GetHeight();
 
+#ifdef __APPLE__
+	wxFontMetrics metrics = dc.GetFontMetrics();
+	textHeight = metrics.ascent + metrics.descent;
+#endif // !__APPLE__
+
+	wxSize winSize;
+	winSize.SetWidth(textSize.GetWidth() + 16);
+	winSize.SetHeight(textHeight + 8);
+	SetMaxSize(winSize);
+	SetMinSize(winSize);
+	SetSize(winSize);
 	Refresh();
 }
 
@@ -856,10 +863,16 @@ void AnkerChooseBtn::OnPressed(wxMouseEvent& event)
 	wxClientDC dc(this);
 	dc.SetFont(m_TextSelectFont);
 	wxSize textSize = dc.GetTextExtent(m_Text);
+	int textHeight = textSize.GetHeight();
+
+#ifdef __APPLE__
+	wxFontMetrics metrics = dc.GetFontMetrics();
+	textHeight = metrics.ascent + metrics.descent;
+#endif // !__APPLE__
 
 	wxSize winSize;
 	winSize.SetWidth(textSize.GetWidth() + 16);
-	winSize.SetHeight(textSize.GetHeight() + 8);
+	winSize.SetHeight(textHeight + 8);
 	SetMaxSize(winSize);
 	SetMinSize(winSize);
 	SetSize(winSize);
@@ -881,10 +894,16 @@ void AnkerChooseBtn::OnDClick(wxMouseEvent& event)
 	wxClientDC dc(this);
 	dc.SetFont(m_TextSelectFont);
 	wxSize textSize = dc.GetTextExtent(m_Text);
+	int textHeight = textSize.GetHeight();
+
+#ifdef __APPLE__
+	wxFontMetrics metrics = dc.GetFontMetrics();
+	textHeight = metrics.ascent + metrics.descent;
+#endif // !__APPLE__
 
 	wxSize winSize;
 	winSize.SetWidth(textSize.GetWidth() + 16);
-	winSize.SetHeight(textSize.GetHeight() + 8);
+	winSize.SetHeight(textHeight + 8);
 	SetMaxSize(winSize);
 	SetMinSize(winSize);
 	SetSize(winSize);
@@ -975,9 +994,9 @@ void AnkerChooseBtn::OnPaint(wxPaintEvent& event)
 		int textHeight = textSize.GetHeight();
 
 #ifdef __APPLE__
-		textHeight = textHeight / 2;
+		wxFontMetrics metrics = dc.GetFontMetrics();
+		textHeight = metrics.ascent + metrics.descent;
 #endif // !__APPLE__
-
 
 		if ((widgetSize.GetHeight() - textSize.GetHeight()) % 2 == 0)
 			y = (widgetSize.GetHeight() - textHeight) / 2;
@@ -1123,3 +1142,125 @@ void AnkerTextBtn::OnLeftUp(wxMouseEvent& event)
 	ProcessEvent(evt);
 
 }
+
+
+AnkerToggleBtn::AnkerToggleBtn(wxWindow* parent)
+	: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER)
+{
+	initUI();
+
+	Bind(wxEVT_PAINT, &AnkerToggleBtn::OnPaint, this);
+	Bind(wxEVT_LEFT_DOWN, &AnkerToggleBtn::OnLeftDown, this);
+	Bind(wxEVT_LEFT_UP, &AnkerToggleBtn::OnLeftUp, this);
+	Bind(wxEVT_MOTION, &AnkerToggleBtn::OnMouseMove, this);
+
+	Bind(wxEVT_ENTER_WINDOW, &AnkerToggleBtn::OnMouseEnter, this);
+}
+
+AnkerToggleBtn::~AnkerToggleBtn()
+{
+
+}
+
+void AnkerToggleBtn::initUI()
+{
+
+
+
+	SetStateColours(true, wxColour(129, 220, 129), wxColour(250, 250, 250));
+	SetStateColours(false, wxColour(83, 83, 83), wxColour(219, 219, 219));
+
+	SetBackgroundStyle(wxBG_STYLE_PAINT);
+}
+
+void AnkerToggleBtn::SetStateColours(bool state, wxColour roundedRectClr, wxColour circleClr)
+{
+	if (state) {
+		m_onStateRoundedRectClr = roundedRectClr;
+		m_onStateCircleClr = circleClr;
+	}
+	else {
+		m_offStateRoundedRectClr = roundedRectClr;
+		m_offStateCircleClr = circleClr;
+	}
+}
+
+
+void AnkerToggleBtn::OnPaint(wxPaintEvent& event)
+{
+	wxPaintDC dc(this);
+	wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+
+	if (gc)
+	{
+		gc->SetAntialiasMode(wxANTIALIAS_DEFAULT);
+
+		auto size = GetSize();
+		wxRect rect(wxPoint(0, 0), size);
+
+		gc->SetBrush(GetBackgroundColour());
+		gc->DrawRectangle(rect.x, rect.y, rect.width, rect.height);
+
+		if (m_state)
+			gc->SetBrush(m_onStateRoundedRectClr); 
+		else
+			gc->SetBrush(m_offStateRoundedRectClr); 
+		gc->DrawRoundedRectangle(rect.x, rect.y, rect.width, rect.height, size.y/2);
+		
+		float circleRadius = 0.5 * size.y * (8.0f / 10.0f);
+		wxPoint circleCenter;
+		if (m_state) {
+			circleCenter = wxPoint(size.x - (size.y - circleRadius * 2) / 2 - circleRadius, size.y / 2);
+			gc->SetBrush(m_onStateCircleClr);
+		}
+		else {
+			circleCenter = wxPoint(0 + (size.y - circleRadius * 2) / 2 + circleRadius, size.y / 2);
+			gc->SetBrush(m_offStateCircleClr);
+		}
+		gc->DrawEllipse(circleCenter.x - circleRadius, circleCenter.y - circleRadius, circleRadius * 2, circleRadius * 2);
+
+		delete gc;
+	}
+}
+
+void AnkerToggleBtn::OnMouseEnter(wxMouseEvent& event)
+{
+
+}
+
+void AnkerToggleBtn::OnMouseMove(wxMouseEvent& event)
+{
+	SetCursor(wxCursor(wxCURSOR_HAND));
+}
+
+void AnkerToggleBtn::OnLeftDown(wxMouseEvent& event)
+{
+
+}
+
+void AnkerToggleBtn::OnLeftUp(wxMouseEvent& event)
+{
+	m_state = !m_state;
+
+	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_BTN_CLICKED);
+	wxVariant eventData;
+	eventData.ClearList();
+	evt.SetClientData(new wxVariant(eventData));
+	evt.SetEventObject(this);
+	ProcessEvent(evt);
+
+	Refresh();
+}
+
+void AnkerToggleBtn::SetState(bool state)
+{
+	m_state = state;
+	Refresh();
+}
+
+
+bool AnkerToggleBtn::GetState()
+{
+	return m_state;
+}
+

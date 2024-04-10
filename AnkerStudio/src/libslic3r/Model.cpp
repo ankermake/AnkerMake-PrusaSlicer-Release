@@ -26,8 +26,15 @@
 #include "SVG.hpp"
 #include <Eigen/Dense>
 #include "GCodeWriter.hpp"
+#include "../AnkerComFunction.hpp"
+
+extern AnkerPlugin* pAnkerPlugin;
 
 namespace Slic3r {
+
+    // initialization of static variables
+    std::map<size_t, ExtruderParams> Model::extruderParamsMap = { {0,{"",0,0}} };
+    GlobalSpeedMap Model::printSpeedMap{};
 
 Model& Model::assign_copy(const Model &rhs)
 {
@@ -102,6 +109,22 @@ void Model::update_links_bottom_up_recursive()
 Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* config, ConfigSubstitutionContext* config_substitutions, LoadAttributes options)
 {
     Model model;
+    //report: import stl/obj
+    boost::filesystem::path filePath(input_file);
+    std::string handleType = "import";
+    std::string model_name = input_file;
+    std::string modelSize = std::string("0");
+    std::string errorCode = "0";
+    std::string errorMsg = std::string("start load stl or obj");
+
+    if (boost::filesystem::exists(filePath))
+    {
+        modelSize = std::to_string(boost::filesystem::file_size(filePath));
+    }
+    std::map<std::string, std::string> buryMap;
+    buryMap.insert(std::make_pair(c_sm_file_name, model_name));
+    buryMap.insert(std::make_pair(c_sm_file_size, modelSize));
+    buryMap.insert(std::make_pair(c_sm_status, handleType));
 
     DynamicPrintConfig temp_config;
     ConfigSubstitutionContext temp_config_substitutions_context(ForwardCompatibilitySubstitutionRule::EnableSilent);
@@ -123,13 +146,40 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
         //FIXME options & LoadAttribute::CheckVersion ? 
         result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, false);
     else
-        throw Slic3r::RuntimeError("Unknown file format. Input file must have .stl, .obj, .amf(.xml), .akpro or .step/.stp extension.");
+    {
+        errorCode = "-1";
+        errorMsg = ("Unknown file format. Input file must have .stl, .obj, .amf(.xml), .akpro or .step/.stp extension.");
+        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+        
+        reportBuryEvent(e_hanlde_model, buryMap);
 
-    if (! result)
+        throw Slic3r::RuntimeError("Unknown file format. Input file must have .stl, .obj, .amf(.xml), .akpro or .step/.stp extension.");
+    }
+
+    if (!result)
+    {
+        errorCode = "-1";
+        errorMsg = ("Loading of a model file failed.");
+        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+
+        reportBuryEvent(e_hanlde_model, buryMap);
+        
         throw Slic3r::RuntimeError("Loading of a model file failed.");
+    }
 
     if (model.objects.empty())
+    {
+        errorCode = "-1";
+        errorMsg = ("The supplied file couldn't be read because it's empty");
+        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+
+        reportBuryEvent(e_hanlde_model, buryMap);
+        
         throw Slic3r::RuntimeError("The supplied file couldn't be read because it's empty");
+    }
     
     for (ModelObject *o : model.objects)
         o->input_file = input_file;
@@ -141,6 +191,7 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
     CustomGCode::check_mode_for_custom_gcode_per_print_z(model.custom_gcode_per_print_z);
 
     sort_remove_duplicates(config_substitutions->substitutions);
+    
     return model;
 }
 
@@ -151,6 +202,24 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     assert(config_substitutions != nullptr);
 
     Model model;
+    //report: import not stl obj
+    boost::filesystem::path filePath(input_file);
+
+    std::string handleType = "import";
+    std::string model_name = input_file;
+    std::string modelSize = std::string("0");
+    std::string errorCode = "0";
+    std::string errorMsg = std::string("start to load 3MF or AMF");
+
+    if (boost::filesystem::exists(filePath))
+    {
+        modelSize = std::to_string(boost::filesystem::file_size(filePath));
+    }
+
+    std::map<std::string, std::string> buryMap;
+    buryMap.insert(std::make_pair(c_sm_file_name, model_name));
+    buryMap.insert(std::make_pair(c_sm_file_size, modelSize));
+    buryMap.insert(std::make_pair(c_sm_status, handleType));
 
     bool result = false;
     if (boost::algorithm::iends_with(input_file, ".3mf"))
@@ -158,10 +227,26 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     else if (boost::algorithm::iends_with(input_file, ".zip.amf"))
         result = load_amf(input_file.c_str(), config, config_substitutions, &model, options & LoadAttribute::CheckVersion);
     else
+    {
+        errorCode = "-1";
+        errorMsg = ("Unknown file format. Input file must have .3mf or .zip.amf extension.");
+        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+        reportBuryEvent(e_hanlde_model, buryMap);
+        
         throw Slic3r::RuntimeError("Unknown file format. Input file must have .3mf or .zip.amf extension.");
+    }
 
     if (!result)
+    {
+        errorCode = "-1";
+        errorMsg = ("Loading of a model file failed.");
+        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+        reportBuryEvent(e_hanlde_model, buryMap);
+        
         throw Slic3r::RuntimeError("Loading of a model file failed.");
+    }
 
     for (ModelObject *o : model.objects) {
 //        if (boost::algorithm::iends_with(input_file, ".zip.amf"))
@@ -180,7 +265,9 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     CustomGCode::check_mode_for_custom_gcode_per_print_z(model.custom_gcode_per_print_z);
 
     handle_legacy_sla(*config);
-
+    //report: import 3mf/amf success
+    reportBuryEvent(e_hanlde_model, buryMap);
+    
     return model;
 }
 
@@ -1041,15 +1128,18 @@ const BoundingBoxf3& ModelObject::raw_bounding_box() const
 // This returns an accurate snug bounding box of the transformed object instance, without the translation applied.
 BoundingBoxf3 ModelObject::instance_bounding_box(size_t instance_idx, bool dont_translate) const
 {
+    ANKER_LOG_INFO << "enter instance_bounding_box:" << instance_idx;
     BoundingBoxf3 bb;
     const Transform3d inst_matrix = dont_translate ?
         this->instances[instance_idx]->get_transformation().get_matrix_no_offset() :
         this->instances[instance_idx]->get_transformation().get_matrix();
 
+    ANKER_LOG_INFO << "start transformed_bounding_box";
     for (ModelVolume *v : this->volumes) {
-        if (v->is_model_part())
+        if (v->is_model_part() && v != nullptr)
             bb.merge(v->mesh().transformed_bounding_box(inst_matrix * v->get_matrix()));
     }
+    ANKER_LOG_INFO << "exit instance_bounding_box";
     return bb;
 }
 

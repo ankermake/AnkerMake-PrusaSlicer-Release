@@ -23,8 +23,10 @@ class AnkerSearchItem :public wxControl
 public:
 	AnkerSearchItem();
 	AnkerSearchItem(wxWindow* parent,
+		wxString  tab,
 		wxString  key,
 		wxString text,
+		wxString group,
 		wxFont font,
 		wxWindowID winid = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
@@ -38,8 +40,10 @@ public:
 protected:
 	void OnPaint(wxPaintEvent& event);
 private:
+	wxString  m_tab;
 	wxString  m_key;
 	wxString  m_text;
+	wxString  m_group;
 	wxFont	  m_font;
 	wxColour  m_textColor;
 	wxColour  m_bgColor;
@@ -54,9 +58,9 @@ public:
 	AnkerPopupWidget(wxWindow* parent);
 	~AnkerPopupWidget();
 
-	void AddItem(wxString key,wxString text);
-	void AddItem(const std::map<wxString, std::vector<wxString>>& searchMap);
-	void showResMap(const std::map<wxString, std::vector<wxString>>& searchMap);
+	void AddItem(wxString tab, wxString optionKey, wxString optionLabel, wxString optionGroup="");
+	void AddItem(const std::map<wxString, std::map<wxString, std::vector<wxString> >>& itemData);
+	void showResMap(const std::map<wxString, std::map<wxString, wxString>>& searchMap);
 	void showAllItem();
 protected:
 	void initUi();
@@ -64,7 +68,7 @@ protected:
 private:
 	wxScrolledWindow* m_scrolledWindow{nullptr};
 	wxBoxSizer* m_pScrolledVSizer{ nullptr };
-	std::multimap<wxString, AnkerSearchItem*> m_itemMap;//Item -- label
+	std::multimap<wxString, AnkerSearchItem*> m_itemMap;//optionKey -- Item
 };
 #endif
 

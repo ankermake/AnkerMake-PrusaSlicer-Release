@@ -2205,8 +2205,9 @@ void Control::auto_color_change()
         });
     }
 
-    if (m_ticks.empty())
-        GUI::wxGetApp().plater()->get_notification_manager()->push_notification(GUI::NotificationType::EmptyAutoColorChange);
+    // comment by Samuel 20231106, Discarded  unused notification text
+    //if (m_ticks.empty())
+    //    GUI::wxGetApp().plater()->get_notification_manager()->push_notification(GUI::NotificationType::EmptyAutoColorChange);
 
     post_ticks_changed_event();
 }
@@ -2355,8 +2356,9 @@ void Control::add_code_as_tick(Type type, int selected_extruder/* = -1*/)
     if ( !check_ticks_changed_event(type) )
         return;
 
-    if (type == ColorChange && gcode(ColorChange).empty())
-        GUI::wxGetApp().plater()->get_notification_manager()->push_notification(GUI::NotificationType::EmptyColorChangeCode);
+    // comment by Samuel 20231106, Discarded  unused notification text
+    /*if (type == ColorChange && gcode(ColorChange).empty())
+        GUI::wxGetApp().plater()->get_notification_manager()->push_notification(GUI::NotificationType::EmptyColorChangeCode);*/
 
     const int extruder = selected_extruder > 0 ? selected_extruder : std::max<int>(1, m_only_extruder);
     const auto it = m_ticks.ticks.find(TickCode{ tick });

@@ -16,6 +16,7 @@
 #include "slic3r/GUI/I18N.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <iterator>
 #include <exception>
 #include <cstdlib>
@@ -92,9 +93,11 @@
 #include "DesktopIntegrationDialog.hpp"
 #include "SendSystemInfoDialog.hpp"
 #include "Downloader.hpp"
-#include "slic3r/GUI/Common/AnkerDialog.hpp"
+
 #include "BitmapCache.hpp"
 #include "Notebook.hpp"
+#include "AnkerComFunction.hpp"
+#include "../Utils/DataMangerUi.hpp"
 
 #ifdef __WXMSW__
 #include <dbt.h>
@@ -117,13 +120,23 @@
     #include <gtk/gtk.h>
 #endif
 #include "AnkerConfig.hpp"
+#include "FilamentMaterialManager.hpp"
 
 #include "libslic3r/Utils.hpp"
+#include <slic3r/Utils/DataMangerUi.hpp>
+
+#include "AnkerNetModule/BuryDefines.h"
+#include "AnkerNetModule/HttpTool.h"
+#include "AnkerNetBase.h"
+#include <slic3r/GUI/AnkerNetModule/AnkerNetDownloadDialog.h>
+
 
 // The default retention log is 7 days
 #define LOG_SAVE_DAYS  7
 // sleep four hours
 #define LOG_THRD_SLEEP_TIME  4 * 60 * 60 * 1000
+// The default retention temp gcode file is 2 days
+#define TEMP_GCODE_SAVE_DAYS 2
 
 using namespace std::literals;
 
@@ -134,27 +147,46 @@ class MainFrame;
 
 extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& lineLength)
 {
-	if (Slic3r::GUI::wxGetApp().getCurrentLanguageType() == Slic3r::GUI::GUI_App::AnkerLanguageType::AnkerLanguageType_English)
-		return str;
+    //auto currentLanguage = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+	//if (currentLanguage<= wxLANGUAGE_ENGLISH_ZIMBABWE && currentLanguage>= wxLANGUAGE_ENGLISH)
+	//	return str;
 
 	wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
 	dc.SetFont(font);
 	wxSize size = dc.GetTextExtent(str);
 
-	wxString wrapStr = "";
+	wxString wrapStr = str;
 	int tmpWidth = 0;
 
+    int spaceIndex = -1;
+    int wrapCount = 0;
 	for (size_t i = 0; i < str.length(); i++) {
 		wxSize tmpSize = dc.GetTextExtent(str[i]);
 		tmpWidth += tmpSize.x;
+
+        if (str[i] == ' ')
+            spaceIndex = i;
+
 		if (tmpWidth < lineLength) {
-			wrapStr += str[i];
-		}
+            wrapStr[i + wrapCount] = str[i];
+        }
 		else {
-			wrapStr += '\n';
-			wrapStr += str[i];
-			tmpWidth = 1;
-		}
+            wrapStr.append(' ');
+            if(spaceIndex < 0)
+            {
+                wrapStr[i + wrapCount] = '\n';
+                wrapStr[i + wrapCount + 1] = str[i];
+            }
+            else 
+            {
+                i = spaceIndex;
+                wrapStr[i + wrapCount ] = str[i];
+                wrapStr[i + wrapCount + 1] = '\n';
+                spaceIndex = -1;
+            }
+            wrapCount++;
+            tmpWidth = 1;
+        }
 	}
 
 	return wrapStr;
@@ -767,7 +799,7 @@ static void register_win32_device_notification_event()
 			Slic3r::GUI::wxGetApp().other_instance_message_handler()->handle_message(boost::nowide::narrow(arguments));
 		}
 		return true;
-		});
+    });
 }
 #endif // WIN32
 
@@ -813,6 +845,13 @@ static void generic_exception_handle()
         BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();*/
         ANKER_LOG_ERROR << boost::format("Uncaught exception: %1%") % ex.what();
         throw;
+    }
+}
+
+void GUI_App::request_model_download(std::string url)
+{
+    if (plater_) {
+        plater_->request_model_download(url);
     }
 }
 
@@ -878,32 +917,44 @@ void GUI_App::post_init()
     }
 
     // show "Did you know" notification
-    if (app_config->get_bool("show_hints") && ! is_gcode_viewer())
-        plater_->get_notification_manager()->push_hint_notification(true);
+    // comment by Samuel 20231106, Discarded  unused notification text
+    //if (app_config->get_bool("show_hints") && ! is_gcode_viewer())
+    //    plater_->get_notification_manager()->push_hint_notification(true);
 
     // TODO: version update & preset update
     // // The extra CallAfter() is needed because of Mac, where this is the only way
     // // to popup a modal dialog on start without screwing combo boxes.
     // // This is ugly but I honestly found no better way to do it.
     // // Neither wxShowEvent nor wxWindowCreateEvent work reliably.
-    // if (this->preset_updater) { // G-Code Viewer does not initialize preset_updater.
-    //     if (! this->check_updates(false))
-    //         // Configuration is not compatible and reconfigure was refused by the user. Application is closing.
-    //         return;
-    //     CallAfter([this] {
-    //         // preset_updater->sync downloads profile updates on background so it must begin after config wizard finished.
-    //         bool cw_showed = this->config_wizard_startup();
-    //         this->preset_updater->sync(preset_bundle);
-    //         if (! cw_showed) {
-    //             // The CallAfter is needed as well, without it, GL extensions did not show.
-    //             // Also, we only want to show this when the wizard does not, so the new user
-    //             // sees something else than "we want something" on the first start.
-    //             show_send_system_info_dialog_if_needed();   
-    //         }  
-    //         // app version check is asynchronous and triggers blocking dialog window, better call it last
-    //         // this->app_version_check(false);
-    //     });
-    // }
+     //if (this->preset_updater) { // G-Code Viewer does not initialize preset_updater.
+     //    if (! this->check_updates(false))
+     //        // Configuration is not compatible and reconfigure was refused by the user. Application is closing.
+     //        return;
+     //    CallAfter([this] {
+     //        // preset_updater->sync downloads profile updates on background so it must begin after config wizard finished.
+     //        bool cw_showed = this->config_wizard_startup();
+     //        this->preset_updater->sync(preset_bundle);
+     //        if (! cw_showed) {
+     //            // The CallAfter is needed as well, without it, GL extensions did not show.
+     //            // Also, we only want to show this when the wizard does not, so the new user
+     //            // sees something else than "we want something" on the first start.
+     //            show_send_system_info_dialog_if_needed();   
+     //        }  
+     //        // app version check is asynchronous and triggers blocking dialog window, better call it last
+     //        // this->app_version_check(false);
+     //    });
+     //}
+
+
+     bool cw_showed = this->config_wizard_startup();
+     this->preset_updater->sync(preset_bundle);
+     if (!cw_showed) {
+         // The CallAfter is needed as well, without it, GL extensions did not show.
+         // Also, we only want to show this when the wizard does not, so the new user
+         // sees something else than "we want something" on the first start.
+         show_send_system_info_dialog_if_needed();
+     }
+
 
     // Set AnkerStudio version and save to AnkerStudio.ini or AnkerStudioGcodeViewer.ini.
 
@@ -925,6 +976,8 @@ GUI_App::GUI_App(EAppMode mode)
 	, m_removable_drive_manager(std::make_unique<RemovableDriveManager>())
 	, m_other_instance_message_handler(std::make_unique<OtherInstanceMessageHandler>())
     , m_downloader(std::make_unique<Downloader>())
+    , m_filament_material_manager(std::make_unique<FilamentMaterialManager>())
+    , m_onlinePresetManager(std::make_unique<OnlinePresetManager>())
 {
 	//app config initializes early becasuse it is used in instance checking in AnkerStudio.cpp
     ANKER_LOG_INFO << "parse anker app config";
@@ -932,12 +985,6 @@ GUI_App::GUI_App(EAppMode mode)
 
     // init app downloader after path to datadir is set
     m_app_updater = std::make_unique<AppUpdater>();
-
-
-    m_bDelLogTimerStop.store(false);
-    m_thrdDelLog = std::thread(&GUI_App::delLogtimer, this);
-    m_thrdDelLog.detach();
-
 }
 
 GUI_App::~GUI_App()
@@ -946,6 +993,7 @@ GUI_App::~GUI_App()
     delete preset_bundle;
     delete preset_updater;
     m_bDelLogTimerStop.store(true);
+    m_bReadUrlStop.store(true);
 }
 
 // If formatted for github, plaintext with OpenGL extensions enclosed into <details>.
@@ -1167,16 +1215,21 @@ bool GUI_App::check_privacy_policy()
     std::string user_agreement_ver = app_config->get("user_agreement_ver");
     if (user_agreement_ver != app_version)
     {
-        auto ShowUserAgreeDlg = [&]() {
-            wxSize dialogSize = AnkerSize(600, 320);
-            AnkerDialog dialog(nullptr, wxID_ANY, _L("User Agreement"),
+        auto ShowUserAgreeDlg = [&]() { 
+            AnkerDialog tmpdialog(nullptr, wxID_ANY, _L(""), _L(""), wxDefaultPosition, wxDefaultSize);
+            int dpi = get_dpi_for_window(&tmpdialog);
+            float scale_factor = (float)dpi / (float)DPI_DEFAULT;
+
+            wxSize dialogSize = wxSize(scale_factor * 600, scale_factor * 300); 
+            AnkerDialog dialog(nullptr, wxID_ANY, _L("common_launch_policy_title"),
                 _L(""), wxDefaultPosition, dialogSize);
             dialog.setBackgroundColour(wxColour("#151619"));
+
 
             // dialog content 
             wxPanel* contentPanel = new wxPanel(&dialog);
             wxBoxSizer* contenSizer = new wxBoxSizer(wxVERTICAL);
-            contenSizer->AddSpacer(50);
+            contenSizer->AddSpacer(50 * scale_factor);
 
             wxStaticText* welcomeText = new wxStaticText(contentPanel, wxID_ANY, _L("common_launch_policy_content1"));    // "Welcome to AnkerMake"
             welcomeText->SetBackgroundColour(wxColour("#151619"));
@@ -1184,13 +1237,13 @@ bool GUI_App::check_privacy_policy()
             welcomeText->SetFont(ANKER_BOLD_FONT_BIG);
             contenSizer->Add(welcomeText, 0, wxALIGN_CENTER_HORIZONTAL, 0);
 
-            contenSizer->AddSpacer(10);
+            contenSizer->AddSpacer(10 * scale_factor);
 
             {
                 // text:"Please click to read the Terms of Use and Privacy Policy" ,with link
                 wxBoxSizer* HelpTextSizer = new wxBoxSizer(wxHORIZONTAL);
 
-                wxStaticText* helpText = new wxStaticText(contentPanel, wxID_ANY, _L("Please click to read the"));
+                wxStaticText* helpText = new wxStaticText(contentPanel, wxID_ANY, _L("common_launch_policy_content2"));
                 helpText->SetBackgroundColour(wxColour("#151619"));
                 helpText->SetForegroundColour(wxColour(255, 255, 255));
                 helpText->SetFont(ANKER_FONT_NO_1);
@@ -1199,11 +1252,10 @@ bool GUI_App::check_privacy_policy()
                 wxButton* TermsOfUse = new wxButton(contentPanel, wxID_ANY, _L(""), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
                 TermsOfUse->SetBackgroundColour(wxColour("#151619"));
                 TermsOfUse->SetForegroundColour(wxColour("#65d361"));
-                TermsOfUse->SetLabel(_L("Terms of Use"));
+                TermsOfUse->SetLabel(_L("common_launch_policy_content3"));
                 TermsOfUse->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
-                    int type = getCurrentLanguageType();
                     wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.en.html";
-                    if (wxLanguage::wxLANGUAGE_JAPANESE == type || wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type)
+                    if (MainFrame::languageIsJapanese())
                         URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.ja.html";
                     //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
                     wxLaunchDefaultBrowser(URL);
@@ -1211,7 +1263,7 @@ bool GUI_App::check_privacy_policy()
                 );
                 HelpTextSizer->Add(TermsOfUse, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
 
-                wxStaticText* helpText2 = new wxStaticText(contentPanel, wxID_ANY, _L("and"));
+                wxStaticText* helpText2 = new wxStaticText(contentPanel, wxID_ANY, _L("common_launch_policy_content4")); // "and"
                 helpText2->SetBackgroundColour(wxColour("#151619"));
                 helpText2->SetForegroundColour(wxColour(255, 255, 255));
                 helpText2->SetFont(ANKER_FONT_NO_1);
@@ -1220,11 +1272,10 @@ bool GUI_App::check_privacy_policy()
                 wxButton* PrivacyPolicy = new wxButton(contentPanel, wxID_ANY, _L(""), wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
                 PrivacyPolicy->SetBackgroundColour(wxColour("#151619"));
                 PrivacyPolicy->SetForegroundColour(wxColour("#65d361"));
-                PrivacyPolicy->SetLabel(_L("Privacy Policy"));
+                PrivacyPolicy->SetLabel(_L("common_launch_policy_content5"));
                 PrivacyPolicy->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
-                    int type = getCurrentLanguageType();
                     wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.en.html";
-                    if (wxLanguage::wxLANGUAGE_JAPANESE == type || wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type)
+                    if (MainFrame::languageIsJapanese())
                         URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.ja.html";
                     //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
                     wxLaunchDefaultBrowser(URL);
@@ -1236,13 +1287,14 @@ bool GUI_App::check_privacy_policy()
 
             }
 
-            contenSizer->AddSpacer(50);
+            contenSizer->AddSpacer(50 * scale_factor);
+            wxSize btnSize = wxSize(220 * scale_factor, 32 * scale_factor);
             // accept btn
             {
                 AnkerBtn* acceptBtn = new AnkerBtn(contentPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-                acceptBtn->SetMinSize(wxSize(220, 32));
+                acceptBtn->SetMinSize(btnSize);
                 // acceptBtn->SetMaxSize(wxSize(252, 24));
-                acceptBtn->SetText(L"Accept");
+                acceptBtn->SetText(_L("common_button_accept"));
                 acceptBtn->SetBackgroundColour("#62D361");
                 acceptBtn->SetTextColor("#FFFFFF");
                 acceptBtn->SetRadius(5);
@@ -1254,12 +1306,12 @@ bool GUI_App::check_privacy_policy()
                 contenSizer->Add(acceptBtn, 0, wxALIGN_CENTER_HORIZONTAL, 0);
             }
 
-            contenSizer->AddSpacer(20);
+            contenSizer->AddSpacer(20 * scale_factor);
             // decline btn
             {
                 AnkerBtn* declineBtn = new AnkerBtn(contentPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-                declineBtn->SetMinSize(wxSize(220, 32));
-                declineBtn->SetText(L"Decline");
+                declineBtn->SetMinSize(btnSize);
+                declineBtn->SetText(_L("common_button_decline"));
                 declineBtn->SetBackgroundColour("#444444");
                 declineBtn->SetTextColor("#FFFFFF");
                 declineBtn->SetRadius(5);
@@ -1270,7 +1322,7 @@ bool GUI_App::check_privacy_policy()
                 contenSizer->Add(declineBtn, 0, wxALIGN_CENTER_HORIZONTAL, 0);
             }
 
-            contenSizer->AddSpacer(25);
+            contenSizer->AddSpacer(25 * scale_factor);
 
             contentPanel->SetSizer(contenSizer);
             dialog.SetCustomContent(contentPanel);
@@ -1306,6 +1358,15 @@ bool GUI_App::OnInit()
          generic_exception_handle();
          return false;
      }*/
+
+    m_bDelLogTimerStop.store(false);
+    m_thrdDelLog = std::thread(&GUI_App::delLogtimer, this);
+    m_thrdDelLog.detach();
+
+    m_bReadUrlStop.store(false);
+    m_urlThread = std::thread(&GUI_App::readDownloadFile, this);
+    m_urlThread.detach();
+
     return on_init_inner();
 }
 
@@ -1369,6 +1430,8 @@ bool GUI_App::on_init_inner()
             return false;
     }
 
+    m_filament_material_manager->Load();
+
 #ifdef _MSW_DARK_MODE
     bool init_dark_color_mode = app_config->get_bool("dark_color_mode");
     bool init_sys_menu_enabled = app_config->get_bool("sys_menu_enabled");
@@ -1377,6 +1440,7 @@ bool GUI_App::on_init_inner()
     // initialize label colors and fonts
     init_ui_colours();
     init_fonts();
+    AnkerFontSingleton::getInstance().initSysFont();
 
     std::string older_data_dir_path;
     if (m_app_conf_exists) {
@@ -1424,6 +1488,9 @@ bool GUI_App::on_init_inner()
                 dlg.IsCheckBoxChecked() ? Http::tls_system_cert_store() : "");
         }
     }
+    onlinePresetManager()->CheckAndUpdate();
+    
+    DatamangerUi::GetInstance().LoadNetLibrary(nullptr, true);
 
     SplashScreen* scrn = nullptr;
     if (app_config->get_bool("show_splash_screen")) {
@@ -1465,7 +1532,6 @@ bool GUI_App::on_init_inner()
             ANKER_LOG_ERROR << "splashScreen created failed";
         }
     }
-
     preset_bundle = new PresetBundle();
 
     // just checking for existence of Slic3r::data_dir is not enough : it may be an empty directory
@@ -1479,25 +1545,28 @@ bool GUI_App::on_init_inner()
 
     if (is_editor()) {
 #ifdef __WXMSW__ 
+        associate_files();
         if (app_config->get_bool("associate_3mf"))
             associate_3mf_files();
         if (app_config->get_bool("associate_stl"))
             associate_stl_files();
 #endif // __WXMSW__
-
+        
         preset_updater = new PresetUpdater();
         Bind(EVT_SLIC3R_VERSION_ONLINE, &GUI_App::on_version_read, this);
         Bind(EVT_SLIC3R_EXPERIMENTAL_VERSION_ONLINE, [this](const wxCommandEvent& evt) {
             if (this->plater_ != nullptr && (m_app_updater->get_triggered_by_user() || app_config->get("notify_release") == "all")) {
                 std::string evt_string = into_u8(evt.GetString());
                 if (*Semver::parse(SLIC3R_VERSION) < *Semver::parse(evt_string)) {
-                    auto notif_type = (evt_string.find("beta") != std::string::npos ? NotificationType::NewBetaAvailable : NotificationType::NewAlphaAvailable);
+
+       //comment by Samuel 20231106, Discarded  unused notification text
+      /*              auto notif_type = (evt_string.find("beta") != std::string::npos ? NotificationType::NewBetaAvailable : NotificationType::NewAlphaAvailable);
                     this->plater_->get_notification_manager()->push_version_notification( notif_type
                         , NotificationManager::NotificationLevel::ImportantNotificationLevel
                         , Slic3r::format(_u8L("New prerelease version %1% is available."), evt_string)
                         , _u8L("See Releases page.")
                         , [](wxEvtHandler* evnthndlr) {wxGetApp().open_browser_with_warning_dialog("https://github.com/prusa3d/PrusaSlicer/releases"); return true; }
-                    );
+                    );*/
                 }
             }
             });
@@ -1518,6 +1587,7 @@ bool GUI_App::on_init_inner()
             show_error(nullptr, evt.GetString());
         }); 
 
+        Bind(EVT_DOWNLOAD_URL_FILE, [this](wxCommandEvent& evt) { start_download(evt.GetString().ToStdString()); });
     }
     else {
 #ifdef __WXMSW__ 
@@ -1558,7 +1628,7 @@ bool GUI_App::on_init_inner()
     ANKER_LOG_INFO << "create MainFrame when start App";
     mainframe = new MainFrame(app_config->has("font_size") ? atoi(app_config->get("font_size").c_str()) : -1); 
     SetTopWindow(mainframe);
-    mainframe->setUrl(AnkerConfig::LoginWebUrl);
+    mainframe->setUrl(LoginWebUrl);
     mainframe->getwebLoginDataBack();
     // hide settings tabs after first Layout
     /*if (is_editor())
@@ -1603,7 +1673,52 @@ bool GUI_App::on_init_inner()
     mainframe->m_plater->canvas3D()->set_force_on_screen(false);
     ANKER_LOG_DEBUG << "on_set_focus end";
 
+    mainframe->buryTime();
     mainframe->Show(true);
+
+    //report: start soft    
+    std::string errorCode = std::string("0");
+    std::string errorMsg = std::string("start soft");
+
+    std::map<std::string, std::string> buryMap;
+    auto now = std::chrono::system_clock::now();    
+    auto duration = now.time_since_epoch();        
+    std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+    
+    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+    long long timestamp = now_ms.count(); 
+
+    std::string strDuration = std::to_string(timestamp);
+    buryMap.insert(std::make_pair(c_ss_status, "end"));
+    buryMap.insert(std::make_pair(c_ss_time, strDuration));
+    buryMap.insert(std::make_pair(c_ss_error_code, errorCode));
+    buryMap.insert(std::make_pair(c_ss_error_msg, errorMsg));
+
+    std::vector<std::string> headerList;    
+    
+    auto para = DatamangerUi::GetInstance().GetNetPara();
+    headerList.push_back("App_name: " + para.App_name);
+    headerList.push_back("Model_type: " + para.Model_type);
+    headerList.push_back("App_version: " + para.App_version_V);
+    headerList.push_back("Country: " + para.Country);
+    headerList.push_back("Language: " + para.Language);
+    headerList.push_back("Expect:");
+    headerList.push_back("Openudid: " + para.Openudid);
+    headerList.push_back("Os_version: " + para.Os_version);
+    headerList.push_back("Os_type: " + para.Os_type);
+    headerList.push_back("Content-Type:application/json;charset=UTF-8");
+    setBuryHeaderList(headerList);
+
+    std::string envir = "US";
+    if (mainframe->m_currentEnvir == EN_ENVIR)
+        envir = "EU";
+    else if(mainframe->m_currentEnvir == QA_ENVIR)
+        envir = "QA";
+    else
+        envir = "US";
+    setPluginParameter("", envir,"", para.Openudid);
+
+    reportBuryEvent(e_start_soft, buryMap);
     // the position of mainframe is not correct
     /*if (mainframe->IsMaximized()) {
         mainframe->SetSize(wxGetApp().get_min_size());
@@ -1619,13 +1734,23 @@ bool GUI_App::on_init_inner()
     other_instance_message_handler()->bring_instance_forward();
 #endif //__APPLE__
 
-    Bind(wxEVT_IDLE, [this](wxIdleEvent& event)
-    {
+    Bind(wxEVT_IDLE, [this](wxIdleEvent& event) {
         if (! plater_)
             return;
 
         //this->obj_manipul()->update_if_dirty();
         this->aobj_manipul()->update_if_dirty();
+
+        // show download net lib, if need
+        static bool comeOnce = true;
+        if (comeOnce && !AnkerNetInst()) {
+            comeOnce = false;
+            auto loadRet = DatamangerUi::GetInstance().LoadNetLibrary();
+            if (loadRet) {
+                mainframe->InitDeviceWidget();
+                mainframe->getwebLoginDataBack();
+            }
+        }
 
         // An ugly solution to GH #5537 in which GUI_App::init_opengl (normally called from events wxEVT_PAINT
         // and wxEVT_SET_FOCUS before GUI_App::post_init is called) wasn't called before GUI_App::post_init and OpenGL wasn't initialized.
@@ -1647,6 +1772,8 @@ bool GUI_App::on_init_inner()
         if (m_post_initialized && app_config->dirty())
             app_config->save();
     });
+
+
 
     m_initialized = true;
 
@@ -1678,7 +1805,6 @@ bool GUI_App::on_init_inner()
     //    else if (answer == wxID_NO)
     //        app_config->set("restore_win_position", "1");
     //}
-
     return true;
 }
 
@@ -2104,7 +2230,8 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
 {
     m_is_recreating_gui = true;
 
-    mainframe->shutdown();
+    mainframe->shutdown(true);
+    mainframe->m_normalExit = true;
 
     wxProgressDialog dlg(msg_name, msg_name, 100, nullptr, wxPD_AUTO_HIDE);
     dlg.Pulse();
@@ -2112,9 +2239,9 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
 
     MainFrame *old_main_frame = mainframe;
     ANKER_LOG_INFO << "create MainFrame when call recreate_GUI";
+    //by Samuel, Drag into gcode scene, appmode would be set to GCodeViewer,we shoudl reset app_mode to Editor each time satrtup or reCreateGui
+    set_app_mode();
     mainframe = new MainFrame(app_config->has("font_size") ? atoi(app_config->get("font_size").c_str()) : -1);
-    mainframe->setUrl(AnkerConfig::LoginWebUrl);
-    mainframe->getwebLoginDataBack();
     if (is_editor())
         // hide settings tabs after first Layout
         mainframe->select_tab(size_t(0));
@@ -2141,8 +2268,9 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
 //         // Run the config wizard, don't offer the "reset user profile" checkbox.
 //         config_wizard_startup(true);
 //     });
-
     m_is_recreating_gui = false;
+    mainframe->setUrl(LoginWebUrl);
+    mainframe->getwebLoginDataBack();
 }
 
 void GUI_App::system_info()
@@ -2565,7 +2693,11 @@ bool GUI_App::load_language(wxString language, bool initial)
     	// There is a static list of lookup path prefixes in wxWidgets. Add ours.
 	    wxFileTranslationsLoader::AddCatalogLookupPathPrefix(from_u8(localization_dir()));
     	// Get the active language from AnkerStudio.ini, or empty string if the key does not exist.
-        language =  app_config->get("translation_language");
+        if (app_config->has("translation_language"))
+            language = app_config->get("translation_language");
+        else
+            language = MainFrame::GetTranslateLanguage();
+
         if (! language.empty())
         	BOOST_LOG_TRIVIAL(trace) << boost::format("translation_language provided by AnkerStudio.ini: %1%") % language;
 
@@ -2701,6 +2833,8 @@ bool GUI_App::load_language(wxString language, bool initial)
     //FIXME This is a temporary workaround, the correct solution is to switch to "C" locale during file import / export only.
     //wxSetlocale(LC_NUMERIC, "C");
     Preset::update_suffix_modified((" (" + _L("modified") + ")").ToUTF8().data());
+
+    app_config->set("translation_language", language.ToStdString());
 	return true;
 }
 
@@ -3332,7 +3466,7 @@ void GUI_App::OSXStoreOpenFiles(const wxArrayString &fileNames)
     if (fileNames.size() == num_gcodes) {
         // Opening AnkerStudio by drag & dropping a G-Code onto AnkerStudio icon in Finder,
         // just G-codes were passed. Switch to G-code viewer mode.
-        m_app_mode = EAppMode::GCodeViewer;
+        m_app_mode = EAppMode::Editor; // aden update.
         unlock_lockfile(get_instance_hash_string() + ".lock", data_dir() + "/cache/");
         if(app_config != nullptr)
             delete app_config;
@@ -3355,6 +3489,16 @@ void GUI_App::MacOpenFiles(const wxArrayString &fileNames)
             non_gcode_files.emplace_back(filename);
         }
     }
+    // Handle Double-click on your Mac to open GCode.
+    if(this->mainframe){
+        this->mainframe->Iconize(false); // Recovery window.
+    }
+    if(this->plater()){
+        this->plater()->load_files(fileNames);
+    }
+    ANKER_LOG_INFO << "load_files.";
+    return;
+    
     if (m_app_mode == EAppMode::GCodeViewer) {
         // Running in G-code viewer.
         // Load the first G-code into the G-code viewer.
@@ -3386,12 +3530,15 @@ void GUI_App::MacOpenFiles(const wxArrayString &fileNames)
 
 void GUI_App::MacOpenURL(const wxString& url)
 {
-    if (app_config && !app_config->get_bool("downloader_url_registered"))
-    {
-        notification_manager()->push_notification(NotificationType::URLNotRegistered);
-        BOOST_LOG_TRIVIAL(error) << "Recieved command to open URL, but it is not allowed in app configuration. URL: " << url;
-        return;
-    }
+    // web weak app 
+    ANKER_LOG_INFO << "-----MacOpenURL:" << url;
+    //if (app_config && !app_config->get_bool("downloader_url_registered"))
+    //{
+    //    // comment by Samuel 20231106, Discarded  unused notification text
+    //    //notification_manager()->push_notification(NotificationType::URLNotRegistered);
+    //    BOOST_LOG_TRIVIAL(error) << "Recieved command to open URL, but it is not allowed in app configuration. URL: " << url;
+    //    return;
+    //}
     start_download(boost::nowide::narrow(url));
 }
 
@@ -3489,6 +3636,16 @@ Downloader* GUI_App::downloader()
     return m_downloader.get();
 }
 
+FilamentMaterialManager* GUI_App::filamentMaterialManager()
+{
+    return m_filament_material_manager.get();
+}
+
+OnlinePresetManager* GUI_App::onlinePresetManager()
+{
+    return m_onlinePresetManager.get();
+}
+
 // extruders count from selected printer preset
 int GUI_App::extruders_cnt() const
 {
@@ -3579,11 +3736,29 @@ bool GUI_App::run_wizard(ConfigWizard::RunReason reason, ConfigWizard::StartPage
     //         return false;
     // }
 
-    auto wizard = new ConfigWizard(mainframe);
+    auto wizard = new ConfigWizard(mainframe, reason == ConfigWizard::RR_DATA_EMPTY ? false : true);
+    wxSize dialogSize = wxSize(900, 700);
+    wizard->SetSize(dialogSize);
+
+    wxDisplay display;
+    wxRect screenSize = display.GetGeometry();
+    wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+    wxPoint mfPos = wxGetApp().mainframe->GetPosition();
+    //wxPoint dlgPos = wxPoint(screenSize.GetWidth() / 2 - dialogSize.GetWidth() / 2,  screenSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+    wxPoint dlgPos = wxPoint(mfPos.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPos.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+    wizard->SetPosition(dlgPos);
+
     const bool res = wizard->run(reason, start_page);
 
     if (res) {
         load_current_presets();
+
+        //save config_wizard_done flag 
+        GUI::GUI_App* gui = dynamic_cast<GUI::GUI_App*>(GUI::GUI_App::GetInstance());
+        if (gui != nullptr)
+        {
+            gui->app_config->set("config_wizard_done", "1");
+        }
 
         // #ysFIXME - delete after testing: This part of code looks redundant. All checks are inside ConfigWizard::priv::apply_config() 
         if (preset_bundle->printers.get_edited_preset().printer_technology() == ptSLA)
@@ -3764,6 +3939,24 @@ void GUI_App::window_pos_sanitize(wxTopLevelWindow* window)
 
 bool GUI_App::config_wizard_startup()
 {
+    GUI::GUI_App* gui = dynamic_cast<GUI::GUI_App*>(GUI::GUI_App::GetInstance());
+    if (gui != nullptr && !gui->app_config->get_bool("config_wizard_done"))
+    {
+        auto ankerNet = AnkerNetInst();
+        if (ankerNet != nullptr)
+        {
+            std::map<std::string,std::string> map;
+            map.insert(std::make_pair(c_config_wizard_entrance, "enter of first config"));
+            BuryAddEvent(e_config_wizard_event, map);
+        }
+
+        ANKER_LOG_INFO << "Enter config wizard Dialog of first config";
+        run_wizard(ConfigWizard::RR_DATA_EMPTY);
+    }
+    return true;
+
+
+
     if (!m_app_conf_exists || preset_bundle->printers.only_default_printers()) {
         run_wizard(ConfigWizard::RR_DATA_EMPTY);
         return true;
@@ -3904,16 +4097,17 @@ void GUI_App::on_version_read(wxCommandEvent& evt)
     if (*Semver::parse(SLIC3R_VERSION) >= *Semver::parse(into_u8(evt.GetString()))) {
         if (m_app_updater->get_triggered_by_user())
         {
-            std::string text = (*Semver::parse(into_u8(evt.GetString())) == Semver()) 
-                ? Slic3r::format(_u8L("Check for application update has failed."))
-                : Slic3r::format(_u8L("No new version is available. Latest release version is %1%."), evt.GetString());
+            // comment by Samuel 20231106, Discarded  unused notification text
+            //std::string text = (*Semver::parse(into_u8(evt.GetString())) == Semver()) 
+            //    ? Slic3r::format(_u8L("Check for application update has failed."))
+            //    : Slic3r::format(_u8L("No new version is available. Latest release version is %1%."), evt.GetString());
 
-            this->plater_->get_notification_manager()->push_version_notification(NotificationType::NoNewReleaseAvailable
-                , NotificationManager::NotificationLevel::RegularNotificationLevel
-                , text
-                , std::string()
-                , std::function<bool(wxEvtHandler*)>()
-            );
+            //this->plater_->get_notification_manager()->push_version_notification(NotificationType::NoNewReleaseAvailable
+            //    , NotificationManager::NotificationLevel::RegularNotificationLevel
+            //    , text
+            //    , std::string()
+            //    , std::function<bool(wxEvtHandler*)>()
+            //);
         }
         return;
     }
@@ -3969,7 +4163,8 @@ void GUI_App::app_updater(bool from_user)
     }
     app_data.target_path =dwnld_dlg.get_download_path();
     // start download
-    this->plater_->get_notification_manager()->push_download_progress_notification(GUI::format(_L("Downloading %1%"), app_data.target_path.filename().string()), std::bind(&AppUpdater::cancel_callback, this->m_app_updater.get()));
+    //comment by Samuel 20231106, Discarded  unused notification text
+    //this->plater_->get_notification_manager()->push_download_progress_notification(GUI::format(_L("Downloading %1%"), app_data.target_path.filename().string()), std::bind(&AppUpdater::cancel_callback, this->m_app_updater.get()));
     app_data.start_after = dwnld_dlg.run_after_download();
     m_app_updater->set_app_data(std::move(app_data));
     m_app_updater->sync_download();
@@ -3988,37 +4183,53 @@ void GUI_App::app_version_check(bool from_user)
     m_app_updater->sync_version(version_check_url, from_user);
 }
 
+#if 1
 void GUI_App::start_download(std::string url)
 {
     if (!plater_) {
         BOOST_LOG_TRIVIAL(error) << "Could not start URL download: plater is nullptr.";
         return; 
     }
+
+    if (boost::starts_with(url, "ankerstudio://open")) {
+        request_model_download(url);
+    }
+}
+
+#else
+void GUI_App::start_download(std::string url)
+{
+    if (!plater_) {
+        BOOST_LOG_TRIVIAL(error) << "Could not start URL download: plater is nullptr.";
+        return;
+    }
     //lets always init so if the download dest folder was changed, new dest is used 
-        boost::filesystem::path dest_folder(app_config->get("url_downloader_dest"));
-        if (dest_folder.empty() || !boost::filesystem::is_directory(dest_folder)) {
-            std::string msg = _u8L("Could not start URL download. Destination folder is not set. Please choose destination folder in Configuration Wizard.");
-            BOOST_LOG_TRIVIAL(error) << msg;
-            show_error(nullptr, msg);
-            return;
-        } 
+    boost::filesystem::path dest_folder(app_config->get("url_downloader_dest"));
+    if (dest_folder.empty() || !boost::filesystem::is_directory(dest_folder)) {
+        std::string msg = _u8L("Could not start URL download. Destination folder is not set. Please choose destination folder in Configuration Wizard.");
+        BOOST_LOG_TRIVIAL(error) << msg;
+        show_error(nullptr, msg);
+        return;
+    }
     m_downloader->init(dest_folder);
     m_downloader->start_download(url);
 }
+#endif
 
 void GUI_App::delLogtimer() {
     while (!m_bDelLogTimerStop.load()) {
-        auto_delete_logfile(LOG_SAVE_DAYS);
+        autoDeleteLogfile(LOG_SAVE_DAYS);
+        autoDeleteTempGcodeFile(TEMP_GCODE_SAVE_DAYS);
         std::this_thread::sleep_for(std::chrono::milliseconds(LOG_THRD_SLEEP_TIME));
     }
 }
 
-void GUI_App::auto_delete_logfile(const unsigned int days) {
-    ANKER_LOG_INFO << "auto_delete_logfile enter";
+void GUI_App::autoDeleteLogfile(const unsigned int days) {
+    ANKER_LOG_INFO << "autoDeleteLogfile enter";
     boost::filesystem::path targetLogPath = getLogDirPath();
     bool bExists = boost::filesystem::exists(targetLogPath);
     if (!bExists) {
-        ANKER_LOG_INFO << "auto_delete_logfile fail, " << targetLogPath.string().c_str() << " is not exist";
+        ANKER_LOG_INFO << "autoDeleteLogfile fail, " << targetLogPath.string().c_str() << " is not exist";
         return;
     }
 
@@ -4034,13 +4245,115 @@ void GUI_App::auto_delete_logfile(const unsigned int days) {
                     boost::filesystem::remove(*iter);
                 }
                 catch (const std::exception& ex) {
-                    ANKER_LOG_INFO << "auto_delete_logfile remove fail, errMsg=" << ex.what();
+                    ANKER_LOG_INFO << "autoDeleteLogfile remove fail, errMsg=" << ex.what();
                     return;
                 }
             }
         }
     }
 }
+
+void GUI_App::autoDeleteTempGcodeFile(const unsigned int days)
+{
+    boost::filesystem::path tempGcodePath(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+    ANKER_LOG_INFO << "autoDeleteTempGcodeFile enter, tempGcodePath is " << tempGcodePath.string().c_str();
+    bool bExists = boost::filesystem::exists(tempGcodePath);
+    if (!bExists) {
+        ANKER_LOG_INFO << "autoDeleteTempGcodeFile fail, " << tempGcodePath.string().c_str() << " is not exist";
+        return;
+    }
+
+    boost::filesystem::directory_iterator endIter;
+    for (boost::filesystem::directory_iterator iter(tempGcodePath); iter != endIter; iter++) {
+        size_t foundGcode = (*iter).path().string().find(".gcode");
+        size_t foundAcode = (*iter).path().string().find(".acode");
+        bool bRemoveTempFile = (foundGcode != std::string::npos) || (foundAcode != std::string::npos);
+        if (!boost::filesystem::is_directory(*iter) && bRemoveTempFile) {
+            time_t tCurTime = time(NULL);
+
+            std::time_t tFileCreateTime = boost::filesystem::creation_time(*iter);
+            if (tCurTime - tFileCreateTime > days * 24 * 60 * 60) {
+                // delete old log file
+                try {
+                    boost::filesystem::remove(*iter);
+                }
+                catch (const std::exception& ex) {
+                    ANKER_LOG_INFO << "autoDeleteTempGcodeFile remove fail, errMsg=" << ex.what();
+                    return;
+                }
+                catch (...) {
+                    ANKER_LOG_INFO << "autoDeleteTempGcodeFile remove fail" ;
+                    return;
+                }
+            }
+        }
+    }
+
+}
+
+void GUI_App::autoDeleteUrlFile()
+{
+    std::string down_url = "";
+    auto get_url = [&]() {
+        boost::filesystem::path tempPath(wxStandardPaths::Get().GetTempDir().utf8_str().data());
+        if (!boost::filesystem::exists(tempPath)) {
+            ANKER_LOG_INFO << "autoDeleteUrlFile fail, " << tempPath.string().c_str() << " is not exist";
+            return false;
+        }
+
+        tempPath /= boost::format("download_url.txt").str();
+        std::ifstream file(tempPath.string(), std::ios::in);
+        if (!file.good()) {
+            return false;
+        }
+
+        if (!file.is_open()) {
+            ANKER_LOG_ERROR << "Unable to open file for read !";
+            return false;
+        }
+        else {
+            std::string str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            down_url = std::move(str);
+            file.close();
+            try {
+            boost::filesystem::remove(tempPath);
+        }
+            catch(const std::exception& ex) {
+                ANKER_LOG_INFO << "autoDeleteUrlFile remove failed, errMsg= " << ex.what() << " tempPath:"<< tempPath;
+                return false;
+           }
+            catch (...) {
+                ANKER_LOG_INFO << "autoDeleteUrlFile remove failed";
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    if (get_url() && !down_url.empty()) {
+        wxCommandEvent* evt = new  wxCommandEvent(EVT_DOWNLOAD_URL_FILE);
+        evt->SetString(down_url);
+        wxQueueEvent(this, evt);
+    }
+}
+
+void GUI_App::readDownloadFile()
+{
+    while (!m_bReadUrlStop.load()) {
+        autoDeleteUrlFile();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
+void GUI_App::on_CrashTrack()
+{
+    std::map<std::string, std::string> map;
+    map.insert(std::make_pair(c_crash_flag, "true"));
+    BuryAddEvent(e_crash_info, map);
+}
+
+
 
 } // GUI
 } //Slic3r

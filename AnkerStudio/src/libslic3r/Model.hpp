@@ -766,7 +766,7 @@ public:
     Source              source;
 
     // struct used by cut command 
-    // It contains information about connetors
+    // It contains information about connectors
     struct CutInfo
     {
         bool                is_connector{ false };
@@ -1136,6 +1136,56 @@ public:
     void set_rotation(const Vec3d& rotation) { m_transformation.set_rotation(rotation); }
     void set_rotation(Axis axis, double rotation) { m_transformation.set_rotation(axis, rotation); }
 
+    void rotate(const Matrix3d& matrix) {
+        auto R = get_matrix().matrix().block<3, 3>(0, 0);
+        auto R_new = matrix * R;
+        auto euler_angles = extract_euler_angles(R_new);
+        set_rotation(euler_angles);
+    }
+
+    Vec3d extract_euler_angles(const Eigen::Matrix<double, 3, 3, Eigen::DontAlign>& rotation_matrix) {
+        Vec3d angle1 = Vec3d::Zero();
+        Vec3d angle2 = Vec3d::Zero();
+
+        if (std::abs(std::abs(rotation_matrix(2, 0)) - 1.0) < 1e-5 || std::abs(rotation_matrix(2, 0)) > 1)
+        {
+            angle1(2) = 0.0;
+            if (rotation_matrix(2, 0) < 0.0) // == -1.0
+            {
+                angle1(1) = 0.5 * (double)PI;
+                angle1(0) = angle1(2) + ::atan2(rotation_matrix(0, 1), rotation_matrix(0, 2));
+            }
+            else // == 1.0
+            {
+                angle1(1) = -0.5 * (double)PI;
+                angle1(0) = -angle1(2) + ::atan2(-rotation_matrix(0, 1), -rotation_matrix(0, 2));
+            }
+            angle2 = angle1;
+        }
+        else
+        {
+            angle1(1) = -::asin(rotation_matrix(2, 0));
+            double inv_cos1 = 1.0 / ::cos(angle1(1));
+            angle1(0) = ::atan2(rotation_matrix(2, 1) * inv_cos1, rotation_matrix(2, 2) * inv_cos1);
+            angle1(2) = ::atan2(rotation_matrix(1, 0) * inv_cos1, rotation_matrix(0, 0) * inv_cos1);
+
+            angle2(1) = (double)PI - angle1(1);
+            double inv_cos2 = 1.0 / ::cos(angle2(1));
+            angle2(0) = ::atan2(rotation_matrix(2, 1) * inv_cos2, rotation_matrix(2, 2) * inv_cos2);
+            angle2(2) = ::atan2(rotation_matrix(1, 0) * inv_cos2, rotation_matrix(0, 0) * inv_cos2);
+        }
+
+        // The following euristic is the best found up to now (in the sense that it works fine with the greatest number of edge use-cases)
+        // but there are other use-cases were it does not
+        // We need to improve it
+        double min_1 = angle1.cwiseAbs().minCoeff();
+        double min_2 = angle2.cwiseAbs().minCoeff();
+        bool use_1 = (min_1 < min_2) || (is_approx(min_1, min_2) && (angle1.norm() <= angle2.norm()));
+
+        return use_1 ? angle1 : angle2;
+    }
+
+
     Vec3d get_scaling_factor() const { return m_transformation.get_scaling_factor(); }
     double get_scaling_factor(Axis axis) const { return m_transformation.get_scaling_factor(axis); }
 
@@ -1238,11 +1288,32 @@ private:
     template<typename Archive> void serialize(Archive &ar) { ar(position, rotation); }
 };
 
+// structure stores extruder parameters and speed map of all models
+struct ExtruderParams
+{
+    std::string materialName;
+    int bedTemp;
+    double heatEndTemp;
+};
+
+struct GlobalSpeedMap
+{
+    double perimeterSpeed;
+    double externalPerimeterSpeed;
+    double infillSpeed;
+    double solidInfillSpeed;
+    double topSolidInfillSpeed;
+    double supportSpeed;
+    double smallPerimeterSpeed;
+    double maxSpeed;
+    Polygon bed_poly;
+};
+
 // The print bed content.
 // Description of a triangular model with multiple materials, multiple instances with various affine transformations
 // and with multiple modifier meshes.
 // A model groups multiple objects, each object having possibly multiple instances,
-// all objects may share mutliple materials.
+// all objects may share multiple materials.
 class Model final : public ObjectBase
 {
 public:
@@ -1254,6 +1325,10 @@ public:
     // Wipe tower object.
     ModelWipeTower	    wipe_tower;
 
+    // static members store extruder parameters and speed map of all models
+    static std::map<size_t, ExtruderParams> extruderParamsMap;
+    static GlobalSpeedMap printSpeedMap;
+    
     // Extensions for color print
     CustomGCode::Info custom_gcode_per_print_z;
     
@@ -1284,6 +1359,12 @@ public:
         const std::string& input_file, 
         DynamicPrintConfig* config, ConfigSubstitutionContext* config_substitutions,
         LoadAttributes options = LoadAttribute::AddDefaultInstances);
+
+    // BBS 
+    static Polygon getBedPolygon() { return Model::printSpeedMap.bed_poly; };
+	static double findMaxSpeed(const ModelObject* object);
+	static double getThermalLength(const ModelVolume* modelVolumePtr);
+	static double getThermalLength(const std::vector<ModelVolume*> modelVolumePtrs);
 
     // Add a new ModelObject to this Model, generate a new ID for this ModelObject.
     ModelObject* add_object();
@@ -1390,13 +1471,13 @@ bool model_custom_seam_data_changed(const ModelObject& mo, const ModelObject& mo
 // The function assumes that volumes list is synchronized.
 extern bool model_mmu_segmentation_data_changed(const ModelObject& mo, const ModelObject& mo_new);
 
-// If the model has object(s) which contains a modofoer, then it is currently not supported by the SLA mode.
+// If the model has object(s) which contains a modifier, then it is currently not supported by the SLA mode.
 // Either the model cannot be loaded, or a SLA printer has to be activated.
 bool model_has_parameter_modifiers_in_objects(const Model& model);
 // If the model has multi-part objects, then it is currently not supported by the SLA mode.
 // Either the model cannot be loaded, or a SLA printer has to be activated.
 bool model_has_multi_part_objects(const Model &model);
-// If the model has objects with cut connectrs, then it is currently not supported by the SLA mode.
+// If the model has objects with cut connects, then it is currently not supported by the SLA mode.
 bool model_has_connectors(const Model& model);
 // If the model has advanced features, then it cannot be processed in simple mode.
 bool model_has_advanced_features(const Model &model);

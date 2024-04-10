@@ -33,7 +33,7 @@
 #include <wx/renderer.h>
 #include <wx/renderer.h>
 
-
+#include "Plater.hpp"
 #include "GCodeViewer.hpp"
 
 
@@ -109,7 +109,7 @@ private:
 
 
 
-class GcodeExportProgressDialog : public wxDialog
+class GcodeExportProgressDialog : public wxFrame
 {
 public:
     GcodeExportProgressDialog(wxWindow* parent); 
@@ -129,28 +129,33 @@ private:
 
 
 
-class AnkerGcodeInfo : public wxPanel
+class AnkerGcodeInfoPanel : public wxPanel
 {
 public:
-    AnkerGcodeInfo(wxWindow* parent) : wxPanel(parent, wxID_ANY) { 
+    friend class AnkerGcodePreviewSideBar;
+    AnkerGcodeInfoPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) { 
         InitGUI();
     };
-    ~AnkerGcodeInfo() {};
+    ~AnkerGcodeInfoPanel() {};
 
     void InitGUI();
-    void UpdateSlicedInfo(bool GcodeValid);
+    void UpdateSlicedInfo(bool GcodeValid, RightSidePanelUpdateReason reason = REASON_NONE);
 private:
-
+    void CreateExportProgressDlg();
     std::string getReadableTime(int seconds);
+    std::string getFormatedFilament(std::string filamentStr);
+    void SetAIValByPrinterModel();
+    void EnableAIUI(bool enable);
     void OnGoPrintBtnClick(wxCommandEvent& event);
     void OnExportBtnClick(wxCommandEvent& event);
-
+    void UpdateBtnClr();
 
 private:
     wxStaticText* m_sizeValueLabel = nullptr;
     wxStaticText* m_filametValueLabel = nullptr;
     wxStaticText* m_printTimeValLabel = nullptr;
     AnkerCheckBox* m_createAIFilecheckbox = nullptr;
+    wxStaticText* m_AILabel = nullptr;
     wxStaticText* m_AIFileNotSuportLabel = nullptr;
 
     wxBoxSizer* AISizer = nullptr;
@@ -160,7 +165,7 @@ private:
     AnkerBtn* m_exportBtn = nullptr;
 
     GcodeExportProgressDialog *m_exportProgressDlg = nullptr;
-    bool m_exportingGcode = false;
+    std::atomic_bool m_onOneKeyPrint{ false };
 };
 
 
@@ -174,15 +179,15 @@ public:
     ~AnkerGcodePreviewSideBar() {};
 
     void InitGUI();
-    void UpdateGcodePreviewSideBar(bool GcodeValid);
+    void UpdateGcodePreviewSideBar(bool GcodeValid, RightSidePanelUpdateReason reason = REASON_NONE);
     void UpdateCurrentViewType(GCodeViewer::EViewType type);
 
 private:
 
     AnkerGcodeViewPanel* m_GcodeViewPanel = nullptr;
     AnkerGCodeExtrusionRoleSelectPanel* m_gCodeExtrusionRoleSelectPanel = nullptr;
-    AnkerGcodeInfo* m_GcodeInfoPanel = nullptr;
-
+    AnkerGcodeInfoPanel* m_GcodeInfoPanel = nullptr;
+    wxTimer timer;
 };
 
 #endif // !GCODE_INFOMATION_PANEL_H

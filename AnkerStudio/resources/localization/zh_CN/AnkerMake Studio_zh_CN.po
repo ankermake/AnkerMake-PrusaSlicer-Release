@@ -4545,7 +4545,7 @@ msgstr "陈列室"
 
 #: src/slic3r/GUI/GUI_Factories.cpp:529 src/slic3r/GUI/GUI_Factories.cpp:549 src/slic3r/GUI/GUI_ObjectList.cpp:660
 msgid "Text"
-msgstr ""
+msgstr "文本"
 
 #: src/slic3r/GUI/GUI_Factories.cpp:555 src/slic3r/GUI/GUI_Factories.cpp:558 src/slic3r/GUI/GUI_Factories.cpp:595
 msgid "Height range Modifier"
@@ -9390,7 +9390,7 @@ msgstr "重置为耗材颜色"
 
 #: src/slic3r/GUI/Tab.cpp:2775
 msgid "Apply below setting to other extruders"
-msgstr ""
+msgstr "将以下设置应用于其他挤出机"
 
 #: src/slic3r/GUI/Tab.cpp:2820
 msgid "Layer height limits"
@@ -11122,7 +11122,7 @@ msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:407
 msgid "Plan travel moves such that the extruder avoids areas where the filament may be curled up. This is mostly happening on steeper rounded overhangs and may cause a crash with the nozzle. This feature slows down both the print and the G-code generation."
-msgstr ""
+msgstr "计划行程移动，以使挤出机避开细丝可能卷曲的区域。这种情况主要发生在更陡的圆形悬挑上，可能会导致喷嘴碰撞。此功能可降低打印和G代码生成的速度。"
 
 #: src/libslic3r/PrintConfig.cpp:414
 msgid "Avoid crossing perimeters"
@@ -11237,13 +11237,9 @@ msgstr "打印桥接的速度。"
 msgid "mm/s"
 msgstr "mm/s"
 
-#: src/libslic3r/PrintConfig.cpp:537
-msgid "This setting enables dynamic speed control on overhangs."
-msgstr ""
-
 #: src/libslic3r/PrintConfig.cpp:541
 msgid "Overhang size is expressed as a percentage of overlap of the extrusion with the previous layer: 100% would be full overlap (no overhang), while 0% represents full overhang (floating extrusion, bridge). Speeds for overhang sizes in between are calculated via linear interpolation. If set as percentage, the speed is calculated over the external perimeter speed."
-msgstr ""
+msgstr "悬挑尺寸表示为拉伸与上一层重叠的百分比：100%表示完全重叠（无悬挑），而0%表示完全悬挑（浮动拉伸、桥接）。介于两者之间的悬挑尺寸的速度通过线性插值计算。如果设置为百分比，则速度是根据外部周长速度计算的。"
 
 #: src/libslic3r/PrintConfig.cpp:550 src/libslic3r/PrintConfig.cpp:559 src/libslic3r/PrintConfig.cpp:568 src/libslic3r/PrintConfig.cpp:577 src/libslic3r/PrintConfig.cpp:856 src/libslic3r/PrintConfig.cpp:1305 src/libslic3r/PrintConfig.cpp:1316 src/libslic3r/PrintConfig.cpp:2387 src/libslic3r/PrintConfig.cpp:2440 src/libslic3r/PrintConfig.cpp:2765 src/libslic3r/PrintConfig.cpp:2997
 msgid "mm/s or %"
@@ -11255,11 +11251,13 @@ msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:584
 msgid "This setting enables dynamic fan speed control on overhangs."
-msgstr ""
+msgstr "此设置可在悬挑上启用动态风扇速度控制。"
 
 #: src/libslic3r/PrintConfig.cpp:589
 msgid "Overhang size is expressed as a percentage of overlap of the extrusion with the previous layer: 100% would be full overlap (no overhang), while 0% represents full overhang (floating extrusion, bridge). Fan speeds for overhang sizes in between are calculated via linear interpolation. "
 msgstr ""
+"悬挑尺寸表示为拉伸与上一层重叠的百分比：100%表示完全重叠（无悬挑），而0%表示"
+"完全悬挑（浮动拉伸、桥接）。介于两者之间的悬挑尺寸的风扇速度通过线性插值计算。"
 
 #: src/libslic3r/PrintConfig.cpp:630
 msgid "Brim width"
@@ -11405,6 +11403,10 @@ msgstr "用于构建板自动排列功能的距离。"
 msgid "This end procedure is inserted at the end of the output file. Note that you can use placeholder variables for all AnkerMake_alpha settings."
 msgstr "此结束过程插入到输出文件的末尾。请注意，您可以将占位符变量用于所有 AnkerMake_alpha 设置。"
 
+#: src/libslic3r/PrintConfig.cpp:685
+msgid "This end procedure is inserted at the end of the output file. Note that you can use placeholder variables for all AnkerMake Studio settings."
+msgstr "此结束过程插入到输出文件的末尾。请注意，您可以将占位符变量用于所有 AnkerMake Studio 设置。"
+
 #: src/libslic3r/PrintConfig.cpp:799
 msgid "This end procedure is inserted at the end of the output file, before the printer end gcode (and before any toolchange from this filament in case of multimaterial printers). Note that you can use placeholder variables for all AnkerMake_alpha settings. If you have multiple extruders, the gcode is processed in extruder order."
 msgstr "此结束过程插入输出文件的末尾、打印机结束 G-Code 之前（以及多材料打印机情况下从该耗材换出任何工具之前）。请注意，您可以将占位符变量用于所有 AnkerMake_alpha 设置。如果您有多个挤出机，则按挤出机顺序处理 G-Code。"
@@ -11427,7 +11429,7 @@ msgstr "单调的"
 
 #: src/libslic3r/PrintConfig.cpp:817
 msgid "Monotonic Lines"
-msgstr ""
+msgstr "单调线条"
 
 #: src/libslic3r/PrintConfig.cpp:818 src/libslic3r/PrintConfig.cpp:1229
 msgid "Aligned Rectilinear"
@@ -11490,13 +11492,98 @@ msgstr "如果需要，打印额外轮廓"
 msgid "Add more perimeters when needed for avoiding gaps in sloping walls. Slic3r keeps adding perimeters, until more than 70% of the loop immediately above is supported."
 msgstr "在需要时添加更多轮廓,以避免倾斜的墙壁出现间隙，Slic3r 不断添加轮廓,直到支撑超过 70% 的正上方循环。"
 
+#: src/libslic3r/PrintConfig.cpp:3094
+msgid ""
+"How far apart the branches need to be when they touch the model. Making this "
+"distance small will cause the tree support to touch the model at more "
+"points, causing better overhang but making support harder to remove."
+msgstr ""
+"当树枝接触到模型时，需要间隔多远。把这个距离变小会使树木的支撑物在更多的地方"
+"接触到模型，造成更好的悬空，但使支撑物更难移除。"
+
+#: src/libslic3r/PrintConfig.cpp:1550
+msgid ""
+"This is the acceleration your printer will use for travel moves. Set zero to "
+"disable acceleration control for travel."
+msgstr ""
+"这是你的打印机在移动时使用的加速度。设置为零是为了禁止对移动的加速度控制。"
+
+#: src/libslic3r/PrintConfig.cpp:3318
+msgid ""
+"Angle at the apex of the cone that is used to stabilize the wipe tower. "
+"Larger angle means wider base."
+msgstr "锥体顶端的角度，用于稳定擦拭塔。角度越大意味着底座越宽。"
+
+#: src/libslic3r/PrintConfig.cpp:3328
+msgid "Spacing of purge lines on the wipe tower."
+msgstr "擦拭塔上的清洗线的间距。"
+
+msgid ""
+"This start procedure is inserted at the beginning, possibly prepended by "
+"temperature-changing commands. See 'autoemit_temperature_commands'."
+msgstr ""
+"该启动程序在开始时插入，可能是前置温度变化命令准备的。请参"
+"阅“autoemit_temperature_commands”。"
+
+#: src/libslic3r/PrintConfig.cpp:2625
+msgid ""
+"When enabled, PrusaSlicer will check whether your Custom Start G-Code "
+"contains M104 or M190. If so, the temperatures will not be emitted "
+"automatically so you're free to customize the order of heating commands and "
+"other custom actions. Note that you can use placeholder variables for all "
+"PrusaSlicer settings, so you can put a \"M109 S[first_layer_temperature]\" "
+"command wherever you want.\n"
+"If your Custom Start G-Code does NOT contain M104 or M190, PrusaSlicer will "
+"execute the Start G-Code after bed reached its target temperature and "
+"extruder just started heating.\n"
+"\n"
+"When disabled, PrusaSlicer will NOT emit commands to heat up extruder and "
+"bed, leaving both to Custom Start G-Code."
+msgstr ""
+"当启用时，PrusaSlicer将检查您的自定义启动 G-Code是否包含M104或M190。如果有，"
+"温度将不会自动发出，你可以自由地定制加热命令和其他自定义动作的顺序。请注意，"
+"你可以为所有PrusaSlicer设置使用占位变量，您可以将“M109 S[第一层温度]”命令放在"
+"任何需要的位置。\n"
+"如果你的自定义启动G-Code不包含M104或M190，PrusaSlicer将在热床达到目标温度和挤"
+"出机刚开始加热时执行启动G-Code。\n"
+"\n"
+"当禁用时，PrusaSlicer将不会发出加热挤出机和床身的命令，而将两者留给自定义启动"
+"G-Code。"
+
+
+
+#: src/libslic3r/PrintConfig.cpp:2625
+msgid ""
+"When enabled, AnkerMake Studio will check whether your Custom Start G-Code contains M104 or M190. "
+"If so, the temperatures will not be emitted automatically so you're free to customize "
+"the order of heating commands and other custom actions. Note that you can use "
+"placeholder variables for all AnkerMake Studio settings, so you can put "
+"a \"M109 S[first_layer_temperature]\" command wherever you want.\n"
+"If your Custom Start G-Code does NOT contain M104 or M190, "
+"AnkerMake Studio will execute the Start G-Code after bed reached its target temperature "
+"and extruder just started heating.\n\n"
+"When disabled, AnkerMake Studio will NOT emit commands to heat up extruder and bed, "
+"leaving both to Custom Start G-Code."
+msgstr ""
+"当启用时，AnkerMake Studio将检查您的自定义启动 G-Code是否包含M104或M190。如果有，"
+"温度将不会自动发出，你可以自由地定制加热命令和其他自定义动作的顺序。请注意，"
+"你可以为所有AnkerMake Studio设置使用占位变量，您可以将“M109 S[第一层温度]”命令放在"
+"任何需要的位置。\n"
+"如果你的自定义启动G-Code不包含M104或M190，AnkerMake Studio将在热床达到目标温度和挤"
+"出机刚开始加热时执行启动G-Code。\n"
+"\n"
+"当禁用时，AnkerMake Studio将不会发出加热挤出机和床身的命令，而将两者留给自定义启动"
+"G-Code。"
+
+
+
 #: src/libslic3r/PrintConfig.cpp:880
 msgid "Extra perimeters on overhangs (Experimental)"
 msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:882
 msgid "Detect overhang areas where bridges cannot be anchored, and fill them with extra perimeter paths. These paths are anchored to the nearby non-overhang area when possible."
-msgstr ""
+msgstr "检测桥梁不能被锚定的悬空区域，用额外的周边路径来填补它们。在可能的情况下，这些路径会被锚定在附近的非悬空区域。"
 
 #: src/libslic3r/PrintConfig.cpp:890
 msgid "The extruder to use (unless more specific extruder settings are specified). This value overrides perimeter and infill extruders, but not the support extruders."
@@ -11968,7 +12055,7 @@ msgstr "实心填充"
 
 #: src/libslic3r/PrintConfig.cpp:1454
 msgid "This is the acceleration your printer will use for solid infill. Set zero to use the value for infill."
-msgstr ""
+msgstr "这是你的打印机将用于固体填充的加速度。设置为零即可使用该值进行填充。"
 
 #: src/libslic3r/PrintConfig.cpp:1462 src/libslic3r/PrintConfig.cpp:2977 src/libslic3r/PrintConfig.cpp:2990
 msgid "Top solid infill"
@@ -11976,7 +12063,7 @@ msgstr "顶部实心填充"
 
 #: src/libslic3r/PrintConfig.cpp:1463
 msgid "This is the acceleration your printer will use for top solid infill. Set zero to use the value for solid infill."
-msgstr ""
+msgstr "这是你的打印机将用于顶部实心填充的加速度。设置为零就可以使用固体填充的数值。"
 
 #: src/libslic3r/PrintConfig.cpp:1472
 msgid "Combine infill every"
@@ -12150,8 +12237,13 @@ msgstr "此自定义代码在每次图层更改时插入，即 Z 移动之后和
 msgid "Supports remaining times"
 msgstr "支持剩余时间"
 
+
 #: src/libslic3r/PrintConfig.cpp:1678
-msgid "Emit M73 P[percent printed] R[remaining time in minutes] at 1 minute intervals into the G-code to let the firmware show accurate remaining time. As of now only the Anker i3 MK3 firmware recognizes M73. Also the i3 MK3 firmware supports M73 Qxx Sxx for the silent mode."
+msgid ""
+"Emit M73 P[percent printed] R[remaining time in minutes] at 1 minute"
+" intervals into the G-code to let the firmware show accurate remaining time."
+" As of now only the Anker i3 MK3 firmware recognizes M73."
+" Also the i3 MK3 firmware supports M73 Qxx Sxx for the silent mode."
 msgstr "以 1 分钟的间隔发出 M73P[percent printed]R[remaining time in minutes] 进入 G-Code , 让固件显示准确的剩余时间。到目前为止, 只有 Anker i3MK3 固件识别 M73。此外,i3MK3 固件支持 M73Qxx Sxx 的静音模式。"
 
 #: src/libslic3r/PrintConfig.cpp:1686
@@ -12320,9 +12412,26 @@ msgstr "回抽时的最大加速度"
 msgid "Maximum acceleration when retracting (M204 R)"
 msgstr "收回时的最大加速度（M204R）"
 
+
+
+#: src/libslic3r/PrintConfig.cpp:1913
+msgid ""
+"Maximum acceleration when retracting.\n"
+"\n"
+"Not used for RepRapFirmware, which does not support it."
+msgstr ""
+"缩回时的最大加速度。\n"
+"\n"
+"不用于RepRapFirmware，该软件不支持它。"
+
+
 #: src/libslic3r/PrintConfig.cpp:1819
 msgid "Maximum acceleration for travel moves"
 msgstr "移动时的最大加速度"
+
+#: src/libslic3r/PrintConfig.cpp:1819
+msgid "Maximum acceleration for travel moves."
+msgstr "移动时的最大加速度."
 
 #: src/libslic3r/PrintConfig.cpp:1821
 msgid "Maximum acceleration for travel moves (M204 T)"
@@ -12430,7 +12539,7 @@ msgstr "当打印路径不超出前一层的轮廓时（此时任何渗出物不
 
 #: src/libslic3r/PrintConfig.cpp:1969
 msgid "This option will drop the temperature of the inactive extruders to prevent oozing. "
-msgstr ""
+msgstr "此选项将降低非活动挤出机的温度，以防止渗出。"
 
 #: src/libslic3r/PrintConfig.cpp:1974
 msgid "Output filename format"
@@ -12474,7 +12583,7 @@ msgstr "这是打印机将用于周长的加速度。设置为零可禁用周长
 
 #: src/libslic3r/PrintConfig.cpp:2019
 msgid "This is the acceleration your printer will use for external perimeters. Set zero to use the value for perimeters."
-msgstr ""
+msgstr "这是您的打印机将用于外部边界的加速度。将零设置为使用边界的值。"
 
 #: src/libslic3r/PrintConfig.cpp:2026
 msgid "Perimeter extruder"
@@ -12722,7 +12831,7 @@ msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:2307
 msgid "This option causes the inner seams to be shifted backwards based on their depth, forming a zigzag pattern."
-msgstr ""
+msgstr "此选项会导致内部接缝根据其深度向后移动，从而形成Z字形图案。"
 
 #: src/libslic3r/PrintConfig.cpp:2314
 msgid "Direction"
@@ -12878,7 +12987,13 @@ msgstr "温度变化"
 
 #: src/libslic3r/PrintConfig.cpp:2472
 msgid "Temperature difference to be applied when an extruder is not active. The value is not used when 'idle_temperature' in filament settings is defined."
-msgstr ""
+msgstr "挤出机不活动时要应用的温度。当定义耗材设置中的 \"idle_temperature \"时，该值不使用。"
+
+msgid "Start G-Code options"
+msgstr "启动G-Code选项"
+
+msgid "Emit temperature commands automatically"
+msgstr "自动发出温度命令"
 
 #: src/libslic3r/PrintConfig.cpp:2483
 msgid "This start procedure is inserted at the beginning, after bed has reached the target temperature and extruder just started heating, and before extruder has finished heating. If AnkerMake_alpha detects M104 or M190 in your custom codes, such commands will not be prepended automatically so you're free to customize the order of heating commands and other custom actions. Note that you can use placeholder variables for all AnkerMake_alpha settings, so you can put a \"M109 S[first_layer_temperature]\" command wherever you want."
@@ -13162,7 +13277,7 @@ msgstr "舒适的"
 
 #: src/libslic3r/PrintConfig.cpp:2824
 msgid "Organic"
-msgstr ""
+msgstr "树状"
 
 #: src/libslic3r/PrintConfig.cpp:2830
 msgid "Synchronize with object layers"
@@ -13170,7 +13285,7 @@ msgstr "与对象图层同步"
 
 #: src/libslic3r/PrintConfig.cpp:2832
 msgid "Synchronize support layers with the object print layers. This is useful with multi-material printers, where the extruder switch is expensive. This option is only available when top contact Z distance is set to zero."
-msgstr ""
+msgstr "将支撑层与对象打印层同步。这对于多材料打印机很有用，因为挤出机开关很昂贵。仅当顶部接触Z距离设置为零时，此选项才可用。"
 
 #: src/libslic3r/PrintConfig.cpp:2839
 msgid "Overhang threshold"
@@ -13190,27 +13305,27 @@ msgstr "在基础支架周围添加护套 (一条外围线)。这使得支撑更
 
 #: src/libslic3r/PrintConfig.cpp:2863
 msgid "The maximum angle of the branches, when the branches have to avoid the model. Use a lower angle to make them more vertical and more stable. Use a higher angle to be able to have more reach."
-msgstr ""
+msgstr "树枝的最大角度，当树枝要避开模型的时候。使用较低的角度，使它们更垂直，更稳定。使用较高的角度，能够有更多的触角。"
 
 #: src/libslic3r/PrintConfig.cpp:2874
 msgid "The preferred angle of the branches, when they do not have to avoid the model. Use a lower angle to make them more vertical and more stable. Use a higher angle for branches to merge faster."
-msgstr ""
+msgstr "枝条的首选角度，当它们不必避开模型时。使用较低的角度，使它们更垂直，更稳定。使用较高的角度，使树枝更快地合并起来。"
 
 #: src/libslic3r/PrintConfig.cpp:2885
 msgid "The diameter of the top of the tip of the branches of organic support."
-msgstr ""
+msgstr "有机支撑的分支顶端的直径。"
 
 #: src/libslic3r/PrintConfig.cpp:2894
 msgid "The diameter of the thinnest branches of organic support. Thicker branches are more sturdy. Branches towards the base will be thicker than this."
-msgstr ""
+msgstr "树状支撑的最细枝条的直径。较粗的枝条更结实。朝向基部的枝条会比这更粗。"
 
 #: src/libslic3r/PrintConfig.cpp:2904
 msgid "The angle of the branches' diameter as they gradually become thicker towards the bottom. An angle of 0 will cause the branches to have uniform thickness over their length. A bit of an angle can increase stability of the organic support."
-msgstr ""
+msgstr "枝条直径的角度，因为它们逐渐向底部变粗。角度为0会使树枝在其长度上具有均匀的厚度。有点角度可以增加有机支架的稳定性。"
 
 #: src/libslic3r/PrintConfig.cpp:2916
 msgid "Adjusts the density of the support structure used to generate the tips of the branches. A higher value results in better overhangs but the supports are harder to remove, thus it is recommended to enable top support interfaces instead of a high branch density value if dense interfaces are needed."
-msgstr ""
+msgstr "调整用于生成枝梢的支撑结构的密度。较高的值会产生更好的悬垂，但支撑物更难移除，因此，如果需要密集的界面，建议启用顶部支撑界面，而不是高枝条密度值。"
 
 #: src/libslic3r/PrintConfig.cpp:2928
 msgid "Nozzle temperature for layers after the first one. Set this to zero to disable temperature control commands in the output G-code."
@@ -13383,6 +13498,14 @@ msgstr "相对于 x 轴擦料塔旋转角度。"
 #: src/libslic3r/PrintConfig.cpp:3134 src/libslic3r/PrintConfig.cpp:3135
 msgid "Wipe tower brim width"
 msgstr "擦拭塔裙边宽度"
+
+#: src/libslic3r/PrintConfig.cpp:3134 src/libslic3r/PrintConfig.cpp:3440
+msgid "Stabilization cone apex angle"
+msgstr ""
+
+#: src/libslic3r/PrintConfig.cpp:3450 src/libslic3r/PrintConfig.cpp:3450
+msgid "Wipe tower purge lines spacing"
+msgstr ""
 
 #: src/libslic3r/PrintConfig.cpp:3143
 msgid "Wipe into this object's infill"
@@ -13804,7 +13927,7 @@ msgstr "初始层高度"
 
 #: src/libslic3r/PrintConfig.cpp:3687
 msgid "Nozzle temperature when the tool is currently not used in multi-tool setups.This is only used when 'Ooze prevention' is active in Print Settings."
-msgstr ""
+msgstr "在多工具设置中，当前不使用工具时的喷嘴温度。这仅在打印设置中 \"防渗 \"激活时使用。"
 
 #: src/libslic3r/PrintConfig.cpp:3695 src/libslic3r/PrintConfig.cpp:3696
 msgid "Bottle volume"
@@ -22689,6 +22812,10 @@ msgstr "动态悬挑速度"
 msgid "Enable dynamic overhang speeds"
 msgstr "启用动态悬挑速度"
 
+#: src/libslic3r/PrintConfig.cpp:582
+msgid "This setting enables dynamic speed control on overhangs."
+msgstr "此设置启用悬挑的动态速度控制。"
+
 #: src/libslic3r/PrintConfig.cpp:566 src/libslic3r/PrintConfig.cpp:613
 msgid "speed for 0% overlap (bridge)"
 msgstr "0%悬挑的速度（桥接）"
@@ -22727,6 +22854,9 @@ msgstr "恢复打印"
 msgid "commin_button_update"
 msgstr "更新"
 
+msgid "common_account_button_confirm"
+msgstr "确认"
+
 msgid "common_account_button_forget"
 msgstr "忘记密码"
 
@@ -22738,6 +22868,21 @@ msgstr "重新发送验证邮件"
 
 msgid "common_account_button_signin"
 msgstr "登陆"
+
+msgid "common_account_captcha_empty"
+msgstr "请输入验证码"
+
+msgid "common_account_email_empty"
+msgstr "请输入账号邮箱"
+
+msgid "common_account_email_invalid"
+msgstr "请输入有效的邮箱"
+
+msgid "common_account_login_failed"
+msgstr "登陆失败"
+
+msgid "common_account_logined"
+msgstr "登陆 {email}"
 
 msgid "common_account_notice_copyright"
 msgstr "Copyright©2021 Anker Innovations Limited"
@@ -22757,7 +22902,7 @@ msgstr ""
 "请确保您选择打印机实际所在的地区。"
 
 msgid "common_account_notice_signup"
-msgstr "没有账号？创建"
+msgstr "<0>没有账号？</0><1>创建</1>"
 
 msgid "common_account_notice_verificationcode"
 msgstr "输入检验码"
@@ -22767,6 +22912,15 @@ msgstr "注册成功！请查收您的邮件以继续..."
 
 msgid "common_account_notice_verificationemail2"
 msgstr "验证邮件已经发到你的邮箱，请按照邮件中的指示，在24小时内激活您的账户。"
+
+msgid "common_account_password_empty"
+msgstr "请输入密码"
+
+msgid "common_account_placeholder_captcha"
+msgstr "输入验证码"
+
+msgid "common_account_title_captcha"
+msgstr "验证码"
 
 msgid "common_account_title_email"
 msgstr "邮箱"
@@ -22801,11 +22955,20 @@ msgstr "关闭"
 msgid "common_button_accept"
 msgstr "接受"
 
+msgid "common_button_all"
+msgstr "全部"
+
 msgid "common_button_apply"
 msgstr "应用"
 
+msgid "common_button_back"
+msgstr "上一步"
+
 msgid "common_button_cancel"
 msgstr "取消"
+
+msgid "common_button_clear"
+msgstr "清除"
 
 msgid "common_button_continue"
 msgstr "继续"
@@ -22822,6 +22985,9 @@ msgstr "不再提醒"
 msgid "common_button_enforece"
 msgstr "执行"
 
+msgid "common_button_next"
+msgstr "下一步"
+
 msgid "common_button_no"
 msgstr "不"
 
@@ -22834,8 +23000,17 @@ msgstr "确定"
 msgid "common_button_open"
 msgstr "打开"
 
+msgid "common_button_remember"
+msgstr "记住我的选择"
+
+msgid "common_button_retry"
+msgstr "重试"
+
 msgid "common_button_save"
 msgstr "保存"
+
+msgid "common_button_start"
+msgstr "开始"
 
 msgid "common_button_stop"
 msgstr "停止"
@@ -22872,6 +23047,12 @@ msgstr "与AnkerMake分享设备日志"
 
 msgid "common_feedback_title_picturevideo"
 msgstr "图片/视频"
+
+msgid "common_http_connect_error_content"
+msgstr "连接服务器失败，请检查你的连接后重试。"
+
+msgid "common_http_connect_error_title"
+msgstr "连接错误"
 
 msgid "common_launch_policy_content1"
 msgstr "欢迎使用AnkerMake"
@@ -22921,11 +23102,35 @@ msgstr "全部选择"
 msgid "common_menu_edit_undo"
 msgstr "撤销"
 
+msgid "common_menu_file_Importconfig"
+msgstr "导入配置"
+
+msgid "common_menu_file_Importconfigbundle"
+msgstr "导入配置包"
+
+msgid "common_menu_file_Importlist"
+msgstr "导入STL/3MF/STEP/OBJ/AMF"
+
 msgid "common_menu_file_ejectsd"
 msgstr "弹出SD卡/闪存驱动器"
 
 msgid "common_menu_file_export"
 msgstr "导出"
+
+msgid "common_menu_file_exportas"
+msgstr "将板导出为 STL/OBJ"
+
+msgid "common_menu_file_exportconfig"
+msgstr "导出配置"
+
+msgid "common_menu_file_exportconfigbundle"
+msgstr "导出配置包"
+
+msgid "common_menu_file_exportgocde"
+msgstr "导出Gcode..."
+
+msgid "common_menu_file_exportgocde2sd"
+msgstr "将 Gcode导出到 SD 卡/闪存驱动器"
 
 msgid "common_menu_file_import"
 msgstr "导入"
@@ -22959,6 +23164,9 @@ msgstr "反馈信息"
 
 msgid "common_menu_help_privacy"
 msgstr "隐私政策"
+
+msgid "common_menu_help_privacychoices"
+msgstr "Your Privacy Choices"
 
 msgid "common_menu_help_termsofuse"
 msgstr "使用条款"
@@ -23026,8 +23234,23 @@ msgstr "显示标签栏"
 msgid "common_menu_view_top"
 msgstr "顶部"
 
+msgid "common_mqtt_get_slots_failed"
+msgstr "获取V6料槽信息失败，请重试。"
+
+msgid "common_net_connect_error"
+msgstr "连接错误"
+
+msgid "common_notice_delete2check"
+msgstr "您确定要删除%s吗？"
+
 msgid "common_notice_loading"
 msgstr "加载中..."
+
+msgid "common_ota_update_preset_title"
+msgstr "系统升级"
+
+msgid "common_popup_close2save"
+msgstr "正在关闭%s。您想保存对%s的更改吗？"
 
 msgid "common_popup_content_1mos"
 msgstr "打印机可能会过热。 请关闭 %s 的电源，拔下所有 USB-C然后重新插入。如果问题仍然存在，请发送电子邮件至 support@ankermake.com 联系客户服务以获取帮助。"
@@ -23296,6 +23519,42 @@ msgstr "层"
 msgid "common_preview_operationtitle_step"
 msgstr "步"
 
+msgid "common_preview_sheethover_colorchange"
+msgstr "颜色变化"
+
+msgid "common_preview_sheethover_custom"
+msgstr "自定义G代码"
+
+msgid "common_preview_sheethover_deretraction"
+msgstr "撤稿"
+
+msgid "common_preview_sheethover_gravity"
+msgstr "重心"
+
+msgid "common_preview_sheethover_pause"
+msgstr "打印暂停"
+
+msgid "common_preview_sheethover_retraction"
+msgstr "撤回"
+
+msgid "common_preview_sheethover_seam"
+msgstr "接缝"
+
+msgid "common_preview_sheethover_shell"
+msgstr "外壳"
+
+msgid "common_preview_sheethover_toolchange"
+msgstr "工具更改"
+
+msgid "common_preview_sheethover_toolmarker"
+msgstr "工具标记"
+
+msgid "common_preview_sheethover_travel"
+msgstr "旅行"
+
+msgid "common_preview_sheethover_wipe"
+msgstr "擦拭"
+
 msgid "common_preview_sheettitle_1layer"
 msgstr "首层"
 
@@ -23500,6 +23759,12 @@ msgstr "请不要关闭设备"
 msgid "common_print_fwupdate_title"
 msgstr "固件更新"
 
+msgid "common_print_gcode_device_nomatch_hint"
+msgstr "当前G-code不适用当前打印机打印，继续打印可能会导致堵塞等问题，请问你要继续吗？"
+
+msgid "common_print_gcode_not_anker_hint"
+msgstr "当前文件不是使用AnkerMake进行切片的，继续打印可能会影响打印质量，请问你要继续吗？"
+
 msgid "common_print_monitor_buttonretry"
 msgstr "重试"
 
@@ -23580,6 +23845,9 @@ msgstr "打印前，请通过 AnkerMake App运行校准。"
 
 msgid "common_print_popup_v6calibrationremove"
 msgstr "打印前，请取出校准工具并安装 PEI 板。"
+
+msgid "common_print_popup_v6initialize"
+msgstr "检测到 V6 彩色引擎，请通过 AnkerMake 应用程序完成初始化设置，然后刷新此页面。"
 
 msgid "common_print_popupfinished_buttonfinish"
 msgstr "完成"
@@ -23827,6 +24095,9 @@ msgstr "完成任务后，打印机将在睡眠模式下关闭灯光和风扇。
 msgid "common_print_setsleep_no"
 msgstr "从不"
 
+msgid "common_print_slice_wipetower_further_hint"
+msgstr "检测到G-code路径上有冲突，在%1%层，z=%2$.2fmm。请重新移动冲突部件（%3% <-> %4%）。"
+
 msgid "common_print_statusnotice_createaccount"
 msgstr "没有账户？"
 
@@ -23866,6 +24137,9 @@ msgstr "预热"
 msgid "common_print_taskbar_buttonstart"
 msgstr "开始打印"
 
+msgid "common_print_taskbar_calibration"
+msgstr "校准"
+
 msgid "common_print_taskbar_finished"
 msgstr "已完成 (%s)"
 
@@ -23884,7 +24158,13 @@ msgstr "当前任务"
 msgid "common_print_taskbar_progressleveling"
 msgstr "自动调平"
 
+msgid "common_print_taskbar_progressv6calibration"
+msgstr "V6 校准"
+
 msgid "common_print_taskbar_statuscalibrating"
+msgstr "校准中..."
+
+msgid "common_print_taskbar_statuscalibrating_title"
 msgstr "校准中..."
 
 msgid "common_print_taskbar_statusdownload"
@@ -23903,7 +24183,7 @@ msgid "common_print_taskbar_statuspaused"
 msgstr "暂停"
 
 msgid "common_print_taskbar_statusprinting"
-msgstr "打印"
+msgstr "打印中"
 
 msgid "common_print_taskbar_statustransfere"
 msgstr "正在传输 %s"
@@ -23931,6 +24211,15 @@ msgstr "完成时间: %s"
 
 msgid "common_print_transfer_errornotice"
 msgstr "G 代码文件传输失败，请重试。"
+
+msgid "common_printerpanel_addremove_item"
+msgstr "添加/移除打印机"
+
+msgid "common_printerpanel_edit_button_tip"
+msgstr "点击配置打印机"
+
+msgid "common_printerpanel_system_item"
+msgstr "系统预设"
 
 msgid "common_printnotice_limit_mismatch"
 msgstr "请确保您正在打印的文件适用于您的打印机，否则您可能会遇到意外的打印问题。"
@@ -24355,6 +24644,172 @@ msgstr "耗材"
 msgid "common_slicepannel_title_printer"
 msgstr "打印机"
 
+msgid "common_slicepopup_3dmouse"
+msgstr "3D 鼠标已断开连接。"
+
+msgid "common_slicepopup_boolean"
+msgstr "错误：无法对模型网格执行布尔运算，只有实体部分才会被导出。"
+
+msgid "common_slicepopup_deviceremoved1"
+msgstr "成功弹出，可以安全地从计算机中移除%s(%s)。"
+
+msgid "common_slicepopup_deviceremoved2"
+msgstr "%s(%s) 弹出失败。"
+
+msgid "common_slicepopup_error"
+msgstr "错误"
+
+msgid "common_slicepopup_exportfinished"
+msgstr "导出完毕"
+
+msgid "common_slicepopup_exporting"
+msgstr "导出中..."
+
+msgid "common_slicepopup_exporting_gcode2file"
+msgstr "正在将G代码导出到%s…"
+
+msgid "common_slicepopup_failarrange"
+msgstr ""
+"排列忽略了以下无法放入热床上的对象:\n"
+"%s"
+
+msgid "common_slicepopup_failfont1"
+msgstr "无法加载\\\"%1%\\\")字体，应用程序选择了类似的一个：(\\\"%1%\\\")，请指定字体以启用文本编辑。"
+
+msgid "common_slicepopup_failfont2"
+msgstr "样式中没有活动字体，选择正确的一项。"
+
+msgid "common_slicepopup_failfont3"
+msgstr "WxFont 未正确加载。"
+
+msgid "common_slicepopup_integration2"
+msgstr "成功逆转桌面集成"
+
+msgid "common_slicepopup_integrationfinished1"
+msgstr "桌面集成成功"
+
+msgid "common_slicepopup_nonsoliddeleted"
+msgstr "所有非实体部分均被删除。"
+
+msgid "common_slicepopup_objectoutside"
+msgstr "检测到打印区域之外的对象，请解决当前问题以继续切片。"
+
+msgid "common_slicepopup_outside"
+msgstr "错误：检测到打印区域之外的刀具路径。"
+
+msgid "common_slicepopup_painterror1"
+msgstr "您的打印机拥有的挤出机数量多于多材料绘画小工具支持的数量。 因此只有第一号挤出机才能用于涂装。"
+
+msgid "common_slicepopup_profileerror"
+msgstr "导入的存档中的配置文件已损坏且无法加载。"
+
+msgid "common_slicepopup_repaire1"
+msgstr "以下模型修复成功"
+
+msgid "common_slicepopup_repaire2"
+msgstr "以下模型已修复成功"
+
+msgid "common_slicepopup_repairecancel"
+msgstr "修复已取消"
+
+msgid "common_slicepopup_repairefailed1"
+msgstr "以下模型修复失败"
+
+msgid "common_slicepopup_repairefailed2"
+msgstr "以下模型修复失败"
+
+msgid "common_slicepopup_repairing1"
+msgstr "修复网格后，移除了定制支撑、接缝和多材料绘制。"
+
+msgid "common_slicepopup_simplify1"
+msgstr "简化网格后，移除了自定义支撑、接缝和多材料绘制。"
+
+msgid "common_slicepopup_slicing_genera1"
+msgstr "正在生成裙边和帽檐…"
+
+msgid "common_slicepopup_slicing_genera2"
+msgstr "正在生成填充层…"
+
+msgid "common_slicepopup_slicing_genera3"
+msgstr "正在生成G代码…"
+
+msgid "common_slicepopup_slicing_processmesh"
+msgstr "正在处理三角网格…"
+
+msgid "common_slicepopup_slicingcancel"
+msgstr "切片已取消"
+
+msgid "common_slicepopup_slicingnotice1"
+msgstr "未检测到图层，请修复您的STL文件或检查尺寸/厚度并重试。"
+
+msgid "common_slicepopup_slicingnotice2"
+msgstr "打印为空，当前打印设置无法处理不可打印的模型。"
+
+msgid "common_slicepopup_slicingnotice3"
+msgstr "第一层有一个缺少挤出的对象。"
+
+msgid "common_slicepopup_slicingnotice4"
+msgstr "对象名称：%s"
+
+msgid "common_slicepopup_slicingnotice5"
+msgstr "没有为对象执行挤出"
+
+msgid "common_slicepopup_slicingnotice6"
+msgstr "没有支撑物，悬浮物体无法打印。"
+
+msgid "common_slicepopup_slicingnotice7"
+msgstr "使用当前配置，无法为此模型生成焊盘。"
+
+msgid "common_slicepopup_slicingnotice8"
+msgstr "存在不可打印的对象，尝试调整支持设置以使对象可打印。"
+
+msgid "common_slicepopup_split1"
+msgstr "分割物体后，自定义支撑、接缝和多材料绘制被移除。"
+
+msgid "common_slicepopup_stabilityissue"
+msgstr ""
+"检测到的打印稳定性问题：\n"
+"%1%"
+
+msgid "common_slicepopup_stabilityissue1"
+msgstr "浮标部分"
+
+msgid "common_slicepopup_stabilityissue2"
+msgstr "长桥挤压"
+
+msgid "common_slicepopup_stabilityissue3"
+msgstr "浮桥锚"
+
+msgid "common_slicepopup_stabilityissue4"
+msgstr "倒塌悬垂"
+
+msgid "common_slicepopup_stabilityissue5"
+msgstr "松散挤压"
+
+msgid "common_slicepopup_stabilityissue6"
+msgstr "低床层附着力"
+
+msgid "common_slicepopup_stabilityissue7"
+msgstr "薄而脆弱的部分"
+
+msgid "common_slicepopup_stabilityissue8"
+msgstr "考虑启用支持。"
+
+msgid "common_slicepopup_stabilityissue9"
+msgstr "还要考虑启用帽檐。"
+
+msgid "common_slicepopup_toolconflict"
+msgstr "请先从顶部工具栏中取消正在激活的工具。"
+
+msgid "common_slicepopup_triangletoomuch1"
+msgstr "处理具有超过 100 万个三角形的模型“%1%”可能会很慢， 我们强烈建议减少三角形的数量。"
+
+msgid "common_slicepopup_triangletoomuch2"
+msgstr "简化模型"
+
+msgid "common_slicepopup_warning"
+msgstr "警告"
+
 msgid "common_toptable_login"
 msgstr "登录"
 
@@ -24366,3 +24821,104 @@ msgstr "准备"
 
 msgid "common_toptable_print"
 msgstr "打印"
+
+msgid "common_web_connect_content"
+msgstr "请将机器移动到信号更强的地方确保流畅访问体验。"
+
+msgid "common_web_down_timeout_title"
+msgstr "下载超时"
+
+msgid "common_web_failed_to_connect_network_title"
+msgstr "连接Wi-Fi失败"
+
+msgid "common_web_file_download_content"
+msgstr "下载文件%d%%..."
+
+msgid "common_web_import_model_title"
+msgstr "导入文件中..."
+
+msgid "common_web_invalid_parameters_content"
+msgstr "不支持导入的参数，请检查你的文件或联系support@ankermake.com。"
+
+msgid "common_web_invalid_parameters_title"
+msgstr "无效参数"
+
+msgid "common_web_timeout_content"
+msgstr "下载超时，请重试。"
+
+msgid "common_webview_req_failed"
+msgstr "请求失败，请重试。"
+
+msgid "common_wizard_filament_header"
+msgstr "耗材参数包选择"
+
+msgid "common_wizard_filament_hint"
+msgstr "标记*号的耗材参数与部分打印机不兼容"
+
+msgid "common_wizard_filament_printer"
+msgstr "打印机预设选择"
+
+msgid "common_wizard_filament_profile"
+msgstr "参数包"
+
+msgid "common_wizard_filament_type"
+msgstr "类别"
+
+msgid "common_wizard_filament_vendor"
+msgstr "厂家"
+
+msgid "common_wizard_pinter_alter_nozlle"
+msgstr "其他喷嘴："
+
+msgid "common_wizard_pinter_header"
+msgstr "打印机预设选择"
+
+msgid "common_wizard_pinter_nozlle"
+msgstr "喷嘴"
+
+msgid "common_wizard_printer_all_standard"
+msgstr "所有标准"
+
+msgid "common_wizard_printer_standard"
+msgstr "标准"
+
+msgid "common_wizard_title"
+msgstr "配置向导"
+
+msgid "common_wizard_welcome_header"
+msgstr "欢迎使用AnkerMake，请完成几个简单配置后开始你的创作之旅。"
+
+msgid "engin_auto_orient"
+msgstr "自动着床"
+
+msgid "engin_printconfig_option_brim_ears_detection_length"
+msgstr "裙边圆盘检测长度"
+
+msgid "engin_printconfig_option_brim_ears_max_angle"
+msgstr "裙边圆盘最大角度"
+
+msgid "engin_printconfig_option_brim_smart_ordering"
+msgstr "开启智能裙边"
+
+msgid "engin_printconfig_tip_RangTip"
+msgstr "当前位置的推荐范围是%.2f - %.2f，请在推荐范围内调整参数。"
+
+msgid "engin_printconfig_tip_SupportTreeTipDiameter"
+msgstr "有机支撑枝尖直径"
+
+msgid "engin_printconfig_tip_brim_ears_detection_length"
+msgstr ""
+"在检测到尖锐的角度之前，几何图形将被删除。此参数表示抽取的最小偏差长度。\n"
+"0无效。"
+
+msgid "engin_printconfig_tip_brim_ears_max_angle"
+msgstr ""
+"裙边圆盘出现的最大角度。\n"
+"如果设置为0，则不创建裙边。\n"
+"如果设置为180，裙边将创建在所有的直线部分。"
+
+msgid "engin_printconfig_tip_brim_smart_ordering"
+msgstr "交换最内层和第二内层边缘线的打印顺序，以改善边缘去除。"
+
+msgid "common_wizard_empty_printer_notice"
+msgstr "至少需要选择一款打印机"

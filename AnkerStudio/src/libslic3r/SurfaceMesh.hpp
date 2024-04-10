@@ -3,7 +3,7 @@
 
 #include <admesh/stl.h>
 #include <libslic3r/TriangleMesh.hpp>
-
+#include <libslic3r/Geometry.hpp>
 #include "boost/container/small_vector.hpp"
 
 namespace Slic3r {
@@ -150,13 +150,37 @@ public:
 
     bool is_same_vertex(const Vertex_index& a, const Vertex_index& b) const { return m_its.indices[a.m_face][a.m_vertex_idx] == m_its.indices[b.m_face][b.m_vertex_idx]; }
     Vec3i get_face_neighbors(Face_index face_id) const { assert(int(face_id) < int(m_face_neighbors.size())); return m_face_neighbors[face_id]; }
+ 
 
-
-
-private:
+protected:
     const std::vector<Vec3i> m_face_neighbors;
     const indexed_triangle_set& m_its;
 };
+
+class OrientSurfaceMesh : public SurfaceMesh {
+public:
+    OrientSurfaceMesh(const indexed_triangle_set& its, std::vector<Vec3f> normals) :
+        SurfaceMesh(its)
+    {
+        if (normals.empty()) {
+            m_face_normals = its_face_normals(its);    
+        }
+        else {
+            m_face_normals = normals;
+        }
+        compute_face_out_side();
+    };
+
+    void compute_model_direction();
+    void compute_face_out_side();
+    const Eigen::VectorXf &get_face_is_out_side() const;
+
+private:
+    Eigen::VectorXf m_is_outside;
+    std::vector<Vec3f> m_face_normals;
+    Eigen::Vector3d m_model_direction;
+};
+
 
 } //namespace Slic3r
 

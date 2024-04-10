@@ -307,7 +307,7 @@ SavePresetDialog::SavePresetDialog(wxWindow* parent, std::vector<Preset::Type> t
 }
 
 SavePresetDialog::SavePresetDialog(wxWindow* parent, Preset::Type type, const wxString& info_line_extention)
-    : DPIDialog(parent, wxID_ANY, _L("Rename preset"), wxDefaultPosition, wxSize(45 * wxGetApp().em_unit(), 5 * wxGetApp().em_unit()), wxDEFAULT_DIALOG_STYLE | wxICON_WARNING),
+    : DPIDialog(parent, wxID_ANY, _L("common_popup_presetrename_title"), wxDefaultPosition, wxSize(45 * wxGetApp().em_unit(), 5 * wxGetApp().em_unit()), wxDEFAULT_DIALOG_STYLE | wxICON_WARNING),
     m_use_for_rename(true),
     m_info_line_extention(info_line_extention)
 {
@@ -834,11 +834,11 @@ AnkerSavePresetDialog::AnkerSavePresetDialog(wxWindow* parent, std::vector<Prese
 }
 
 AnkerSavePresetDialog::AnkerSavePresetDialog(wxWindow* parent, Preset::Type type, const wxString& info_line_extention)
-    : AnkerDPIDialog(parent, wxID_ANY, _L("Rename preset"), wxDefaultPosition, wxSize(AnkerSize(400, -1)), wxBORDER_SIMPLE),
+    : AnkerDPIDialog(parent, wxID_ANY, _L("common_popup_presetrename_title"), wxDefaultPosition, wxSize(AnkerSize(400, -1)), wxBORDER_SIMPLE),
     m_use_for_rename(true),
     m_info_line_extention(info_line_extention)
 {
-    m_strTitle = _L("Rename preset");
+    m_strTitle = _L("common_popup_presetrename_title");
     build(std::vector<Preset::Type>{type});
     CenterOnParent();
 }
@@ -882,17 +882,35 @@ void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string s
         wxBoxSizer* titleHSizer = new wxBoxSizer(wxHORIZONTAL);
         m_titlePanel->SetSizer(titleHSizer);
 
-        titleHSizer->AddStretchSpacer(16.2 * wxGetApp().em_unit());
-
         // title text
         auto titleText = new wxStaticText(m_titlePanel, wxID_ANY, m_strTitle);
         titleText->SetBackgroundColour(ANKER_SAVEPRESET_DIALOG_BACKGROUD_COLOUR);
         titleText->SetForegroundColour(wxColour("#FFFFFF"));
         titleText->SetFont(ANKER_FONT_NO_1);
-        titleText->SetMinSize(AnkerSize(176, -1));
-        titleHSizer->Add(titleText, 0, wxALIGN_CENTER_VERTICAL, 0);
+        
 
-        titleHSizer->AddStretchSpacer(3 * wxGetApp().em_unit());
+        int iCloseBtnWidth = 30;
+        int iSpaceLength = 400 - iCloseBtnWidth;
+        wxClientDC dc(titleText);
+        wxSize textSize = dc.GetTextExtent(m_strTitle);
+        int iMaxTextWidth = 400 - 30 - 5;
+        int iTextWith = (textSize.GetWidth() > (iMaxTextWidth)) ? iMaxTextWidth : textSize.GetWidth();
+        iSpaceLength = (iSpaceLength - iTextWith) / 2;
+
+        titleText->SetMinSize(wxSize(iTextWith, -1));
+        titleText->SetMaxSize(wxSize(iTextWith, -1));
+
+        wxPanel* emptyPanel1 = new wxPanel(this);
+       // emptyPanel1->SetBackgroundColour(wxColor(255,0,0));
+        emptyPanel1->SetMinSize(wxSize(iSpaceLength,40));
+        emptyPanel1->SetMaxSize(wxSize(iSpaceLength, 40));
+        titleHSizer->Add(emptyPanel1,0, wxALL,0);
+        titleHSizer->Add(titleText, 0, wxALIGN_CENTER_VERTICAL, 0);
+        wxPanel* emptyPanel2 = new wxPanel(this);
+        //emptyPanel2->SetBackgroundColour(wxColor(255, 0, 0));
+        emptyPanel2->SetMinSize(wxSize(iSpaceLength, 40));
+        emptyPanel2->SetMaxSize(wxSize(iSpaceLength, 40));
+        titleHSizer->Add(emptyPanel2, 0, wxALL, 0);
 
         // exit button
         auto exitBtn = new ScalableButton(m_titlePanel, wxID_ANY, "ankerConfigDialogExit", "", wxSize(20, 20));

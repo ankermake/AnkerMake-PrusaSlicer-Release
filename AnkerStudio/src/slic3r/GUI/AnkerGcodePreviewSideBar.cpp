@@ -1,4 +1,4 @@
-﻿#include "AnkerGcodePreviewSideBar.hpp"
+#include "AnkerGcodePreviewSideBar.hpp"
 
 #include <wx/dialog.h>
 #include <wx/frame.h>
@@ -25,6 +25,7 @@
 #include "common/AnkerGUIConfig.hpp"
 
 #include "AnkerSideBarNew.hpp"
+#include <slic3r/Utils/DataMangerUi.hpp>
 
 void AnkerGcodeViewPanel::InitGUI()
 {
@@ -586,7 +587,7 @@ wxString AnkerGCodeExtrusionRoleSelectPanel::GcodeExtrusionRoleToroleName(GCodeE
 
 
 
-GcodeExportProgressDialog::GcodeExportProgressDialog(wxWindow* parent) : wxDialog(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE |/* wxSTAY_ON_TOP | */ wxFRAME_NO_TASKBAR/*wxDEFAULT_DIALOG_STYLE & ~wxCAPTION*/)
+GcodeExportProgressDialog::GcodeExportProgressDialog(wxWindow* parent) : wxFrame(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxFRAME_TOOL_WINDOW | wxSTAY_ON_TOP |  wxFRAME_NO_TASKBAR/*wxDEFAULT_DIALOG_STYLE & ~wxCAPTION*/)
 {
     InitUI();
 
@@ -628,7 +629,7 @@ void GcodeExportProgressDialog::InitUI()
         Plater* plater = Slic3r::GUI::wxGetApp().plater();
         if (plater)
         {
-            plater->stop_exporting_Gcode();
+            plater->stop_exporting_acode();
         }
         this->Hide();
         }
@@ -649,7 +650,7 @@ void GcodeExportProgressDialog::InitUI()
     m_exportProgressText->SetBackgroundColour(wxColour("#292A2D"));
     m_exportProgressText->SetForegroundColour(wxColour(255, 255, 255));
     m_exportProgressText->SetFont(ANKER_BOLD_FONT_NO_1);
-    hBox2->Add(m_exportProgressText, 0, wxALIGN_CENTER_VERTICAL/* | wxALIGN_RIGHT*/ | wxALL, 15);
+    hBox2->Add(m_exportProgressText, 0, wxALIGN_CENTER_VERTICAL/* | wxALIGN_RIGHT*/ | wxLEFT| wxRIGHT, 15);
 
     vBox->Add(hBox2, 1, wxEXPAND);
 
@@ -664,16 +665,24 @@ void GcodeExportProgressDialog::onProgressChange(float percentage)
         // set this dialog at postion at right top of canvas
         int marginToTop = 12;
         int marginToRiht = 6;
-        Size canvasSize = plater->canvas_preview()->get_canvas_size();
+        
+        Size canvasSize = plater->canvas_preview()->get_canvas_size_with_no_scale();
         wxPoint screenPos = plater->ClientToScreen(wxPoint(canvasSize.get_width()- marginToRiht - this->GetSize().GetWidth(), marginToTop));
         this->SetPosition(screenPos);
     }
 
-    this->Show();
+    bool show = true;
+    if (wxGetApp().mainframe->get_current_tab_mode() != TAB_SLICE) // if not plate tab
+    {
+        show = false;
+    }
+
+    this->Show(show);
     if (m_exportProgressText) {
         wxString str = wxString::Format("%d", (int)(percentage * 100)) + "%";
         m_exportProgressText->SetLabelText(str);
         m_exportProgressBar->SetRange(100);
+        ANKER_LOG_INFO << "gcode export progress: "<< str;
 
         m_exportProgressBar->SetValue((int)(percentage * 100));
         if (percentage >= 1.0f) {
@@ -689,7 +698,7 @@ void GcodeExportProgressDialog::onProgressChange(float percentage)
 
 
 
-void AnkerGcodeInfo::InitGUI()
+void AnkerGcodeInfoPanel::InitGUI()
 {
     wxBoxSizer* vBox = new wxBoxSizer(wxVERTICAL);
     SetSizer(vBox);
@@ -853,10 +862,10 @@ void AnkerGcodeInfo::InitGUI()
         rowSizer->AddSpacer(7);
 
         // Parameter Name
-        wxStaticText* paramNameText = new wxStaticText(this, wxID_ANY, _L("common_preview_gcodeinfo_ai"));   // "Create AI File"
-        paramNameText->SetForegroundColour("#FFFFFF");
-        paramNameText->SetFont(ANKER_BOLD_FONT_NO_1);
-        rowSizer->Add(paramNameText, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
+        m_AILabel = new wxStaticText(this, wxID_ANY, _L("common_preview_gcodeinfo_ai"));   // "Create AI File"
+        m_AILabel->SetForegroundColour("#FFFFFF");
+        m_AILabel->SetFont(ANKER_BOLD_FONT_NO_1);
+        rowSizer->Add(m_AILabel, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
         rowSizer->AddStretchSpacer(1);
         //rowSizer->AddSpacer(7);
 
@@ -864,7 +873,7 @@ void AnkerGcodeInfo::InitGUI()
         uncheckImage.Rescale(16, 16, wxIMAGE_QUALITY_HIGH);
         wxBitmap uncheckScaledBitmap(uncheckImage);
 
-        wxImage checkImage = wxImage(wxString::FromUTF8(Slic3r::var("checkbox_check_style_gray.png")), wxBITMAP_TYPE_PNG);
+        wxImage checkImage = wxImage(wxString::FromUTF8(Slic3r::var("checkbox_check.png")), wxBITMAP_TYPE_PNG);
         checkImage.Rescale(16, 16, wxIMAGE_QUALITY_HIGH);
         wxBitmap checkScaledBitmap(checkImage);
 
@@ -917,8 +926,8 @@ void AnkerGcodeInfo::InitGUI()
         vBox->Add(rowSizer, 0, wxEXPAND | wxALL, 0);
         AISizer = rowSizer;
 
-        textTPos = paramNameText->GetPosition();
-        textSize = paramNameText->GetTextExtent(_L("common_preview_gcodeinfo_ai")); // "Create AI File"
+        textTPos = m_AILabel->GetPosition();
+        textSize = m_AILabel->GetTextExtent(_L("common_preview_gcodeinfo_ai")); // "Create AI File"
     }
 
     // AI file not suport 
@@ -951,9 +960,9 @@ void AnkerGcodeInfo::InitGUI()
         {
             m_sliceBtn = new AnkerBtn(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
             //m_sliceBtn->SetMinSize(wxSize(SIDEBARNEW_WIDGET_WIDTH, 24));
-            m_sliceBtn->SetMinSize(wxSize(-1, 30));
-            m_sliceBtn->SetMaxSize(wxSize(-1, 30));
-            m_sliceBtn->SetSize(wxSize(-1, 30));
+            m_sliceBtn->SetMinSize(AnkerSize(-1, 30));
+            m_sliceBtn->SetMaxSize(AnkerSize(-1, 30));
+            m_sliceBtn->SetSize(AnkerSize(-1, 30));
             m_sliceBtn->SetText(_L("common_slicepannel_button_slice"));   // "Slice Now"
             m_sliceBtn->SetDisableTextColor(wxColour(105, 105, 108));
             m_sliceBtn->SetBackgroundColour("#71d35a");
@@ -961,6 +970,7 @@ void AnkerGcodeInfo::InitGUI()
             m_sliceBtn->SetRadius(5);
             m_sliceBtn->SetFont(ANKER_BOLD_FONT_NO_1);
             m_sliceBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this](wxCommandEvent& event) {
+                ANKER_LOG_INFO << "AnkerGcodeInfoPanel slice btn clicked.";
                 this->m_sliceBtn->Enable(false);
                 //this->Refresh();
                 //this->Update();
@@ -976,16 +986,16 @@ void AnkerGcodeInfo::InitGUI()
         {
             m_exportBtn = new AnkerBtn(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
             //m_exportBtn->SetMinSize(wxSize(SIDEBARNEW_WIDGET_WIDTH, 24));
-            m_exportBtn->SetMinSize(wxSize(-1, 30));
-            m_exportBtn->SetMaxSize(wxSize(-1, 30));
-            m_exportBtn->SetSize(wxSize(-1, 30));
+            m_exportBtn->SetMinSize(AnkerSize(-1, 30));
+            m_exportBtn->SetMaxSize(AnkerSize(-1, 30));
+            m_exportBtn->SetSize(AnkerSize(-1, 30));
             m_exportBtn->SetText(_L("common_preview_button_export")); // "Export"
             m_exportBtn->SetDisableTextColor(wxColour(105, 105, 108));
             m_exportBtn->SetBackgroundColour("#3a3b3f");
             m_exportBtn->SetTextColor("#FFFFFF");
             m_exportBtn->SetRadius(5);
             m_exportBtn->SetFont(ANKER_BOLD_FONT_NO_1);
-            m_exportBtn->Bind(wxEVT_BUTTON, &AnkerGcodeInfo::OnExportBtnClick, this);
+            m_exportBtn->Bind(wxEVT_BUTTON, &AnkerGcodeInfoPanel::OnExportBtnClick, this);
             btnsSizer->Add(m_exportBtn, 1, wxEXPAND | wxRIGHT, 10);
         }
 
@@ -993,16 +1003,16 @@ void AnkerGcodeInfo::InitGUI()
         {
             m_goPrintBtn = new AnkerBtn(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
             //m_goPrintBtn->SetMinSize(wxSize(SIDEBARNEW_WIDGET_WIDTH, 24));
-            m_goPrintBtn->SetMinSize(wxSize(-1, 30));
-            m_goPrintBtn->SetMaxSize(wxSize(-1, 30));
-            m_goPrintBtn->SetSize(wxSize(-1, 30));
+            m_goPrintBtn->SetMinSize(AnkerSize(-1, 30));
+            m_goPrintBtn->SetMaxSize(AnkerSize(-1, 30));
+            m_goPrintBtn->SetSize(AnkerSize(-1, 30));
             m_goPrintBtn->SetText(_L("common_preview_button_1print")); // "Go Print"
             m_goPrintBtn->SetDisableTextColor(wxColour(105, 105, 108));
             m_goPrintBtn->SetBackgroundColour("#62d361");
             m_goPrintBtn->SetTextColor("#FFFFFF");
             m_goPrintBtn->SetRadius(5);
             m_goPrintBtn->SetFont(ANKER_BOLD_FONT_NO_1);
-            m_goPrintBtn->Bind(wxEVT_BUTTON, &AnkerGcodeInfo::OnGoPrintBtnClick, this);
+            m_goPrintBtn->Bind(wxEVT_BUTTON, &AnkerGcodeInfoPanel::OnGoPrintBtnClick, this);
             btnsSizer->Add(m_goPrintBtn, 1, wxEXPAND  | wxRIGHT, 10);
         }
     }
@@ -1012,7 +1022,35 @@ void AnkerGcodeInfo::InitGUI()
 }
 
 
-void AnkerGcodeInfo::UpdateSlicedInfo(bool GcodeValid)
+void AnkerGcodeInfoPanel::EnableAIUI(bool enable)
+{
+    m_AILabel->SetForegroundColour(enable ? "#FFFFFF" : "#777777");
+    m_createAIFilecheckbox->Enable(enable);
+    Refresh();
+}
+
+void AnkerGcodeInfoPanel::UpdateBtnClr()
+{
+    auto SetBtnClr = [](AnkerBtn* btn, bool hightLight) {
+        if (btn) {
+            wxColour bgClr = hightLight ?"#71d35a" : "#3a3b3f";
+            if (btn->IsThisEnabled()) {
+                btn->SetBackgroundColour(bgClr);
+                btn->SetTextColor("#FFFFFF");
+            }
+            else {
+                btn->SetBackgroundColour("#3a3b3f");
+                btn->SetTextColor("#777777");
+            }
+        }
+    };
+
+    SetBtnClr(m_sliceBtn, true);
+    SetBtnClr(m_exportBtn, false);
+    SetBtnClr(m_goPrintBtn, true);
+}
+
+void AnkerGcodeInfoPanel::UpdateSlicedInfo(bool GcodeValid, Slic3r::GUI::RightSidePanelUpdateReason reason)
 {
     Plater* plater = Slic3r::GUI::wxGetApp().plater();
     if (!plater)
@@ -1021,13 +1059,30 @@ void AnkerGcodeInfo::UpdateSlicedInfo(bool GcodeValid)
         return;
     }
 
-#if 0
+
+ #if ENABLE_AI
+    bool AIVal = plater->get_create_AI_file_val();
+    m_createAIFilecheckbox->setCheckStatus(AIVal);
     // check printer type to determing whether to show AI checkbox (have camera)
     if (AISizer) {
         const Preset& current_preset = wxGetApp().preset_bundle->printers.get_edited_preset();
         std::string printModel = current_preset.config.opt_string("printer_model");
 
-        if (printModel == "M5" || printModel == "m5") {
+        EnableAIUI(true);
+        if (plater->isImportGCode())
+        {
+            if (plater->ImportIsACode())
+            {
+                m_createAIFilecheckbox->setCheckStatus(true);
+                EnableAIUI(false);
+                AISizer->Show(true);
+            }
+            else
+            {
+                AISizer->Show(false);
+            }
+		}
+        else if (printModel == "M5" || printModel == "m5" || printModel == "M5 All Metal Hotend") {
             AISizer->Show(true);
         }
         else {
@@ -1037,156 +1092,265 @@ void AnkerGcodeInfo::UpdateSlicedInfo(bool GcodeValid)
 #else
     AISizer->Show(false);
 #endif
-
+    
     bool previewLoad = wxGetApp().plater()->is_preview_loaded();
-    bool is_Gcode_Added_PauseCmd = false;
-    if (!GcodeValid && previewLoad) {
-        is_Gcode_Added_PauseCmd = true;
-    }
-
+    //bool isDroppingFile = wxGetApp().plater()->is_droping_file();
+    int model_object_count = wxGetApp().plater()->get_object_count();
     std::string tmpGcodePath = plater->get_temp_gcode_output_path();
     if (plater->isImportGCode()) {
         // the gcode is drag into the soft
         tmpGcodePath = plater->getAKeyPrintSlicerTempGcodePath();
     }
 
-    if (tmpGcodePath.empty() || GcodeValid == false)
+    // reset all btn (disable & hide)
     {
-        ANKER_LOG_INFO << "tmpGcodePath empty, reset gcode info";
         m_sizeValueLabel->SetLabelText("--");
         m_filametValueLabel->SetLabelText("--");
         m_printTimeValLabel->SetLabelText("--");
-        m_goPrintBtn->SetBackgroundColour("#3a3b3f");
-        m_goPrintBtn->SetTextColor("#777777");
-        m_goPrintBtn->Enable(false);
-        m_sliceBtn->SetBackgroundColour("#3a3b3f");
-        m_sliceBtn->SetTextColor("#777777");
-        m_sliceBtn->Enable(false);
-        m_exportBtn->SetTextColor("#777777");
-        m_exportBtn->Enable(false);
 
-        if (is_Gcode_Added_PauseCmd)
+        m_sliceBtn->Enable(false);
+        m_sliceBtn->Show(false);
+
+        m_exportBtn->Enable(false);
+        m_exportBtn->Show(false);
+
+        m_goPrintBtn->Enable(false);
+        m_goPrintBtn->Show(false);
+    }
+
+    bool exporting = false;
+    bool export_file_exist = false;
+    if (tmpGcodePath.empty() || GcodeValid == false)
+    {
+        if (reason == GCODE_INVALID)
         {
-            ANKER_LOG_INFO << "update by add pause command";
-            m_goPrintBtn->Hide();
-            m_sliceBtn->SetBackgroundColour("#71d35a");
-            m_sliceBtn->SetTextColor("#FFFFFF");
+            ANKER_LOG_INFO << "update by ivalidate gcode";
+            if (previewLoad && model_object_count > 0) {
+                m_sliceBtn->Enable(true);
+                m_sliceBtn->Show(true);
+
+                m_goPrintBtn->Show(true);
+            }
+            else
+            {
+                m_exportBtn->Show(true);
+                m_goPrintBtn->Show(true);
+            }
+        } 
+        else if (reason == SLICING_CANCEL) {
+            ANKER_LOG_INFO << "update by slice cancel";
             m_sliceBtn->Enable(true);
-            m_sliceBtn->Show();
+            m_sliceBtn->Show(true);
+
+            m_goPrintBtn->Show(true);
+        }
+        else if (reason == SELECT_VIEW_MODE_PREVIEW) {
+            m_exportBtn->Show(true);
+            m_goPrintBtn->Show(true);
         }
     }
     else
     {
-        // fix:621 GCodeProcessor can parse .gcode file only
-        ANKER_LOG_INFO << "tmp GcodePath:"<< tmpGcodePath;
-        std::string tmpGcodeExtensionFile;
-        {
-            auto isAcodeFile = [](const std::string& filename) {
-                std::string extension = boost::filesystem::extension(filename);
-                std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
-                return (extension == ".acode");
-            };
-            
-            if (!wxGetApp().plater()->isImportGCode() && isAcodeFile(tmpGcodePath)) {
-                boost::filesystem::path srcFile(tmpGcodePath);
+        if (boost::filesystem::exists(boost::filesystem::path(tmpGcodePath))) {
+            export_file_exist = true;
 
-                tmpGcodeExtensionFile = tmpGcodePath + ".gcode";
-                boost::filesystem::path targetFile(tmpGcodeExtensionFile);
-
-                boost::filesystem::copy_file(srcFile, targetFile);
-
-                tmpGcodePath = tmpGcodeExtensionFile;
-
-                ANKER_LOG_INFO << " tmp GcodePath have .acode extetion, rename it:" << tmpGcodePath;
-            }
-        }
-
-        wxString tmp_GcodePath;
-        tmp_GcodePath = tmpGcodePath.c_str();
-
-        if (boost::filesystem::exists(boost::filesystem::path(tmp_GcodePath.ToUTF8().data()))) {
             Slic3r::GCodeProcessor processor;
             Slic3r::GCodeProcessorResultExt out;
             // we still open the file which filepath may contains special characters
-            processor.process_file_ext(tmp_GcodePath.ToUTF8().data(), out);
-            //m_sizeValueLabel->SetLabelText(plater->getModelObjectSizeText());
-            m_sizeValueLabel->SetLabelText(plater->getScaledModelObjectSizeText());
-            std::string filament = out.filament_cost;
+            processor.process_file_ext(tmpGcodePath, out);
+            m_sizeValueLabel->SetLabelText(wxString::Format("%.2f X %.2f X %.2f mm", out.boxSize[0], out.boxSize[1], out.boxSize[2]));
+            std::string filament = getFormatedFilament(out.filament_cost);
             m_filametValueLabel->SetLabelText(filament.empty() ? "--" : filament);
             m_printTimeValLabel->SetLabelText(getReadableTime(out.print_time));
-            m_goPrintBtn->Show();
-            m_sliceBtn->Hide();
-            m_goPrintBtn->SetBackgroundColour("#71d35a");
-            m_goPrintBtn->SetTextColor("#FFFFFF");
-            m_goPrintBtn->Enable(true);
-            m_exportBtn->SetTextColor("#FFFFFF");
-            m_exportBtn->Enable(true);
+            auto get_filament = [](const std::string& filament) {
+                    std::string out = filament;
+                    std::string remove_str = "g";
+                    if (out.find(remove_str) != std::string::npos) {
+                        out.erase(out.find(remove_str), remove_str.length());
+                    }
 
-            if (!tmpGcodeExtensionFile.empty()) {
-                boost::filesystem::remove(tmpGcodeExtensionFile);
+                    return out;
+                };
+            wxGetApp().plater()->set_sliceModel_data(static_cast<int>(out.print_time), filament.empty() ? "--" : get_filament(filament));
+
+            m_exportBtn->Show(true);
+            m_goPrintBtn->Show(true);
+            if (reason == EXPORT_START || (reason == PROCCESS_GCODE_COMPLETE && plater->is_exporting())){
+                exporting = true;
+            }
+            else if (reason == EXPORT_ACODE_CANCEL || reason == EXPORT_ACODE_COMPLETE || reason == PROCCESS_GCODE_COMPLETE) {
+                exporting = false;
+            }
+
+            if (!exporting) {
+
+                m_exportBtn->Enable(plater->isImportGCode() ? false : true );
+                m_goPrintBtn->Enable(true);
             }
         }
-        else
-        {
-            ANKER_LOG_ERROR << " tmp_GcodePath not exist:" << tmp_GcodePath;
+        else {
+            ANKER_LOG_ERROR << "gcode file exist:" << tmpGcodePath;
         }
     }
+
+    if (false == m_sliceBtn->IsShown() && false == m_exportBtn->IsShown() && false == m_goPrintBtn->IsShown())
+    {
+        ANKER_LOG_ERROR << "error btn state(all btn hide) !!!";
+        m_exportBtn->Show(true);
+        m_goPrintBtn->Show(true);
+        m_exportBtn->Enable(export_file_exist);
+        m_goPrintBtn->Enable(export_file_exist);
+    }
+    else if (true == m_sliceBtn->IsShown() && true == m_exportBtn->IsShown() && true == m_goPrintBtn->IsShown())
+    {
+        ANKER_LOG_ERROR << "error btn state(all btn show) !!!";
+        m_sliceBtn->Show(false);
+        m_exportBtn->Enable(export_file_exist);
+        m_goPrintBtn->Enable(export_file_exist);
+    }
+
+    UpdateBtnClr();
+
+    ANKER_LOG_INFO << "GcodeValid:" << GcodeValid 
+        << "    reason:" << plater ->GetRightSidePanelUpdateReasonString(reason)
+        << "    exporting:"<< exporting
+        << "    previewLoad:" << previewLoad
+        << "    model_object_count:" << model_object_count
+        << "    tmpGcodePath:" << tmpGcodePath
+        << "    slice,export,print btn: show? " << m_sliceBtn->IsShown() << " , " << m_exportBtn->IsShown() << " , " << m_goPrintBtn->IsShown()
+        << "    enable? " << m_sliceBtn->IsThisEnabled() << " , " << m_exportBtn->IsThisEnabled() << " , " << m_goPrintBtn->IsThisEnabled()
+        ;
 
     Layout();
     Refresh();
 }
 
-std::string AnkerGcodeInfo::getReadableTime(int seconds)
+std::string AnkerGcodeInfoPanel::getReadableTime(int seconds)
 {
     int hours = seconds / 60 / 60;
     int minutes = seconds / 60 % 60;
     std::string newTime = "";
     if (hours > 0)
-        newTime += std::to_string(hours) + "h ";
+        newTime += std::to_string(hours) + "h";
     if (minutes > 0)
-        newTime += std::to_string(minutes) + "min";
+        newTime += " " + std::to_string(minutes) + (minutes == 1 ? "min" : "mins");
     if (newTime.empty())
         newTime = "--";
 
     return newTime;
 }
 
-
-void AnkerGcodeInfo::OnGoPrintBtnClick(wxCommandEvent& event)
-{ 
-    if (m_exportingGcode)
-        return;
-
-    ANKER_LOG_INFO << "print btn click===in";
-    m_exportingGcode = true;
-    Slic3r::GUI::Plater* plater = Slic3r::GUI::wxGetApp().plater();
-    if (plater)
-    {
-        ANKER_LOG_INFO << "print btn click" ;
-        plater->a_key_print_clicked();
+// seperate number and unit, the num use the integer part only. eg. "123.45g" -> "123 g"
+std::string AnkerGcodeInfoPanel::getFormatedFilament(std::string filamentStr)
+{
+    std::string retStr = filamentStr;
+    size_t firstNonSpace = retStr.find_first_not_of(' ');
+    if (firstNonSpace != std::string::npos) {
+        retStr = retStr.substr(firstNonSpace);
     }
-    m_exportingGcode = false;
-    ANKER_LOG_INFO << "print btn click===out";
+
+    size_t pos = retStr.find_first_not_of("0123456789.");
+    if (pos != std::string::npos) {
+        std::string numberPart = retStr.substr(0, pos);
+        std::string unitPart = retStr.substr(pos);
+        unitPart.erase(0, unitPart.find_first_not_of(' '));
+
+        if (!numberPart.empty()) {
+            float num = std::stof(numberPart.c_str());
+            retStr = (num >= 1.0f ? std::to_string(static_cast<int>(num)) : numberPart) + ' ' + unitPart;
+        }
+    }
+
+    return retStr;
 }
 
-void AnkerGcodeInfo::OnExportBtnClick(wxCommandEvent& event)
+
+
+void AnkerGcodeInfoPanel::CreateExportProgressDlg()
 {
-    if (m_exportingGcode)
-        return;
-    ANKER_LOG_INFO << "export btn click===in";
-    m_exportingGcode = true;
-    if (!m_exportProgressDlg) {
-        m_exportProgressDlg = new GcodeExportProgressDialog(this);
-        m_exportProgressDlg->SetSize(wxSize(450, 110));
+    Slic3r::GUI::Plater* plater = Slic3r::GUI::wxGetApp().plater();
+    if (plater)
+    {
+        // if AI is turned on, export .acode first 
+        bool AI = plater->get_create_AI_file_val();
+        if (AI && !m_exportProgressDlg) {
+            m_exportProgressDlg = new GcodeExportProgressDialog(this);
+            m_exportProgressDlg->SetSize(wxSize(450, 110));
+        }
     }
+}
+
+void AnkerGcodeInfoPanel::SetAIValByPrinterModel()
+{
+    // the AI checkbox have been set checked and disabled by LOAD_ACODE_FILE_FOR_PREVIEW msg 
+    // (the checked state is just for UI effect, should not set plater's AI flag  )
+    if (!this->m_createAIFilecheckbox->IsEnabled())
+        return;
 
     Slic3r::GUI::Plater* plater = Slic3r::GUI::wxGetApp().plater();
     if (plater)
     {
-        plater->export_gcode(false);
+        const Preset& current_preset = wxGetApp().preset_bundle->printers.get_edited_preset();
+        std::string printModel = current_preset.config.opt_string("printer_model");
+        if (printModel == "M5" || printModel == "m5" || printModel == "M5 All Metal Hotend") {
+            bool ischeck = this->m_createAIFilecheckbox->getCheckStatus();
+            Plater* plater = Slic3r::GUI::wxGetApp().plater();
+            if (plater)
+            {
+                ANKER_LOG_INFO << "set_create_AI_file_val:"<<ischeck;
+                plater->set_create_AI_file_val(ischeck);
+            }
+        }
+        else //if (printModel == "M5C" || printModel == "m5c")
+        {
+            ANKER_LOG_INFO << "set_create_AI_file_val:" << false;
+            plater->set_create_AI_file_val(false);
+        }
     }
-    m_exportingGcode = false;
-    ANKER_LOG_INFO << "export btn click===out";
+}
+
+void AnkerGcodeInfoPanel::OnGoPrintBtnClick(wxCommandEvent& event)
+{
+    if (m_onOneKeyPrint.exchange(true) == true)
+        return;
+    ANKER_LOG_INFO << "print btn click in ";
+    Slic3r::GUI::Plater* plater = Slic3r::GUI::wxGetApp().plater();
+    if (plater)
+    {
+        if (plater->is_exporting()) {
+            GUI::show_error(plater, _L("Another export job is currently running."));
+            ANKER_LOG_ERROR << "background_process.is_export_scheduled";
+        }
+        else {
+            SetAIValByPrinterModel();
+            // if AI is turned on, export .acode first 
+            CreateExportProgressDlg();
+            // export gcode or acode            
+            plater->a_key_print_clicked();            
+        }
+    }
+    ANKER_LOG_INFO << "print btn click out  ";
+    m_onOneKeyPrint.store(false);
+}
+
+void AnkerGcodeInfoPanel::OnExportBtnClick(wxCommandEvent& event)
+{
+    ANKER_LOG_INFO << "export btn click in";
+    Slic3r::GUI::Plater* plater = Slic3r::GUI::wxGetApp().plater();
+    if (plater)
+    {
+        if (plater->is_exporting()) {
+            GUI::show_error(plater, _L("Another export job is currently running."));
+            ANKER_LOG_ERROR << "background_process.is_export_scheduled";
+            return;
+        }
+        else {
+            SetAIValByPrinterModel();
+            CreateExportProgressDlg();
+            plater->export_gcode(false);
+        }
+    }
+    ANKER_LOG_INFO << "export btn click out";
 }
 
 
@@ -1212,7 +1376,7 @@ void AnkerGcodePreviewSideBar::InitGUI()
 
     vBox->AddSpacer(8);
 
-    m_GcodeInfoPanel = new AnkerGcodeInfo(this);
+    m_GcodeInfoPanel = new AnkerGcodeInfoPanel(this);
     m_GcodeInfoPanel->SetBackgroundColour(wxColour("#292A2D"));
 
     /*m_GcodeInfoPanel->SetMinSize(wxSize(300, -1));
@@ -1229,22 +1393,39 @@ void AnkerGcodePreviewSideBar::UpdateCurrentViewType(GCodeViewer::EViewType type
         m_GcodeViewPanel->UpdateCurrentChoice(type);
 }
 
-void AnkerGcodePreviewSideBar::UpdateGcodePreviewSideBar(bool GcodeValid)
+void AnkerGcodePreviewSideBar::UpdateGcodePreviewSideBar(bool GcodeValid, RightSidePanelUpdateReason reason)
 {
+    if (reason == PLATER_TAB_HIDE)
+    {
+        if (m_GcodeInfoPanel && m_GcodeInfoPanel->m_exportProgressDlg)
+        {
+            m_GcodeInfoPanel->m_exportProgressDlg->Hide();
+        }
+
+        Layout();
+        Refresh();
+        return;
+    }
+
+    this->Freeze();
     if (m_GcodeViewPanel) {
         m_GcodeViewPanel->UpdateViewGcodeLegendBtn();
         m_GcodeViewPanel->UpdateCurrentChoice();
     }
 
-    if (m_gCodeExtrusionRoleSelectPanel) {
-        m_gCodeExtrusionRoleSelectPanel->UpdateAllGCodeExtrusionRoleUI();
-    }
-
+    timer.Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
+        if (m_gCodeExtrusionRoleSelectPanel) {
+            m_gCodeExtrusionRoleSelectPanel->UpdateAllGCodeExtrusionRoleUI();
+        }
+    });
+    timer.StartOnce(200);
     if (m_GcodeInfoPanel)
     {
-        m_GcodeInfoPanel->UpdateSlicedInfo(GcodeValid);
+        m_GcodeInfoPanel->UpdateSlicedInfo(GcodeValid, reason);
     }
     Layout();
     Refresh();
+
+    this->Thaw();
 }
 

@@ -124,7 +124,7 @@ protected:
     static const char* separator_head() { return "————— "; }
     static const char* separator_tail() { return " —————"; }
 #endif // __linux__
-    static wxString    separator(const std::string& label);
+    static wxString    separator(const wxString& label);
 
     wxBitmapBundle* get_bmp(  std::string bitmap_key, bool wide_icons, const std::string& main_icon_name,
                         bool is_compatible = true, bool is_system = false, bool is_single_bar = false,
@@ -235,7 +235,7 @@ protected:
     static const char* separator_head() { return "————— "; }
     static const char* separator_tail() { return " —————"; }
 #endif // __linux__
-    static const wxString  separator(const std::string& label);
+    static const wxString  separator(const wxString& label);
 
     wxBitmapBundle* get_bmp(std::string bitmap_key, bool wide_icons, const std::string& main_icon_name,
         bool is_compatible = true, bool is_system = false, bool is_single_bar = false,

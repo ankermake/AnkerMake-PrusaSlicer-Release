@@ -8,6 +8,7 @@
 #include "slic3r/GUI/I18N.hpp"
 #include "libslic3r/Measure.hpp"
 #include "libslic3r/Model.hpp"
+#include "slic3r/GUI/Common/AnkerLineEditUnit.hpp"
 
 namespace Slic3r {
 
@@ -142,6 +143,16 @@ class GLGizmoMeasure : public GLGizmoBase
 
     void render_dimensioning();
 
+    // Anker
+    bool m_panelVisibleFlag;
+    wxBoxSizer* m_pInputWindowSizer;
+    wxStaticText* m_firstSelectedType;
+    wxStaticText* m_secondSelectedType;
+    wxStaticText* m_firstResultType;
+    wxStaticText* m_firstResultValue;
+    wxStaticText* m_secondResultType;
+    wxStaticText* m_secondResultValue;
+
 #if ENABLE_MEASURE_GIZMO_DEBUG
     void render_debug_dialog();
 #endif // ENABLE_MEASURE_GIZMO_DEBUG
@@ -178,6 +189,11 @@ protected:
 
     void remove_selected_sphere_raycaster(int id);
     void update_measurement_result();
+
+private:
+    // Anker
+    void set_input_window_state(bool on);
+    void update_input_window();
 };
 
 } // namespace GUI

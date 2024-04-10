@@ -163,6 +163,7 @@ int Field::def_width()			{ return 12; }
 int Field::def_width_wider()	{ return 15; }
 int Field::def_width_thinner()	{ return 5; }
 int Field::def_width_8()        { return 8; }
+int Field::def_width_16()       { return 16; }
 
 void Field::on_kill_focus()
 {
@@ -197,8 +198,7 @@ void Field::modify_tooltip_text(std::string& opt_id, wxString& toolTip)
         float min = 0.0f;
         float max = 0.0f;
         const Preset& printer_preset = wxGetApp().preset_bundle->printers.get_edited_preset();
-        wxString printModel = wxString(printer_preset.config.opt_string("printer_model")).Upper();
-        wxString printer_notes = wxString(printer_preset.config.opt_string("printer_notes"));
+        std::string printModel = printer_preset.config.opt_string("printer_model");
 
         const Preset& filament_preset = wxGetApp().preset_bundle->filaments.get_edited_preset();
         bool hastilamentType = filament_preset.config.has("filament_type");
@@ -208,7 +208,7 @@ void Field::modify_tooltip_text(std::string& opt_id, wxString& toolTip)
             min = 0.0f;
             max = 0.8f;
         }
-        else if ((printModel == "M5C" || printer_notes.Contains("M5-All-Metal-Hotend"))
+        else if ((printModel == "M5C" || printModel == "M5 All Metal Hotend")
             && (filamentType.Contains("PLA+ BASIC") || filamentType.Contains("PLA+ GLITTER") || filamentType.Contains("PLA+ MATTE") || (filamentType.Contains("PLA+ METALLIC"))))
         {
             min = 0.0f;
@@ -224,8 +224,23 @@ void Field::modify_tooltip_text(std::string& opt_id, wxString& toolTip)
             min = 0.0f;
             max = 1.0f;
         }
+        else if ((printModel == "M5C" || printModel == "M5 All Metal Hotend")
+            && (filamentType.Contains("ABS") || filamentType.Contains("PETG") ))
+        {
+            min = 0.0f;
+            max = 0.8f;
+        }
+        else if ((printModel == "M5C" || printModel == "M5 All Metal Hotend")
+            && (filamentType.Contains("TPU")))
+        {
+            min = 0.0f;
+            max = 1.0f;
+        }
 
-        toolTip = toolTip + wxString::Format(_L(" The recommended range here is %.2f - %.2f, please adjust this parameter to within the recommended range."), min, max);
+        float epsilon = std::numeric_limits<float>::epsilon();
+        if (fabs(max) > epsilon) {
+            toolTip = toolTip + wxString::Format(_L("engin_printconfig_tip_RangTip"), min, max);
+        }
     }
 }
 
@@ -241,12 +256,15 @@ wxString Field::get_tooltip_text(const wxString& default_string)
         opt_id += "]";
     }
 
-    wxString toolTip = m_opt.tooltip;
+    wxString toolTip = from_u8(m_opt.tooltip);
     modify_tooltip_text(opt_id, toolTip);
 
-	return from_u8(toolTip.ToStdString()) + "\n" + _L("default value") + "\t: " +
+    /*return toolTip + "\n" + _L("default value") + "\t: " +
         (boost::iends_with(opt_id, "_gcode") ? "\n" : "") + default_string +
         (boost::iends_with(opt_id, "_gcode") ? "" : "\n") +
+        _L("parameter name") + "\t: " + opt_id;*/
+
+    return toolTip + "\n" + 
         _L("parameter name") + "\t: " + opt_id;
 }
 
@@ -332,11 +350,9 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
             {
                 const Preset& current_preset = wxGetApp().preset_bundle->printers.get_edited_preset();
                 std::string printModel = current_preset.config.opt_string("printer_model");
-                std::transform(printModel.begin(), printModel.end(), printModel.begin(), ::toupper);
-
                 const std::string printer_notes = current_preset.config.opt_string("printer_notes");
                 //ANKER_LOG_INFO << printer_model:" << printModel <<"   default_print_profile:"<< default_print_profile <<"   printer_notes:" << printer_notes  ;
-               if (printModel == "M5C" || printModel == "M5C_V6" || wxString(printer_notes).Contains("M5-All-Metal-Hotend")) {
+               if (printModel == "M5C" || printModel == "M5C_V6" || printModel == "M5 All Metal Hotend") {
                    min = 0.0f;
                    max = 1.0f;
                }
@@ -389,16 +405,9 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
             m_value = into_u8(stVal);;
             break;
         }
-        if ((m_opt.type == coFloatOrPercent || m_opt.type == coFloatsOrPercents) && !str.IsEmpty() /* && str.Last() != '%'*/)
+        if ((m_opt.type == coFloatOrPercent || m_opt.type == coFloatsOrPercents) && !str.IsEmpty()  && str.Last() != '%')
         {
             wxString inputStr = str;
-            wxString percentSuffix = "";
-            bool isPercentStr = str.Last() == '%';
-            if (isPercentStr) {
-                str.RemoveLast();
-                percentSuffix = "%";
-            }
-
             double val = 0.;
             const char dec_sep = is_decimal_separator_point() ? '.' : ',';
             const char dec_sep_alt = dec_sep == '.' ? ',' : '.';
@@ -417,22 +426,9 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
                     m_value.clear();
                     break;
                 }
-
-                try {
-                    // recover the last valid value
-                    //show_error(m_parent, _(L("Invalid numeric input.")));
-                    std::string strv = boost::any_cast<std::string>(m_value);
-                    double val;
-                    if (wxString(boost::any_cast<std::string>(m_value)).ToDouble(&val)) {
-                        str = double_to_string(val);
-                        set_value(str + percentSuffix, true);
-                    }else{
-                        ANKER_LOG_ERROR << "fail to convert value for option:"<< m_opt.label <<"   inputStr:"<< inputStr;
-                    }
-                }
-                catch (const boost::bad_any_cast& e) {
-                    ANKER_LOG_ERROR << "convert value exception:"<< e.what()<< "  option:"<< m_opt.label <<"   inputStr:"<< inputStr ;
-                }
+               //recover to the last valid value
+                str = boost::any_cast<std::string>(m_value);
+                set_value(str, true);
             }
             else if (((m_opt.sidetext.rfind("mm/s") != std::string::npos && val > m_opt.max) ||
                      (m_opt.sidetext.rfind("mm ") != std::string::npos && val > /*1*/m_opt.max_literal)) &&
@@ -1597,8 +1593,10 @@ void PointCtrl::BUILD()
 	auto static_text_x = new wxStaticText(m_parent, wxID_ANY, "x : ");
 	auto static_text_y = new wxStaticText(m_parent, wxID_ANY, "   y : ");
 	static_text_x->SetFont(Slic3r::GUI::wxGetApp().normal_font());
+    static_text_x->SetForegroundColour(wxColor("#ADAEAF"));
 	static_text_x->SetBackgroundStyle(wxBG_STYLE_PAINT);
 	static_text_y->SetFont(Slic3r::GUI::wxGetApp().normal_font());
+    static_text_y->SetForegroundColour(wxColor("#ADAEAF"));
 	static_text_y->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
 	wxGetApp().UpdateDarkUI(x_textctrl);
@@ -2640,11 +2638,11 @@ void AnkerChoiceField::BUILD()
     pComboBox->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) { on_change_field(); }, pComboBox->GetId());
 
     if (m_is_editable) {
-        pComboBox->Bind(wxEVT_KILL_FOCUS, [this](wxEvent& e) {
-            e.Skip();
-            if (!bEnterPressed)
-                propagate_value();
-            });
+        // pComboBox->Bind(wxEVT_KILL_FOCUS, [this](wxEvent& e) {
+        //    e.Skip();
+        //    if (!bEnterPressed)
+        //        propagate_value();
+        //    });
 
         pComboBox->Bind(wxEVT_TEXT_ENTER, [this](wxEvent& e) {
             EnterPressed enter(this);
@@ -2778,7 +2776,11 @@ void AnkerSpinCtrl::BUILD() {
                 
                 long value;
                 const bool parsed = temp->getTextEdit()->GetValue().ToLong(&value);
-                if (!parsed || value < INT_MIN || value > INT_MAX)
+                if (temp->getTextEdit()->GetValue() == na_value(true)) {
+                    // fix bug: tmp_value should hold the old m_value after the AnkerSpinEdit::set_na_value() is called. (SpinCtrl::set_na_value() did not emit wxEVT_TEXT event)
+                    tmp_value = std::min(std::max(boost::any_cast<int>(m_value), temp->GetMinValue()), temp->GetMaxValue());
+                }
+                else if (!parsed || value < INT_MIN || value > INT_MAX)
                     tmp_value = UNDEF_VALUE;
                 else {
                     tmp_value = std::min(std::max((int)value, temp->GetMinValue()), temp->GetMaxValue());

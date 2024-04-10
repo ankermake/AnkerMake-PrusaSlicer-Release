@@ -16,11 +16,11 @@ END_EVENT_TABLE()
 IMPLEMENT_DYNAMIC_CLASS(AnkerEasyItem, wxControl)
 
 #ifndef __APPLE__
-#define WIDGET_WIDTH (320)
-#define WIDGET_WRAP_WITH AnkerLength(300)
+#define WIDGET_WIDTH (420)
+#define WIDGET_WRAP_WITH AnkerLength(WIDGET_WIDTH - 20)
 #else
 #define WIDGET_WIDTH (400)
-#define WIDGET_WRAP_WITH AnkerLength(400)
+#define WIDGET_WRAP_WITH AnkerLength(WIDGET_WIDTH - 30)
 #endif // !__APPLE__
 
 
@@ -129,6 +129,13 @@ void AnkerEasyItem::OnPaint(wxPaintEvent& event)
 
 	dc.SetFont(ANKER_BOLD_FONT_NO_1);
 	wxSize textSize = dc.GetTextExtent(m_title);
+#ifdef __APPLE__
+	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+	if (wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type || wxLanguage::wxLANGUAGE_JAPANESE == type) {
+		// text real size is small than the value calculate by dc.GetTextExtent()
+		textSize.SetHeight(textSize.GetHeight() - 6);
+	}
+#endif // !__APPLE__
 
 	logoPoint.x = 10;
 	logoPoint.y = (GetRect().GetHeight() - m_selectLogo.GetHeight()) / 2;
@@ -251,7 +258,9 @@ void AnkerEasyPanel::initUi()
 	m_pTipsLabel->SetForegroundColour(wxColour("#A9AAAB"));	
 	//m_pTipsLabel->SetBackgroundColour(wxColour(255,0,0));
 	wxSize textSize = AnkerSize(WIDGET_WIDTH, 60);
+	wxString tipsLabel = Slic3r::GUI::WrapEveryCharacter(_L("common_print_statusnotice_noprinter"), ANKER_FONT_NO_1, WIDGET_WRAP_WITH);
 	m_pTipsLabel->Wrap(WIDGET_WRAP_WITH);
+	m_pTipsLabel->SetLabelText(tipsLabel);
 
 	wxBoxSizer* pHSizer = new wxBoxSizer(wxHORIZONTAL);
 	pHSizer->Add(m_pTipsLabel, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
@@ -309,21 +318,25 @@ void AnkerEasyPanel::showWidget(const std::vector<std::string>& widgetList, cons
 			if (selectWidgetName.Contains((*vaildIter)))
 			{
 				iter->second->setSelectStatus(ITEM_SELECT);
+				wxString currentLabel = "";
 				if (iter->second->getTitle() == _L("common_slicepannel_easy3_fast"))
-				{
-					m_pTipsLabel->SetLabelText(m_fastStrTips);
+				{				
+					currentLabel = m_fastStrTips;
 				}
 				else if (iter->second->getTitle() == _L("common_slicepannel_easy2_normal"))
-				{
-					m_pTipsLabel->SetLabelText(m_normalStrTips);
+				{				
+					currentLabel = m_normalStrTips;
 				}
 				else
-				{
-					m_pTipsLabel->SetLabelText(m_PrecisionStrTips);
+				{					
+					currentLabel = m_PrecisionStrTips;
 				}
 				isSelect = true;
 				wxSize textSize = AnkerSize(WIDGET_WIDTH, 60);
 				m_pTipsLabel->SetSize(AnkerSize(WIDGET_WIDTH, 60));
+
+				wxString realLabel = Slic3r::GUI::WrapEveryCharacter(currentLabel, ANKER_FONT_NO_1, WIDGET_WRAP_WITH);				
+				m_pTipsLabel->SetLabelText(realLabel);
 				m_pTipsLabel->Wrap(WIDGET_WRAP_WITH);
 			}
 			else
@@ -333,29 +346,7 @@ void AnkerEasyPanel::showWidget(const std::vector<std::string>& widgetList, cons
 		++vaildIter;
 	}
 
-	if (!isSelect)
-	{
-		auto iter = m_ItemMap.rbegin();
-		if (iter != m_ItemMap.rend())
-		{		
-			iter->second->setSelectStatus(ITEM_SELECT);
-			if (iter->second->getTitle() == _L("common_slicepannel_easy3_fast"))
-			{
-				m_pTipsLabel->SetLabelText(m_fastStrTips);
-			}
-			else if (iter->second->getTitle() == _L("common_slicepannel_easy2_normal"))
-			{
-				m_pTipsLabel->SetLabelText(m_normalStrTips);
-			}
-			else
-			{
-				m_pTipsLabel->SetLabelText(m_PrecisionStrTips);
-			}
-		}
-	}
-
 	SetSize(AnkerSize(WIDGET_WIDTH, 60));
-
 	Update();
 	Layout();
 }
@@ -366,18 +357,21 @@ void AnkerEasyPanel::setCurrentWidget(AnkerEasyItem* pWidget)
 	auto iter = m_itemVector.begin();
 	auto strTitle = pWidget->getTitle();
 
+	wxString currentLabel = "";
 	if (strTitle == _L("common_slicepannel_easy3_fast"))
-	{
-		m_pTipsLabel->SetLabelText(m_fastStrTips);
+	{	
+		currentLabel = m_fastStrTips;
 	}
 	else if (strTitle == _L("common_slicepannel_easy2_normal"))
-	{
-		m_pTipsLabel->SetLabelText(m_normalStrTips);
+	{	
+		currentLabel = m_normalStrTips;
 	}
 	else
-	{
-		m_pTipsLabel->SetLabelText(m_PrecisionStrTips);
+	{		
+		currentLabel = m_PrecisionStrTips;
 	}
+	wxString realLabel = Slic3r::GUI::WrapEveryCharacter(currentLabel, ANKER_FONT_NO_1, WIDGET_WRAP_WITH);
+	m_pTipsLabel->SetLabelText(realLabel);
 	m_pTipsLabel->Wrap(WIDGET_WRAP_WITH);
 	while (iter != m_itemVector.end())
 	{

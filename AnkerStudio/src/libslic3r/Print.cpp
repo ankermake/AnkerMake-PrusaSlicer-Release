@@ -12,6 +12,7 @@
 #include "Thread.hpp"
 #include "GCode.hpp"
 #include "GCode/WipeTower.hpp"
+#include "GCode/ConflictChecker.hpp"
 #include "Utils.hpp"
 #include "BuildVolume.hpp"
 #include "format.hpp"
@@ -50,7 +51,8 @@ void Print::clear()
 
 // Called by Print::apply().
 // This method only accepts PrintConfig option keys.
-bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* new_config */, const std::vector<t_config_option_key> &opt_keys)
+bool Print::invalidate_state_by_config_options(
+    const ConfigOptionResolver & /* new_config */, const std::vector<t_config_option_key> &opt_keys)
 {
     if (opt_keys.empty())
         return false;
@@ -60,6 +62,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
     static std::unordered_set<std::string> steps_gcode = {
         "autoemit_temperature_commands",
         "avoid_crossing_perimeters",
+        //"avoid_crossing_perimeters_via_lift_z",
         "avoid_crossing_perimeters_max_detour",
         "bed_shape",
         "bed_temperature",
@@ -74,6 +77,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "overhang_fan_speed_3",
         "colorprint_heights",
         "cooling",
+        "slowdown_external_perimeters",
         "default_acceleration",
         "deretract_speed",
         "disable_fan_first_layers",
@@ -145,7 +149,26 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         "use_relative_e_distances",
         "use_volumetric_e",
         "variable_layer_height",
-        "wipe"
+        "wipe",
+        "seam_gap",
+        "jerk_enable",
+        "jerk_travel"
+        "jerk_enable",
+        "jerk_travel",
+        "jerk_print ",
+        "jerk_infill",
+        "jerk_outer_wall",
+        "jerk_inner_wall",
+        "jerk_top_bottom",
+        "jerk_skirt_brim",
+        "jerk_e_enable",
+        "jerk_e_print",
+        "jerk_e_infill",
+        "jerk_e_outer_wall",
+        "jerk_e_inner_wall",
+        "jerk_e_skin",
+        "jerk_e_support",
+        "jerk_e_skirt_brim"
     };
 
     static std::unordered_set<std::string> steps_ignore;
@@ -176,6 +199,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
                opt_key == "first_layer_height"
             || opt_key == "nozzle_diameter"
             || opt_key == "resolution"
+            || opt_key == "xy_hole_compensation"
             // Spiral Vase forces different kind of slicing than the normal model:
             // In Spiral Vase mode, holes are closed and only the largest area contour is kept at each layer.
             // Therefore toggling the Spiral Vase on / off requires complete reslicing.
@@ -199,6 +223,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "gcode_flavor"
             || opt_key == "high_current_on_filament_swap"
             || opt_key == "infill_first"
+            || opt_key == "bridge_wall_first"
             || opt_key == "single_extruder_multi_material"
             || opt_key == "temperature"
             || opt_key == "idle_temperature"
@@ -215,6 +240,7 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
             || opt_key == "cooling_tube_length"
             || opt_key == "extra_loading_move"
             || opt_key == "travel_speed"
+            || opt_key == "first_layer_travel_speed"
             || opt_key == "travel_speed_z"
             || opt_key == "first_layer_speed"
             || opt_key == "z_offset") {
@@ -230,10 +256,15 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
                opt_key == "first_layer_extrusion_width" 
             || opt_key == "min_layer_height"
             || opt_key == "max_layer_height"
-            || opt_key == "gcode_resolution") {
+            || opt_key == "gcode_resolution"
+            || opt_key == "enable_arc_fitting"
+            || opt_key == "wall_sequence") {
             osteps.emplace_back(posPerimeters);
             osteps.emplace_back(posInfill);
             osteps.emplace_back(posSupportMaterial);
+            osteps.emplace_back(posSimplifyPath);
+            osteps.emplace_back(posSimplifyInfill);
+            osteps.emplace_back(posSimplifySupportPath);
             steps.emplace_back(psSkirtBrim);
         } else if (opt_key == "avoid_crossing_curled_overhangs") {
             osteps.emplace_back(posEstimateCurledExtrusions);
@@ -373,6 +404,11 @@ bool Print::has_skirt() const
 bool Print::has_brim() const
 {
     return std::any_of(m_objects.begin(), m_objects.end(), [](PrintObject *object) { return object->has_brim(); });
+}
+
+bool Print::has_ear_brim() const
+{
+    return std::any_of(m_objects.begin(), m_objects.end(), [](PrintObject* object) { return object->has_ear_brim(); });
 }
 
 bool Print::sequential_print_horizontal_clearance_valid(const Print& print, Polygons* polygons)
@@ -868,6 +904,80 @@ void Print::auto_assign_extruders(ModelObject* model_object) const
     }
 }
 
+void  PrintObject::set_shared_object(PrintObject* object)
+{
+	m_shared_object = object;
+	BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": this=%1%, found shared object from %2%") % this % m_shared_object;
+}
+
+void  PrintObject::clear_shared_object()
+{
+	if (m_shared_object) {
+		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": this=%1%, clear previous shared object data %2%") % this % m_shared_object;
+		m_layers.clear();
+		m_support_layers.clear();
+
+		m_shared_object = nullptr;
+
+		invalidate_all_steps_without_cancel();
+	}
+}
+
+void  PrintObject::copy_layers_from_shared_object()
+{
+	if (m_shared_object) {
+		m_layers.clear();
+		m_support_layers.clear();
+
+		firstLayerObjSliceByVolume.clear();
+		firstLayerObjSliceByGroups.clear();
+
+		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": this=%1%, copied layers from object %2%") % this % m_shared_object;
+		m_layers = m_shared_object->layers();
+		m_support_layers = m_shared_object->support_layers();
+
+		firstLayerObjSliceByVolume = m_shared_object->firstLayerObjSlice();
+		firstLayerObjSliceByGroups = m_shared_object->firstLayerObjGroups();
+	}
+}
+
+void  PrintObject::copy_layers_overhang_from_shared_object()
+{
+	if (m_shared_object) {
+		for (size_t index = 0; index < m_layers.size() && index < m_shared_object->m_layers.size(); index++)
+		{
+			Layer* layer_src = m_layers[index];
+			layer_src->loverhangs = m_shared_object->m_layers[index]->loverhangs;
+			layer_src->loverhangs_bbox = m_shared_object->m_layers[index]->loverhangs_bbox;
+		}
+		BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": this=%1%, copied layer overhang from object %2%") % this % m_shared_object;
+	}
+}
+
+BoundingBox  PrintObject::get_first_layer_bbox(float &a, float& layer_height, std::string& name)
+{
+    BoundingBox bbox;
+    a = 0;
+    name = this->model_object()->name;
+    if(layer_count() > 0) {
+        auto layer = get_layer(0);
+        layer_height = layer->height;
+        // only work for object with single instance
+        auto shift = instances()[0].shift_without_plate_offset();
+        for(auto &bb: layer->lslices_bboxes) {
+            bb.translate(shift.x(), shift.y());
+            bbox.merge(bb);
+        }
+        for(auto slice: layer->lslices) {
+            a += area(slice);
+        }
+    }
+    if (has_brim())
+        bbox = firstLayerObjectBrimBoundingBox;
+    return bbox;
+
+};
+
 // Slicing process, running at a background thread.
 void Print::process()
 {
@@ -876,7 +986,7 @@ void Print::process()
     BOOST_LOG_TRIVIAL(info) << "Starting the slicing process." << log_memory_info();
     for (PrintObject *obj : m_objects)
         obj->make_perimeters();
-    this->set_status(70, _u8L("Infilling layers"));
+    this->set_status(70, _u8L("common_slicepopup_slicing_genera2"));
     for (PrintObject *obj : m_objects)
         obj->infill();
     for (PrintObject *obj : m_objects)
@@ -899,12 +1009,12 @@ void Print::process()
         	// Initialize the tool ordering, so it could be used by the G-code preview slider for planning tool changes and filament switches.
         	m_tool_ordering = ToolOrdering(*this, -1, false);
             if (m_tool_ordering.empty() || m_tool_ordering.last_extruder() == unsigned(-1))
-                throw Slic3r::SlicingError("The print is empty. The model is not printable with current print settings.");
+                throw Slic3r::SlicingError(_u8L("common_slicepopup_slicingnotice2"));
         }
         this->set_done(psWipeTower);
     }
     if (this->set_started(psSkirtBrim)) {
-        this->set_status(88, _u8L("Generating skirt and brim"));
+        this->set_status(88, _u8L("common_slicepopup_slicing_genera1"));
 
         m_skirt.clear();
         m_skirt_convex_hull.clear();
@@ -917,11 +1027,19 @@ void Print::process()
             _make_skirt();
         }
 
+
+        // m_brimMap and m_supportBrimMap are used to instead of m_brim to generate brim of obj and supports separately
+        m_brimMap.clear();
+        m_supportBrimMap.clear();
         m_brim.clear();
         m_first_layer_convex_hull.points.clear();
         if (this->has_brim()) {
             Polygons islands_area;
             m_brim = make_brim(*this, this->make_try_cancel(), islands_area);
+            //make_brim(*this, this->make_try_cancel(), islands_area, 
+            //    m_brimMap, m_supportBrimMap, objPrintVec, printExtruders);
+            for (Polygon& poly_ex : islands_area)
+                poly_ex.douglas_peucker(SCALED_RESOLUTION);
             for (Polygon &poly : union_(this->first_layer_islands(), islands_area))
                 append(m_first_layer_convex_hull.points, std::move(poly.points));
         }
@@ -937,6 +1055,23 @@ void Print::process()
         this->finalize_first_layer_convex_hull();
         this->set_done(psSkirtBrim);
     }
+
+    std::optional<const FakeWipeTower*> wipe_tower_opt = {};
+    if (this->has_wipe_tower()) {
+        m_fake_wipe_tower.set_pos_and_rotation({ m_config.wipe_tower_x, m_config.wipe_tower_y }, m_config.wipe_tower_rotation_angle);
+        wipe_tower_opt = std::make_optional<const FakeWipeTower*>(&m_fake_wipe_tower);
+    }
+    auto conflictRes = ConflictChecker::find_inter_of_lines_in_diff_objs(m_objects, wipe_tower_opt);
+
+    m_conflict_result = conflictRes;
+    if (conflictRes.has_value())
+        BOOST_LOG_TRIVIAL(error) << boost::format("gcode path conflicts found between %1% and %2%") % conflictRes->_objName1 % conflictRes->_objName2;
+
+    for (PrintObject* obj : m_objects) {
+        obj->simplify_extrusion_path();
+    }
+
+
     BOOST_LOG_TRIVIAL(info) << "Slicing process finished." << log_memory_info();
 }
 
@@ -956,14 +1091,16 @@ std::string Print::export_gcode(const std::string& path_template, GCodeProcessor
         message += " to ";
         message += path;
     } else
-        message = _u8L("Generating G-code");
+        message = _u8L("common_slicepopup_slicing_genera3");
     this->set_status(90, message);
 
     // Create GCode on heap, it has quite a lot of data.
     std::unique_ptr<GCode> gcode(new GCode);
-    //friva change for acode export
+    // Friva change for acode export
     gcode->set_ai_creat_file(isCreatAiFile);
     gcode->do_export(this, path.c_str(), result, thumbnail_cb);
+    if (m_conflict_result.has_value())
+        result->conflict_result = *m_conflict_result;
     return path.c_str();
 }
 
@@ -977,7 +1114,7 @@ void Print::_make_skirt()
     // the actual skirt might not reach this $skirt_height_z value since the print
     // order of objects on each layer is not guaranteed and will not generally
     // include the thickest object first. It is just guaranteed that a skirt is
-    // prepended to the first 'n' layers (with 'n' = skirt_height).
+    // pretended to the first 'n' layers (with 'n' = skirt_height).
     // $skirt_height_z in this case is the highest possible skirt height for safety.
     coordf_t skirt_height_z = 0.;
     for (const PrintObject *object : m_objects) {
@@ -1052,6 +1189,7 @@ void Print::_make_skirt()
     size_t n_skirts = m_config.skirts.value;
     if (this->has_infinite_skirt() && n_skirts == 0)
         n_skirts = 1;
+
 
     // Initial offset of the brim inner edge from the object (possible with a support & raft).
     // The skirt will touch the brim if the brim is extruded.
@@ -1184,24 +1322,24 @@ void Print::alert_when_supports_needed()
             std::string message;
             switch (cause) {
             //TRN Alert when support is needed. Describes that the model has long bridging extrusions which may print badly 
-            case SupportSpotsGenerator::SupportPointCause::LongBridge: message = _u8L("Long bridging extrusions"); break;
+            case SupportSpotsGenerator::SupportPointCause::LongBridge: message = _u8L("common_slicepopup_stabilityissue2"); break;
             //TRN Alert when support is needed. Describes bridge anchors/turns in the air, which will definitely print badly
-            case SupportSpotsGenerator::SupportPointCause::FloatingBridgeAnchor: message = _u8L("Floating bridge anchors"); break;
+            case SupportSpotsGenerator::SupportPointCause::FloatingBridgeAnchor: message = _u8L("common_slicepopup_stabilityissue3"); break;
             case SupportSpotsGenerator::SupportPointCause::FloatingExtrusion:
                 if (critical) {
                      //TRN Alert when support is needed. Describes that the print has large overhang area which will print badly or not print at all.
-                    message = _u8L("Collapsing overhang");
+                    message = _u8L("common_slicepopup_stabilityissue4");
                 } else {
                     //TRN Alert when support is needed. Describes extrusions that are not supported enough and come out curled or loose.
-                    message = _u8L("Loose extrusions");
+                    message = _u8L("common_slicepopup_stabilityissue5");
                 }
                 break;
             //TRN Alert when support is needed. Describes that the print has low bed adhesion and may became loose.
-            case SupportSpotsGenerator::SupportPointCause::SeparationFromBed: message = _u8L("Low bed adhesion"); break;
+            case SupportSpotsGenerator::SupportPointCause::SeparationFromBed: message = _u8L("common_slicepopup_stabilityissue6"); break;
             //TRN Alert when support is needed. Describes that the object has part that is not connected to the bed and will not print at all without supports.
-            case SupportSpotsGenerator::SupportPointCause::UnstableFloatingPart: message = _u8L("Floating object part"); break;
+            case SupportSpotsGenerator::SupportPointCause::UnstableFloatingPart: message = _u8L("common_slicepopup_stabilityissue1"); break;
             //TRN Alert when support is needed. Describes that the object has thin part that may brake during printing 
-            case SupportSpotsGenerator::SupportPointCause::WeakObjectPart: message = _u8L("Thin fragile part"); break;
+            case SupportSpotsGenerator::SupportPointCause::WeakObjectPart: message = _u8L("common_slicepopup_stabilityissue7"); break;
             }
 
             return message;
@@ -1309,14 +1447,14 @@ void Print::alert_when_supports_needed()
         }
 
         lines.push_back("");
-        lines.push_back(_u8L("Consider enabling supports."));
+        lines.push_back(_u8L("common_slicepopup_stabilityissue8"));
         if (recommend_brim) {
-            lines.push_back(_u8L("Also consider enabling brim."));
+            lines.push_back(_u8L("common_slicepopup_stabilityissue9"));
         }
 
         // TRN Alert message for detected print issues. first argument is a list of detected issues.
-        auto message = Slic3r::format(_u8L("Detected print stability issues:\n%1%"), elements_to_translated_list(lines, multiline_list_rule));
-
+      //  auto message = Slic3r::format(_u8L("Detected print stability issues:\n%1%"), elements_to_translated_list(lines, multiline_list_rule));
+        auto message = Slic3r::format(_u8L("common_slicepopup_stabilityissue"),elements_to_translated_list(lines, multiline_list_rule));
         if (objects_isssues.size() > 0) {
             this->active_step_add_warning(PrintStateBase::WarningLevel::NON_CRITICAL, message);
         }
@@ -1462,6 +1600,7 @@ void Print::_make_wipe_tower()
     m_wipe_tower_data.tool_changes.reserve(m_wipe_tower_data.tool_ordering.layer_tools().size());
     wipe_tower.generate(m_wipe_tower_data.tool_changes);
     m_wipe_tower_data.depth = wipe_tower.get_depth();
+    m_wipe_tower_data.z_and_depth_pairs = wipe_tower.get_z_and_depth_pairs();
     m_wipe_tower_data.brim_width = wipe_tower.get_brim_width();
     m_wipe_tower_data.height = wipe_tower.get_wipe_tower_height();
 
@@ -1486,6 +1625,10 @@ void Print::_make_wipe_tower()
 
     m_wipe_tower_data.used_filament = wipe_tower.get_used_filament();
     m_wipe_tower_data.number_of_toolchanges = wipe_tower.get_number_of_toolchanges();
+
+    const Vec3d origin = Vec3d::Zero();
+    m_fake_wipe_tower.set_fake_extrusion_data(wipe_tower.position(), wipe_tower.width(), wipe_tower.get_wipe_tower_height(), config().first_layer_height, m_wipe_tower_data.depth,
+        m_wipe_tower_data.z_and_depth_pairs, m_wipe_tower_data.brim_width, config().wipe_tower_rotation_angle, config().wipe_tower_cone_angle, { scale_(origin.x()), scale_(origin.y()) });
 }
 
 // Generate a recommended G-code output file name based on the format template, default extension, and template parameters
@@ -1551,6 +1694,82 @@ std::string PrintStatistics::finalize_output_path(const std::string &path_in) co
         final_path = path_in;
     }
     return final_path;
+}
+
+std::vector<ExtrusionPaths> FakeWipeTower::getFakeExtrusionPathsFromWipeTower() const
+{
+    float h = height;
+    float lh = layer_height;
+    int   d = scale_(depth);
+    int   w = scale_(width);
+    int   bd = scale_(brim_width);
+    Point minCorner = { -bd, -bd };
+    Point maxCorner = { minCorner.x() + w + bd, minCorner.y() + d + bd };
+
+    const auto [cone_base_R, cone_scale_x] = WipeTower::get_wipe_tower_cone_base(width, height, depth, cone_angle);
+
+    std::vector<ExtrusionPaths> paths;
+    for (float hh = 0.f; hh < h; hh += lh) {
+
+        if (hh != 0.f) {
+            // The wipe tower may be getting smaller. Find the depth for this layer.
+            size_t i = 0;
+            for (i = 0; i < z_and_depth_pairs.size() - 1; ++i)
+                if (hh >= z_and_depth_pairs[i].first && hh < z_and_depth_pairs[i + 1].first)
+                    break;
+            d = scale_(z_and_depth_pairs[i].second);
+            minCorner = { 0.f, -d / 2 + scale_(z_and_depth_pairs.front().second / 2.f) };
+            maxCorner = { minCorner.x() + w, minCorner.y() + d };
+        }
+
+
+        ExtrusionPath path(ExtrusionRole::WipeTower, 0.0, 0.0, lh);
+        path.polyline = { minCorner, {maxCorner.x(), minCorner.y()}, maxCorner, {minCorner.x(), maxCorner.y()}, minCorner };
+        paths.push_back({ path });
+
+        // We added the border, now add several parallel lines so we can detect an object that is fully inside the tower.
+        // For now, simply use fixed spacing of 3mm.
+        for (coord_t y = minCorner.y() + scale_(3.); y < maxCorner.y(); y += scale_(3.)) {
+            path.polyline = { {minCorner.x(), y}, {maxCorner.x(), y} };
+            paths.back().emplace_back(path);
+        }
+
+        // And of course the stabilization cone and its base...
+        if (cone_base_R > 0.) {
+            path.polyline.clear();
+            double r = cone_base_R * (1 - hh / height);
+            for (double alpha = 0; alpha < 2.01 * M_PI; alpha += 2 * M_PI / 20.)
+                path.polyline.points.emplace_back(Point::new_scale(width / 2. + r * std::cos(alpha) / cone_scale_x, depth / 2. + r * std::sin(alpha)));
+            paths.back().emplace_back(path);
+            if (hh == 0.f) { // Cone brim.
+                for (float bw = brim_width; bw > 0.f; bw -= 3.f) {
+                    path.polyline.clear();
+                    for (double alpha = 0; alpha < 2.01 * M_PI; alpha += 2 * M_PI / 20.) // see load_wipe_tower_preview, where the same is a bit clearer
+                        path.polyline.points.emplace_back(Point::new_scale(
+                            width / 2. + cone_base_R * std::cos(alpha) / cone_scale_x * (1. + cone_scale_x * bw / cone_base_R),
+                            depth / 2. + cone_base_R * std::sin(alpha) * (1. + bw / cone_base_R))
+                        );
+                    paths.back().emplace_back(path);
+                }
+            }
+        }
+
+        // Only the first layer has brim.
+        if (hh == 0.f) {
+            minCorner = minCorner + Point(bd, bd);
+            maxCorner = maxCorner - Point(bd, bd);
+        }
+    }
+
+    // Rotate and translate the tower into the final position.
+    for (ExtrusionPaths& ps : paths) {
+        for (ExtrusionPath& p : ps) {
+            p.polyline.rotate(Geometry::deg2rad(rotation_angle));
+            p.polyline.translate(scale_(pos.x()), scale_(pos.y()));
+        }
+    }
+
+    return paths;
 }
 
 } // namespace Slic3r

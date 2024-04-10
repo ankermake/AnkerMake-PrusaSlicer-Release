@@ -501,9 +501,6 @@ void OtherInstanceMessageHandler::handle_message(const std::string& message)
 {
 	BOOST_LOG_TRIVIAL(info) << "message from other instance: " << message;
 
-
-
-
 	std::vector<std::string> args;
 	bool parsed = unescape_strings_cstyle(message, args);
 	assert(parsed);
@@ -520,12 +517,7 @@ void OtherInstanceMessageHandler::handle_message(const std::string& message)
 		boost::filesystem::path p = MessageHandlerInternal::get_path(*it);
 		if (! p.string().empty())
 			paths.emplace_back(p);
-// TODO: There is a misterious slash appearing in recieved msg on windows
-#ifdef _WIN32
 		else if (it->rfind("ankerstudio://open/?file=", 0) == 0)
-#else
-	    else if (it->rfind("ankerstudio://open?file=", 0) == 0)
-#endif
 			downloads.emplace_back(*it);
 	}
 	if (! paths.empty()) {

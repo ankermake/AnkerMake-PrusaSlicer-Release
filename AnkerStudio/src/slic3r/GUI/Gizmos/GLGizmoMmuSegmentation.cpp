@@ -33,8 +33,7 @@ static inline void show_notification_extruders_limit_exceeded()
         .plater()
         ->get_notification_manager()
         ->push_notification(NotificationType::MmSegmentationExceededExtrudersLimit, NotificationManager::NotificationLevel::PrintInfoNotificationLevel,
-                            GUI::format(_L("Your printer has more extruders than the multi-material painting gizmo supports. For this reason, only the "
-                                           "first %1% extruders will be able to be used for painting."), GLGizmoMmuSegmentation::EXTRUDERS_LIMIT));
+                            GUI::format(_L("common_slicepopup_painterror1"), GLGizmoMmuSegmentation::EXTRUDERS_LIMIT));
 }
 
 void GLGizmoMmuSegmentation::on_opening()
@@ -56,7 +55,7 @@ void GLGizmoMmuSegmentation::on_shutdown()
 std::string GLGizmoMmuSegmentation::on_get_name(bool i18n) const
 {
     //return i18n ? _u8L("Multimaterial painting") : "Multimaterial painting";
-    return i18n ? _u8L("Drawing") : "Drawing";
+    return i18n ? _u8L("common_slice_tooltips_draw") : "Draw";
 }
 
 bool GLGizmoMmuSegmentation::on_is_selectable() const
@@ -141,6 +140,25 @@ bool GLGizmoMmuSegmentation::on_init()
     m_desc["split_triangles"]      = _L("Split triangles");
 
     init_extruders_data();
+
+    wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_CLICK_FILAMENT_BTN, [this](wxCommandEvent& event) {
+        wxVariant* pData = (wxVariant*)event.GetClientData();
+        if (pData)
+        {
+            // TODO
+            wxVariantList list = pData->GetList();
+            wxString wxStrFilamentColor = list[0]->GetString();
+            int strFilamentIndex = list[1]->GetInteger();
+            wxColour filamentColor = wxColour(wxStrFilamentColor);
+            m_currentColor = ColorRGBA(filamentColor.Red(), filamentColor.Green(), filamentColor.Blue(), filamentColor.Alpha());
+            m_currentColor.a(0.25);
+            m_current_extruder_idx = strFilamentIndex - 1;
+
+            //this->init_extruders_data();
+            //this->init_model_triangle_selectors();
+            update_from_model_object();
+        }
+        });
 
     return true;
 }
@@ -540,20 +558,32 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
     // Don't continue when extruders colors are not initialized
     if(m_original_extruders_colors.empty())
         return;
+    
+    auto object_idx = m_parent.get_object_idx(mo);
+    if (object_idx < 0)
+        return;
 
+    if (mo == nullptr) {
+        ANKER_LOG_ERROR << "init_model_triangle_selectors selection model object is nullptr !";
+        return;
+    }
+
+    int volume_idx = -1;
     for (const ModelVolume *mv : mo->volumes) {
         if (!mv->is_model_part())
             continue;
-
+        volume_idx ++;
         // This mesh does not account for the possible Z up SLA offset.
         const TriangleMesh *mesh = &mv->mesh();
 
         int extruder_idx = (mv->extruder_id() > 0) ? mv->extruder_id() - 1 : 0;
-        m_triangle_selectors.emplace_back(std::make_unique<TriangleSelectorMmGui>(*mesh, m_modified_extruders_colors, m_original_extruders_colors[size_t(extruder_idx)]));
+        m_triangle_selectors.emplace_back(std::make_unique<TriangleSelectorMmGui>(*mesh, m_modified_extruders_colors, m_original_extruders_colors[size_t(extruder_idx)], 
+            &m_parent.get_selection(), object_idx, volume_idx));
         // Reset of TriangleSelector is done inside TriangleSelectorMmGUI's constructor, so we don't need it to perform it again in deserialize().
         m_triangle_selectors.back()->deserialize(mv->mmu_segmentation_facets.get_data(), false);
         m_triangle_selectors.back()->request_update_render_data();
     }
+
     m_original_volumes_extruder_idxs = get_extruder_id_for_volumes(*mo);
 }
 
@@ -605,14 +635,14 @@ void TriangleSelectorMmGui::render(ImGuiWrapper* imgui, const Transform3d& matri
     const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
     shader->set_uniform("view_normal_matrix", view_normal_matrix);
 
-    for (size_t color_idx = 0; color_idx < m_gizmo_scene.triangle_indices.size(); ++color_idx) {
-        if (m_gizmo_scene.has_VBOs(color_idx)) {
+    for (size_t color_idx = 0; color_idx < m_gizmo_scene->triangle_indices.size(); ++color_idx) {
+        if (m_gizmo_scene->has_VBOs(color_idx)) {
             if (color_idx > m_colors.size()) // Seed fill VBO
                 shader->set_uniform("uniform_color", TriangleSelectorGUI::get_seed_fill_color(color_idx == (m_colors.size() + 1) ? m_default_volume_color : m_colors[color_idx - (m_colors.size() + 1) - 1]));
             else                             // Normal VBO
                 shader->set_uniform("uniform_color", color_idx == 0 ? m_default_volume_color : m_colors[color_idx - 1]);
 
-            m_gizmo_scene.render(color_idx);
+            m_gizmo_scene->render(color_idx);
         }
     }
 
@@ -620,23 +650,46 @@ void TriangleSelectorMmGui::render(ImGuiWrapper* imgui, const Transform3d& matri
     m_update_render_data = false;
 }
 
+void TriangleSelectorMmGui::set_mmu_render_data()
+{
+    if (!m_selection) {
+        return;
+    }
+
+    auto object_idx = m_selection->get_object_idx();
+    if (object_idx == -1)
+        return;
+    // get volume idxs from object, which created by model part or model instance
+    const auto& list = m_selection->get_volume_idxs_from_object(object_idx);
+    for (auto idx : list) {
+        GLVolume* vol = const_cast<GLVolume*>(m_selection->get_volume(idx));
+        // traverse all selectors, make sure we get the correct one
+        if (m_object_id == vol->composite_id.object_id && m_volume_id == vol
+            ->composite_id.volume_id) {
+            vol->mmu_mesh = m_gizmo_scene;
+        }
+    }
+}
+
 void TriangleSelectorMmGui::update_render_data()
 {
-    m_gizmo_scene.release_geometry();
+    m_gizmo_scene->release_geometry();
     m_vertices.reserve(m_vertices.size() * 3);
     for (const Vertex &vr : m_vertices) {
-        m_gizmo_scene.vertices.emplace_back(vr.v.x());
-        m_gizmo_scene.vertices.emplace_back(vr.v.y());
-        m_gizmo_scene.vertices.emplace_back(vr.v.z());
+        m_gizmo_scene->vertices.emplace_back(vr.v.x());
+        m_gizmo_scene->vertices.emplace_back(vr.v.y());
+        m_gizmo_scene->vertices.emplace_back(vr.v.z());
     }
-    m_gizmo_scene.finalize_vertices();
+    m_gizmo_scene->finalize_vertices();
 
     for (const Triangle &tr : m_triangles)
         if (tr.valid() && !tr.is_split()) {
             int               color = int(tr.get_state()) <= int(m_colors.size()) ? int(tr.get_state()) : 0;
-            assert(m_colors.size() + 1 + color < m_gizmo_scene.triangle_indices.size());
-            std::vector<int> &iva   = m_gizmo_scene.triangle_indices[color + tr.is_selected_by_seed_fill() * (m_colors.size() + 1)];
+            assert(m_colors.size() + 1 + color < m_gizmo_scene->triangle_indices.size());
 
+            //fix press ESC color not keep when select bucket fill the color
+            std::vector<int>& iva = m_gizmo_scene->triangle_indices[color];
+            //std::vector<int> &iva   = m_gizmo_scene->triangle_indices[color + tr.is_selected_by_seed_fill() * (m_colors.size() + 1)];
             if (iva.size() + 3 > iva.capacity())
                 iva.reserve(next_highest_power_of_2(iva.size() + 3));
 
@@ -645,11 +698,12 @@ void TriangleSelectorMmGui::update_render_data()
             iva.emplace_back(tr.verts_idxs[2]);
         }
 
-    for (size_t color_idx = 0; color_idx < m_gizmo_scene.triangle_indices.size(); ++color_idx)
-        m_gizmo_scene.triangle_indices_sizes[color_idx] = m_gizmo_scene.triangle_indices[color_idx].size();
+    for (size_t color_idx = 0; color_idx < m_gizmo_scene->triangle_indices.size(); ++color_idx)
+        m_gizmo_scene->triangle_indices_sizes[color_idx] = m_gizmo_scene->triangle_indices[color_idx].size();
 
-    m_gizmo_scene.finalize_triangle_indices();
+    m_gizmo_scene->finalize_triangle_indices();
     update_paint_contour();
+    set_mmu_render_data();
 }
 
 wxString GLGizmoMmuSegmentation::handle_snapshot_action_name(bool shift_down, GLGizmoPainterBase::Button button_down) const
@@ -664,112 +718,6 @@ wxString GLGizmoMmuSegmentation::handle_snapshot_action_name(bool shift_down, GL
     return action_name;
 }
 
-void GLMmSegmentationGizmo3DScene::release_geometry() {
-    if (this->vertices_VBO_id) {
-        glsafe(::glDeleteBuffers(1, &this->vertices_VBO_id));
-        this->vertices_VBO_id = 0;
-    }
-    for(auto &triangle_indices_VBO_id : triangle_indices_VBO_ids) {
-        glsafe(::glDeleteBuffers(1, &triangle_indices_VBO_id));
-        triangle_indices_VBO_id = 0;
-    }
-#if ENABLE_GL_CORE_PROFILE
-    if (this->vertices_VAO_id > 0) {
-        glsafe(::glDeleteVertexArrays(1, &this->vertices_VAO_id));
-        this->vertices_VAO_id = 0;
-    }
-#endif // ENABLE_GL_CORE_PROFILE
-
-    this->clear();
-}
-
-void GLMmSegmentationGizmo3DScene::render(size_t triangle_indices_idx) const
-{
-    assert(triangle_indices_idx < this->triangle_indices_VBO_ids.size());
-    assert(this->triangle_indices_sizes.size() == this->triangle_indices_VBO_ids.size());
-#if ENABLE_GL_CORE_PROFILE
-    if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
-        assert(this->vertices_VAO_id != 0);
-#endif // ENABLE_GL_CORE_PROFILE
-    assert(this->vertices_VBO_id != 0);
-    assert(this->triangle_indices_VBO_ids[triangle_indices_idx] != 0);
-
-    GLShaderProgram* shader = wxGetApp().get_current_shader();
-    if (shader == nullptr)
-        return;
-
-#if ENABLE_GL_CORE_PROFILE
-    if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
-        glsafe(::glBindVertexArray(this->vertices_VAO_id));
-    // the following binding is needed to set the vertex attributes
-#endif // ENABLE_GL_CORE_PROFILE
-    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, this->vertices_VBO_id));
-    const GLint position_id = shader->get_attrib_location("v_position");
-    if (position_id != -1) {
-        glsafe(::glVertexAttribPointer(position_id, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (GLvoid*)0));
-        glsafe(::glEnableVertexAttribArray(position_id));
-    }
-
-    // Render using the Vertex Buffer Objects.
-    if (this->triangle_indices_VBO_ids[triangle_indices_idx] != 0 &&
-        this->triangle_indices_sizes[triangle_indices_idx] > 0) {
-        glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices_VBO_ids[triangle_indices_idx]));
-        glsafe(::glDrawElements(GL_TRIANGLES, GLsizei(this->triangle_indices_sizes[triangle_indices_idx]), GL_UNSIGNED_INT, nullptr));
-        glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-    }
-
-    if (position_id != -1)
-        glsafe(::glDisableVertexAttribArray(position_id));
-
-    glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
-#if ENABLE_GL_CORE_PROFILE
-    if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
-        glsafe(::glBindVertexArray(0));
-#endif // ENABLE_GL_CORE_PROFILE
-}
-
-void GLMmSegmentationGizmo3DScene::finalize_vertices()
-{
-#if ENABLE_GL_CORE_PROFILE
-        assert(this->vertices_VAO_id == 0);
-#endif // ENABLE_GL_CORE_PROFILE
-    assert(this->vertices_VBO_id == 0);
-    if (!this->vertices.empty()) {
-#if ENABLE_GL_CORE_PROFILE
-        if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0)) {
-            glsafe(::glGenVertexArrays(1, &this->vertices_VAO_id));
-            glsafe(::glBindVertexArray(this->vertices_VAO_id));
-        }
-#endif // ENABLE_GL_CORE_PROFILE
-
-        glsafe(::glGenBuffers(1, &this->vertices_VBO_id));
-        glsafe(::glBindBuffer(GL_ARRAY_BUFFER, this->vertices_VBO_id));
-        glsafe(::glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(float), this->vertices.data(), GL_STATIC_DRAW));
-        glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
-        this->vertices.clear();
-
-#if ENABLE_GL_CORE_PROFILE
-        if (OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
-        glsafe(::glBindVertexArray(0));
-#endif // ENABLE_GL_CORE_PROFILE
-    }
-}
-
-void GLMmSegmentationGizmo3DScene::finalize_triangle_indices()
-{
-    assert(std::all_of(triangle_indices_VBO_ids.cbegin(), triangle_indices_VBO_ids.cend(), [](const auto &ti_VBO_id) { return ti_VBO_id == 0; }));
-
-    assert(this->triangle_indices.size() == this->triangle_indices_VBO_ids.size());
-    for (size_t buffer_idx = 0; buffer_idx < this->triangle_indices.size(); ++buffer_idx)
-        if (!this->triangle_indices[buffer_idx].empty()) {
-            glsafe(::glGenBuffers(1, &this->triangle_indices_VBO_ids[buffer_idx]));
-            glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices_VBO_ids[buffer_idx]));
-            glsafe(::glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices[buffer_idx].size() * sizeof(int), this->triangle_indices[buffer_idx].data(), GL_STATIC_DRAW));
-            glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-            this->triangle_indices[buffer_idx].clear();
-        }
-}
-
 void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 {
     if (wxGetApp().plater() == nullptr)
@@ -777,7 +725,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 
     ANKER_LOG_INFO << "GLGizmoMmuSegmentation: " << on;
 
-    std::string panelFlag = get_name(true, false);
+    std::string panelFlag = "GLGizmoMmuSegmentation";
     if (on)
     {
         wxGetApp().plater()->sidebarnew().setMainSizer();
@@ -863,8 +811,8 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 
             AnkerSlider* smartFillValueSlider = new AnkerSlider(mmuPanel);
             smartFillValueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
-            smartFillValueSlider->SetMinSize(AnkerSize(40, 20));
-            smartFillValueSlider->SetMaxSize(AnkerSize(1000, 20));
+            smartFillValueSlider->SetMinSize(AnkerSize(40, 40));
+            smartFillValueSlider->SetMaxSize(AnkerSize(1000, 40));
             smartFillValueSlider->setRange(smartFillAngleMin, smartFillAngleMax, 0.01);
             smartFillValueSlider->setCurrentValue(smartFillAngleInit);
             smartFillValueSlider->setTooltipVisible(false);
@@ -875,20 +823,17 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 
 			char text[10];
 			sprintf(text, "%d", smartFillAngleInit);
-			wxTextCtrl* smartFillValueTextCtrl = new wxTextCtrl(mmuPanel, wxID_ANY, text, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+            AnkerLineEditUnit* smartFillValueTextCtrl = new AnkerLineEditUnit(mmuPanel, _L("°"), ANKER_FONT_NO_1, wxColour(41, 42, 45), wxColour("#3F4043"), 4, wxID_ANY);
             smartFillValueTextCtrl->SetFont(ANKER_FONT_NO_1);
-			smartFillValueTextCtrl->SetMinSize(AnkerSize(40, 20));
-			smartFillValueTextCtrl->SetMaxSize(AnkerSize(40, 20));
-			smartFillValueTextCtrl->SetSize(AnkerSize(40, 20));
+			smartFillValueTextCtrl->SetMinSize(AnkerSize(42, 25));
+			smartFillValueTextCtrl->SetMaxSize(AnkerSize(42, 25));
+			smartFillValueTextCtrl->SetSize(AnkerSize(42, 25));
 			smartFillValueTextCtrl->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
 			smartFillValueTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
+            smartFillValueTextCtrl->SetValue(text);
+            smartFillValueTextCtrl->AddValidatorInt(SmartFillAngleMin, SmartFillAngleMax);
 
-            wxIntegerValidator<int> intValidator;
-            intValidator.SetMin(SmartFillAngleMin);
-            intValidator.SetMax(SmartFillAngleMax);
-            smartFillValueTextCtrl->SetValidator(intValidator);
-
-			smartFillValueSizer->Add(smartFillValueTextCtrl, 0, wxALIGN_RIGHT | wxTOP, 8);
+			smartFillValueSizer->Add(smartFillValueTextCtrl, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT | wxTOP, 8);
 
             smartFillValueSizer->Show(false);
 
@@ -901,8 +846,8 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 
             AnkerSlider* brushValueSlider = new AnkerSlider(mmuPanel);
             brushValueSlider->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
-            brushValueSlider->SetMinSize(AnkerSize(40, 20));
-            brushValueSlider->SetMaxSize(AnkerSize(1000, 20));
+            brushValueSlider->SetMinSize(AnkerSize(40, 40));
+            brushValueSlider->SetMaxSize(AnkerSize(1000, 40));
             brushValueSlider->setRange(brushSizeMin, brushSizeMax, 0.01);
             brushValueSlider->setCurrentValue(brushSizeInit);
             brushValueSlider->setTooltipVisible(false);
@@ -912,18 +857,15 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
             brushValueSizer->AddSpacer(10);
 
 			sprintf(text, "%.2f", brushSizeInit);
-			wxTextCtrl* brushValueTextCtrl = new wxTextCtrl(mmuPanel, wxID_ANY, text, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE);
+            AnkerLineEditUnit* brushValueTextCtrl = new AnkerLineEditUnit(mmuPanel, "", ANKER_FONT_NO_1, wxColour(41, 42, 45), wxColour("#3F4043"), 4, wxID_ANY);
             brushValueTextCtrl->SetFont(ANKER_FONT_NO_1);
-			brushValueTextCtrl->SetMinSize(AnkerSize(40, 20));
-			brushValueTextCtrl->SetMaxSize(AnkerSize(40, 20));
-			brushValueTextCtrl->SetSize(AnkerSize(40, 20));
+			brushValueTextCtrl->SetMinSize(AnkerSize(42, 25));
+			brushValueTextCtrl->SetMaxSize(AnkerSize(42, 25));
+			brushValueTextCtrl->SetSize(AnkerSize(42, 25));
 			brushValueTextCtrl->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
 			brushValueTextCtrl->SetForegroundColour(wxColour(TEXT_LIGHT_RGB_INT));
-
-            wxFloatingPointValidator<double> doubleValidator;
-            doubleValidator.SetMin(brushSizeMin);
-            doubleValidator.SetMax(brushSizeMax);
-            brushValueTextCtrl->SetValidator(doubleValidator);
+            brushValueTextCtrl->SetValue(text);
+            brushValueTextCtrl->AddValidatorFloat(brushSizeMin, brushSizeMax, 2);
             
             brushValueSizer->Add(brushValueTextCtrl, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT | wxTOP, 8);
 
@@ -933,7 +875,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 			mmuPanelSizer->AddStretchSpacer(1);
 
 
-			container->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, returnBtnID, clearBtnID](wxCommandEvent& event) {
+			container->Bind(wxANKEREVT_ATP_BUTTON_CLICKED, [this, container, returnBtnID, clearBtnID, brushSizeInit, smartFillAngleInit, brushValueTextCtrl, smartFillValueTextCtrl, brushValueSlider, smartFillValueSlider](wxCommandEvent& event) {
 				int btnID = event.GetInt();
 				if (btnID == returnBtnID)
 				{
@@ -954,6 +896,18 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 
 					update_model_object();
 					m_parent.set_as_dirty();
+
+                    // reset slider and text editor
+                    char text[10];
+                    sprintf(text, "%.2f", brushSizeInit);
+                    brushValueTextCtrl->SetValue(text);
+                    brushValueSlider->setCurrentValue(brushSizeInit);
+                    m_cursor_radius = brushSizeInit;
+                    sprintf(text, "%d", smartFillAngleInit);
+                    smartFillValueTextCtrl->SetValue(text);
+                    smartFillValueSlider->setCurrentValue(smartFillAngleInit);
+                    m_smart_fill_angle = smartFillAngleInit;
+                    container->Refresh();
 				}
 				});
 
@@ -963,7 +917,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
                 
                 m_tool_type = ToolType::SMART_FILL;
 
-				paramTitleText->SetLabelText(/*L"Smart Fill Angle"*/_("common_slice_toolpanneldraw_title2"));
+				paramTitleText->SetLabelText(_("common_slice_toolpanneldraw_title1"));
 				smartFillValueSizer->Show(true);
 				brushValueSizer->Show(false);
 
@@ -997,7 +951,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
                 
                 m_tool_type = ToolType::BRUSH;
 
-				paramTitleText->SetLabelText(L"Brush Size");
+                paramTitleText->SetLabelText(_("common_slice_toolpanneldraw_title2"));
 				smartFillValueSizer->Show(false);
 				brushValueSizer->Show(true);
 
@@ -1037,28 +991,29 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 
 				char text[10];
 				sprintf(text, "%d", currentValue);
-				smartFillValueTextCtrl->SetLabelText(text);
+				smartFillValueTextCtrl->SetValue(text);
 
 				container->Refresh();
 
                 m_isEditing = false;
 				});
-			smartFillValueTextCtrl->Bind(wxEVT_TEXT, [this, smartFillValueTextCtrl, smartFillValueSlider, smartFillAngleInit, container](wxCommandEvent& event) {
+			smartFillValueTextCtrl->Bind(wxCUSTOMEVT_EDIT_FINISHED, [this, smartFillValueTextCtrl, smartFillValueSlider, smartFillAngleInit, smartFillAngleMin, smartFillAngleMax, container](wxCommandEvent& event) {
                 if (m_isEditing)
                     return;
 
                 m_isEditing = true;
                 
                 int newValue = smartFillAngleInit;
-				wxString newValueStr = smartFillValueTextCtrl->GetLineText(0);
+				wxString newValueStr = smartFillValueTextCtrl->GetValue();
 				bool success = newValueStr.ToInt(&newValue);
 				if (success)
 				{
-					m_cursor_radius = newValue;
+                    newValue = std::max(smartFillAngleMin, std::min(newValue, smartFillAngleMax));
+					m_smart_fill_angle = newValue;
 					smartFillValueSlider->setCurrentValue(newValue);
-					container->Refresh();
+                    container->Refresh();
 				}
-
+                
                 m_isEditing = false;
 				});
 
@@ -1069,54 +1024,34 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
                 m_isEditing = true;
                 
                 double currentValue = brushValueSlider->getCurrentValue();
-
 				m_cursor_radius = currentValue;
 
 				char text[10];
 				sprintf(text, "%.2f", currentValue);
-				brushValueTextCtrl->SetLabelText(text);
+				brushValueTextCtrl->SetValue(text);
 
 				container->Refresh();
-
                 m_isEditing = false;
 				});
-			brushValueTextCtrl->Bind(wxEVT_TEXT, [this, brushValueSlider, brushValueTextCtrl, brushSizeInit, sliderMultiple, container](wxCommandEvent& event) {
+			brushValueTextCtrl->Bind(wxCUSTOMEVT_EDIT_FINISHED, [this, brushValueSlider, brushValueTextCtrl, brushSizeInit, brushSizeMin, brushSizeMax, sliderMultiple, container](wxCommandEvent& event) {
                 if (m_isEditing)
                     return;
 
                 m_isEditing = true;
                 
                 double newValue = brushSizeInit;
-				wxString newValueStr = brushValueTextCtrl->GetLineText(0);
+				wxString newValueStr = brushValueTextCtrl->GetValue();
 				bool success = newValueStr.ToDouble(&newValue);
 				if (success)
 				{
+                    newValue = std::max(brushSizeMin, std::min(newValue, brushSizeMax));
 					m_cursor_radius = newValue;
 					brushValueSlider->setCurrentValue(newValue);
-					container->Refresh();
+                    container->Refresh();
 				}
 
                 m_isEditing = false;
 				});
-
-            wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_CLICK_FILAMENT_BTN, [this](wxCommandEvent& event) {
-                wxVariant* pData = (wxVariant*)event.GetClientData();
-                if (pData) 
-                {
-                    // TODO
-                    wxVariantList list = pData->GetList();
-                    wxString wxStrFilamentColor = list[0]->GetString();
-                    int strFilamentIndex = list[1]->GetInteger();
-                    wxColour filamentColor = wxColour(wxStrFilamentColor);
-                    m_currentColor = ColorRGBA(filamentColor.Red(), filamentColor.Green(), filamentColor.Blue(), filamentColor.Alpha());
-                    m_currentColor.a(0.25);
-                    m_current_extruder_idx = strFilamentIndex - 1;
-
-                    //this->init_extruders_data();
-                    //this->init_model_triangle_selectors();
-                    update_from_model_object();
-                }
-                }); 
 
             wxGetApp().plater()->sidebarnew().Bind(wxCUSTOMEVT_MAIN_SIZER_CHANGED, [this, panelFlag](wxCommandEvent& event) {
                 event.Skip();

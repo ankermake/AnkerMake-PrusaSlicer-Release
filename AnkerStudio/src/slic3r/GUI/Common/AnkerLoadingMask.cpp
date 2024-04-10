@@ -88,6 +88,8 @@ void AnkerLoadingMask::stop()
 	m_loadingCounter = 0;
 	if (m_pAnimationTimer)
 		m_pAnimationTimer->Stop();
+	if (m_pRectUpdatetTimer)
+		m_pRectUpdatetTimer->Stop();
 	if (m_pTimeOutTimer)
 		m_pTimeOutTimer->Stop();
 }

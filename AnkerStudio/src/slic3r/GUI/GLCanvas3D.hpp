@@ -366,7 +366,8 @@ class GLCanvas3D
         ToolpathOutside,
         SlaSupportsOutside,
         SomethingNotShown,
-        ObjectClashed
+        ObjectClashed,
+        GCodeConflict
     };
 
     class RenderStats
@@ -836,6 +837,7 @@ public:
     void on_set_focus(wxFocusEvent& evt);
 
     Size get_canvas_size() const;
+    Size get_canvas_size_with_no_scale() const;
     Vec2d get_local_mouse_position() const;
 
     // store opening position of menu
@@ -917,7 +919,7 @@ public:
     void mouse_up_cleanup();
 
     bool are_labels_shown() const { return m_labels.is_shown(); }
-    void show_labels(bool show) { m_labels.show(show); }
+    void show_labels(bool show) { m_labels.show(show); m_dirty = true;}
 
     bool is_legend_shown() const { return m_gcode_viewer.is_legend_enabled(); }
     void show_legend(bool show) { m_gcode_viewer.enable_legend(show); m_dirty = true; }
@@ -973,6 +975,9 @@ public:
 
     inline void set_force_on_screen(bool force) { m_force_on_screen = force; };
     bool m_force_on_screen = false;
+
+    int get_object_idx(const ModelObject* mo);
+
 private:
     bool _is_shown_on_screen() const;
 

@@ -24,83 +24,12 @@
 #include "../Common/AnkerLineEditUnit.hpp"
 #include "../AnkerLineEdit.hpp"
 #include "../PresetComboBoxes.hpp"
+#include "AnkerPrintParaItem.hpp"
+#include "AnkerParameterData.hpp"
 
 class AnkerPrintParaItem;
 class AnkerSimpleCombox;
 
-enum ItemDataType
-{
-	Item_int,
-	Item_bool,
-	Item_float,
-	Item_floatOrPercent,
-	Item_serialize,
-	Item_serialize_no_unit,
-	Item_serialize_num,
-	Item_enum_SeamPosition,
-	Item_enum_PerimeterGeneratorType,
-	Item_enum_FuzzySkinType,
-	Item_enum_InfillPattern,
-	Item_enum_IroningType,
-	Item_enum_DraftShield,
-	Item_enum_BrimType,
-	Item_enum_SupportMaterialStyle,
-	Item_enum_SupportMaterialPattern,
-	Item_enum_SupportMaterialInterfacePattern,
-	Item_enum_SlicingMode,
-	Item_Percent,	
-};
-
-enum ControlType
-{
-	ItemComBox = 1,
-	ItemEditUinit,
-	ItemCheckBox,
-	ItemSpinBox,
-	ItemEditBox
-	
-};
-
-enum ControlListType
-{
-	List_Seam_Position = 1,
-	List_Perimeter_generator,
-	List_Fuzzy_skin,
-	List_Fill_density,
-	List_Fill_pattern,
-	List_Length_of_th_infill_anchor,
-	List_Maximum_length_of_the_infill_anchor,
-	List_Top_fill_pattern,
-	List_Bottom_fill_pattern,
-	List_Ironing_Type,
-	List_Draft_shield,
-	List_Brim_type,
-	List_Style,
-	List_Top_contact_Z_distance,
-	List_Bottom_contact_Z_distance,
-	List_Pattern,
-	List_Top_interface_layers,
-	List_Bottom_interface_layers,
-	List_interface_pattern,
-	List_Slicing_Mode,	
-};
-
-typedef struct tag_ItemInfo
-{
-	ItemDataType paramDataType;
-	wxVariant paramDataValue;
-}ItemInfo;
-
-typedef struct UpdateDataStruct
-{
-	wxString tabName = "";
-	wxString titleName = "";
-	wxString prusaKey = "";
-	wxString ankerKey = "";
-	ItemDataType dataType = Item_int;
-	wxVariant oldData = wxVariant();
-	wxVariant newData = wxVariant();
-}ItemDirtyData;
 
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED, wxCommandEvent);
@@ -112,20 +41,39 @@ wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_EXIT_RIGHT_MENU_PANEL, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RESETBTN_UPDATE, wxCommandEvent);
 
+typedef struct paramItemTag {
+	wxString strParamName;
+	ControlType controlType;
+	ItemDataType dataType;
+	std::vector<wxString> contentStrList;
+	GroupParamUIConfig uiConifg = GroupParamUIConfig();
+}paramItem;
+
+typedef struct groupItemTag {
+	wxString strIconName;
+	wxString strGroupName;
+	wxString strTabName;
+	std::vector<paramItem> paramVec;
+}groupItem;
+
 
 class AnkerParameterPanel:public wxControl
 {
 public:
 	AnkerParameterPanel(wxWindow* parent,
+		PrintParamMode printParamMode,
 		wxWindowID winid = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
-	~AnkerParameterPanel() {}
+	~AnkerParameterPanel() 
+	{
+		// should clear static map when destory
+		m_AllPrintParamInfo.clear();
+	}
 
 	void enableSliceBtn(bool isSaveBtn, bool isEnable);
-	void resetAllUi();
+	void resetAllUi(int iResetType = 0);
 	bool saveAllUi();
-	bool onSave();
 	bool swtichPresetCheckSave();
 	void hidePoupWidget();
 	void reloadData();
@@ -136,39 +84,47 @@ public:
 	void updatePreset(Slic3r::DynamicPrintConfig& printConfig);
 	void updatePresetEx(Slic3r::DynamicPrintConfig* printConfig);
 	void getItemList(wxStringList& list,ControlListType listType);
-	void setItemValue(const wxString tabName, const wxString & widgetLabel, wxVariant data);
+	void setItemValue(const wxString tabName, const wxString& optionKey, wxVariant data);
+	void setItemValueEx(const wxString tabName, const wxString &optionKey, wxVariant data,bool needReset);
 	void openSupportMaterialPage(wxString itemName, wxString text);
 	void setObjectName(const wxString& objName, Slic3r::ModelConfig* config);
 	void showRightParameterpanel();
 	
 	bool getObjConfig(Slic3r::ModelConfig*& config);
 	void onComboBoxClick(Slic3r::GUI::AnkerPlaterPresetComboBox* presetComboBox);
-	void onPresetComboSelChanged(Slic3r::GUI::AnkerPlaterPresetComboBox* presetChoice, const int selection);	
+	void onPresetComboSelChanged(Slic3r::GUI::AnkerPlaterPresetComboBox* presetChoice, const int selection);
+	void moveWipeTower(double x, double y, double angle);
+	void onEasyPanelItemClicked(wxString strItemName);
+	std::map<wxString, PARAMETER_GROUP> getAllPrintParamInfos();
+	bool isSelectSystemPreset();
+
+
+
+
 protected:
+	void setItemValueWithToolTips(const wxString tabName, const wxString& optionKey, wxVariant data, const wxString& tipswxValue);
 	void initUi();
-	void initDefaultData();
 	void onBtnClicked(wxCommandEvent &event);
 	void showCurrentWidget(const wxString &tabName);
 
-	void getSearResMap(std::map<wxString, std::vector<wxString>>& searchResMap, const wxString& searchData);
+	void getSearResMap(std::map<wxString, std::map<wxString, wxString >>& searchResMap, const wxString& searchData);
 	void showEasyModel();
+	wxString getSelectedPrintMode();
 	void showExpertModel();
-	void switchToLaebl(const wxString& strTab,const wxString &label);
+	void switchToOption(const wxString& strTab,const wxString &optionKey);
 
-	void initUiData();
+	// iInitType equal 0: init all the data by init UI or revert by revert all group params.
+	// iInitType equal 1:  revert all model params.
+	void initUiData(int iInitType = 0);
 
-	void initLapData();
-	void initInfillData();
-	void initSabData();
-	void initSmData();
-	void initSpeedData();
-	void initMeData();
-	void initAdvancedData();
-
+	// iInitType equal 0: init all the data by init UI or revert by revert all group params.
+	// iInitType equal 1:  revert all model params.
+	void initAllTabData(int iInitType = 0);
+	void setParamTooltips();
+	void initSearchPopupWidget();
 	void saveUiData();
-
 	void hideAllResetBtn();
-	ItemInfo getItemValue(const wxString &tabStr, const wxString& labelStr);
+	ItemInfo getItemValue(const wxString &tabStr, const wxString& optionKey);
 
 	std::vector<std::string> getValidParameter();
 	wxString getCurrentModule(const std::vector<std::string>& list);
@@ -178,49 +134,51 @@ private:
 	//set the preset of the given property
 	void saveSetPresetPropertyValue(Slic3r::DynamicPrintConfig& config, 
 									ItemInfo& ItemDataInfo,
-									std::string& prusaProperty,
-									std::string& AnkerPropertyName);
+									std::string& optionKey,
+									wxString& optionLabel);
 
 	void saveSetPresetPropertyValueEx(Slic3r::DynamicPrintConfig* printConfig,
 									ItemInfo& ItemDataInfo,
-									std::string& prusaProperty,
-									std::string& AnkerPropertyName);
+									std::string& optionKey,
+									wxString& optionLabel);
 	void onResetBtnStatusChanged(bool isAble);
+	AnkerPrintParaItem* createGroupItem(groupItem& pGroupItem);
+	void onPresetOpPopupClick(wxCommandEvent& event);
+	void rename_preset();
+	void delete_preset();
 private:
 	AnkerEasyPanel* m_pEasyWidget{ nullptr };
-	Slic3r::GUI::AnkerPlaterPresetComboBox* m_pHandleModelComBox{ nullptr };
 	ScalableButton* m_printParameterEditBtn{ nullptr };
-
 	wxStaticText* m_pTitleLabel{ nullptr };
+	wxStaticText* m_pExpertLabel{ nullptr };
+	AnkerToggleBtn* m_pExpertModeBtn{ nullptr };
 	ScalableButton* m_deleteBtn{ nullptr };
 	ScalableButton* m_pExitBtn{ nullptr };
-
+	ScalableButton* m_pulldown_btn{ nullptr };
 	Slic3r::GUI::AnkerPlaterPresetComboBox* m_pPresetParameterComBox{nullptr};
-
 	wxStaticText* m_currentObjName{nullptr};
 
 #ifndef __APPLE__	
 	wxButton* m_pResetBtn{ nullptr };
+	wxButton* m_pRenameRemovePresetBtn{ nullptr };
 	wxButton* m_pSaveAllBtn{ nullptr };
-	//wxButton* m_pCfgBtn{ nullptr };
+	wxButton* m_pSearchBtn{ nullptr };
 #else	
 	ScalableButton* m_pResetBtn{ nullptr };
-	ScalableButton* m_pSaveAllBtn{ nullptr };
-	//ScalableButton* m_pCfgBtn{ nullptr };
+    ScalableButton* m_pRenameRemovePresetBtn{ nullptr };
+	ScalableButton* m_pSaveAllBtn{ nullptr };	
+	ScalableButton* m_pSearchBtn{ nullptr };
 #endif // !__APPLE__
 	
+	wxPanel* m_contentWidget{ nullptr };
+	wxBoxSizer* m_contentSizer{ nullptr };
+
 	wxPanel*	m_pDividingLine;
-
-	//wxStaticText* m_pHandleParameterLabel{ nullptr };
-	//AnkerSimpleCombox*   m_pHandleParameterComBox{ nullptr };
-
 	wxControl*				m_pSearchEdit{ nullptr };
 	AnkerPopupWidget*		m_popupWidget{ nullptr };
 	AnkerLineEdit* m_pSearchTextCtrl{ nullptr };
 	wxBoxSizer* m_pMainVSizer{ nullptr };
 
-	//wxOwnerDrawnComboBox*	m_pSearchComBox;
-	
 	wxScrolledWindow* m_pTabBtnScrolledWindow{ nullptr };
 	wxScrolledWindow* m_pTabItemScrolledWindow{ nullptr };
 
@@ -229,108 +187,15 @@ private:
 	AnkerBtn* m_pSaveProjectBtn{ nullptr };
 
 	std::vector<AnkerChooseBtn*>	m_tabBtnVector;
-	std::map<std::string, std::list<AnkerPrintParaItem*>> m_windowTabMap;//tab-itemList
-
-	std::map<wxString, wxString> m_fillPatternData;
-	std::vector<wxString> m_lapVector;
-	std::vector<wxString> m_infillVector;
-	std::vector<wxString> m_sabVector;
-	std::vector<wxString> m_smVector;
-	std::vector<wxString> m_speedVector;
-	std::vector<wxString> m_meVector;
-	std::vector<wxString> m_advancedVector;
-	std::map<wxString, std::vector<wxString>> m_gSearchMap;
-
+	std::map<wxString, std::list<AnkerPrintParaItem*>> m_windowTabMap;//tab-groups
 	bool m_hasChanged = false;
-
-	std::map<wxString, wxString> m_lapMap;
-	std::map<wxString, wxString> m_infillMap;
-	std::map<wxString, wxString> m_sabMap;
-	std::map<wxString, wxString> m_smMap;
-	std::map<wxString, wxString> m_speedMap;
-	std::map<wxString, wxString> m_meMap;
-	std::map<wxString, wxString> m_advancedMap;
-
-	std::map<int, Slic3r::SupportMaterialStyle> m_StyleMap;
-	std::map<Slic3r::SupportMaterialStyle, int> m_ReVerStyleMap;
-	std::map<int, Slic3r::InfillPattern> m_fillPatternMap;
-	std::map<int, Slic3r::InfillPattern> m_tabfillPatternMap;//for top and bottom fill pattern
 
 	bool m_isRightParameterPanel{false};
 	Slic3r::ModelConfig* m_rightParameterCfg{};
-};
-
-typedef struct _PARAMETER_GROUP
-{
-	wxStaticText* m_pLabel = nullptr;
-	ItemDataType m_dataType = Item_int;
-	wxWindow* m_pWindow = nullptr;
-	ScalableButton* m_pBtn = nullptr;
-	
-	ControlType m_type;
-}*pPARAMETER_GROUP, PARAMETER_GROUP;
-
-class AnkerPrintParaItem :public wxControl
-{
-public:
-	AnkerPrintParaItem(wxWindow* parent,
-		wxString icon,
-		wxString title,
-		wxString tabTitle,
-		wxWindowID winid = wxID_ANY,
-		const wxPoint& pos = wxDefaultPosition,
-		const wxSize& size = wxDefaultSize);
-
-	~AnkerPrintParaItem();
-	wxString getTitle()const;
-	void createItem(const wxString& widgetLabel, ControlType controlType, ItemDataType dataType, wxStringList strList = {});	
-	bool hsaDirtyData();
-
-	ItemInfo getWidgetValue(const wxString& labelStr);
-	bool isExistLabel(const wxString & widgetLabel);
-	void updateUi(const wxString& widgetLabel, wxVariant data, bool isReset = false);
-	void showLabelHighlight(const wxString& widgetLabel, wxColour labelColor);		
-	void hideAllResetBtn();
-	void clearDirtyData();
-protected:	
-	void onDatachanged();
-	void onUpdateResetBtn();
-	std::map<wxString, wxString> getItemMap();
-	wxString getPrusaLabel(const wxString& labelStr);
-	void initDefaultData();
-	void initUi();
-	void onResetBtnClicked(wxCommandEvent &event);
-	void OnTimer(wxTimerEvent& event);
-	void saveSetPresetPropertyValue(Slic3r::ModelConfig* printConfig,
-									ItemInfo& ItemDataInfo,
-									std::string& prusaProperty,
-									std::string& AnkerPropertyName);
-private:
-
-	wxBoxSizer* m_pMainVSizer;
-	wxString m_icon;
-	wxString m_title;
-	wxString m_tabTitle;
-	wxTimer* m_HightLightTimer{nullptr};	
-	wxStaticText *m_pCurrentLabel{nullptr};
-	wxColour m_colour{ "#A9AAAB" };
-	std::map<wxString, PARAMETER_GROUP> m_windowWgtLabelMap;//widget label - item	
-	std::map<wxString, wxString> m_fillPatternData;
-
-	std::map<wxString, wxString> m_lapMap;
-	std::map<wxString, wxString> m_infillMap;
-	std::map<wxString, wxString> m_sabMap;
-	std::map<wxString, wxString> m_smMap;
-	std::map<wxString, wxString> m_speedMap;
-	std::map<wxString, wxString> m_meMap;
-	std::map<wxString, wxString> m_advancedMap;
-
-	std::map<Slic3r::SupportMaterialStyle, int> m_StyleMap;
-	//add by alves for check if has changed data and notify to save the changeds
-	std::map<wxString, ItemDirtyData> m_dirtyMap;
-
-	std::map<int, Slic3r::InfillPattern> m_fillPatternMap;
-	std::map<int, Slic3r::InfillPattern> m_tabfillPatternMap;//for top and bottom fill pattern
+	AnkerParameterData m_parameterData;   //  data redundancy, it's wast of memery beacause each option group heve one AnkerParameterData object
+	wxBoxSizer* m_pTabItemScrolledVWinSizer;
+	std::map<wxString, PARAMETER_GROUP> m_AllPrintParamInfo;
+	PrintParamMode m_PrintParamMode;
 };
 
 #endif

@@ -139,6 +139,7 @@ public:
         m_last_processor_extrusion_role(GCodeExtrusionRole::None),
         m_layer_count(0),
         m_layer_index(-1), 
+        m_current_region_idx(-1),
         m_layer(nullptr),
         m_object_layer_over_raft(false),
         m_volumetric_speed(0),
@@ -198,9 +199,10 @@ public:
     // public, so that it could be accessed by free helper functions from GCode.cpp
     struct ObjectLayerToPrint
     {
-        ObjectLayerToPrint() : object_layer(nullptr), support_layer(nullptr) {}
+        ObjectLayerToPrint() : object_layer(nullptr), support_layer(nullptr), original_object(nullptr) {}
         const Layer* 		object_layer;
         const SupportLayer* support_layer;
+        const PrintObject*  original_object; //BBS: used for shared object logic
         const Layer* 		layer()   const { return (object_layer != nullptr) ? object_layer : support_layer; }
         const PrintObject* 	object()  const { return (this->layer() != nullptr) ? this->layer()->object() : nullptr; }
         coordf_t            print_z() const { return (object_layer != nullptr && support_layer != nullptr) ? 0.5 * (object_layer->print_z + support_layer->print_z) : this->layer()->print_z; }
@@ -242,7 +244,7 @@ private:
         FILE             *f { nullptr };
         // Find-replace post-processor to be called before GCodePostProcessor.
         GCodeFindReplace *m_find_replace { nullptr };
-        // If suppressed, the backoup holds m_find_replace.
+        // If suppressed, the backup holds m_find_replace.
         GCodeFindReplace *m_find_replace_backup { nullptr };
         GCodeProcessor   &m_processor;
     };
@@ -263,7 +265,7 @@ private:
         // Otherwise print a single copy of a single object.
         const size_t                     single_object_idx = size_t(-1));
     // Process all layers of all objects (non-sequential mode) with a parallel pipeline:
-    // Generate G-code, run the filters (vase mode, cooling buffer), run the G-code analyser
+    // Generate G-code, run the filters (vase mode, cooling buffer), run the G-code analysis
     // and export G-code into file.
     void process_layers(
         const Print                                                   &print,
@@ -272,7 +274,7 @@ private:
         const std::vector<std::pair<coordf_t, ObjectsLayerToPrint>>   &layers_to_print,
         GCodeOutputStream                                             &output_stream);
     // Process all layers of a single object instance (sequential mode) with a parallel pipeline:
-    // Generate G-code, run the filters (vase mode, cooling buffer), run the G-code analyser
+    // Generate G-code, run the filters (vase mode, cooling buffer), run the G-code analysis
     // and export G-code into file.
     void process_layers(
         const Print                             &print,
@@ -334,7 +336,7 @@ private:
     bool            needs_retraction(const Polyline &travel, ExtrusionRole role = ExtrusionRole::None);
     std::string     retract(bool toolchange = false);
     std::string     unretract() { return m_writer.unlift() + m_writer.unretract(); }
-    std::string     set_extruder(unsigned int extruder_id, double print_z);
+    std::string     set_extruder(unsigned int extruder_id, double print_z, Vec2f start_pos = Vec2f(0.f,0.f));
     std::string     write_jerk(ExtrusionRole role);
     std::string     write_jerk_xyze(Axis axis, double jerk);
 
@@ -354,6 +356,7 @@ private:
     // scaled G-code resolution
     double                              m_scaled_resolution;
     GCodeWriter                         m_writer;
+    int                                m_current_region_idx;
 
     struct PlaceholderParserIntegration {
         void reset();
@@ -424,7 +427,19 @@ private:
 
     Point                               m_last_pos;
     bool                                m_last_pos_defined;
-
+    //add by firva, for v6 tool change
+    struct tool_change_later
+    {
+        bool is_tool_change_later{false};
+        unsigned int extruder_id{0};
+        double print_z{0.0};
+        void reset() {
+            is_tool_change_later = false;
+            extruder_id = 0;
+            print_z = 0.0;
+        };
+    };
+    tool_change_later m_tool_change_later;
     std::unique_ptr<CoolingBuffer>      m_cooling_buffer;
     std::unique_ptr<SpiralVase>         m_spiral_vase;
     std::unique_ptr<GCodeFindReplace>   m_find_replace;
@@ -446,7 +461,6 @@ private:
     // Processor
     GCodeProcessor                      m_processor;
 
-    bool m_change_layer_lift_z = false;
     coordf_t m_current_z;
 
     std::string                         _extrude(const ExtrusionPath &path, const std::string_view description, double speed = -1);
@@ -454,7 +468,12 @@ private:
     void                                _print_first_layer_bed_temperature(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
     void                                _print_first_layer_extruder_temperatures(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
     // On the first printing layer. This flag triggers first layer speeds.
-    bool                                on_first_layer() const { return m_layer != nullptr && m_layer->id() == 0; }
+    bool                                on_first_layer() const { return m_layer != nullptr && m_layer->id() == 0&& abs(m_layer->bottom_z()) < EPSILON; }
+    int layer_id() const {
+        if (m_layer == nullptr)
+            return -1;
+        return m_layer->id();
+    }
     // To control print speed of 1st object layer over raft interface.
     bool                                object_layer_over_raft() const { return m_object_layer_over_raft; }
 

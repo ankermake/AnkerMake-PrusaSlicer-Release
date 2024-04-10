@@ -95,8 +95,8 @@ void AppConfig::set_defaults()
 #ifdef _WIN32
         if (get("associate_3mf").empty())
             set("associate_3mf", "0");
-        if (get("associate_stl").empty())
-            set("associate_stl", "1");      // "0" -> "1"  change @2023-06-15 by ChunLian
+       /* if (get("associate_stl").empty())*/  // Masked forced association STL default open mode logic
+            set("associate_stl", "0");      // "0" -> "1"  change @2023-06-15 by ChunLian
 
         if (get("tabs_as_menu").empty())
             set("tabs_as_menu", "0");
@@ -119,6 +119,15 @@ void AppConfig::set_defaults()
                 "1"
 #endif // __APPLE__
                 );
+
+        if (get("config_wizard_done").empty())
+            set("config_wizard_done",
+#ifdef __APPLE__
+                "0"
+#else // __APPLE__
+                "0"
+#endif // __APPLE__
+            );
 
         if (get("multi-language_enable").empty())
             set("multi-language_enable",
@@ -179,8 +188,8 @@ void AppConfig::set_defaults()
         if (get("clear_undo_redo_stack_on_new_project").empty())
             set("clear_undo_redo_stack_on_new_project", "1");
 
-        if (get("translation_language").empty())
-            set("translation_language", "en");
+        //if (get("translation_language").empty())
+        //    set("translation_language", "en");
     }
     else {
 #ifdef _WIN32
@@ -408,7 +417,7 @@ std::string AppConfig::load(const std::string &path)
         // Make 1.40.0 alphas compare well
         ini_ver->set_metadata(boost::none);
         ini_ver->set_prerelease(boost::none);
-        m_legacy_datadir = ini_ver < Semver(1, 40, 0);
+        m_legacy_datadir = ini_ver < Semver(1, 0, 0);
     }
 
     // Legacy conversion
@@ -472,22 +481,28 @@ void AppConfig::initDefaultPrinterList() {
     // see  //wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
     //if (!has_section("presets")) {
     std::map<std::string, std::string> mapPresets;
-    mapPresets["filament"] = "AnkerMake PLA+ Basic (Black)";
+    mapPresets["filament"] = "AnkerMake PLA+ Basic (White)";
     mapPresets["print"] = "Normal - M5 0.4mm - PLA+ Basic";
     mapPresets["printer"] = "AnkerMake M5 0.4 mm Nozzle";
     set_section("presets", mapPresets);
     //}
 
-    set_variant("Anker", "M5", "0.4", true);
-    set_variant("Anker", "M5", "0.2", true);
-    //set_variant("Anker", "M5", "0.6", true);
-    //set_variant("Anker", "M5", "0.8", true);
-    set_variant("Anker", "M5C", "0.4", true);
-    //set_variant("Anker", "M5C", "0.2", true);
-    //set_variant("Anker", "M5C", "0.6", true);
-    //set_variant("Anker", "M5C", "0.8", true);
-    set_variant("Anker", "M5_V6", "0.4", true);
-    set_variant("Anker", "M5C_V6", "0.4", true);
+    //set_variant("Anker", "M5", "0.4", true);
+    //set_variant("Anker", "M5", "0.2", true);
+    ////set_variant("Anker", "M5", "0.6", true);
+    ////set_variant("Anker", "M5", "0.8", true);
+    //set_variant("Anker", "M5C", "0.4", true);
+    ////set_variant("Anker", "M5C", "0.2", true);
+    ////set_variant("Anker", "M5C", "0.6", true);
+    ////set_variant("Anker", "M5C", "0.8", true);
+    //set_variant("Anker", "M5_V6", "0.4", true);
+    //set_variant("Anker", "M5C_V6", "0.4", true);
+    if (m_vendors.empty())
+   {
+     set_variant("Anker", "M5", "0.4", true);
+     set_variant("Anker", "M5C", "0.4", true);
+     set_variant("Anker", "M5 All Metal Hotend", "0.4", true);
+    }
     save();
 }
 

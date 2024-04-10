@@ -4,6 +4,7 @@
 #include "libslic3r/Utils.hpp"
 #include "../GUI_App.hpp"
 #include "AnkerGUIConfig.hpp"
+#include "../Common/AnkerFont.hpp"
 
 AnkerLineEditUnit::AnkerLineEditUnit(wxWindow* parent, 
 									wxString unit,
@@ -37,6 +38,13 @@ wxString AnkerLineEditUnit::getValue()
 {
 	return m_pLineEdit->GetValue();
 }
+
+void AnkerLineEditUnit::SetToolTip(const wxString& toolTipsStr)
+{	
+	m_pBgWidget->SetToolTip(toolTipsStr);
+	m_pLineEdit->SetToolTip(toolTipsStr);
+}
+
 
 wxString AnkerLineEditUnit::GetValue()
 {
@@ -89,12 +97,22 @@ void AnkerLineEditUnit::setLineUnitBgColor(const wxColour& color)
 	Refresh();
 }
 
+void AnkerLineEditUnit::AddValidatorInt(uint32_t min, uint32_t max)
+{
+	m_pLineEdit->AddValidatorInt(min, max);
+}
+
+void AnkerLineEditUnit::AddValidatorFloat(float min, float max, int precision)
+{
+	m_pLineEdit->AddValidatorFloat(min, max, precision);
+}
+
 wxRichTextCtrl* AnkerLineEditUnit::getTextEdit()
 {
 	return m_pLineEdit;
 }
 
-wxRichTextCtrl* AnkerLineEditUnit::getUnitEdit()
+wxStaticText* AnkerLineEditUnit::getUnitEdit()
 {
 	return m_pUnitLabel;
 }
@@ -102,7 +120,7 @@ wxRichTextCtrl* AnkerLineEditUnit::getUnitEdit()
 void AnkerLineEditUnit::OnSize(wxSizeEvent& event)
 {
 #ifdef __WXOSX__
-	int shrink = 10;
+	int shrink = 5;
 #else
 	int shrink = 4;
 #endif
@@ -110,20 +128,26 @@ void AnkerLineEditUnit::OnSize(wxSizeEvent& event)
 	int editHeight = height - shrink;
 
 	int unitEditWidth = 0;
+	int unitHeight = 0;
 	if (!m_unit.empty()) {
-		int unitTextWidth = m_pUnitLabel->GetTextExtent(m_unit).x;
+		int textMargin = 10;
+        wxClientDC dc(this);
+        dc.SetFont(m_unitFont);
+
 #ifdef __APPLE__
-		int textMargin = unitTextWidth / AnkerLength(4);
+		int unitTextWidth = m_pUnitLabel->GetTextExtent(m_unit).x;
+		unitHeight = dc.GetTextExtent(m_unit).y;
 #else
-		int textMargin = unitTextWidth / AnkerLength(3);
+		int unitTextWidth = (dc.GetTextExtent(m_unit).x == 0)? 10: dc.GetTextExtent(m_unit).x;
+		unitHeight = (dc.GetTextExtent(m_unit).y == 0) ? 10: dc.GetTextExtent(m_unit).y;
 #endif
-		if (textMargin < 5) textMargin = 5;
-		unitEditWidth = AnkerLength(unitTextWidth) + textMargin;
+
+		unitEditWidth = (unitTextWidth) + (textMargin);
 	}
 
-	m_pUnitLabel->SetMaxSize(wxSize(unitEditWidth, editHeight));
-	m_pUnitLabel->SetMinSize(wxSize(unitEditWidth, editHeight));
-	m_pUnitLabel->SetSize(wxSize(unitEditWidth, editHeight));
+	m_pUnitLabel->SetMaxSize(wxSize(unitEditWidth, unitHeight));
+	m_pUnitLabel->SetMinSize(wxSize(unitEditWidth, unitHeight));
+	m_pUnitLabel->SetSize(wxSize(unitEditWidth, unitHeight));
 
 	m_pLineEdit->SetMinSize(wxSize(-1, editHeight));
 	m_pLineEdit->SetMaxSize(wxSize(-1, editHeight));
@@ -136,13 +160,18 @@ void AnkerLineEditUnit::OnSize(wxSizeEvent& event)
 
 bool AnkerLineEditUnit::Enable(bool enable)
 {
-	if (enable) {
+
+	if (enable) 
+	{
+		m_pUnitLabel->SetForegroundColour(wxColour(153, 153, 153));
 		m_pLineEdit->SetForegroundColour(wxColour(255, 255, 255));
 	}
-	else {
+	else 
+	{
+		m_pUnitLabel->SetForegroundColour(wxColour(80, 80, 80));
 		m_pLineEdit->SetForegroundColour(wxColour(80, 80, 80));
 	}
-	bool ret = wxControl::Enable(enable);
+	bool ret = m_pLineEdit->Enable(enable);
 	Refresh();
 	return ret;
 }
@@ -166,6 +195,7 @@ void AnkerLineEditUnit::initUi(wxColour bgColor, wxColour borderColor, int radio
 	dc.SetFont(m_unitFont);
 	wxSize textSize = dc.GetTextExtent(m_unit);
 	int textWidth = textSize.GetWidth();
+	int iTextHeight = textSize.GetHeight();
 
 	m_pLineEdit = new AnkerLineEdit(m_pBgWidget, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_PROCESS_ENTER);
 //#ifndef _WIN32	
@@ -173,7 +203,7 @@ void AnkerLineEditUnit::initUi(wxColour bgColor, wxColour borderColor, int radio
 //#endif // _WIN32	
 	m_pLineEdit->SetBackgroundColour(bgColor);
 	m_pLineEdit->SetForegroundColour(wxColour("#FFFFFF"));
-	m_pLineEdit->SetFont(ANKER_FONT_NO_1);
+	m_pLineEdit->SetFont(Head_14);
 
 	m_pLineEdit->Bind(wxCUSTOMEVT_EDIT_FINISHED, [this](wxCommandEvent& event) {
 		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_EDIT_FINISHED);
@@ -182,11 +212,18 @@ void AnkerLineEditUnit::initUi(wxColour bgColor, wxColour borderColor, int radio
 
 
 	// use AnkerLineEdit for unit to fix bad display when AnkerLineEditUnit is disable
-	m_pUnitLabel = new AnkerLineEdit(m_pBgWidget, wxID_ANY, m_unit, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxNO_BORDER);
-	m_pUnitLabel->Enable(false);
-	m_pUnitLabel->SetFont(ANKER_FONT_NO_2);
+	m_pUnitLabel = new wxStaticText(m_pBgWidget, wxID_ANY, m_unit, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxNO_BORDER| wxALIGN_RIGHT);
+	m_pUnitLabel->SetFont(m_unitFont);
+
 	m_pUnitLabel->SetBackgroundColour(bgColor);
 	m_pUnitLabel->SetForegroundColour(wxColour("#999999"));
+
+	wxBoxSizer* pUnitVSizer = new wxBoxSizer(wxVERTICAL);
+	wxPanel* pEmptyPanle = new wxPanel(this);
+	wxPanel* pEmptyPanle2 = new wxPanel(this);
+	pUnitVSizer->Add(pEmptyPanle, 1, wxEXPAND);
+	pUnitVSizer->Add(m_pUnitLabel, 0, wxALIGN_CENTER_VERTICAL| wxRIGHT, 5);
+	pUnitVSizer->Add(pEmptyPanle2, 1, wxEXPAND);
 
 	pBgWidgetHSizer->AddSpacer(5);
 	pBgWidgetHSizer->Add(m_pLineEdit, 1, wxEXPAND|wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
@@ -195,20 +232,24 @@ void AnkerLineEditUnit::initUi(wxColour bgColor, wxColour borderColor, int radio
         //pBgWidgetHSizer->AddSpacer(3);
 
 #ifndef  __APPLE__
-        pBgWidgetHSizer->Add(m_pUnitLabel, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
+        pBgWidgetHSizer->Add(pUnitVSizer, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
 #else
-        pBgWidgetHSizer->Add(m_pUnitLabel, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
+        pBgWidgetHSizer->Add(pUnitVSizer, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, 0);
 #endif // ! __APPLE__
 	}
 	else
 	{
 		m_pUnitLabel->Hide();
+		pEmptyPanle->Hide();
+		pEmptyPanle2->Hide();
 	}
 	
 	pBgWidgetHSizer->AddSpacer(3);
 
 	pMainHSizer->Add(m_pBgWidget, 1, wxEXPAND | wxALL, 0);
 	
+	//pMainHSizer->Layout();
+
 	SetSizer(pMainHSizer);
 }
 
@@ -319,6 +360,7 @@ int AnkerSpinEdit::GetMinValue()
 
 void AnkerSpinEdit::SetMinValue(const int value)
 {
+	m_minEnable = true;
 	m_minVal = value;
 }
 
@@ -329,7 +371,15 @@ int AnkerSpinEdit::GetMaxValue()
 
 void AnkerSpinEdit::SetMaxValue(const int value)
 {
+	m_maxEnable = true;
 	m_maxVal = value;
+}
+
+void AnkerSpinEdit::AddValidatorInt(int min, int max)
+{
+	m_pLineEdit->AddValidatorInt(min, max);
+	SetMinValue(min);
+	SetMaxValue(max);
 }
 
 void AnkerSpinEdit::setEditLength(const int& length)
@@ -357,7 +407,7 @@ AnkerLineEdit* AnkerSpinEdit::getTextEdit()
 	return m_pLineEdit;
 }
 
-AnkerLineEdit* AnkerSpinEdit::getUnitEdit()
+wxStaticText* AnkerSpinEdit::getUnitEdit()
 {
 	return m_pUnitLabel;
 }
@@ -365,7 +415,7 @@ AnkerLineEdit* AnkerSpinEdit::getUnitEdit()
 void AnkerSpinEdit::OnSize(wxSizeEvent& event)
 {
 #ifdef __WXOSX__
-	int shrink = 10;
+	int shrink = 5;
 #else
 	int shrink = 4;
 #endif
@@ -398,11 +448,13 @@ bool AnkerSpinEdit::Enable(bool enable)
 {
 	if (enable) {
 		m_pLineEdit->SetForegroundColour(wxColour(255, 255, 255));
+		m_pUnitLabel->SetForegroundColour(wxColour(255, 255, 255));
 	}
 	else {
 		m_pLineEdit->SetForegroundColour(wxColour(80, 80, 80));
+		m_pUnitLabel->SetForegroundColour(wxColour(80, 80, 80));
 	}
-	bool ret = wxControl::Enable(enable);
+	bool ret = m_pLineEdit->Enable(enable) && m_upBtn->Enable(enable) && m_downBtn->Enable(enable);
 	Refresh();
 	return ret;
 }
@@ -419,25 +471,19 @@ void AnkerSpinEdit::initUi(wxColour bgColor, wxColour borderColor, int radio)
 {
 	wxBoxSizer* pMainHSizer = new wxBoxSizer(wxVERTICAL);
 	m_pBgWidget = new AnkerBgPanel(this, bgColor, borderColor, radio, wxID_ANY);
-	//m_pBgWidget->SetMaxSize(wxSize(-1, 28));
-	//m_pBgWidget->SetMinSize(wxSize(-1, 28));
-	//m_pBgWidget->SetSize(wxSize(-1, 28));
 	wxBoxSizer* pBgWidgetHSizer = new wxBoxSizer(wxHORIZONTAL);
 	m_pBgWidget->SetSizer(pBgWidgetHSizer);
 
 	m_pLineEdit = new AnkerLineEdit(m_pBgWidget, wxID_ANY,"", wxDefaultPosition, wxDefaultSize, wxBORDER_NONE | wxTE_PROCESS_ENTER);
 	m_pLineEdit->SetBackgroundColour(bgColor);
 	m_pLineEdit->SetForegroundColour(wxColour("#FFFFFF"));
-	//m_pLineEdit->SetMaxSize(wxSize(110 - 21, -1));
-	//m_pLineEdit->SetMinSize(wxSize(110 - 21, -1));
-	//m_pLineEdit->SetSize(wxSize(110 - 21, -1));
-	
+	m_pLineEdit->SetFont(Head_14);
+
 	// use AnkerLineEdit for unit to fix bad display when AnkerLineEditUnit is disable
-	m_pUnitLabel = new AnkerLineEdit(m_pBgWidget, wxID_ANY, m_unit, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-	m_pUnitLabel->Enable(false);
+	m_pUnitLabel = new wxStaticText(m_pBgWidget, wxID_ANY, m_unit, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
 	m_pUnitLabel->SetForegroundColour(wxColour("#999999"));
 	m_pUnitLabel->SetBackgroundColour(bgColor);
-	m_pUnitLabel->SetFont(ANKER_FONT_NO_2);
+	m_pUnitLabel->SetFont(Body_10);
 
 	m_pLineEdit->Bind(wxCUSTOMEVT_EDIT_FINISHED, [this](wxCommandEvent& event) {
 		wxCommandEvent evtEdit = wxCommandEvent(wxCUSTOMEVT_ANKER_SPIN_EDIT_TEXT_CHANGED);
@@ -519,7 +565,7 @@ void AnkerSpinEdit::initUi(wxColour bgColor, wxColour borderColor, int radio)
 	pBtnVSizer->AddStretchSpacer(1);
 
 
-	pBgWidgetHSizer->AddSpacer(3);
+	pBgWidgetHSizer->AddSpacer(5);
 	pBgWidgetHSizer->Add(m_pLineEdit, 1 , wxEXPAND|wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL , 0);
 	if (!m_unit.empty()) {
 		pBgWidgetHSizer->Add(m_pUnitLabel, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
@@ -545,6 +591,14 @@ void AnkerSpinEdit::onUpBtnClicked(wxCommandEvent& event)
 	data.ToInt(&value);
 	value = value + 1;
 	
+	if (m_maxEnable)
+	{
+		if(value > m_maxVal)
+		{
+			value = m_maxVal;
+		}
+	}
+
 	m_pLineEdit->SetValue(wxString::Format("%d", value));
 
 	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_SPIN_EDIT_TEXT_CHANGED);
@@ -561,11 +615,26 @@ void AnkerSpinEdit::onDownBtnClicked(wxCommandEvent& event)
 	data.ToInt(&value);
 	value = value - 1;
 
-	if (value < 0)
+
+
+	if (m_minEnable)
 	{
-		//if (m_title != _L("Ooze prevention"))
-		value = 0;
+		if (value < m_minVal)
+		{
+			value = m_minVal;
+		}
 	}
+	else
+	{
+		//old logic
+		//if (value < 0)
+		//{
+		//	value = 0;
+		//}
+	}
+
+	//if (value < m_minVal) 
+	//	return;
 
 	m_pLineEdit->SetValue(wxString::Format("%d", value));
 

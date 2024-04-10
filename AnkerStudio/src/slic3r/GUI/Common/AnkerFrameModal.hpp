@@ -49,33 +49,15 @@ public:
 	
 	void ShowAnker(int dialogType = 0);
 
+	void ShowNoTitle(AnkerDialogIconTextOkPanel::EventCallBack_T callback);
+
+	void SetOkBtnCallBack(AnkerDialogBtnCallBack_T callback = nullptr);
+
 	void HideWindow(bool hide = true);
 	void CheckWindowShow();
 	
-private:
+private:	
+	AnkerDialogBtnCallBack_T m_okBtnCallBack = nullptr;
 };
-
-class HalfModalPanel : public wxPanel
-{
-public:
-	HalfModalPanel(wxWindow* parent,
-		wxWindowID id,
-		const wxString& title,
-		const wxString& context,
-		const wxPoint& pos = wxDefaultPosition,
-		const wxSize& size = wxDefaultSize,
-		long style = wxBORDER_NONE,
-		const wxString& name = wxASCII_STR(wxFrameNameStr));
-
-	void InitDialogPanel(int dialogType = 0);
-	void ShowAnkerModal(int dialogType = 0);
-
-	void OnMouseEvents(wxMouseEvent& event);
-	void OnKeyDown(wxKeyEvent& event);
-
-private:
-	HalfModalDialog* m_dialog;
-};
-
 
 #endif // !ANKER_FRAME_MODAL_HPP

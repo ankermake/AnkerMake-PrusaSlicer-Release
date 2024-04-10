@@ -57,6 +57,47 @@ void Point::rotate(double angle, const Point &center)
     (*this)(1) = (coord_t)round( (double)center(1) + c * dy + s * dx );
 }
 
+Point Point::projection_onto(const MultiPoint& poly) const
+{
+    Point running_projection = poly.first_point();
+    double running_min = (running_projection - *this).cast<double>().norm();
+
+    Lines lines = poly.lines();
+    for (Lines::const_iterator line = lines.begin(); line != lines.end(); ++line) {
+        Point point_temp = this->projection_onto(*line);
+        if ((point_temp - *this).cast<double>().norm() < running_min) {
+            running_projection = point_temp;
+            running_min = (running_projection - *this).cast<double>().norm();
+        }
+    }
+    return running_projection;
+}
+
+Point Point::projection_onto(const Line& line) const
+{
+    if (line.a == line.b) return line.a;
+
+    /*
+        (Ported from VisiLibity by Karl J. Obermeyer)
+        The projection of point_temp onto the line determined by
+        line_segment_temp can be represented as an affine combination
+        expressed in the form projection of
+        Point = theta*line_segment_temp.first + (1.0-theta)*line_segment_temp.second.
+        If theta is outside the interval [0,1], then one of the Line_Segment's endpoints
+        must be closest to calling Point.
+    */
+    double lx = (double)(line.b(0) - line.a(0));
+    double ly = (double)(line.b(1) - line.a(1));
+    double theta = ((double)(line.b(0) - (*this)(0)) * lx + (double)(line.b(1) - (*this)(1)) * ly)
+        / (sqr<double>(lx) + sqr<double>(ly));
+
+    if (0.0 <= theta && theta <= 1.0)
+        return (theta * line.a.cast<coordf_t>() + (1.0 - theta) * line.b.cast<coordf_t>()).cast<coord_t>();
+
+    // Else pick closest endpoint.
+    return ((line.a - *this).cast<double>().squaredNorm() < (line.b - *this).cast<double>().squaredNorm()) ? line.a : line.b;
+}
+
 bool has_duplicate_points(std::vector<Point> &&pts)
 {
     std::sort(pts.begin(), pts.end());

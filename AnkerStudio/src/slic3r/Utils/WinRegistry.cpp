@@ -485,6 +485,72 @@ void associate_file_type(const std::wstring& extension, const std::wstring& prog
         ::SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 }
 
+bool set_into_win_registry_Protocol(HKEY hkeyHive, const wchar_t* pszVar, const wchar_t* pszValue)
+{
+    // see as reference: https://stackoverflow.com/questions/20245262/c-program-needs-an-file-association
+    wchar_t szValueCurrent[1000];
+    DWORD dwType;
+    DWORD dwSize = sizeof(szValueCurrent);
+
+    LSTATUS iRC = ::RegGetValueW(hkeyHive, pszVar, nullptr, RRF_RT_ANY, &dwType, szValueCurrent, &dwSize);
+
+    const bool bDidntExist = iRC == ERROR_FILE_NOT_FOUND;
+
+    if (iRC != ERROR_SUCCESS && !bDidntExist)
+        // an error occurred
+        return false;
+
+    if (!bDidntExist) {
+        if (dwType != REG_SZ)
+            // invalid type
+            return false;
+
+        if (::wcscmp(szValueCurrent, pszValue) == 0)
+            // value already set
+            return false;
+    }
+
+    DWORD dwDisposition;
+    HKEY hkey;
+    iRC = ::RegCreateKeyExW(hkeyHive, pszVar, 0, 0, 0, KEY_ALL_ACCESS, nullptr, &hkey, &dwDisposition);
+    bool ret = false;
+    if (iRC == ERROR_SUCCESS) {
+        iRC = ::RegSetValueExW(hkey, L"", 0, REG_SZ, (BYTE*)pszValue, (::wcslen(pszValue) + 1) * sizeof(wchar_t));
+        if (iRC == ERROR_SUCCESS)
+            ret = true;
+    }
+
+    if (iRC == ERROR_SUCCESS) {
+        iRC = ::RegSetValueExW(hkey, L"URL Protocol", 0, REG_SZ, (const BYTE*)"", sizeof(""));
+        if (iRC == ERROR_SUCCESS)
+            ret = true;
+    }
+
+    RegCloseKey(hkey);
+    return ret;
+}
+
+void associate_files()
+{
+    wchar_t app_path[MAX_PATH];
+    ::GetModuleFileNameW(nullptr, app_path, sizeof(app_path));
+
+    std::wstring prog_path = L"\"" + std::wstring(app_path) + L"\"";
+    std::wstring prog_id = L"AnkerStudio";
+    std::wstring prog_desc = L"AnkerStudio";
+    std::wstring prog_command = prog_path + L" \"%1\"";
+    std::wstring reg_base = L"Software\\Classes";
+    std::wstring reg_prog_id = reg_base + L"\\" + prog_id;
+    std::wstring reg_prog_id_command = reg_prog_id + L"\\Shell\\Open\\Command";
+
+    bool is_new = false;
+    is_new |= set_into_win_registry_Protocol(HKEY_CURRENT_USER, reg_prog_id.c_str(), prog_desc.c_str());
+    is_new |= set_into_win_registry(HKEY_CURRENT_USER, reg_prog_id_command.c_str(), prog_command.c_str());
+    if (is_new)
+        // notify Windows only when any of the values gets changed
+        ::SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+}
+
 } // namespace Slic3r
 
 #endif // _WIN32

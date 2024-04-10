@@ -188,10 +188,6 @@
 #define MINIZ_HAS_64BIT_REGISTERS 0
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* ------------------- zlib-style API Definitions. */
 
 /* For more compatibility with zlib, miniz.c uses unsigned long for some parameters/struct members. Beware: mz_ulong can be either 32 or 64-bits! */
@@ -472,9 +468,6 @@ typedef void *const voidpc;
 
 #endif /* MINIZ_NO_ZLIB_APIS */
 
-#ifdef __cplusplus
-}
-#endif
 #pragma once
 #include <assert.h>
 #include <stdint.h>
@@ -552,10 +545,6 @@ typedef struct mz_dummy_time_t_tag
 #define MZ_FORCEINLINE inline
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 extern void *miniz_def_alloc_func(void *opaque, size_t items, size_t size);
 extern void miniz_def_free_func(void *opaque, void *address);
 extern void *miniz_def_realloc_func(void *opaque, void *address, size_t items, size_t size);
@@ -563,15 +552,9 @@ extern void *miniz_def_realloc_func(void *opaque, void *address, size_t items, s
 #define MZ_UINT16_MAX (0xFFFFU)
 #define MZ_UINT32_MAX (0xFFFFFFFFU)
 
-#ifdef __cplusplus
-}
-#endif
 #pragma once
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /* ------------------- Low-level Compression API Definitions */
 
 /* Set TDEFL_LESS_MEMORY to 1 to use less memory (compression will be slightly slower, and raw/dynamic blocks will be output more frequently). */
@@ -753,16 +736,10 @@ tdefl_compressor *tdefl_compressor_alloc(void);
 void tdefl_compressor_free(tdefl_compressor *pComp);
 #endif
 
-#ifdef __cplusplus
-}
-#endif
 #pragma once
 
 /* ------------------- Low-level Decompression API Definitions */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 /* Decompression flags used by tinfl_decompress(). */
 /* TINFL_FLAG_PARSE_ZLIB_HEADER: If set, the input has a valid zlib header and ends with an adler32 checksum (it's a valid zlib stream). Otherwise, the input is a raw deflate stream. */
 /* TINFL_FLAG_HAS_MORE_INPUT: If set, there are more input bytes available beyond the end of the supplied input buffer. If clear, the input buffer contains all remaining input. */
@@ -897,9 +874,6 @@ struct tinfl_decompressor_tag
     mz_uint8 m_raw_header[4], m_len_codes[TINFL_MAX_HUFF_SYMBOLS_0 + TINFL_MAX_HUFF_SYMBOLS_1 + 137];
 };
 
-#ifdef __cplusplus
-}
-#endif
 
 #pragma once
 
@@ -907,10 +881,6 @@ struct tinfl_decompressor_tag
 /* ------------------- ZIP archive reading/writing */
 
 #ifndef MINIZ_NO_ARCHIVE_APIS
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 enum
 {
@@ -1388,8 +1358,5 @@ void *mz_zip_extract_archive_file_to_heap_v2(const char *pZip_filename, const ch
 
 #endif /* #ifndef MINIZ_NO_ARCHIVE_WRITING_APIS */
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* MINIZ_NO_ARCHIVE_APIS */

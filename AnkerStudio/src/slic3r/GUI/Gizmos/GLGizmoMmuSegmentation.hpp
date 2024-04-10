@@ -2,83 +2,37 @@
 #define slic3r_GLGizmoMmuSegmentation_hpp_
 
 #include "GLGizmoPainterBase.hpp"
+#include "slic3r/GUI/3DScene.hpp"
 
 #include "slic3r/GUI/I18N.hpp"
 
 namespace Slic3r::GUI {
 
-class GLMmSegmentationGizmo3DScene
-{
-public:
-    GLMmSegmentationGizmo3DScene() = delete;
-
-    explicit GLMmSegmentationGizmo3DScene(size_t triangle_indices_buffers_count)
-    {
-        this->triangle_indices         = std::vector<std::vector<int>>(triangle_indices_buffers_count);
-        this->triangle_indices_sizes   = std::vector<size_t>(triangle_indices_buffers_count);
-        this->triangle_indices_VBO_ids = std::vector<unsigned int>(triangle_indices_buffers_count);
-    }
-
-    virtual ~GLMmSegmentationGizmo3DScene() { release_geometry(); }
-
-    [[nodiscard]] inline bool has_VBOs(size_t triangle_indices_idx) const
-    {
-        assert(triangle_indices_idx < this->triangle_indices.size());
-        return this->triangle_indices_VBO_ids[triangle_indices_idx] != 0;
-    }
-
-    // Release the geometry data, release OpenGL VBOs.
-    void release_geometry();
-    // Finalize the initialization of the geometry, upload the geometry to OpenGL VBO objects
-    // and possibly releasing it if it has been loaded into the VBOs.
-    void finalize_vertices();
-    // Finalize the initialization of the indices, upload the indices to OpenGL VBO objects
-    // and possibly releasing it if it has been loaded into the VBOs.
-    void finalize_triangle_indices();
-
-    void clear()
-    {
-        this->vertices.clear();
-        for (std::vector<int> &ti : this->triangle_indices)
-            ti.clear();
-
-        for (size_t &triangle_indices_size : this->triangle_indices_sizes)
-            triangle_indices_size = 0;
-    }
-
-    void render(size_t triangle_indices_idx) const;
-
-    std::vector<float>            vertices;
-    std::vector<std::vector<int>> triangle_indices;
-
-    // When the triangle indices are loaded into the graphics card as Vertex Buffer Objects,
-    // the above mentioned std::vectors are cleared and the following variables keep their original length.
-    std::vector<size_t> triangle_indices_sizes;
-
-    // IDs of the Vertex Array Objects, into which the geometry has been loaded.
-    // Zero if the VBOs are not sent to GPU yet.
-#if ENABLE_GL_CORE_PROFILE
-    unsigned int              vertices_VAO_id{ 0 };
-#endif // ENABLE_GL_CORE_PROFILE
-    unsigned int              vertices_VBO_id{ 0 };
-    std::vector<unsigned int> triangle_indices_VBO_ids;
-};
-
 class TriangleSelectorMmGui : public TriangleSelectorGUI {
 public:
     // Plus 1 in the initialization of m_gizmo_scene is because the first position is allocated for non-painted triangles, and the indices above colors.size() are allocated for seed fill.
-    TriangleSelectorMmGui(const TriangleMesh& mesh, const std::vector<ColorRGBA>& colors, const ColorRGBA& default_volume_color)
-        : TriangleSelectorGUI(mesh), m_colors(colors), m_default_volume_color(default_volume_color), m_gizmo_scene(2 * (colors.size() + 1)) {}
+    TriangleSelectorMmGui(const TriangleMesh& mesh, const std::vector<ColorRGBA>& colors, const ColorRGBA& default_volume_color, const Selection* selection, int object_id = -1, int volume_id = -1)
+        : TriangleSelectorGUI(mesh)
+        , m_colors(colors)
+        , m_default_volume_color(default_volume_color)
+        , m_gizmo_scene(std::make_shared<GLSimpleMesh>(2 * (colors.size() + 1)))
+        , m_object_id(object_id)
+        , m_volume_id(volume_id) 
+        , m_selection(selection) {}
     ~TriangleSelectorMmGui() override = default;
 
     void render(ImGuiWrapper* imgui, const Transform3d& matrix) override;
 
+    std::shared_ptr<Slic3r::GLSimpleMesh>             m_gizmo_scene;
+    int m_object_id;
+    int m_volume_id;
 private:
     void update_render_data();
+    void set_mmu_render_data();
 
     const std::vector<ColorRGBA>&            m_colors;
     const ColorRGBA                          m_default_volume_color;
-    GLMmSegmentationGizmo3DScene             m_gizmo_scene;
+    const Selection*                         m_selection{ nullptr };
 };
 
 class GLGizmoMmuSegmentation : public GLGizmoPainterBase

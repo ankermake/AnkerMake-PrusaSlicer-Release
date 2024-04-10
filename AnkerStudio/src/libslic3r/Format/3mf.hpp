@@ -28,6 +28,7 @@ namespace Slic3r {
     struct ConfigSubstitutionContext;
     class DynamicPrintConfig;
     struct ThumbnailData;
+    struct SliceModelData;
 
     // Returns true if the 3mf file with the given filename is a AnkerStudio project file (i.e. if it contains a config).
     extern bool is_project_3mf(const std::string& filename);
@@ -37,7 +38,8 @@ namespace Slic3r {
 
     // Save the given model and the config data contained in the given Print into a 3mf file.
     // The model could be modified during the export process if meshes are not repaired or have no shared vertices
-    extern bool store_3mf(const char* path, Model* model, const DynamicPrintConfig* config, bool fullpath_sources, const ThumbnailData* thumbnail_data = nullptr, bool zip64 = true);
+    extern bool store_3mf(const char* path, Model* model, const DynamicPrintConfig* config, bool fullpath_sources, 
+        const ThumbnailData* thumbnail_data = nullptr, const SliceModelData* slice_data = nullptr,  bool zip64 = true);
 
 } // namespace Slic3r
 

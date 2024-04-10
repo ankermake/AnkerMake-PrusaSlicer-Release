@@ -10,6 +10,7 @@
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "slic3r/GUI/OpenGLManager.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/SLAPrint.hpp"
@@ -61,6 +62,8 @@ void glAssertRecentCallImpl(const char* file_name, unsigned int line, const char
     assert(false);
 }
 #endif // HAS_GLSAFE
+
+
 
 namespace Slic3r {
 
@@ -233,6 +236,7 @@ GLVolume::GLVolume(float r, float g, float b, float a)
     , force_neutral_color(false)
     , force_sinking_contours(false)
     , tverts_range(0, size_t(-1))
+    , mmu_mesh(nullptr)
 {
     color = { r, g, b, a };
     set_render_color(color);
@@ -272,6 +276,20 @@ void GLVolume::set_render_color(bool force_transparent)
 
     if (force_transparent)
         render_color.a(color.a());
+}
+
+void GLVolume::set_mmu_render_data_from_model_volume(const ModelVolume& model_volume)
+{
+    if (model_volume.mmu_segmentation_facets.empty()) {
+        return;
+    }
+    GUI::GLTriangleSelector selector(model_volume.mesh());
+    selector.deserialize(model_volume.mmu_segmentation_facets.get_data(), false);
+    auto max_size = 6;
+    mmu_mesh = std::make_shared<GLSimpleMesh>((max_size + 1 ) * 2);
+    selector.set_mmu_render_data(mmu_mesh, max_size);
+    mmu_mesh->finalize_vertices();
+    mmu_mesh->finalize_triangle_indices();
 }
 
 ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
@@ -381,11 +399,20 @@ void GLVolume::render()
 {
     if (!is_active)
         return;
-
-    GLShaderProgram* shader = GUI::wxGetApp().get_current_shader();
-    if (shader == nullptr)
-        return;
     
+    auto colors = []() {
+        std::vector<std::string> colorsStr = Slic3r::GUI::wxGetApp().plater()->get_filament_colors_from_plater_config();
+        std::vector<ColorRGBA> colors;
+        decode_colors(colorsStr, colors);
+        return std::move(colors);
+    };
+
+    if (mmu_mesh != nullptr && colors().size() > 1) {
+        const GUI::Camera& camera = GUI::wxGetApp().plater()->get_camera();
+        render_mmu(colors(), camera);
+        return;
+    }
+
     const bool is_left_handed = this->is_left_handed();
 
     if (is_left_handed)
@@ -399,6 +426,53 @@ void GLVolume::render()
 
     if (is_left_handed)
         glsafe(::glFrontFace(GL_CCW));
+}
+
+void GLVolume::render_mmu(const std::vector<ColorRGBA>& colors, const GUI::Camera& camera)
+{
+    auto current_shader = GUI::wxGetApp().get_current_shader();
+    if (current_shader) {
+        current_shader->stop_using();
+    }
+
+    auto* shader = GUI::wxGetApp().get_shader("mm_gouraud");
+    if (!shader)
+        return;
+    shader->start_using();
+
+    const Transform3d& view_matrix = camera.get_view_matrix();
+    const Transform3d trafo_matrix = world_matrix();
+    const bool is_left_handed = this->is_left_handed();
+    if (is_left_handed)
+        glsafe(::glFrontFace(GL_CW));
+    std::array<float, 2> z_range = { -FLT_MAX, FLT_MAX };
+    shader->set_uniform("z_range", z_range);
+    shader->set_uniform("view_model_matrix", view_matrix * trafo_matrix);
+    shader->set_uniform("projection_matrix", camera.get_projection_matrix());
+    const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * trafo_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
+    shader->set_uniform("view_normal_matrix", view_normal_matrix);
+    shader->set_uniform("clipping_plane", m_clipping_plane);
+
+    shader->set_uniform("volume_world_matrix", trafo_matrix);
+    shader->set_uniform("volume_mirrored", is_left_handed);
+    for (size_t color_idx = 0; color_idx < mmu_mesh->triangle_indices.size(); ++color_idx) {
+        if (mmu_mesh->has_VBOs(color_idx)) {
+            if (color_idx > colors.size()) // Seed fill VBO
+                shader->set_uniform("uniform_color", render_color);
+            else                             // Normal VBO
+                shader->set_uniform("uniform_color", color_idx == 0 ? render_color : colors[color_idx - 1]);
+
+            mmu_mesh->render(color_idx);
+        }
+    }
+
+    shader->stop_using();
+    if (is_left_handed)
+        glsafe(::glFrontFace(GL_CCW));
+        
+    if (current_shader) {
+        current_shader->start_using();
+    }
 }
 
 bool GLVolume::is_sla_support() const { return this->composite_id.volume_id == -int(slaposSupportTree); }
@@ -474,22 +548,26 @@ int GLVolumeCollection::load_object_volume(
     v.shader_outside_printer_detection_enabled = model_volume->is_model_part();
     v.set_instance_transformation(instance->get_transformation());
     v.set_volume_transformation(model_volume->get_transformation());
+    v.set_mmu_render_data_from_model_volume(*model_volume);
 
     return int(this->volumes.size() - 1);
 }
 
 #if ENABLE_OPENGL_ES
 int GLVolumeCollection::load_wipe_tower_preview(
-    float pos_x, float pos_y, float width, float depth, float height, float cone_angle,
+    float pos_x, float pos_y, float width, float depth, const std::vector<std::pair<float, float>>& z_and_depth_pairs, float height, float cone_angle,
     float rotation_angle, bool size_unknown, float brim_width, TriangleMesh* out_mesh)
 #else
 int GLVolumeCollection::load_wipe_tower_preview(
-    float pos_x, float pos_y, float width, float depth, float height, float cone_angle,
+    float pos_x, float pos_y, float width, float depth, const std::vector<std::pair<float, float>>& z_and_depth_pairs, float height, float cone_angle,
     float rotation_angle, bool size_unknown, float brim_width)
 #endif // ENABLE_OPENGL_ES
 {
     if (height == 0.0f)
         height = 0.1f;
+
+    if (depth == 0.0f)
+        depth = 0.1f;
 
     static const float brim_height = 0.2f;
 //    const float scaled_brim_height = brim_height / height;
@@ -759,6 +837,9 @@ void GLVolumeCollection::render(GLVolumeCollection::ERenderType type, bool disab
 #endif // ENABLE_ENVIRONMENT_MAP
         glcheck();
 
+        if(volume.first->mmu_mesh){
+            volume.first->set_clip_planes(m_clipping_plane);
+        }
         volume.first->model.set_color(volume.first->render_color);
         const Transform3d model_matrix = world_matrix;
         shader->set_uniform("view_model_matrix", view_matrix * model_matrix);
@@ -1552,4 +1633,138 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionEntity* extrusion_entity,
     }
 }
 
+
+void GLSimpleMesh::release_geometry() {
+        if (this->vertices_VBO_id) {
+            glsafe(::glDeleteBuffers(1, &this->vertices_VBO_id));
+            this->vertices_VBO_id = 0;
+        }
+        for(auto &triangle_indices_VBO_id : triangle_indices_VBO_ids) {
+            glsafe(::glDeleteBuffers(1, &triangle_indices_VBO_id));
+            triangle_indices_VBO_id = 0;
+        }
+    #if ENABLE_GL_CORE_PROFILE
+        if (this->vertices_VAO_id > 0) {
+            glsafe(::glDeleteVertexArrays(1, &this->vertices_VAO_id));
+            this->vertices_VAO_id = 0;
+        }
+    #endif // ENABLE_GL_CORE_PROFILE
+    
+        this->clear();
+    }
+    
+    void GLSimpleMesh::render(size_t triangle_indices_idx) const
+    {
+        assert(triangle_indices_idx < this->triangle_indices_VBO_ids.size());
+        assert(this->triangle_indices_sizes.size() == this->triangle_indices_VBO_ids.size());
+    #if ENABLE_GL_CORE_PROFILE
+        if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            assert(this->vertices_VAO_id != 0);
+    #endif // ENABLE_GL_CORE_PROFILE
+        assert(this->vertices_VBO_id != 0);
+        assert(this->triangle_indices_VBO_ids[triangle_indices_idx] != 0);
+    
+        GLShaderProgram* shader = GUI::wxGetApp().get_current_shader();
+        if (shader == nullptr)
+            return;
+    
+    #if ENABLE_GL_CORE_PROFILE
+        if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            glsafe(::glBindVertexArray(this->vertices_VAO_id));
+        // the following binding is needed to set the vertex attributes
+    #endif // ENABLE_GL_CORE_PROFILE
+        glsafe(::glBindBuffer(GL_ARRAY_BUFFER, this->vertices_VBO_id));
+        const GLint position_id = shader->get_attrib_location("v_position");
+        if (position_id != -1) {
+            glsafe(::glVertexAttribPointer(position_id, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (GLvoid*)0));
+            glsafe(::glEnableVertexAttribArray(position_id));
+        }
+    
+        // Render using the Vertex Buffer Objects.
+        if (this->triangle_indices_VBO_ids[triangle_indices_idx] != 0 &&
+            this->triangle_indices_sizes[triangle_indices_idx] > 0) {
+            glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices_VBO_ids[triangle_indices_idx]));
+            glsafe(::glDrawElements(GL_TRIANGLES, GLsizei(this->triangle_indices_sizes[triangle_indices_idx]), GL_UNSIGNED_INT, nullptr));
+            glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+        }
+    
+        if (position_id != -1)
+            glsafe(::glDisableVertexAttribArray(position_id));
+    
+        glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+    #if ENABLE_GL_CORE_PROFILE
+        if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            glsafe(::glBindVertexArray(0));
+    #endif // ENABLE_GL_CORE_PROFILE
+    }
+    
+    void GLSimpleMesh::finalize_vertices()
+    {
+    #if ENABLE_GL_CORE_PROFILE
+            assert(this->vertices_VAO_id == 0);
+    #endif // ENABLE_GL_CORE_PROFILE
+        assert(this->vertices_VBO_id == 0);
+        if (!this->vertices.empty()) {
+    #if ENABLE_GL_CORE_PROFILE
+            if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0)) {
+                glsafe(::glGenVertexArrays(1, &this->vertices_VAO_id));
+                glsafe(::glBindVertexArray(this->vertices_VAO_id));
+            }
+    #endif // ENABLE_GL_CORE_PROFILE
+    
+            glsafe(::glGenBuffers(1, &this->vertices_VBO_id));
+            glsafe(::glBindBuffer(GL_ARRAY_BUFFER, this->vertices_VBO_id));
+            glsafe(::glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(float), this->vertices.data(), GL_STATIC_DRAW));
+            glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+            this->vertices.clear();
+    
+    #if ENABLE_GL_CORE_PROFILE
+            if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            glsafe(::glBindVertexArray(0));
+    #endif // ENABLE_GL_CORE_PROFILE
+        }
+    }
+    
+    void GLSimpleMesh::finalize_triangle_indices()
+    {
+        assert(std::all_of(triangle_indices_VBO_ids.cbegin(), triangle_indices_VBO_ids.cend(), [](const auto &ti_VBO_id) { return ti_VBO_id == 0; }));
+    
+        assert(this->triangle_indices.size() == this->triangle_indices_VBO_ids.size());
+        for (size_t buffer_idx = 0; buffer_idx < this->triangle_indices.size(); ++buffer_idx)
+            if (!this->triangle_indices[buffer_idx].empty()) {
+                glsafe(::glGenBuffers(1, &this->triangle_indices_VBO_ids[buffer_idx]));
+                glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices_VBO_ids[buffer_idx]));
+                glsafe(::glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices[buffer_idx].size() * sizeof(int), this->triangle_indices[buffer_idx].data(), GL_STATIC_DRAW));
+                glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+                this->triangle_indices[buffer_idx].clear();
+            }
+    }
+
+
 } // namespace Slic3r
+
+void Slic3r::GUI::GLTriangleSelector::set_mmu_render_data(std::shared_ptr<GLSimpleMesh> mmu_mesh, int max_size)
+{
+    for (const TriangleSelector::Vertex& vr : m_vertices) {
+        mmu_mesh->vertices.emplace_back(vr.v.x());
+        mmu_mesh->vertices.emplace_back(vr.v.y());
+        mmu_mesh->vertices.emplace_back(vr.v.z());
+    }
+
+    for (const TriangleSelector::Triangle& tr : m_triangles)
+        if (tr.valid() && !tr.is_split()) {
+            int               color = int(tr.get_state()) <= max_size ? int(tr.get_state()) : 0;
+            assert(max_size + 1 + color < mmu_mesh->triangle_indices.size());
+            std::vector<int>& iva = mmu_mesh->triangle_indices[color + tr.is_selected_by_seed_fill() * (max_size + 1)];
+
+            if (iva.size() + 3 > iva.capacity())
+                iva.reserve(next_highest_power_of_2(iva.size() + 3));
+
+            iva.emplace_back(tr.verts_idxs[0]);
+            iva.emplace_back(tr.verts_idxs[1]);
+            iva.emplace_back(tr.verts_idxs[2]);
+        }
+
+    for (size_t color_idx = 0; color_idx < mmu_mesh->triangle_indices.size(); ++color_idx)
+        mmu_mesh->triangle_indices_sizes[color_idx] = mmu_mesh->triangle_indices[color_idx].size();
+}

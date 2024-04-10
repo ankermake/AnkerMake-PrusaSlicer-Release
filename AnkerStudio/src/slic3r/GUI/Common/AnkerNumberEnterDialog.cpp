@@ -134,24 +134,6 @@ void AnkerNumberEnterDialog::initUI()
 
     SetTitle(m_title);
 
-    wxBoxSizer* promptHSizer = new wxBoxSizer(wxHORIZONTAL);
-    contentVSizer->Add(promptHSizer, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 0);
-    promptHSizer->AddSpacer(24);
-    m_pPromptText = new wxStaticText(this, wxID_ANY, m_prompt);
-    m_pPromptText->SetMinSize(AnkerSize(352, 21));
-    m_pPromptText->SetMaxSize(AnkerSize(352, 21));
-    m_pPromptText->SetBackgroundColour(wxColour(41, 42, 45));
-    m_pPromptText->SetForegroundColour(wxColour("#FFFFFF"));
-    //	font = m_pPromptText->GetFont();
-    //#ifdef __APPLE__
-    //	font.SetPointSize(14);
-    //#else
-    //	font.SetPointSize(10);
-    //#endif
-    //	m_pPromptText->SetFont(font);
-    m_pPromptText->SetFont(ANKER_FONT_NO_1);
-    promptHSizer->Add(m_pPromptText, 1, wxEXPAND | wxALIGN_CENTER, 17);
-
     contentVSizer->AddStretchSpacer(1);
 
     // edit text
@@ -164,6 +146,7 @@ void AnkerNumberEnterDialog::initUI()
     m_pLineEdit->SetMinSize(AnkerSize(352, 25));
     m_pLineEdit->SetSize(AnkerSize(352, 25));
     m_pLineEdit->setValue(wxString::FromDouble(m_textValue));
+    m_pLineEdit->AddValidatorInt(0, 1000);
     editHSizer->Add(m_pLineEdit, 0, wxALIGN_RIGHT | wxCENTER | wxTOP, 0);
 
     contentVSizer->AddStretchSpacer(1);

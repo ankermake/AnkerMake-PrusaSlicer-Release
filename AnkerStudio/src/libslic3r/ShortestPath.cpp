@@ -1041,6 +1041,31 @@ void chain_and_reorder_extrusion_entities(std::vector<ExtrusionEntity*> &entitie
 	reorder_extrusion_entities(entities, chain_extrusion_entities(entities, start_near));
 }
 
+void chain_and_reorder_extrusion_entities_reverse(std::vector<ExtrusionEntity*>& entities, const Point* start_near)
+{
+	auto chain = chain_extrusion_entities(entities, start_near);
+	assert(entities.size() == chain.size());
+
+	std::vector<ExtrusionEntity*> out;
+	out.reserve(entities.size());
+	for (auto idx = chain.rbegin(); idx != chain.rend(); idx++) {
+		assert(entities[idx->first] != nullptr);
+		out.emplace_back(entities[idx->first]);
+
+		if (out.back()->role() != ExtrusionRole::BridgeInfill) {
+			if (!idx->second && out.back()->can_reverse())
+				out.back()->reverse();
+		}
+		//else {
+		//	if ((*start_near - out.back()->first_point()).norm() > (*start_near - out.back()->last_point()).norm()) {
+		//		out.back()->reverse();
+		//	}
+		//}
+	}
+
+	entities.swap(out);
+}
+
 std::vector<std::pair<size_t, bool>> chain_extrusion_paths(std::vector<ExtrusionPath> &extrusion_paths, const Point *start_near)
 {
 	auto segment_end_point = [&extrusion_paths](size_t idx, bool first_point) -> const Point& { return first_point ? extrusion_paths[idx].first_point() : extrusion_paths[idx].last_point(); };

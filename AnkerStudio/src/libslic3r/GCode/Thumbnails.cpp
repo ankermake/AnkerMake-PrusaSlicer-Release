@@ -5,6 +5,13 @@
 #include <jpeglib.h>
 #include <jerror.h>
 
+#ifdef _WIN32
+#include <codecvt>
+#include <xlocbuf>
+#include <xstring>
+#endif
+
+
 namespace Slic3r::GCodeThumbnails {
 
 using namespace std::literals;
@@ -174,7 +181,16 @@ post_gcode::processAiPicture::processAiPicture(std::string fileName, std::string
     this->m_head.total_layer = totalLayers;
     this->m_head.total_picture = total_picture;
     this->m_head.file_size = 128;
+
+#ifdef _WIN32
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    auto wfullPath = converter.from_bytes(fullPath);
+    m_outFile.open(wfullPath, ios::out | ios::binary);
+#else
     m_outFile.open(fullPath, ios::out | ios::binary);
+#endif
+
+    bool ret = m_outFile.is_open();
     m_outFile.write(this->m_head.a, sizeof(this->m_head));
     m_outFile.flush();
 }

@@ -239,11 +239,17 @@ void show_error_id(int id, const std::string& message)
 	show_error(parent, message);
 }
 
-void show_info(wxWindow* parent, const wxString& message, const wxString& title)
+void show_info(wxWindow* parent, const wxString& message, const wxString& title, const bool showingTitle)
 {
 	//wxMessageDialog msg_wingow(parent, message, wxString(SLIC3R_APP_NAME " - ") + (title.empty() ? _L("Notice") : title), wxOK | wxICON_INFORMATION);
-	MessageDialog msg_wingow(parent, message, wxString(SLIC3R_APP_NAME " - ") + (title.empty() ? _L("Notice") : title), wxOK | wxICON_INFORMATION);
-	msg_wingow.ShowModal();
+	if (showingTitle) {
+		MessageDialog msg_wingow(parent, message, wxString(SLIC3R_APP_NAME " - ") + (title.empty() ? _L("Notice") : title), wxOK | wxICON_INFORMATION);
+		msg_wingow.ShowModal();
+	}
+	else {
+		MessageDialog msg_wingow(parent, message, wxString(SLIC3R_APP_NAME), wxOK | wxICON_INFORMATION);
+		msg_wingow.ShowModal();
+	}
 }
 
 void show_info(wxWindow* parent, const char* message, const char* title)

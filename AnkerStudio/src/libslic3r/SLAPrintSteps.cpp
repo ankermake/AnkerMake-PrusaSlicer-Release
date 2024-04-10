@@ -127,35 +127,6 @@ void SLAPrint::Steps::apply_printer_corrections(SLAPrintObject &po, SliceOrigin 
     }
 }
 
-template<class Cont> bool is_all_positive(const Cont &csgmesh)
-{
-    bool is_all_pos =
-        std::all_of(csgmesh.begin(),
-                    csgmesh.end(),
-                    [](auto &part) {
-                        return csg::get_operation(part) == csg::CSGType::Union;
-                    });
-
-    return is_all_pos;
-}
-
-template<class Cont>
-static indexed_triangle_set csgmesh_merge_positive_parts(const Cont &csgmesh)
-{
-    indexed_triangle_set m;
-    for (auto &csgpart : csgmesh) {
-        auto op = csg::get_operation(csgpart);
-        const indexed_triangle_set * pmesh = csg::get_mesh(csgpart);
-        if (pmesh && op == csg::CSGType::Union) {
-            indexed_triangle_set mcpy = *pmesh;
-            its_transform(mcpy, csg::get_transform(csgpart), true);
-            its_merge(m, mcpy);
-        }
-    }
-
-    return m;
-}
-
 indexed_triangle_set SLAPrint::Steps::generate_preview_vdb(
     SLAPrintObject &po, SLAPrintObjectStep step)
 {
@@ -779,8 +750,7 @@ void SLAPrint::Steps::generate_pad(SLAPrintObject &po) {
 
         if (!validate_pad(po.m_supportdata->pad_mesh.its, pcfg))
             throw Slic3r::SlicingError(
-                    _u8L("No pad can be generated for this model with the "
-                      "current configuration"));
+                    _u8L("common_slicepopup_slicingnotice7"));
 
     } else if(po.m_supportdata) {
         po.m_supportdata->pad_mesh = {};
@@ -908,9 +878,7 @@ void SLAPrint::Steps::initialize_printer_input()
         for(const SliceRecord& slicerecord : o->get_slice_index()) {
             if (!slicerecord.is_valid())
                 throw Slic3r::SlicingError(
-                    _u8L("There are unprintable objects. Try to "
-                      "adjust support settings to make the "
-                      "objects printable."));
+                    _u8L("common_slicepopup_slicingnotice8"));
 
             coord_t lvlid = slicerecord.print_level() - gndlvl;
 

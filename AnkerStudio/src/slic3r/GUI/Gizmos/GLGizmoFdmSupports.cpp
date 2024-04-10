@@ -604,7 +604,7 @@ namespace Slic3r::GUI {
 
 		ANKER_LOG_INFO << "GLGizmoFdmSupports: " << on;
 
-		std::string panelFlag = get_name(true, false);
+		std::string panelFlag = "GLGizmoFdmSupports";
 		if (on)
 		{
 			wxGetApp().plater()->sidebarnew().setMainSizer();
@@ -653,18 +653,17 @@ namespace Slic3r::GUI {
 					m_parent.use_slope(true);
 					sprintf(text, "%.2f", m_selected_angle);
 					thresholdTextCtrl = add_line_edit(thersholdSizer, supportPanel, text, _L("°"), wxSize(104, 25), align_right);
+					thresholdTextCtrl->AddValidatorFloat(0.0, 90.0, 2);
+
 					thresholdTextCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
 						wxString newValueStr = thresholdTextCtrl->getTextEdit()->GetLineText(0);
 						bool success = newValueStr.ToDouble(&m_selected_angle);
 						if (success && m_parent.is_using_slope()) {
 							high_light_overhang_by_angle(m_selected_angle);
 						}
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("Overhang threshold"), m_selected_angle);
+						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material_threshold"), m_selected_angle);   // todo change tab name
 						});
 				}
-
-				// switch button image adapt to screen resolution
-				auto em_unit = wxGetApp().em_unit() * 0.1;
 
 				{
 					// Highlight Overhang
@@ -674,11 +673,11 @@ namespace Slic3r::GUI {
 					highlightSizer->Add(1, 30, wxALIGN_CENTER, 0); //just for enough height space
 					highlightSizer->AddStretchSpacer(1);
 
-					wxBitmap* switchCloseImage = new wxBitmap(wxString::FromUTF8(Slic3r::var("fdm_switch_close.png")), wxBITMAP_TYPE_PNG);
-					wxBitmap* switchOpenImage = new wxBitmap(wxString::FromUTF8(Slic3r::var("fdm_switch_open.png")), wxBITMAP_TYPE_PNG);
-					highLightButton = add_button(highlightSizer, supportPanel, align_right, switchOpenImage->GetSize(), switchOpenImage, nullptr, false);
-					btn_bind_press_event(highLightButton, switchOpenImage, switchCloseImage, [this](bool pressed) {
-						if (!pressed) { //!pressed is on
+					highLightButton = add_switch_button(highlightSizer, supportPanel, align_right);
+					highLightButton->SetSelected(true);
+					highLightButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
+						auto selected = highLightButton->GetSelected();
+						if (selected) {
 							m_parent.use_slope(true);
 							high_light_overhang_by_angle(m_selected_angle);
 						}
@@ -686,26 +685,20 @@ namespace Slic3r::GUI {
 							m_parent.use_slope(false);
 						}
 						});
-					switchCloseImage->Rescale(*switchCloseImage, switchCloseImage->GetSize() * em_unit);
-					switchOpenImage->Rescale(*switchOpenImage, switchOpenImage->GetSize() * em_unit);
 				}
 
 				{
 					// Support On Build Plate Only
-					wxBitmap* switchCloseImage2 = new wxBitmap(wxString::FromUTF8(Slic3r::var("fdm_switch_close.png")), wxBITMAP_TYPE_PNG);
-					wxBitmap* switchOpenImage2 = new wxBitmap(wxString::FromUTF8(Slic3r::var("fdm_switch_open.png")), wxBITMAP_TYPE_PNG);
-					wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("Support on build plate only"), true);
 					wxBoxSizer* buildPlateSizer = new wxBoxSizer(wxHORIZONTAL);
 					supportPanelSizer->Add(buildPlateSizer, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
 					add_static_text(buildPlateSizer, supportPanel, _L("common_slice_toolpannelsupport_bulid"), align_left);
 					buildPlateSizer->Add(1, 30, wxALIGN_CENTER, 0);
 					buildPlateSizer->AddStretchSpacer(1);
-					buildPlateButton = add_button(buildPlateSizer, supportPanel, align_right, switchOpenImage2->GetSize(), switchOpenImage2, nullptr, false);
-					btn_bind_press_event(buildPlateButton, switchOpenImage2, switchCloseImage2, [this](bool pressed) {
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("Support on build plate only"), !pressed);
+					buildPlateButton = add_switch_button(buildPlateSizer, supportPanel, align_right);
+					buildPlateButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
+						auto selected = buildPlateButton->GetSelected();
+						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material_buildplate_only"), selected);  // todo change tab name
 						});
-					switchCloseImage2->Rescale(*switchCloseImage2, switchCloseImage2->GetSize() * em_unit);
-					switchOpenImage2->Rescale(*switchOpenImage2, switchOpenImage2->GetSize() * em_unit);
 				}
 
 				{
@@ -740,7 +733,7 @@ namespace Slic3r::GUI {
 
 					styleChoice->Bind(wxEVT_COMBOBOX, [styleChoice](wxCommandEvent& event) {
 						// update style to parameter panel, not preset panel
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("Style"), styleChoice->GetSelection());
+						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material_style"), styleChoice->GetSelection()); // todo change tab name
 						});
 					styleSizer->Add(styleChoice, 0, wxALIGN_RIGHT | wxCENTER | wxTOP, align_right);
 					m_styleChoice = styleChoice;
@@ -754,6 +747,7 @@ namespace Slic3r::GUI {
 					supportMaterialSizer->AddStretchSpacer(1);
 					supportMaterialButton = add_filament_item(supportPanel, AnkerSize(20, 20), 1, wxColor(*wxWHITE), true);
 					supportMaterialButton->SetLabelText(_L("Support material/raft/skirt extruder"));
+					supportMaterialButton->SetName(_L("support_material_extruder"));
 					supportMaterialSizer->Add(supportMaterialButton, 0, wxALIGN_RIGHT | wxCENTER | wxTOP, align_right);
 
 					// Top Surface Material
@@ -763,21 +757,9 @@ namespace Slic3r::GUI {
 					topSurfaceMaterialSizer->AddStretchSpacer(1);
 					topSurfaceMaterialButton = add_filament_item(supportPanel, AnkerSize(20, 20), 2, wxColor(*wxLIGHT_GREY), true);
 					topSurfaceMaterialButton->SetLabelText(_L("Support material/raft interface extruder"));
+					topSurfaceMaterialButton->SetName(_L("support_material_interface_extruder"));
 					topSurfaceMaterialSizer->Add(topSurfaceMaterialButton, 0, wxALIGN_RIGHT | wxCENTER | wxTOP, align_right);
 
-					int filamentSize = Slic3r::GUI::wxGetApp().preset_bundle->filament_presets.size();
-					if (filamentSize > 1)
-					{
-						//set SideBarNew's default value
-						wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), supportMaterialButton->GetLabelText(), 1);
-						wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), topSurfaceMaterialButton->GetLabelText(), 2);
-					}
-					else {
-						supportMaterialText->Hide();
-						supportMaterialButton->Hide();
-						topSurfaceMaterialText->Hide();
-						topSurfaceMaterialButton->Hide();
-					}
 				}
 
 				{
@@ -789,7 +771,7 @@ namespace Slic3r::GUI {
 					moreSettingButton->SetTextColor(green_font_color);
 					moreSettingButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent) {
 						wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
-						wxGetApp().sidebarnew().openSupportMaterialPage(_L("Expert"), _L("Support material"));
+						wxGetApp().sidebarnew().openSupportMaterialPage(_L("common_slicepannel_style11_expert"),_L("Support"));
 						});
 
 					moreSettingSizer->Add(1, 30, wxALIGN_CENTER, 0); //just for enough height space
@@ -817,7 +799,7 @@ namespace Slic3r::GUI {
 						select_facets_by_angle(m_selected_angle, false);
 
 						//set generate support material on
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("Generate support material"), true);
+						wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material"), true); // todo change tab name
 						});
 				}
 
@@ -860,6 +842,7 @@ namespace Slic3r::GUI {
 
 					sprintf(text, "%.2f", defaultSize);
 					AnkerLineEditUnit* brushTextCtrl = add_line_edit(brushSliderSizer, supportPanel, text, _L(""), wxSize(40, 25), align_right);
+					brushTextCtrl->AddValidatorFloat(brushSizeMin, brushSizeMax, 2);
 
 					bind_slider_and_text(*brushSlider, *brushTextCtrl->getTextEdit(), [this](float value) {
 						m_cursor_radius = value;
@@ -896,6 +879,8 @@ namespace Slic3r::GUI {
 
 					sprintf(text, "%.2f", 0.0);
 					AnkerLineEditUnit* clippingSliderTextCtrl = add_line_edit(clippingSliderSizer, supportPanel, text, _L(""), wxSize(40, 25), align_right);
+					clippingSliderTextCtrl->AddValidatorFloat(0.0, 1.0, 2);
+
 					bind_slider_and_text(*clippingSlider, *clippingSliderTextCtrl->getTextEdit(), [this](float clp_dist) {
 						if (m_c->object_clipper()) {
 							m_c->object_clipper()->set_position_by_ratio(clp_dist, true);
@@ -942,8 +927,6 @@ namespace Slic3r::GUI {
 
 			wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer(m_pInputWindowSizer, panelFlag);
 			sync_data_from_param_panel();
-			if(clippingSlider)
-				set_slider_value(clippingSlider, 0.0);
 			m_panelVisibleFlag = true;
         }
 		else
@@ -1015,6 +998,22 @@ namespace Slic3r::GUI {
 		return button;
 	}
 
+	AnkerSwitchButton* GLGizmoFdmSupports::add_switch_button(wxBoxSizer* sizer, wxPanel* panel, int align)
+	{
+		wxImage open_image(wxString::FromUTF8(Slic3r::var("fdm_switch_open.png")), wxBITMAP_TYPE_PNG);
+		wxImage close_image(wxString::FromUTF8(Slic3r::var("fdm_switch_close.png")), wxBITMAP_TYPE_PNG);
+		wxBitmap open_bitmap(open_image);
+		wxBitmap close_bitmap(close_image);
+		auto size = open_image.GetSize();
+
+		AnkerSwitchButton* button = new AnkerSwitchButton(panel, close_bitmap);
+		button->SetMinSize(size);
+		button->SetActieBitMap(open_bitmap);
+		sizer->Add(button, 0, wxALIGN_RIGHT | wxCENTER | wxTOP | wxBOTTOM, align);
+		sizer->Layout();
+		return button;
+	}
+
 	AnkerTextBtn* GLGizmoFdmSupports::add_filament_item(wxPanel* panel, wxSize size, int filamentIndex, wxColour filamentColor, bool filamentVisible)
 	{
 		AnkerTextBtn* newItem = new AnkerTextBtn(panel);
@@ -1027,25 +1026,6 @@ namespace Slic3r::GUI {
 		return newItem;
 	}
 
-	//TODO: move to add_button function
-	void GLGizmoFdmSupports::btn_bind_press_event(AnkerBtn* button, wxBitmap* bitImage, wxBitmap* pressedImage, std::function<void(bool)> func)
-	{
-		button->Bind(wxEVT_BUTTON, [button, bitImage, pressedImage, func](wxCommandEvent& event) {
-			bool is_pressed = button->GetName() == BTN_PRESSED;
-			if (is_pressed) {
-				button->SetNorImg(bitImage);
-				button->SetName(BTN_NORMAL);
-				func(false);
-			}
-			else {
-				button->SetNorImg(pressedImage);
-				button->SetName(BTN_PRESSED);
-				func(true);
-			}
-			button->Refresh();
-			});
-	}
-
 	void GLGizmoFdmSupports::bind_slider_and_text(AnkerSlider& slider, wxRichTextCtrl& textCtrl, std::function<void(float)> func)
 	{
 		slider.Bind(wxANKEREVT_SLIDER_VALUE_CHANGED, [this, &textCtrl, &slider, func](wxCommandEvent& event) {
@@ -1056,7 +1036,7 @@ namespace Slic3r::GUI {
 			textCtrl.SetValue(text);
 			func(value);
 			});
-		textCtrl.Bind(wxEVT_TEXT, [this, &slider, &textCtrl, func](wxCommandEvent& event) {
+		textCtrl.Bind(wxCUSTOMEVT_EDIT_FINISHED, [this, &slider, &textCtrl, func](wxCommandEvent& event) {
 			double newValue = 10.0;
 			wxString newValueStr = textCtrl.GetLineText(0);
 			bool success = newValueStr.ToDouble(&newValue);
@@ -1108,7 +1088,11 @@ namespace Slic3r::GUI {
 			targetItem->setText(wxString::Format(wxT("%d"), currentIndex + 1));
 			targetItem->setForegroundColour(currentSelection.first);
 
-			wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), targetItem->GetLabelText(), currentIndex + 1);
+			wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), targetItem->GetLabelText(), currentIndex + 1); // todo change tab name
+			//update preset config
+			auto& printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+			printConfig.set_key_value(targetItem->GetName().ToStdString(), new ConfigOptionInt(currentIndex + 1));
+			wxGetApp().plater()->on_config_change(printConfig);
 			});
 	}
 
@@ -1123,9 +1107,7 @@ namespace Slic3r::GUI {
 		thresholdTextCtrl->SetValue(text);
 		// set support on build plate only 
 		bool isBuildPlateOnly = printConfig.opt_bool("support_material_buildplate_only");
-		buildPlateButton->SetName(isBuildPlateOnly ? BTN_PRESSED : BTN_NORMAL);
-		wxCommandEvent e(wxEVT_COMMAND_BUTTON_CLICKED, buildPlateButton->GetId());
-		buildPlateButton->GetEventHandler()->ProcessEvent(e);
+		buildPlateButton->SetSelected(isBuildPlateOnly);
 		// set style
 		auto support_material_style_value = printConfig.opt_enum<Slic3r::SupportMaterialStyle>("support_material_style");
 		m_styleChoice->SetSelection(support_material_style_value);
@@ -1197,7 +1179,7 @@ namespace Slic3r::GUI {
 			wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), supportMaterialButton->GetLabelText(), 1);
 			topSurfaceMaterialButton->setText(L"1");
 			topSurfaceMaterialButton->setForegroundColour(filamentInfos[0].wxStrColor);
-			wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), topSurfaceMaterialButton->GetLabelText(), 1);
+			wxGetApp().sidebarnew().setItemValue(_L("Multiple Extruders"), topSurfaceMaterialButton->GetLabelText(), 1); // todo change tab name
 		}
 		else {
 			supportMaterialText->Hide();
@@ -1213,20 +1195,20 @@ namespace Slic3r::GUI {
 		char text[50];
 		sprintf(text, "%.2f", angle);
 		thresholdTextCtrl->SetValue(text);
-		set_button_state(highLightButton, BTN_PRESSED);
-		set_button_state(buildPlateButton, BTN_PRESSED);
+		highLightButton->SetSelected(true);
 
 		// set support on build plate only 
 		bool isBuildPlateOnly = printConfig.opt_bool("support_material_buildplate_only");
-		buildPlateButton->SetName(isBuildPlateOnly ? BTN_PRESSED : BTN_NORMAL);
-		wxCommandEvent e(wxEVT_COMMAND_BUTTON_CLICKED, buildPlateButton->GetId());
-		buildPlateButton->GetEventHandler()->ProcessEvent(e);
+		buildPlateButton->SetSelected(isBuildPlateOnly);
 		// set style
 		auto support_material_style_value = printConfig.opt_enum<Slic3r::SupportMaterialStyle>("support_material_style");
 		m_styleChoice->SetSelection(support_material_style_value);
 
 		set_slider_value(brushSlider, 2.0);
 		set_slider_value(clippingSlider, 0.0);
+
+		//set generate support material off
+		wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material"), false); // todo change tab name
 	}
 
 	void GLGizmoFdmSupports::set_button_state(AnkerBtn* button, wxString state)

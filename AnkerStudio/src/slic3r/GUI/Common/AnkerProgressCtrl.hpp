@@ -7,11 +7,12 @@
 class AnkerProgressCtrl : public wxControl
 {
 public:
-	AnkerProgressCtrl(wxWindow* parent);
+	AnkerProgressCtrl(wxWindow* parent, bool labelBack = false);
 	~AnkerProgressCtrl();
 
 	void setProgressColor(wxColour color) { m_progressColor = color; }
 	void setUnProgressColor(wxColour color) { m_unProgressColor = color; }
+	void SetBackgroundColor(wxColour color) { m_backgroudColor = color; }
 
 	bool setProgressRange(double max, double min = 0.0);
 	void updateProgress(double progress);
@@ -41,10 +42,12 @@ private:
 	int m_rangeMax;
 	int m_currentProgress;
 
+	wxColour m_backgroudColor;
 	wxColour m_progressColor;
 	wxColour m_unProgressColor;
 
 	bool m_labelVisible;
+	bool m_labelBack;
 	std::string m_labelStr;
 	wxFont m_labelFont;
 };

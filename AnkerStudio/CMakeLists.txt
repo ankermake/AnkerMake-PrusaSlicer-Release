@@ -8,15 +8,22 @@ include(CMakeDependentOption)
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 # include(ConfigureAllModules)
 
+set(OPEN_SOURCE ON)
+
 set(SLIC3R_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 file(TO_NATIVE_PATH "${SLIC3R_RESOURCES_DIR}" SLIC3R_RESOURCES_DIR_WIN)
 
 if(NOT CMAKE_PREFIX_PATH)
-    if(EXISTS $ENV{THIRD_PART_ROOT})
-        set(CMAKE_PREFIX_PATH "$ENV{THIRD_PART_ROOT}/usr/local/")
-        message("NOT Set CMAKE_PREFIX_PATH set to $ENV{THIRD_PART_ROOT}")
-    else()
-        message("NOT Set CMAKE_PREFIX_PATH OR THIRD_PART_ROOT please check.")
+	if(THIRD_PART_ROOT)
+		set(CMAKE_PREFIX_PATH "${THIRD_PART_ROOT}/usr/local/")
+		message("Param Set CMAKE_PREFIX_PATH to ${CMAKE_PREFIX_PATH}")
+	else()
+		if(EXISTS $ENV{THIRD_PART_ROOT})
+			set(CMAKE_PREFIX_PATH "$ENV{THIRD_PART_ROOT}/usr/local/")
+			message("Env Set CMAKE_PREFIX_PATH to ${CMAKE_PREFIX_PATH}")
+		else()
+			message("NO Set CMAKE_PREFIX_PATH OR THIRD_PART_ROOT, please check.")
+		endif()
     endif()
 endif()
 
@@ -35,10 +42,13 @@ else()
         endif()
 endif()
 
+#add_definitions(-DNET_TEST=1)
+
 option(SLIC3R_STATIC 			"Compile AnkerStudio with static libraries (Boost, TBB, glew)" ${SLIC3R_STATIC_INITIAL})
 option(SLIC3R_GUI    			"Compile AnkerStudio with GUI components (OpenGL, wxWidgets)" 1)
 option(SLIC3R_FHS               "Assume AnkerStudio is to be installed in a FHS directory structure" 0)
 option(SLIC3R_WX_STABLE         "Build against wxWidgets stable (3.0) as oppsed to dev (3.1) on Linux" 0)
+option(SLIC3R_PROFILE 			"Compile AnkerStudio with an invasive Shiny profiler" 0)
 option(SLIC3R_PCH               "Use precompiled headers" 1)
 option(SLIC3R_MSVC_COMPILE_PARALLEL "Compile on Visual Studio in parallel" 1)
 option(SLIC3R_MSVC_PDB          "Generate PDB files on MSVC in Release mode" 1)
@@ -82,7 +92,7 @@ endif ()
 
 # Proposal for C++ unit tests and sandboxes
 option(SLIC3R_BUILD_SANDBOXES   "Build development sandboxes" OFF)
-option(SLIC3R_BUILD_TESTS       "Build unit tests" ON)
+option(SLIC3R_BUILD_TESTS       "Build unit tests" OFF)
 
 if (IS_CROSS_COMPILE)
     message("Detected cross compilation setup. Tests and encoding checks will be forcedly disabled!")
@@ -614,6 +624,7 @@ function(AnkerStudio_copy_dlls target)
     
     # This has to be a separate target due to the windows command line lenght limits    
     add_custom_command(TARGET ${target} POST_BUILD 
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_out_dir}
         COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/libgmp-10.dll ${_out_dir}
         COMMENT "Copy gmp runtime to build tree"
         VERBATIM)
@@ -628,6 +639,33 @@ function(AnkerStudio_copy_dlls target)
         COMMENT "Copy mpfr runtime to build tree"
         VERBATIM)
 
+if(NOT OPEN_SOURCE)		
+	add_custom_command(TARGET ${target} POST_BUILD 
+        COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/sentry.dll ${_out_dir}
+        COMMENT "Copy senntry library to build tree"
+        VERBATIM)
+endif()
+		
+	add_custom_command(TARGET ${target} POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/crashpad_handler.exe ${_out_dir}
+		COMMENT "Copy crashpad library to build tree"
+		VERBATIM)	
+    
+    message(STATUS "------Build type: ${CMAKE_BUILD_TYPE}------")
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        message("Using NINJA")
+        add_custom_command(TARGET ${target} POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/AnkerPlugin/Release/AnkerPlugin.dll ${_out_dir}
+            COMMENT "Copy anker plugin to build tree"
+            VERBATIM)	
+    else()
+        message("Using LOCAL")
+        set (buildEnvir "$(Configuration)")
+        add_custom_command(TARGET ${target} POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/AnkerPlugin/${buildEnvir}/AnkerPlugin.dll ${_out_dir}
+            COMMENT "Copy anker plugin to build tree"
+            VERBATIM)	        
+    endif()
 endfunction()
 
 

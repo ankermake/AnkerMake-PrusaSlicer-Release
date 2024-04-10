@@ -1,5 +1,10 @@
 #include "GcodeInfo.hpp"
 #include "libslic3r/Utils.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/GCode/Thumbnails.hpp"
+
+
+
 
 namespace Slic3r {
 
@@ -22,19 +27,23 @@ bool GcodeInfo::GetIsAnkerFromGCode(const string& line)
 	return false;
 }
 
-mqtt_device_type GcodeInfo::GetMachineNameFromGCode(const string& line)
+anker_device_type GcodeInfo::GetMachineNameFromGCode(const string& line)
 {
-	mqtt_device_type name = DEVICE_UNKNOWN_TYPE;
+	anker_device_type name = DEVICE_UNKNOWN_TYPE;
 
-	// new for AnkerMake Studio: "; printer_model = M5C"
+	// new for AnkerMake Studio: ";Print Mode: M5C"
 	if (line.find(";Print Mode") != string::npos) {
 		if (line.find("M5") != string::npos) {
 			if (line.find("M5C") != string::npos) {
-				name = DEVICE_UNKNOWN_TYPE;
+				name = DEVICE_V8110_TYPE;
 			}
-			else {
-				name = DEVICE_UNKNOWN_TYPE;
+			else if (line.find("M5_V6") != string::npos) {
+				name = DEVICE_V7111_TYPE;
 			}
+			else  {
+				name = DEVICE_V8111_TYPE;
+			}
+			ANKER_LOG_WARNING << "can't find device type at Print Mode";
 			return name;
 		}
 	}
@@ -42,25 +51,31 @@ mqtt_device_type GcodeInfo::GetMachineNameFromGCode(const string& line)
 	// old for AnkerMake
 	if (line.find(";Machine Name:AnkerMake M5") != string::npos) {
 		if (line.find(";Machine Name:AnkerMake M5C") != string::npos) {
-			name = DEVICE_UNKNOWN_TYPE;
+			name = DEVICE_V8110_TYPE;
+		}
+		else if (line.find(";Machine Name:AnkerMake M5_V6") != string::npos) {
+			name = DEVICE_V7111_TYPE;
 		}
 		else {
-			name = DEVICE_UNKNOWN_TYPE;
+			name = DEVICE_V8111_TYPE;
 		}
+		ANKER_LOG_WARNING << "can't find device type at Machine Name";
 		return name;
 	}
 
 	return name;
 }
 
-void GcodeInfo::GetMachineInfoFromGCode(const string& gcodeFilePath, bool& isAnkerBrand, mqtt_device_type& machineType)
+void GcodeInfo::GetMachineInfoFromGCode(const string& utf8GcodeFilePath, 
+	bool& isAnkerBrand, anker_device_type& machineType)
 {
 	isAnkerBrand = false;
 	machineType = DEVICE_UNKNOWN_TYPE;
 
-	auto filePath = wxString::FromUTF8(gcodeFilePath).ToStdString();	
+	auto filePath = wxString::FromUTF8(utf8GcodeFilePath).ToStdString();	
 	ifstream file(filePath);
 	if (!file.is_open()) {
+		ANKER_LOG_ERROR << "open file failed: " << filePath << ", " << utf8GcodeFilePath;
 		return;
 	}
 
@@ -81,7 +96,135 @@ void GcodeInfo::GetMachineInfoFromGCode(const string& gcodeFilePath, bool& isAnk
 		}
 	}
 
-	ANKER_LOG_INFO << "Is ankerband: " << isAnkerBrand << ", machineType: " << machineType;
+	ANKER_LOG_INFO << "is ankerband: " << isAnkerBrand << ", machineType: " << machineType 
+		<< ", for: " << utf8GcodeFilePath;
 	file.close();
+}
+
+std::vector<CardInfo> GcodeInfo::GetColorMaterialIdInfo(const std::string& gcodeFilePath)
+{
+	std::vector<CardInfo> conV;
+	auto filePath = wxString::FromUTF8(gcodeFilePath).ToStdString();
+	ifstream file(filePath);
+	if (!file.is_open()) {
+		return conV;
+	}
+
+	string line;
+	int count = 0;
+	
+	std::string delimiter = ";NozzleColorMap:";
+	while (getline(file, line) && ++count < 20) {
+		size_t pos = line.find(delimiter);
+		if (pos != std::string::npos) {
+			std::string extractedString = line.substr(pos + delimiter.length());
+			ParseIdMap(extractedString, conV);
+		}
+	}
+
+	file.close();
+	return conV;
+}
+
+void GcodeInfo::ParseIdMap(const std::string& input, std::vector<CardInfo>& conV)
+{
+	std::regex pattern("T(\\d+) C=0x([0-9A-Fa-f]+) MID=([0-9A-Fa-f]+) CID=([0-9A-Fa-f]+)");
+	std::smatch match;
+
+	std::string::const_iterator searchStart(input.cbegin());
+	while (std::regex_search(searchStart, input.cend(), match, pattern)) {
+		CardInfo con;
+		int tValue = std::stoi(match[1]);
+		std::string hexValue = match[2];
+
+		std::string strMid = "0x";
+		strMid += match[3];
+
+		std::string strCid = "0x";
+		strCid += match[4];
+
+		long long mid = std::stoll(strMid,0,16);
+		long long cid = std::stoll(strCid,0,16);
+
+		con.index = tValue;
+		con.colorId = cid;
+		con.materialId = mid;
+		conV.emplace_back(con);
+		searchStart = match.suffix().first;
+	}
+}
+
+void GcodeInfo::ParseGcodeInfoToViewModel(const std::string& strGcodeFilePath, GUI::AnkerMaterialMappingViewModel* pViewModel)
+{
+	GCodeProcessor processor;
+	GCodeProcessorResultExt out;
+	// we still open the file which filepath may contains special characters
+	processor.process_file_ext(strGcodeFilePath, out);
+
+	// get the print info from gcode
+	// set the info to dialog
+	std::string strFilamentCost = out.filament_cost.empty() ? "--" : out.filament_cost;
+	pViewModel->m_filamentCost = strFilamentCost;
+
+	int hours = out.print_time / 60 / 60;
+	int minutes = ((int)out.print_time / 60) % 60;
+	std::string newTime = "";
+	if (hours > 0)
+	{
+		newTime += std::to_string(hours) + "h";
+	}
+	if (minutes > 0)
+	{
+		newTime += std::to_string(minutes) + "mins";
+	}
+	if (newTime.empty())
+	{
+		newTime = "--";
+	}
+
+	pViewModel->m_PrintTime = newTime;
+
+	wxImage image;
+	if (!out.base64_str.empty())
+	{
+		image = GCodeThumbnails::base64ToImage<wxImage, wxMemoryInputStream>(out.base64_str);
+	}
+
+	if (!image.IsOk())
+	{
+		wxBitmap bitmapEx = wxBitmap(wxString::FromUTF8(Slic3r::var("gcode_image_sample.png")), wxBITMAP_TYPE_PNG);
+		image = bitmapEx.ConvertToImage();
+	}
+	pViewModel->m_previewImage = image;
+}
+
+bool GcodeInfo::GetTemperatureFromGCode(const std::string& gcodeFilePath, int& temperature)
+{
+	bool find = false;
+	bool parse = false;
+
+	auto filePath = wxString::FromUTF8(gcodeFilePath).ToStdString();
+	ifstream file(filePath);
+	if (!file.is_open()) {
+		ANKER_LOG_INFO << "open GCode file failed . filename = " << gcodeFilePath;
+		return false;
+	}
+
+	string line;
+	const std::string flag = "; temperature =";
+	while (getline(file, line)) 
+	{
+		if (line.find(flag) == string::npos) 
+		{
+			continue;
+		}
+		find = true;
+		wxString numStr = line.substr(flag.size(), line.size() - flag.size());
+		parse = numStr.ToInt(&temperature);
+		break;
+	}
+
+	ANKER_LOG_INFO << "find temperature: " << find <<", parse : " << "parse" << ", temperature: " << temperature;
+	return find && parse;
 }
 }

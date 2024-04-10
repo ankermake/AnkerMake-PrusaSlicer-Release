@@ -39,23 +39,19 @@ void AnkerEmptyDevice::initUi()
 
 	{
 		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("download_app.png")), wxBITMAP_TYPE_PNG);
-		image.Rescale(280, 228);
+		image.Rescale(280, 284);
 		wxBitmap scaledBitmap(image);
 
 		wxStaticBitmap* pLeftImg = new wxStaticBitmap(this, wxID_ANY, scaledBitmap);
 		pLeftImg->SetMinSize(scaledBitmap.GetSize());
 
-		wxStaticText* pLeftText = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_nodevicecontent1"));
+		wxString labelText =_L("common_print_statusnotice_nodevicecontent1");
+		wxStaticText* pLeftText = new wxStaticText(this, wxID_ANY, labelText);
 		pLeftText->SetWindowStyleFlag(wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
 		pLeftText->SetForegroundColour(wxColour(153, 153, 153));
-		pLeftText->Wrap(280);
-		wxClientDC dc(this);
-		dc.SetFont(pLeftText->GetFont());
-		wxSize size = dc.GetTextExtent(_L("common_print_statusnotice_nodevicecontent1"));
-		int textHeight = (size.GetWidth()/280 + 2) * size.GetHeight();
-
-		pLeftText->SetMinSize(wxSize(280, textHeight));
-		
+		wxString realLabel = Slic3r::GUI::WrapEveryCharacter(labelText, pLeftText->GetFont(), 280);
+		pLeftText->SetLabelText(realLabel);
+		pLeftText->SetMinSize(wxSize(280,100));
 
 		pLeftVSizer->Add(pLeftImg, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
 		pLeftVSizer->AddSpacer(22);
@@ -65,22 +61,19 @@ void AnkerEmptyDevice::initUi()
 
 	{
 		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("add_device.png")), wxBITMAP_TYPE_PNG);
-		image.Rescale(280, 228);
+		image.Rescale(280, 284);
 		wxBitmap scaledBitmap(image);
 
 		wxStaticBitmap* pRightImg = new wxStaticBitmap(this, wxID_ANY, scaledBitmap);
 		pRightImg->SetMinSize(scaledBitmap.GetSize());
 
-		wxStaticText* pRightText = new wxStaticText(this, wxID_ANY, _L("common_print_statusnotice_nodevicecontent2"));
+		wxString labelText =_L("common_print_statusnotice_nodevicecontent2");
+		wxStaticText* pRightText = new wxStaticText(this, wxID_ANY, labelText);
 		pRightText->SetForegroundColour(wxColour(153, 153, 153));
-		pRightText->Wrap(280);
+		wxString realLabel = Slic3r::GUI::WrapEveryCharacter(labelText, pRightText->GetFont(), 280);
+		pRightText->SetLabelText(realLabel);
+		pRightText->SetMinSize(wxSize(280, 100));
 
-		wxClientDC dc(this);
-		dc.SetFont(pRightText->GetFont());
-		wxSize size = dc.GetTextExtent(_L("common_print_statusnotice_nodevicecontent2"));
-		int textHeight = (size.GetWidth() / 280 + 2) * size.GetHeight();
-
-		pRightText->SetMinSize(wxSize(280, textHeight));
 
 		pRightText->SetWindowStyleFlag(wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
 		
@@ -127,7 +120,8 @@ void AnkerOfflineDevice::initUi()
 	wxStaticText* pTipsText = new wxStaticText(this, wxID_ANY, _L("Device is disconnected, "));
 	pTipsText->SetForegroundColour(wxColour(153, 153, 153));
 
-	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("please click to see more help >>"), "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue");
+	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("please click to see more help >>"), 
+		"https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue");
 	link->SetMinSize(AnkerSize(210, 25));
 	link->SetSize(AnkerSize(230, 25));
 
@@ -188,7 +182,7 @@ void AnkerUnLoginPanel::initUi()
 	m_loginBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
 		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_LOGIN_CLCIKED);
 		wxPostEvent(this->GetParent(), evt);
-		});
+	});
 
 	m_loginBtn->SetBackgroundColour(wxColor("#62D361"));
 	m_loginBtn->SetMinSize(AnkerSize(336, 48));
@@ -199,7 +193,8 @@ void AnkerUnLoginPanel::initUi()
 	m_tipsText->SetFont(ANKER_FONT_NO_1);
 	m_tipsText->SetForegroundColour(wxColour(153, 153, 153));
 
-	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("common_print_statusnotice_createaccount2"), "https://mulpass.ankermake.com/?app=ankermake&tab=register");
+	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("common_print_statusnotice_createaccount2"), 
+		"https://mulpass.ankermake.com/?app=ankermake&tab=register");
 	
 	wxClientDC dc(this);
 	dc.SetFont(ANKER_FONT_NO_1);

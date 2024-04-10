@@ -15,13 +15,17 @@ class GCodeWriter {
 public:
     GCodeConfig config;
     bool multiple_extruders;
+    bool m_change_layer_lift_z = false;
+    //Radian threshold of slope for lazy lift and spiral lift;
+    static const double slope_threshold;
+    LiftType m_to_lift_type = LiftType::ltNormalLift;
     
     GCodeWriter() : 
         multiple_extruders(false), m_extrusion_axis("E"), m_extruder(nullptr),
         m_single_extruder_multi_material(false),
         m_last_acceleration(0), m_max_acceleration(0),
         m_last_bed_temperature(0), m_last_bed_temperature_reached(true), 
-        m_lifted(0)
+        m_lifted(0), m_current_speed(3600)
         {}
     Extruder*            extruder()             { return m_extruder; }
     const Extruder*      extruder()     const   { return m_extruder; }
@@ -56,14 +60,16 @@ public:
     // printed with the same extruder.
     std::string toolchange_prefix() const;
     std::string toolchange(unsigned int extruder_id);
-    std::string set_speed(double F, const std::string &comment = std::string(), const std::string &cooling_marker = std::string()) const;
-    std::string set_speed_withE(double F, const std::string& comment = std::string(), const std::string& cooling_marker = std::string()) const;
+    std::string set_speed(double F, const std::string &comment = std::string(), const std::string &cooling_marker = std::string());
+    std::string set_speed_withE(double F, const std::string& comment = std::string(), const std::string& cooling_marker = std::string());
     std::string travel_to_xy(const Vec2d &point, const std::string &comment = std::string());
     std::string travel_to_xyz(const Vec3d &point, const std::string &comment = std::string());
     std::string travel_to_z(double z, const std::string &comment = std::string());
     bool        will_move_z(double z) const;
     std::string extrude_to_xy(const Vec2d &point, double dE, const std::string &comment = std::string());
 //    std::string extrude_to_xyz(const Vec3d &point, double dE, const std::string &comment = std::string());
+        //BBS: generate G2 or G3 extrude which moves by arc
+    std::string extrude_arc_to_xy(const Vec2d& point, const Vec2d& center_offset, double dE, const bool is_ccw, const std::string& comment = std::string());
     std::string retract(bool before_wipe = false);
     std::string retract_for_toolchange(bool before_wipe = false);
     std::string unretract();
@@ -76,6 +82,8 @@ public:
     Vec3d       get_position() const { return m_pos; }
     // Current Z hop value.
     double      get_zhop() const { return m_lifted; }
+    // Current speed.
+    double      get_current_speed() const { return m_current_speed; }
     // Update position of the print head based on the final position returned by a custom G-code block.
     // The new position Z coordinate contains the Z-hop.
     // GCodeWriter expects the custom script to NOT change print_z, only Z-hop, thus the print_z is maintained
@@ -92,6 +100,9 @@ public:
     std::string set_fan(unsigned int speed) const;
 
     void set_is_first_layer(bool bval) { m_is_first_layer = bval; }
+
+    double getLifted() { return m_lifted; }
+    void setLifted(double lift) { m_lifted = lift; }
 
 private:
 	// Extruders are sorted by their ID, so that binary search is possible.
@@ -111,6 +122,7 @@ private:
     double          m_lifted;
     Vec3d           m_pos = Vec3d::Zero();
     bool            m_is_first_layer = true;
+    double          m_current_speed;
 
     enum class Acceleration {
         Travel,
@@ -118,6 +130,7 @@ private:
     };
 
     std::string _travel_to_z(double z, const std::string &comment);
+    std::string _spiral_travel_to_z(double z, const Vec2d& ij_offset, const std::string& comment);
     std::string _retract(double length, double restart_extra, const std::string &comment);
     std::string set_acceleration_internal(Acceleration type, unsigned int acceleration);
 };
@@ -174,6 +187,11 @@ public:
         this->emit_axis('Z', z, XYZF_EXPORT_DIGITS);
     }
 
+    void emit_ij(const Vec2d& point) {
+        this->emit_axis('I', point.x(), XYZF_EXPORT_DIGITS);
+        this->emit_axis('J', point.y(), XYZF_EXPORT_DIGITS);
+    }
+
     void emit_e(const std::string &axis, double v) {
         if (! axis.empty()) {
             // not gcfNoExtrusion
@@ -220,6 +238,25 @@ public:
 
     GCodeG1Formatter(const GCodeG1Formatter&) = delete;
     GCodeG1Formatter& operator=(const GCodeG1Formatter&) = delete;
+};
+
+class GCodeG2G3Formatter : public GCodeFormatter {
+public:
+    GCodeG2G3Formatter(bool is_ccw) {
+        this->buf[0] = 'G';
+        this->buf[1] = is_ccw ? '3' : '2';
+        this->buf_end = buf + buflen;
+        this->ptr_err.ptr = this->buf + 2;
+    }
+
+    //BBS
+    inline void emit_ij(const Vec2d& point) {
+        this->emit_axis('I', point.x(), XYZF_EXPORT_DIGITS);
+        this->emit_axis('J', point.y(), XYZF_EXPORT_DIGITS);
+    }
+
+    GCodeG2G3Formatter(const GCodeG2G3Formatter&) = delete;
+    GCodeG2G3Formatter& operator=(const GCodeG2G3Formatter&) = delete;
 };
 
 } /* namespace Slic3r */
