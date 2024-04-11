@@ -284,15 +284,13 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey,
 					resetBtn->Hide();
 				}
 
-	/*			wxWindowUpdateLocker updateLocker(this);
+				wxWindowUpdateLocker updateLocker(this);
 				updateModelParams(paraGroup, wxVariant(wxString::Format("%d", cboxIndex)), configOptionKey, strLabel);
 				onDatachanged();
 				onUpdateResetBtn();
-				Refresh();
+				//Refresh();
 				Layout();
-				return;*/
-
-				break;
+				return;
 			}
 			break;
 			case Item_enum_TopSurfaceSinglePerimeter:
@@ -2302,10 +2300,11 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 					}
 					else
 					{
-						if ("support_material_bottom_interface_layers" == option_key && index == -1)
-							index = 0;
-
-						pComBox->SetSelection(index);
+						if ("support_material_bottom_interface_layers" == option_key)
+						{
+							// by samuel, the print param saved value is equal to the combo index + 1
+							pComBox->SetSelection(index + 1);
+						}
 					}
 				}
 				return;

@@ -1254,7 +1254,7 @@ msgstr "モデルを指定されたポイントに合わせます。"
 
 #: src/libslic3r/PrintConfig.cpp:2241
 msgid "Aligned"
-msgstr "整列された"
+msgstr "整列"
 
 #: src/libslic3r/PrintConfig.cpp:728 src/libslic3r/PrintConfig.cpp:1165
 msgid "Aligned Rectilinear"
@@ -4677,7 +4677,7 @@ msgstr "最初のカラー"
 #: src/libslic3r/PrintConfig.cpp:1202 src/libslic3r/PrintConfig.cpp:1212
 #: src/libslic3r/PrintConfig.cpp:1257
 msgid "First layer"
-msgstr "1番目のレイヤー"
+msgstr "初期レイヤーのプリント速度"
 
 #: src/libslic3r/PrintConfig.cpp:1203
 msgid "First layer bed temperature"
@@ -25635,7 +25635,7 @@ msgid ""
 msgstr "1層目の高さです。高さを大きくすればプレートとの接着性が良くなります。"
 
 msgid "The start position to print each part of outer wall"
-msgstr "各パーツに対して、外壁を造形時の開始位置です。"
+msgstr "各パーツに対して、外壁の造形開始時の位置です。"
 
 msgid ""
 "G-code path is genereated after simplifing the contour of model to avoid too "
@@ -25696,8 +25696,7 @@ msgid ""
 "very thin areas is used gap-fill. Arachne engine produces walls with "
 "variable extrusion width"
 msgstr ""
-"クラシックでは従来通りの壁面を生成しますが、Arachneでは押出線幅が可変になりま"
-"す。"
+"クラシックでは従来通りの壁面を生成しますが、アラクネでは押出線幅が可変になります。"
 
 msgid ""
 "The number of walls, counted from the center, over which the variation needs "
@@ -25743,8 +25742,7 @@ msgid ""
 "Detect thin wall which can't contain two line width. And use single line to "
 "print. Maybe printed not very well, because it's not closed loop"
 msgstr ""
-"2ラインの入らない薄い壁面を検出し、1ラインで造形します。仕上がりが悪くなり可"
-"能性があります。"
+"ラインが2本入らない薄い壁面を検出し、ライン1本で造形します。仕上がりが悪くなる可能性があります。"
 
 msgid "Line pattern of top surface infill"
 msgstr "トップ面のインフィルのパターンです。"
@@ -25787,8 +25785,7 @@ msgid ""
 "is disabled and thickness of bottom shell is absolutely determained by "
 "bottom shell layers"
 msgstr ""
-"底面の厚さです、底面層数で決まった厚みがこの値より小さい場合、層数を増やしま"
-"す。この値が0にする場合、この設定が無効となり、設定した層数で造形します。"
+"底面の厚さです。底面層数で決まった厚みがこの値より小さい場合、層数を増やします。この値を0にした場合、この設定が無効となり、設定した層数で造形します。"
 
 msgid "Line pattern for internal sparse infill"
 msgstr "スパース インフィルのパターンです。"
@@ -26191,8 +26188,8 @@ msgstr "内部スパースインフィルの線幅。%で表される場合、�
 
 msgid "engin_optionTip_infill_first"
 msgstr ""
-"壁/インフィルの順序。チェックボックスをオフにすると、壁が最初にプリントされます。これは、ほとんどの場合に最適な方法です。\\n"
-"\\n"
+"壁/インフィルの順序。チェックボックスをオフにすると、壁が最初にプリントされます。これは、ほとんどの場合に最適な方法です。\n"
+"\n"
 "壁を最初にプリントすると、隣接するインフィルが壁に付着するため、極端なオーバーハングの場合に役立ちます。ただし、インフィルは、隣接する壁をわずかに押し出すため、外部表面の仕上げが悪くなります。また、インフィルが部品の外面に透けて見えることもあります。"
 
 msgid "engin_optionTip_internal_bridge_speed"
@@ -26238,8 +26235,8 @@ msgstr "初期レイヤーの壁は1枚だけにし、下層のインフィル�
 
 msgid "engin_optionTip_overhang_reverse"
 msgstr ""
-"奇数レイヤーで、オーバーハング部分を持つ外周を逆方向に押し出します。この交互のパターンは、急なオーバーハングを大幅に改善できます。\\n"
-"\\n"
+"奇数レイヤーで、オーバーハング部分を持つ外周を逆方向に押し出します。この交互のパターンは、急なオーバーハングを大幅に改善できます。\n"
+"\n"
 "この設定は、部品壁の応力が減少するため、部品の反りを減らすのにも役立ちます。"
 
 msgid "engin_optionTip_perimeter_acceleration"
@@ -26256,7 +26253,7 @@ msgstr "ワイプ速度は、現在の押し出し速度によって決定され
 
 msgid "engin_optionTip_seam_gap"
 msgstr ""
-"閉ループ押出の継ぎ目を目立たなくさせるために、ループを指定した量だけ中断して短縮します。\\n"
+"閉ループ押出の継ぎ目を目立たなくさせるために、ループを指定した量だけ中断して短縮します。\n"
 "この量はミリメートルまたは現在のエクストルーダーの直径のパーセンテージで指定できます。このパラメータのデフォルト値は10%です。"
 
 msgid "engin_optionTip_skirt_speed"
@@ -26303,19 +26300,18 @@ msgstr "中心から数えて、バリエーションを広げる必要がある
 
 msgid "engin_optionTip_wall_sequence"
 msgstr ""
-"内壁 (内側) と外壁 (外側) のプリント順序。\\n"
-"\\n"
-"オーバーハングには、内側/外側を使用してください。これは、オーバーハングした壁がプリント中に隣接する外周に付着する可能性があるためです。ただし、このオプションでは、外周が内周に押しつぶされて変形するため、表面品質がわずかに低下します。\\n"
-"\\n"
-"内側/外側/内側を使用すると、外壁が内周に邪魔されずにプリントされるため、最高の外面仕上げと寸法精度が得られます。しかし、外壁をプリントする内周がないため、オーバーハングの性能は低下します。このオプションは、3つ目以降の内壁→外壁→最初の内壁の順にプリントするため、最低3つの壁が必要です。ほとんどの場合、このオプションは外側/内側オプションに対して推奨されます。\\n"
-"\\n"
-" 外側/内側を使用すると、内側/外側/内側オプションと同じ外壁品質と寸法精度の利点が得られます。ただし、新しいレイヤーの最初の押し出しが目に見える表面で開始されるため、z継ぎ目の一貫性が低下します。\\n"
-"\\n"
+"内壁 (内側) と外壁 (外側) のプリント順序。\n"
+"\n"
+"オーバーハングには、内側/外側を使用してください。これは、オーバーハングした壁がプリント中に隣接する外周に付着する可能性があるためです。ただし、このオプションでは、外周が内周に押しつぶされて変形するため、表面品質がわずかに低下します。\n"
+"\n"
+"内側/外側/内側を使用すると、外壁が内周に邪魔されずにプリントされるため、最高の外面仕上げと寸法精度が得られます。しかし、外壁をプリントする内周がないため、オーバーハングの性能は低下します。このオプションは、3つ目以降の内壁→外壁→最初の内壁の順にプリントするため、最低3つの壁が必要です。ほとんどの場合、このオプションは外側/内側オプションに対して推奨されます。\n"
+"\n"
+" 外側/内側を使用すると、内側/外側/内側オプションと同じ外壁品質と寸法精度の利点が得られます。ただし、新しいレイヤーの最初の押し出しが目に見える表面で開始されるため、z継ぎ目の一貫性が低下します。"
 
 msgid "engin_optionTip_wipe_before_external_loop"
 msgstr ""
-"外側/内側または内側/外側/内側の順序で壁をプリントする場合、外周部のプリント開始時における過度な押し出しの可能性を最小限に抑えるために、外周部のプリント開始時に内側からわずかに引き戻しが行われます。そうすることで、押し出しを超える部分が外側の表面から隠されます。\\n"
-"\\n"
+"外側/内側または内側/外側/内側の順序で壁をプリントする場合、外周部のプリント開始時における過度な押し出しの可能性を最小限に抑えるために、外周部のプリント開始時に内側からわずかに引き戻しが行われます。そうすることで、押し出しを超える部分が外側の表面から隠されます。\n"
+"\n"
 "外側/内側または内側/外側/内側の順序でプリントする場合、引き戻しの直後に外周部がプリントされる可能性が高いため、このモードが有効です。"
 
 msgid "engin_optionTip_wipe_on_loops"
