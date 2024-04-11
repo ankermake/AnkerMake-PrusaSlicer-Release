@@ -26790,8 +26790,8 @@ msgstr "Line width of internal sparse infill. If expressed as a percentage, it w
 
 msgid "engin_optionTip_infill_first"
 msgstr ""
-"Order of wall/infill. When the tickbox is unchecked the walls are printed first, which works best in most cases.\\n"
-"\\n"
+"Order of wall/infill. When the tickbox is unchecked the walls are printed first, which works best in most cases.\n"
+"\n"
 "Printing walls first may help with extreme overhangs as the walls have the neighbouring infill to adhere to. However, the infill will slighly push out the printed walls where it is attached to them, resulting in a worse external surface finish. It can also cause the infill to shine through the external surfaces of the part."
 
 msgid "engin_optionTip_internal_bridge_speed"
@@ -26837,8 +26837,8 @@ msgstr "Use only one wall on first layer, to give more space to the bottom infil
 
 msgid "engin_optionTip_overhang_reverse"
 msgstr ""
-"Extrude perimeters that have a part over an overhang in the reverse direction on odd layers. This alternating pattern can drastically improve steep overhangs.\\n"
-"\\n"
+"Extrude perimeters that have a part over an overhang in the reverse direction on odd layers. This alternating pattern can drastically improve steep overhangs.\n"
+"\n"
 "This setting can also help reduce part warping due to the reduction of stresses in the part walls."
 
 msgid "engin_optionTip_perimeter_acceleration"
@@ -26855,7 +26855,7 @@ msgstr "The wipe speed is determined by the speed of the current extrusion role.
 
 msgid "engin_optionTip_seam_gap"
 msgstr ""
-"In order to reduce the visibility of the seam in a closed loop extrusion, the loop is interrupted and shortened by a specified amount.\\n"
+"In order to reduce the visibility of the seam in a closed loop extrusion, the loop is interrupted and shortened by a specified amount.\n"
 "This amount can be specified in millimeters or as a percentage of the current extruder diameter. The default value for this parameter is 10%."
 
 msgid "engin_optionTip_skirt_speed"
@@ -26904,20 +26904,20 @@ msgstr "The number of walls, counted from the center, over which the variation n
 
 msgid "engin_optionTip_wall_sequence"
 msgstr ""
-"Print sequence of the internal (inner) and external (outer) walls. \\n"
-"\\n"
-"Use Inner/Outer for best overhangs. This is because the overhanging walls can adhere to a neighouring perimeter while printing. However, this option results in slightly reduced surface quality as the external perimeter is deformed by being squashed to the internal perimeter.\\n"
-"\\n"
-"Use Inner/Outer/Inner for the best external surface finish and dimensional accuracy as the external wall is printed undisturbed from an internal perimeter. However, overhang performance will reduce as there is no internal perimeter to print the external wall against. This option requires a minimum of 3 walls to be effective as it prints the internal walls from the 3rd perimeter onwards first, then the external perimeter and, finally, the first internal perimeter. This option is recomended against the Outer/Inner option in most cases. \\n"
-"\\n"
-"Use Outer/Inner for the same external wall quality and dimensional accuracy benefits of Inner/Outer/Inner option. However, the z seams will appear less consistent as the first extrusion of a new layer starts on a visible surface.\\n"
-"\\n"
+"Print sequence of the internal (inner) and external (outer) walls. \n"
+"\n"
+"Use Inner/Outer for best overhangs. This is because the overhanging walls can adhere to a neighouring perimeter while printing. However, this option results in slightly reduced surface quality as the external perimeter is deformed by being squashed to the internal perimeter.\n"
+"\n"
+"Use Inner/Outer/Inner for the best external surface finish and dimensional accuracy as the external wall is printed undisturbed from an internal perimeter. However, overhang performance will reduce as there is no internal perimeter to print the external wall against. This option requires a minimum of 3 walls to be effective as it prints the internal walls from the 3rd perimeter onwards first, then the external perimeter and, finally, the first internal perimeter. This option is recomended against the Outer/Inner option in most cases. \n"
+"\n"
+"Use Outer/Inner for the same external wall quality and dimensional accuracy benefits of Inner/Outer/Inner option. However, the z seams will appear less consistent as the first extrusion of a new layer starts on a visible surface."
+
 
 msgid "engin_optionTip_wipe_before_external_loop"
 msgstr ""
 "To minimise visibility of potential overextrusion at the start of an external perimeter when printing with Outer/Inner or Inner/Outer/Inner wall print order, the deretraction is performed slightly on the inside from the\n"
-"start of the external perimeter. That way any potential over extrusion is hidden from the outside surface. \\n"
-"\\n"
+"start of the external perimeter. That way any potential over extrusion is hidden from the outside surface. \n"
+"\n"
 "This is useful when printing with Outer/Inner or Inner/Outer/Inner wall print order as in these modes it is more likely\n"
 "an external perimeter is printed immediately after a deretraction move."
 

@@ -1440,7 +1440,7 @@ void PrintConfigDef::init_fff_params()
 
     def = this->add("first_layer_travel_speed", coFloat);
     def->label = L("engin_option_first_layer_travel_speed");
-    def->tooltip = L("Travel speed of initial layer");
+    def->tooltip = L("engin_optionTip_Initial layer travel speed");
     def->sidetext = L("mm/s");
     def->min = 1;
     def->mode = comAdvanced;

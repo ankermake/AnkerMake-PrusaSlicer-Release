@@ -661,7 +661,7 @@ namespace Slic3r::GUI {
 						if (success && m_parent.is_using_slope()) {
 							high_light_overhang_by_angle(m_selected_angle);
 						}
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material_threshold"), m_selected_angle);   // todo change tab name
+						wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material_threshold"), m_selected_angle);   // todo change tab name
 						});
 				}
 
@@ -697,7 +697,7 @@ namespace Slic3r::GUI {
 					buildPlateButton = add_switch_button(buildPlateSizer, supportPanel, align_right);
 					buildPlateButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
 						auto selected = buildPlateButton->GetSelected();
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material_buildplate_only"), selected);  // todo change tab name
+						wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material_buildplate_only"), selected);  // todo change tab name
 						});
 				}
 
@@ -733,7 +733,7 @@ namespace Slic3r::GUI {
 
 					styleChoice->Bind(wxEVT_COMBOBOX, [styleChoice](wxCommandEvent& event) {
 						// update style to parameter panel, not preset panel
-						wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material_style"), styleChoice->GetSelection()); // todo change tab name
+						wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material_style"), styleChoice->GetSelection()); // todo change tab name
 						});
 					styleSizer->Add(styleChoice, 0, wxALIGN_RIGHT | wxCENTER | wxTOP, align_right);
 					m_styleChoice = styleChoice;
@@ -1208,7 +1208,7 @@ namespace Slic3r::GUI {
 		set_slider_value(clippingSlider, 0.0);
 
 		//set generate support material off
-		wxGetApp().sidebarnew().setItemValue(_L("Support material"), _L("support_material"), false); // todo change tab name
+		wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material"), false); // todo change tab name
 	}
 
 	void GLGizmoFdmSupports::set_button_state(AnkerBtn* button, wxString state)

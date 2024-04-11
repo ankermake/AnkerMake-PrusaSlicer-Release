@@ -501,6 +501,9 @@ void OtherInstanceMessageHandler::handle_message(const std::string& message)
 {
 	BOOST_LOG_TRIVIAL(info) << "message from other instance: " << message;
 
+
+
+
 	std::vector<std::string> args;
 	bool parsed = unescape_strings_cstyle(message, args);
 	assert(parsed);

@@ -1253,6 +1253,14 @@ bool GUI_App::check_privacy_policy()
                 TermsOfUse->SetBackgroundColour(wxColour("#151619"));
                 TermsOfUse->SetForegroundColour(wxColour("#65d361"));
                 TermsOfUse->SetLabel(_L("common_launch_policy_content3"));
+                TermsOfUse->SetFont(ANKER_FONT_NO_1);
+                //get text width
+                wxPaintDC dc(TermsOfUse);
+                int iTextWidth, iTextHeight;
+                TermsOfUse->GetTextExtent(_L("common_launch_policy_content3"),&iTextWidth, &iTextHeight);
+                TermsOfUse->SetMaxSize(wxSize(iTextWidth,-1));
+                
+               
                 TermsOfUse->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
                     wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.en.html";
                     if (MainFrame::languageIsJapanese())
@@ -1261,7 +1269,7 @@ bool GUI_App::check_privacy_policy()
                     wxLaunchDefaultBrowser(URL);
                     }
                 );
-                HelpTextSizer->Add(TermsOfUse, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);
+                HelpTextSizer->Add(TermsOfUse, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxLEFT| wxRIGHT, 3);
 
                 wxStaticText* helpText2 = new wxStaticText(contentPanel, wxID_ANY, _L("common_launch_policy_content4")); // "and"
                 helpText2->SetBackgroundColour(wxColour("#151619"));
@@ -1273,6 +1281,7 @@ bool GUI_App::check_privacy_policy()
                 PrivacyPolicy->SetBackgroundColour(wxColour("#151619"));
                 PrivacyPolicy->SetForegroundColour(wxColour("#65d361"));
                 PrivacyPolicy->SetLabel(_L("common_launch_policy_content5"));
+                PrivacyPolicy->SetFont(ANKER_FONT_NO_1);
                 PrivacyPolicy->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
                     wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.en.html";
                     if (MainFrame::languageIsJapanese())
