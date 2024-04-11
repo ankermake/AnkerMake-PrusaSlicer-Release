@@ -6,7 +6,6 @@ bin
 .vs
 stl
 *.log
-*.ttf
 *.ps1
 *.user
 *.vcxproj
