@@ -11,7 +11,6 @@ AnkerMake Studio is based on [PrusaSlicer](https://github.com/prusa3d/PrusaSlice
 Key features are:
 
 - Basic slicing features & GCode viewer;
-- Multiple plates management;
 - Remote control & monitoring;
 - multi-platform (Win/Mac) support;
 
