@@ -313,9 +313,9 @@ OptionsSearcher::~OptionsSearcher()
 {
 }
 
-void OptionsSearcher::check_and_update(PrinterTechnology pt_in, ConfigOptionMode mode_in, std::vector<InputInfo> input_values)
+void OptionsSearcher::check_and_update(PrinterTechnology pt_in, ConfigOptionMode mode_in, Preset::Type type_in, std::vector<InputInfo> input_values)
 {
-    if (printer_technology == pt_in && mode == mode_in)
+    if (printer_technology == pt_in && mode == mode_in && type == type_in)
         return;
 
     options.clear();
@@ -376,14 +376,29 @@ void OptionsSearcher::append_preferences_options(const std::vector<GUI::Line>& o
 
 const Option& OptionsSearcher::get_option(size_t pos_in_filter) const
 {
-    assert(pos_in_filter != size_t(-1) && found[pos_in_filter].option_idx != size_t(-1));
-    return options[found[pos_in_filter].option_idx];
+    if (options.empty()) {
+        return Option {};
+    }
+
+    if (found.size() <= pos_in_filter) {
+        return options[0];
+    }
+
+    if (pos_in_filter != size_t(-1) && found[pos_in_filter].option_idx != size_t(-1)) {
+        return options[found[pos_in_filter].option_idx];
+    }
+
+    return options[0];
+
+    //assert(pos_in_filter != size_t(-1) && found[pos_in_filter].option_idx != size_t(-1));
+    //return options[found[pos_in_filter].option_idx];
 }
 
 const Option& OptionsSearcher::get_option(const std::string& opt_key, Preset::Type type) const
 {
     auto it = std::lower_bound(options.begin(), options.end(), Option({ boost::nowide::widen(get_key(opt_key, type)) }));
-    assert(it != options.end());
+    //assert(it != options.end());
+    if (it == options.end()) { return options[0]; }
 
     return options[it - options.begin()];
 }

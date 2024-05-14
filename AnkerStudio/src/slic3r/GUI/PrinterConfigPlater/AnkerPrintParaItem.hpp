@@ -9,6 +9,7 @@
 #include "../I18N.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "AnkerParameterData.hpp"
+#include "slic3r/GUI/ObjectDataViewModel.hpp"
 
 class wxOwnerDrawnComboBox;
 
@@ -37,13 +38,16 @@ public:
 		wxString tabTitle,
 		PrintParamMode printMode,
 		wxWindowID winid = wxID_ANY,
+	    bool local = true, bool layer_height = true, 
+		bool part = false, bool modifer = false,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 
 	~AnkerPrintParaItem();
 	wxString getTitle()const;
 	wxArrayString getOptionsList() const;
-	wxWindow* createItem(const wxString configOptionKey, ControlType controlType, ItemDataType dataType, wxStringList strList = {}, GroupParamUIConfig uiConifg = GroupParamUIConfig());
+	wxWindow* createItem(const wxString configOptionKey, ControlType controlType, ItemDataType dataType, wxStringList strList = {}, 
+		bool local = true, bool layer_height = false, bool part = false, bool modifer = false, GroupParamUIConfig uiConifg = GroupParamUIConfig());
 	void updateModelParams(const PARAMETER_GROUP& paraGroup, wxVariant cfgData, const wxString& prusaKeyString, wxString& strLabel);
 	bool hsaDirtyData();
 
@@ -82,9 +86,11 @@ public:
 	bool CheckExceptionParamValue(wxString strEditValue, wxString paramKey, wxString strUnit);
 	std::map<wxString, wxString> GetExceptionParamMap(wxString strParamKey);
 	std::map<wxString, PARAMETER_GROUP> GetGroupparamInfos() { return  m_optionParameterMap; }
+	std::shared_ptr<GroupProperty> GetGroupProperty() const { return m_group_property; }
+	void SetItemVisible(Slic3r::GUI::ItemType type, Slic3r::ModelVolumeType volume_type);
 
 protected:
-	void onDatachanged();
+	void onDatachanged(bool is_item_reset = false, const wxString& option_key = "");
 	void onUpdateResetBtn();
 	//wxString getPrusaLabel(const wxString& labelStr);
 	void initUi();
@@ -102,6 +108,7 @@ protected:
 
 	bool ValueCheck(const PARAMETER_GROUP& param, const wxString& value, wxString& newValue);
 	void RefreashDependParamState(wxString strChangedOptionkey, int iSetValue);
+	void ChangeMaxMinValueForPrinter(const wxString& optionKey, float& max, float& min);
 private:
 	void TestRemoveLeadingAndTrailingZeros();
 
@@ -119,5 +126,8 @@ private:
 	std::map<wxString, ItemDirtyData> m_dirtyMap;
 	AnkerParameterData m_parameterData;  //  data redundancy, it's wast of memery beacause each option group(AnkerPrintParaItem) heve one AnkerParameterData object
 	PrintParamMode m_PrintMode;
+
+
+	std::shared_ptr<GroupProperty> m_group_property;
 };
 #endif

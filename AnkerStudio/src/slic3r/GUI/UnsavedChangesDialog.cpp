@@ -1338,7 +1338,7 @@ void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* pres
     // update searcher befofre update of tree
   /*  wxGetApp().sidebar().check_and_update_searcher();
     Search::OptionsSearcher& searcher = wxGetApp().sidebar().get_searcher();*/
-    wxGetApp().sidebarnew().check_and_update_searcher();
+    wxGetApp().sidebarnew().check_and_update_searcher(false, type);
     Search::OptionsSearcher& searcher = wxGetApp().sidebarnew().get_searcher();
     searcher.sort_options_by_key();
 
@@ -1402,9 +1402,16 @@ void UnsavedChangesDialog::update_tree(Preset::Type type, PresetCollection* pres
                 continue;
             }
 
+            //fix crash when icon not found
+            //note:there is not design icon for the new print type category 
+            std::string category_icon_name = "";
+            if (category_icon_map.count("option.category") > 0) {
+                category_icon_name = category_icon_map.at(option.category);
+            }
+
             m_tree->Append(opt_key, type, option.category_local, option.group_local, option.label_local,
                 get_string_value(opt_key, old_config), get_string_value(opt_key, mod_config), 
-                m_tree->has_new_value_column() ? get_string_value(opt_key, new_config) : "", category_icon_map.at(option.category));
+                m_tree->has_new_value_column() ? get_string_value(opt_key, new_config) : "", category_icon_name);
         }
     }
 

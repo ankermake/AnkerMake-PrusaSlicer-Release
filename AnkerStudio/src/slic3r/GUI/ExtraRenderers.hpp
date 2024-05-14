@@ -1,10 +1,13 @@
+///|/ Copyright (c) Prusa Research 2020 - 2021 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena
+///|/
+///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef slic3r_GUI_ExtraRenderers_hpp_
 #define slic3r_GUI_ExtraRenderers_hpp_
 
 #include <functional>
 
 #include <wx/dataview.h>
-
 
 #if wxUSE_MARKUP && wxCHECK_VERSION(3, 1, 1)
     #define SUPPORTS_MARKUP
@@ -18,29 +21,24 @@ class DataViewBitmapText : public wxObject
 {
 public:
     DataViewBitmapText( const wxString &text = wxEmptyString,
-                        const wxBitmap& bmp = wxNullBitmap,
-                        const wxColour& color = wxColour()) :
+                        const wxBitmap& bmp = wxNullBitmap) :
         m_text(text),
-        m_bmp(bmp),
-        m_color(color)
+        m_bmp(bmp)
     { }
 
     DataViewBitmapText(const DataViewBitmapText &other)
         : wxObject(),
         m_text(other.m_text),
-        m_bmp(other.m_bmp),
-        m_color(other.m_color)
+        m_bmp(other.m_bmp)
     { }
 
     void SetText(const wxString &text)      { m_text = text; }
     wxString GetText() const                { return m_text; }
     void SetBitmap(const wxBitmap &bmp)     { m_bmp = bmp; }
     const wxBitmap &GetBitmap() const       { return m_bmp; }
-    void SetColor(const wxColour color) { m_color = color; }
-    const wxColour GetColor() const { return m_color; }
 
     bool IsSameAs(const DataViewBitmapText& other) const {
-        return m_text == other.m_text && /*m_bmp.IsSameAs(other.m_bmp)*/m_color == other.m_color;
+        return m_text == other.m_text && m_bmp.IsSameAs(other.m_bmp);
     }
 
     bool operator==(const DataViewBitmapText& other) const {
@@ -54,7 +52,6 @@ public:
 private:
     wxString    m_text;
     wxBitmap    m_bmp;
-    wxColour   m_color;
 
     wxDECLARE_DYNAMIC_CLASS(DataViewBitmapText);
 };
@@ -72,11 +69,11 @@ class BitmapTextRenderer : public wxDataViewCustomRenderer
 public:
     BitmapTextRenderer(bool use_markup = false,
         wxDataViewCellMode mode =
-#ifdef __WXOSX__
-        wxDATAVIEW_CELL_INERT
-#else
+//#ifdef __WXOSX__
+//        wxDATAVIEW_CELL_INERT
+//#else
         wxDATAVIEW_CELL_EDITABLE
-#endif
+//#endif
 
         , int align = wxDVR_DEFAULT_ALIGNMENT
 #if ENABLE_NONCUSTOM_DATA_VIEW_RENDERING
@@ -115,12 +112,13 @@ public:
     bool        WasCanceled() const { return m_was_unusable_symbol; }
 
     void        set_can_create_editor_ctrl_function(std::function<bool()> can_create_fn) { can_create_editor_ctrl = can_create_fn; }
-
+    void        set_can_set_fron_size_function(std::function<bool()> can_set_fn) { can_set_font_size = can_set_fn;  }
 private:
     DataViewBitmapText  m_value;
     bool                m_was_unusable_symbol{ false };
 
     std::function<bool()>    can_create_editor_ctrl { nullptr };
+    std::function<bool()>    can_set_font_size { nullptr };
 
 #ifdef SUPPORTS_MARKUP
     #ifdef wxHAS_GENERIC_DATAVIEWCTRL
@@ -140,15 +138,13 @@ class BitmapChoiceRenderer : public wxDataViewCustomRenderer
 {
 public:
     BitmapChoiceRenderer(wxDataViewCellMode mode =
-#ifdef __WXOSX__
-        wxDATAVIEW_CELL_INERT
-#else
+//#ifdef __WXOSX__
+//        wxDATAVIEW_CELL_INERT
+//#else
         wxDATAVIEW_CELL_EDITABLE
-#endif
+//#endif
         , int align = wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL
-    ) : wxDataViewCustomRenderer(wxT("DataViewBitmapText"), mode, align) 
-    {
-    }
+    ) : wxDataViewCustomRenderer(wxT("DataViewBitmapText"), mode, align) {}
 
     bool SetValue(const wxVariant& value) override;
     bool GetValue(wxVariant& value) const override;

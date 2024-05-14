@@ -160,7 +160,7 @@ void AnkerObjectManipulator::initUI()
     wxBoxSizer* contentSizer = new wxBoxSizer(wxVERTICAL);
     SetSizer(contentSizer);
 
-    AnkerTitledPanel* container = new AnkerTitledPanel(this, 46, 12);
+    AnkerTitledPanel* container = new AnkerTitledPanel(this, 46, 12, wxColour(PANEL_BACK_RGB_INT));
     container->setTitle(/*L"Object Modify"*/_("common_slice_toolpannel_modify"));
     container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
     int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
@@ -168,6 +168,7 @@ void AnkerObjectManipulator::initUI()
     contentSizer->Add(container, 1, wxEXPAND, 0);
 
     wxPanel* objectModifyPanel = new wxPanel(container);
+    objectModifyPanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
     wxBoxSizer* objectModifySizer = new wxBoxSizer(wxVERTICAL);
     objectModifyPanel->SetSizer(objectModifySizer);
     container->setContentPanel(objectModifyPanel);

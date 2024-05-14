@@ -50,7 +50,7 @@ public:
     /// <summary>
     /// Detect reduction of move for wipetover on selection change
     /// </summary>
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
 protected:
     bool on_init() override;
     std::string on_get_name(bool i18n = true) const override;

@@ -84,7 +84,8 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
     Bind(wxEVT_SIZE, &AnkerTaskPanel::OnSize, this);
 
     m_pToPrintingTimer = new wxTimer();
-    m_pToPrintingTimer->Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {        
+    m_pToPrintingTimer->Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
+        ANKER_LOG_INFO << "m_pToPrintingTimer Enter";
         m_toPrinting = false; 
         PrintStartType type = PrintStartType::TYPE_COUNT;
         switch (m_gcodeImportResult.m_srcType)
@@ -117,6 +118,7 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
     m_pModalingTimer = new wxTimer();
 #if USE_OLD_PRINT_FINISH_UI
     m_pModalingTimer->Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
+        ANKER_LOG_INFO << "m_pModalingTimer Enter";
         auto ankerNet = AnkerNetInst();
         if (!ankerNet) {
             return;
@@ -596,6 +598,7 @@ void AnkerTaskPanel::updateStatus(std::string currentSn, int type)
                     m_modalingDeviceStatus << " -> " << m_currentDeviceStatus;
                 m_modalingDeviceStatus = m_currentDeviceStatus;
             }
+            m_pModalingTimer->Stop();
             m_pModalingTimer->StartOnce(10);
         }
     }
@@ -1367,6 +1370,7 @@ void AnkerTaskPanel::OnNewBtn(wxCommandEvent& event)
 
     ANKER_LOG_INFO << "start printing button click";
     if (deviceObj) {
+        deviceObj->SetLastFilament();
         deviceObj->AsyQueryAllInfo();
     }
 
@@ -1488,6 +1492,7 @@ void AnkerTaskPanel::OnPauseBtn(wxCommandEvent& event)
 
 void AnkerTaskPanel::OnCountdownTimer(wxTimerEvent& event)
 {
+    ANKER_LOG_INFO << "m_pLocalCounter timer Enter1";
     // update time left
     if (m_countDownSeconds > 0 && (m_lastDeviceStatus == GUI_DEVICE_STATUS_TYPE_PRINTING || m_lastDeviceStatus == GUI_DEVICE_STATUS_TYPE_LEVELING))
     {
@@ -1502,12 +1507,14 @@ void AnkerTaskPanel::OnCountdownTimer(wxTimerEvent& event)
         m_pTimeLeftValueText->SetLabelText(timeLeftStr);
         m_pTimeLeftValueText->Fit();
     }
+    ANKER_LOG_INFO << "m_pLocalCounter timer Enter2";
 
     if (m_currentMode != TASK_MODE_LEVEL) {
         // update progress
         double curProgress = m_pTaskProgressCtrl->getCurrentProgress();
         m_pTaskProgressCtrl->updateProgress(curProgress + 1);
     }
+    ANKER_LOG_INFO << "m_pLocalCounter timer Leave";
 }
 
 void AnkerTaskPanel::OnLoadingTimeout(wxCommandEvent& event)

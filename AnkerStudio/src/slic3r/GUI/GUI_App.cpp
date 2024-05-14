@@ -80,6 +80,12 @@
 #include "AnkerConfigDialog/AnkerConfigDialog.hpp"
 #include "AnkerSideBarNew.hpp"
 
+#include "slic3r/GUI/Calibration/CalibrationMaxFlowrateDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationPresAdvDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationTempDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationRetractionDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationVfaDialog.hpp"
+
 #include "SysInfoDialog.hpp"
 #include "KBShortcutsDialog.hpp"
 #include "UpdateDialogs.hpp"
@@ -570,7 +576,7 @@ static const FileWildcards file_wildcards_by_type[FT_SIZE] = {
     /* FT_3MF */     { "3MF files"sv,       { ".3mf"sv } },
     /* FT_GCODE */   { "G-code files"sv,    { ".gcode"sv, ".gco"sv, ".g"sv, ".ngc"sv } },
     /* FT_ACODE */   { "G-code files"sv,    { ".acode"sv, ".gcode"sv, ".gco"sv, ".g"sv, ".ngc"sv } },
-    /* FT_MODEL */   { "Known files"sv,     { ".stl"sv, ".obj"sv, ".3mf"sv, ".amf"sv, ".zip.amf"sv, ".xml"sv, ".step"sv, ".stp"sv } },
+    /* FT_MODEL */   { "Known files"sv,     { ".stl"sv, ".obj"sv, ".3mf"sv, ".amf"sv, ".zip.amf"sv, ".xml"sv, ".step"sv, ".stp"sv, ".svg"sv } },
     /* FT_PROJECT */ { "Project files"sv,   { ".3mf"sv, ".amf"sv, ".zip.amf"sv } },
     /* FT_FONTS */   { "Font files"sv,      { ".ttc"sv, ".ttf"sv } },
     /* FT_GALLERY */ { "Known files"sv,     { ".stl"sv, ".obj"sv } },
@@ -1638,13 +1644,12 @@ bool GUI_App::on_init_inner()
     mainframe = new MainFrame(app_config->has("font_size") ? atoi(app_config->get("font_size").c_str()) : -1); 
     SetTopWindow(mainframe);
     mainframe->setUrl(LoginWebUrl);
-    mainframe->getwebLoginDataBack();
+    mainframe->getwebLoginDataBack("app launch");
     // hide settings tabs after first Layout
     /*if (is_editor())
         mainframe->select_tab(size_t(0));*/
 
-    //objectbar().getObjectList()->init_objects(); // propagate model objects to object list
-    objectbar()->init_objects();
+    sidebarnew().object_list()->init_objects(); // propagate model objects to object list
 //     update_mode(); // !!! do that later
    
 
@@ -1757,7 +1762,7 @@ bool GUI_App::on_init_inner()
             auto loadRet = DatamangerUi::GetInstance().LoadNetLibrary();
             if (loadRet) {
                 mainframe->InitDeviceWidget();
-                mainframe->getwebLoginDataBack();
+                mainframe->getwebLoginDataBack("net load over on app idle");
             }
         }
 
@@ -2255,8 +2260,7 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
         // hide settings tabs after first Layout
         mainframe->select_tab(size_t(0));
     // Propagate model objects to object list.
-    //objectbar().getObjectList()->init_objects();
-    objectbar()->init_objects();
+    sidebarnew().object_list()->init_objects();
     SetTopWindow(mainframe);
 
     dlg.Update(30, _L("Recreating") + dots);
@@ -2279,7 +2283,7 @@ void GUI_App::recreate_GUI(const wxString& msg_name)
 //     });
     m_is_recreating_gui = false;
     mainframe->setUrl(LoginWebUrl);
-    mainframe->getwebLoginDataBack();
+    mainframe->getwebLoginDataBack("recreate gui");
 }
 
 void GUI_App::system_info()
@@ -2419,7 +2423,7 @@ void GUI_App::import_model(wxWindow *parent, wxArrayString& input_files) const
 {
     input_files.Clear();
     wxFileDialog dialog(parent ? parent : GetTopWindow(),
-        _L("Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO):"),
+        _L("Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO/SVG):"),
         from_u8(app_config->get_last_dir()), "",
         file_wildcards(FT_MODEL), wxFD_OPEN | wxFD_MULTIPLE | wxFD_FILE_MUST_EXIST);
 
@@ -2448,6 +2452,36 @@ void GUI_App::load_gcode(wxWindow* parent, wxString& input_file) const
 
     if (dialog.ShowModal() == wxID_OK)
         input_file = dialog.GetPath();
+}
+
+void GUI_App::calib_filament_temperature_dialog(wxWindow* parent, Plater* plater)
+{
+    auto dlg = new CalibrationTempDialog(parent, wxID_ANY, plater);
+    dlg->ShowModal();
+}
+
+void GUI_App::calib_pressure_advance_dialog(wxWindow* parent, Plater* plater)
+{
+    auto dlg = new CalibrationPresAdvDialog(parent, wxID_ANY, plater);
+    dlg->ShowModal();
+}
+
+void GUI_App::calib_retraction_dialog(wxWindow* parent, Plater* plater)
+{
+    auto dlg = new CalibrationRetractionDialog(parent, wxID_ANY, plater);
+    dlg->ShowModal();
+}
+
+void GUI_App::calib_max_flowrate_dialog(wxWindow* parent, Plater* plater)
+{
+    auto dlg = new CalibrationMaxFlowrateDialog(parent, wxID_ANY, plater);
+    dlg->ShowModal();
+}
+
+void GUI_App::calib_vfa_dialog(wxWindow* parent, Plater* plater)
+{
+    auto dlg = new CalibrationVfaDialog(parent, wxID_ANY, plater);
+    dlg->ShowModal();
 }
 
 bool GUI_App::switch_language()
@@ -3590,17 +3624,17 @@ ObjectSettings* GUI_App::obj_settings()
     return sidebar().obj_settings();
 }
 
-//ObjectList* GUI_App::obj_list()
-//{
-//    return sidebar().obj;
-//}
+ObjectList* GUI_App::obj_list()
+{
+    return sidebarnew().object_list();
+}
 
-//ObjectLayers* GUI_App::obj_layers()
-//{
-//    return sidebar().obj_layers();
-//}
+AnkerObjectLayerEditor* GUI_App::obj_layers()
+{
+    return sidebarnew().object_layer();
+}
 
-AnkerObjectLayers* GUI_App::obj_layers()
+AnkerObjectLayers* GUI_App::obj_layers_()
 {
     return  (plater_ != nullptr) ? plater_->object_layers() : nullptr;
 }
@@ -4236,11 +4270,18 @@ void GUI_App::delLogtimer() {
 void GUI_App::autoDeleteLogfile(const unsigned int days) {
     ANKER_LOG_INFO << "autoDeleteLogfile enter";
     boost::filesystem::path targetLogPath = getLogDirPath();
-    bool bExists = boost::filesystem::exists(targetLogPath);
-    if (!bExists) {
-        ANKER_LOG_INFO << "autoDeleteLogfile fail, " << targetLogPath.string().c_str() << " is not exist";
+    try {
+        bool bExists = boost::filesystem::exists(targetLogPath);
+        if (!bExists) {
+            ANKER_LOG_ERROR << "autoDeleteLogfile fail, " << targetLogPath.string().c_str() << " is not exist";
+            return;
+        }
+    }
+    catch (...) {
+        ANKER_LOG_ERROR << "autoDeleteLogfile exist have some exceptions";
         return;
     }
+   
 
     boost::filesystem::directory_iterator endIter;
     for (boost::filesystem::directory_iterator iter(targetLogPath); iter != endIter; iter++) {
@@ -4254,7 +4295,7 @@ void GUI_App::autoDeleteLogfile(const unsigned int days) {
                     boost::filesystem::remove(*iter);
                 }
                 catch (const std::exception& ex) {
-                    ANKER_LOG_INFO << "autoDeleteLogfile remove fail, errMsg=" << ex.what();
+                    ANKER_LOG_ERROR << "autoDeleteLogfile remove fail, errMsg=" << ex.what();
                     return;
                 }
             }
@@ -4266,12 +4307,18 @@ void GUI_App::autoDeleteTempGcodeFile(const unsigned int days)
 {
     boost::filesystem::path tempGcodePath(wxStandardPaths::Get().GetTempDir().utf8_str().data());
     ANKER_LOG_INFO << "autoDeleteTempGcodeFile enter, tempGcodePath is " << tempGcodePath.string().c_str();
-    bool bExists = boost::filesystem::exists(tempGcodePath);
-    if (!bExists) {
-        ANKER_LOG_INFO << "autoDeleteTempGcodeFile fail, " << tempGcodePath.string().c_str() << " is not exist";
+    try {
+        bool bExists = boost::filesystem::exists(tempGcodePath);
+        if (!bExists) {
+            ANKER_LOG_ERROR << "autoDeleteTempGcodeFile fail, " << tempGcodePath.string().c_str() << " is not exist";
+            return;
+        }
+    }
+    catch (...) {
+        ANKER_LOG_ERROR << "autoDeleteTempGcodeFile exist have some exceptions";
         return;
     }
-
+    
     boost::filesystem::directory_iterator endIter;
     for (boost::filesystem::directory_iterator iter(tempGcodePath); iter != endIter; iter++) {
         size_t foundGcode = (*iter).path().string().find(".gcode");

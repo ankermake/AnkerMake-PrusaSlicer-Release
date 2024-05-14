@@ -36,7 +36,7 @@ protected:
 
 private:
     bool on_init() override;
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
 
     void update_model_object() const override;
     void update_from_model_object() override;

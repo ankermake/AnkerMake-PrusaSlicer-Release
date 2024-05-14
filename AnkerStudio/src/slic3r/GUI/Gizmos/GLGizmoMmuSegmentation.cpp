@@ -179,9 +179,9 @@ void GLGizmoMmuSegmentation::render_painter_gizmo()
     glsafe(::glDisable(GL_BLEND));
 }
 
-void GLGizmoMmuSegmentation::data_changed()
+void GLGizmoMmuSegmentation::data_changed(bool is_serializing)
 {
-    GLGizmoPainterBase::data_changed();
+    GLGizmoPainterBase::data_changed(is_serializing);
     if (m_state != On || wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptFFF || wxGetApp().extruders_edited_cnt() <= 1)
         return;
 
@@ -745,7 +745,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 			m_cursor_type = Slic3r::TriangleSelector::CursorType::CIRCLE;
 			m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
 
-			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 32, 0, wxColour(PANEL_TITLE_BACK_DARK_RGB_INT));
 			container->setTitle(/*wxString::FromUTF8(get_name(true, false))*/_("common_slice_tooltips_draw"));
 			container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
 			int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
@@ -753,6 +753,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 			m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
 
 			wxPanel* mmuPanel = new wxPanel(container);
+            mmuPanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
 			wxBoxSizer* mmuPanelSizer = new wxBoxSizer(wxVERTICAL);
 			mmuPanel->SetSizer(mmuPanelSizer);
 			container->setContentPanel(mmuPanel);
@@ -879,7 +880,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
 				int btnID = event.GetInt();
 				if (btnID == returnBtnID)
 				{
-					wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+					wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
 				}
 				else if (btnID == clearBtnID)
 				{
@@ -1064,7 +1065,7 @@ void GLGizmoMmuSegmentation::set_input_window_state(bool on)
                 {
                     m_panelVisibleFlag = false;
 
-                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                    wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
                 }
                 });
         }

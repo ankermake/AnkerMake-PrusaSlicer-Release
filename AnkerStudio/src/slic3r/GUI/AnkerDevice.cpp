@@ -103,13 +103,16 @@ void AnkerDevice::showUnlogin()
 
 bool AnkerDevice::loadDeviceList(bool freshAll)
 {
+	ANKER_LOG_INFO << "enter loadDeviceList";
 	auto ankerNet = AnkerNetInst();
 	if (!ankerNet || !ankerNet->IsLogined()) {
 		return false;
 	}
-	wxWindowUpdateLocker updateLocker(this);
 
-	ANKER_LOG_INFO << "start load device";
+	ANKER_LOG_WARNING << "enter loadDeviceList before lock";
+	wxWindowUpdateLocker updateLocker(this);
+	ANKER_LOG_WARNING << "enter loadDeviceList after unlock";
+
 	bool res = false;
 	m_pCurrentDeviceWidget = nullptr;
 
@@ -254,7 +257,7 @@ void AnkerDevice::showNoDevice()
 
 void AnkerDevice::showDeviceList(bool freshAll)
 {	
-	wxWindowUpdateLocker updateLocker(this);
+	//wxWindowUpdateLocker updateLocker(this);
 
  	m_pUnloginPanel->Hide();
 
@@ -482,16 +485,6 @@ void AnkerDevice::showMsgLV1Dialog(const NetworkMsg& msg)
 	{
 		if (iter->getCurrentDeviceId() == msg.sn) {
 			iter->showMsgFrame(msg);
-		}
-	}
-}
-
-void AnkerDevice::showMsgLV3Dialog(const NetworkMsg& msg)
-{
-	for (auto iter : m_deviceWidgetList)
-	{
-		if (iter->getCurrentDeviceId() == msg.sn) {
-			iter->showMsgFrame(msg.context);
 		}
 	}
 }
@@ -2687,6 +2680,11 @@ void AnkerDeviceControl::showMsgFrame(const NetworkMsg& msg)
 		sn = m_currentDeviceId;
 	}
 
+	bool haveIcon = false;
+	if (!msg.imagePath.empty()) {
+		haveIcon = true;
+	}
+
 	wxWindow* parentWindow = GetParent();
 	wxPoint mfPoint = GetPosition();
 	wxSize mfSize = GetClientSize();
@@ -2700,6 +2698,10 @@ void AnkerDeviceControl::showMsgFrame(const NetworkMsg& msg)
 		}
 	}
 	wxSize dialogSize = AnkerSize(400, 250);
+	if (haveIcon) {
+		dialogSize = AnkerSize(400, 300);
+	}
+	
 	wxPoint dialogPos = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, 
 		mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
 	if (mfSize.GetX() < 100 || mfSize.GetY() < 80) {
@@ -2708,12 +2710,12 @@ void AnkerDeviceControl::showMsgFrame(const NetworkMsg& msg)
 	}
 	ANKER_LOG_INFO << "half dialog show alert msg: " << msg.sn << ", " << msg.type << ", level: " << msg.level;
 
-	auto isCancel = msg.haveCancel;
 	m_halfDialog = new HalfModalDialog(this, wxID_ANY, wxString::FromUTF8(msg.title), 
-		wxString::FromUTF8(msg.context), dialogPos, dialogSize);
+		wxString::FromUTF8(msg.context), msg.imagePath, dialogPos, dialogSize);
 	if (setCenter) {
 		m_halfDialog->Center();
 	}
+
 	m_halfDialog->SetOkBtnCallBack([msg](wxCommandEvent&) {
 		if (msg.clear) {
 			auto ankerNet = AnkerNetInst();
@@ -2738,13 +2740,7 @@ void AnkerDeviceControl::showMsgFrame(const NetworkMsg& msg)
 
 		DatamangerUi::GetInstance().ShowNextAlertMsg();
 	});
-	if (isCancel) {
-		m_halfDialog->ShowAnker(PartialModal_CANCEL_OK);
-	}
-	else {
-		m_halfDialog->ShowAnker(PartialModal_OK);
-	}	
-	m_halfDialog->Show(false);	
+
 	if (parentWindow) {
 		parentWindow->Bind(wxEVT_DESTROY, [this, parentWindow](wxWindowDestroyEvent& event) {
 			ANKER_LOG_INFO << "parentWindow destroy.";
@@ -2752,27 +2748,17 @@ void AnkerDeviceControl::showMsgFrame(const NetworkMsg& msg)
 			});
 		parentWindow->Bind(wxEVT_UPDATE_UI, &AnkerDeviceControl::updateWindowDisplay, this);
 	}
-}
 
-void AnkerDeviceControl::showMsgFrame(const std::string& content)
-{
-	wxPoint mfPoint = GetPosition();
-	wxSize mfSize = GetClientSize();
-	if (mfSize.GetX() < 5 || mfSize.GetY() < 5) {
-		mfPoint = AnkerPoint(300, 30);
-		mfSize = AnkerSize(1440, 900);
+	if (haveIcon) {
+		m_halfDialog->ShowAnker(PartialModal_IMAGE_OK);
 	}
-	wxSize dialogSize = AnkerSize(315, 290);
-	wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, 
-		mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
-
-	auto halfDialog = new HalfModalDialog(this, wxID_ANY, "", content, center, dialogSize);
-	halfDialog->ShowNoTitle([halfDialog](wxCommandEvent&) {
-		ANKER_LOG_INFO << "destroy half dialog start";
-		halfDialog->Destroy();
-		ANKER_LOG_INFO << "destroy half dialog end";
-		DatamangerUi::GetInstance().ShowNextAlertMsg();
-	});
+	else if (msg.haveCancel) {
+		m_halfDialog->ShowAnker(PartialModal_CANCEL_OK);
+	}
+	else {
+		m_halfDialog->ShowAnker(PartialModal_OK);
+	}
+	m_halfDialog->Show(false);
 }
 
 void AnkerDeviceControl::activate(bool active)

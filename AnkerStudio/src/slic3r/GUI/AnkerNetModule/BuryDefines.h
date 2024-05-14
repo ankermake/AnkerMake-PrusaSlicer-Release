@@ -40,8 +40,8 @@
 #define c_result "result"
 
 //os_type
-#define c_mac  "macOS"
-#define c_windows "windows"
+#define c_mac  "MacOS"
+#define c_windows "Windows"
 
 #define e_print_stop_reason "print_stop_reason"
 #define c_reason "reason"

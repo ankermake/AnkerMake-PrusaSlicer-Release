@@ -19,24 +19,24 @@ public:
 
 	enum class DownloadResult
 	{
-		Success,
-		Canceled,
-		Network_Error,
+		Success = 0,
+		Canceled = -1,
+		Network_Error = -2,
 		
-		Unzip_Failed,
-		FileCopy_Failed,
-		Load_Failed,
-		UnzipLoad_Failed,
+		Unzip_Failed = -10,
+		FileCopy_Failed = -11,
+		Load_Failed = -12,
+		UnzipLoad_Failed = -13,
 
-		JsonParseFailed,
-		JsonFormatFailed,
-		CodeError,
-		JsonContentError,
-		ComputeMd5Failed,
-		Md5NotEqual,
+		JsonParseFailed = -20,
+		JsonFormatFailed = -21,
+		CodeError = -22,
+		JsonContentError = -23,
+		ComputeMd5Failed = -24,
+		Md5NotEqual = -25,
 
-		Download_Failed,
-		MostNeed_Failed
+		Download_Failed = -30,
+		MostNeed_Failed = -31
 	};
 
 	void ReleaseLibrary();

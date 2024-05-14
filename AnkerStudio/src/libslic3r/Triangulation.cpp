@@ -61,7 +61,7 @@ inline bool has_self_intersection(
     lines.reserve(constrained_half_edges.size());
     for (const auto &he : constrained_half_edges)
         lines.emplace_back(points[he.first], points[he.second]);
-    return !intersection_points(lines).empty();
+    return !get_intersections(lines).empty();
 }
 
 } // namespace priv
@@ -191,10 +191,13 @@ Triangulation::Indices Triangulation::triangulate(const Points    &points,
         }
     }
 
+    auto FaceIsValid = [=](int x, int y, int z) {
+        return (x >= 0 && y >= 0 && z >= 0);
+    };
     std::vector<Vec3i> indices;
     indices.reserve(num_faces);
     for (CDT::Face_handle fh : faces)
-        if (inside(fh))
+        if (fh->is_valid() && inside(fh) && FaceIsValid(fh->vertex(0)->info(), fh->vertex(1)->info(), fh->vertex(2)->info()))
             indices.emplace_back(fh->vertex(0)->info(), fh->vertex(1)->info(), fh->vertex(2)->info());
 
 #ifdef VISUALIZE_TRIANGULATION

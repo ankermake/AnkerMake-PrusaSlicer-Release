@@ -22,7 +22,7 @@ class AnkerBtn : public wxControl
 public:
 	AnkerBtn();
 	virtual ~AnkerBtn();
-
+	
 	AnkerBtn(wxWindow* parent, wxWindowID id,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize,
@@ -31,7 +31,7 @@ public:
 
 	void SetStatus(BtnStatus status);
 	void SetRadius(const double& radius);
-
+	void clearImg();
 	virtual void OnEnter(wxMouseEvent& event);
 	virtual void OnLeave(wxMouseEvent& event);
 	virtual void OnPressed(wxMouseEvent& event);

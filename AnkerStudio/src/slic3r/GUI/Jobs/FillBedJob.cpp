@@ -177,20 +177,20 @@ void FillBedJob::finalize(bool canceled, std::exception_ptr &eptr)
         return s + int(ap.priority == 0 && ap.bed_idx == 0);
     });
 
+    for (ArrangePolygon& ap : m_selected) {
+        if (ap.bed_idx != arrangement::UNARRANGED && (ap.priority != 0 || ap.bed_idx == 0))
+            ap.apply();
+    }
+
+    model_object->ensure_on_bed();
+    
+    m_plater->update(0);
+
     if (added_cnt > 0) {
-        for (ArrangePolygon &ap : m_selected) {
-            if (ap.bed_idx != arrangement::UNARRANGED && (ap.priority != 0 || ap.bed_idx == 0))
-                ap.apply();
-        }
-
-        model_object->ensure_on_bed();
-
-        m_plater->update();
-
         // FIXME: somebody explain why this is needed for increase_object_instances
         if (inst_cnt == 1) added_cnt++;
 
-		m_plater->objectbar()->increase_object_instances(m_object_idx, size_t(added_cnt));
+        m_plater->sidebarnew().object_list()->increase_object_instances(m_object_idx, size_t(added_cnt));
     }
 }
 

@@ -8,6 +8,10 @@
 wxDECLARE_EVENT(wxCUSTOMEVT_ON_CLICK_LOGON, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ON_TAB_CHANGE, wxCommandEvent);
 
+wxDECLARE_EVENT(wxCUSTOMEVT_FEEDBACK, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_SHOW_DOC, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_RELEASE_NOTE, wxCommandEvent);
+//wxDECLARE_EVENT(wxCUSTOMEVT_FEEDBACK_HELP_CLICKED , wxCommandEvent);
 namespace Slic3r {
 	namespace GUI {
 
@@ -18,12 +22,37 @@ namespace Slic3r {
 			type_others
 		};
 
+		wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_TABBAR_BTN_CLICKED, wxCommandEvent);
+		class AnkerTabBarBtn :public wxControl
+		{
+			DECLARE_DYNAMIC_CLASS(AnkerMsgPageBtn)
+			DECLARE_EVENT_TABLE()
+		public:
+			AnkerTabBarBtn();
+			virtual ~AnkerTabBarBtn();
+			AnkerTabBarBtn(wxWindow* parent, wxWindowID id,
+				wxImage btnImg,
+				const wxPoint& pos = wxDefaultPosition,
+				const wxSize& size = wxDefaultSize,
+				long style = wxBORDER_NONE,
+				const wxValidator& validator = wxDefaultValidator);
 
+			void setImg(wxImage img);
+			virtual void OnPressed(wxMouseEvent& event);
+			virtual void OnEnter(wxMouseEvent& event);
+			virtual void OnLeave(wxMouseEvent& event);
+		protected:
+			void OnPaint(wxPaintEvent& event);
+		private:
+			wxImage   m_norImg;
+			wxColor   m_bgColor;
+		};
 
 		class AnkerFunctionPanel : public wxPanel
 		{
 		public:
 			AnkerFunctionPanel() {};
+			~AnkerFunctionPanel();
 			AnkerFunctionPanel(wxWindow* parent,
 				wxWindowID winid = wxID_ANY,
 				const wxPoint& pos = wxDefaultPosition,
@@ -34,6 +63,7 @@ namespace Slic3r {
 			void initEvent();
 			void OnPaint(wxPaintEvent& event);
 			void SetPrintTab(wxBookCtrlBase* tabControl) { m_pPrintTab = tabControl; };
+			wxMenu* m_calib_menu = nullptr;
 
 			DECLARE_EVENT_TABLE()
 
@@ -47,6 +77,8 @@ namespace Slic3r {
 			//collection of all control function  page buttons
 			std::vector<AnkerCombinButton*> m_pTabBtnVec;
 
+			AnkerTabBarBtn* m_FeedBackHelpBtn{ nullptr };
+			wxMenu* m_pFeedbackHelpMenu { nullptr };			
 		};
 	}
 }

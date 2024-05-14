@@ -238,6 +238,7 @@ void AnkerNetProgressPanel::UpdateProgress(double progress)
 }
 
 AnkerNetStatusPanel::AnkerNetStatusPanel(
+	int resultCode,
 	bool success,
 	bool hideOkBtn,
 	wxWindow* parent,
@@ -274,14 +275,21 @@ AnkerNetStatusPanel::AnkerNetStatusPanel(
 	m_progressText->SetForegroundColour("#FFFFFF");
 	m_progressText->SetBackgroundColour(bkColour);
 	setStrWrap(m_progressText, contextWidth - 20, context, type);
-#ifdef __WXMAC__
-	//m_progressText->Wrap(contextWidth);
-#endif
+	
+	wxString text;
+	if (resultCode != 0) {
+		text = wxString("(") + std::to_string(resultCode) + wxString(")");
+	}
+	//m_addtionText = new AnkerStaticText(m_centerPanel, wxID_ANY, text);
+	//m_addtionText->SetFont(ANKER_FONT_NO_2);
+	//m_addtionText->SetForegroundColour("#999999");
+	//m_addtionText->SetBackgroundColour(bkColour);
 
 	wxBoxSizer* contextSizer = new wxBoxSizer(wxVERTICAL);
 	auto imageInterval = size.GetWidth() - 2 * interval - m_statusImage->GetSize().GetWidth();
 	contextSizer->Add(m_statusImage, 0, wxLEFT | wxRIGHT, imageInterval/2);
 	contextSizer->Add(m_progressText, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+	//contextSizer->Add(m_addtionText, 0, wxALIGN_CENTER_HORIZONTAL);
 
 	m_centerPanel->GetSizer()->Add(contextSizer, 0, wxTOP | wxBOTTOM, interval);
 
@@ -289,20 +297,22 @@ AnkerNetStatusPanel::AnkerNetStatusPanel(
 }
 
 AnkerNetSuccessPanel::AnkerNetSuccessPanel(
+	int resultCode,
 	wxWindow* parent,
 	const wxString& title,
 	const wxSize& size) :
-	AnkerNetStatusPanel(true, true, parent, title, 
+	AnkerNetStatusPanel(resultCode, true, true, parent, title,
 		_L("common_print_netplugin_install_success") /*"Installed Successfully"*/, size)
 {
 	setCancelBtnText(_L("common_print_netplugin_install_finish") /*"Finish"*/);
 }
 
 AnkerNetFailedPanel::AnkerNetFailedPanel(
+	int resultCode,
 	wxWindow* parent,
 	const wxString& title,
 	const wxSize& size) :
-	AnkerNetStatusPanel(false, false, parent, title, 
+	AnkerNetStatusPanel(resultCode, false, false, parent, title,
 		_L("common_print_netplugin_download_failed") /*"Failed to download Network Plug - in, please try again."*/, size)
 {
 	setOkBtnText(_L("common_button_retry"));
@@ -335,21 +345,23 @@ AnkerNetDownloadDialog::~AnkerNetDownloadDialog()
 
 void AnkerNetDownloadDialog::Change(Status status,
 	AnkerNetBtnPanel::OkFunc_T okFunc,
-	AnkerNetBtnPanel::CancelFunc_T cancelFunc)
+	AnkerNetBtnPanel::CancelFunc_T cancelFunc,
+	int resultCode)
 {
-	this->CallAfter([this, status, okFunc, cancelFunc]() {
+	this->CallAfter([this, status, okFunc, cancelFunc, resultCode]() {
 		ANKER_LOG_INFO << "call after...";
 		if (!this) {
 			ANKER_LOG_INFO << "this is nullptr";
 			return;
 		}
-		ChangeInternal(status, okFunc, cancelFunc);
+		ChangeInternal(status, okFunc, cancelFunc, resultCode);
 	});
 }
 
 void AnkerNetDownloadDialog::ChangeInternal(Status status,
 	AnkerNetBtnPanel::OkFunc_T okFunc,
-	AnkerNetBtnPanel::CancelFunc_T cancelFunc)
+	AnkerNetBtnPanel::CancelFunc_T cancelFunc,
+	int resultCode)
 {
 	ANKER_LOG_INFO << "change status to " << (int)status;
 	if (this->m_panel) {
@@ -384,13 +396,13 @@ void AnkerNetDownloadDialog::ChangeInternal(Status status,
 		this->m_size.SetHeight(AnkerLength(resultHeight));
 		this->SetSize(this->m_size);
 		newPos.y = newPos.y - (resultHeight - defualtHeight) / 2;
-		this->m_panel = new AnkerNetSuccessPanel(this, this->m_title, this->m_size);
+		this->m_panel = new AnkerNetSuccessPanel(resultCode, this, this->m_title, this->m_size);
 		break;
 	case Status::DownLoadFailed:
 		this->m_size.SetHeight(AnkerLength(resultHeight));
 		this->SetSize(this->m_size);
 		newPos.y = newPos.y - (resultHeight - defualtHeight) / 2;
-		this->m_panel = new AnkerNetFailedPanel(this, this->m_title, this->m_size);
+		this->m_panel = new AnkerNetFailedPanel(resultCode, this, this->m_title, this->m_size);
 		break;
 	}
 	this->SetPosition(this->defaultPos);

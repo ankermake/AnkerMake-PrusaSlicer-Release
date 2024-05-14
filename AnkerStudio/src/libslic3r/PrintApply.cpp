@@ -5,6 +5,9 @@
 
 namespace Slic3r {
 
+static const boost::filesystem::path TEST_FLAG_PATH = boost::filesystem::temp_directory_path() / "anker_studio_test.config";
+static void output_config_diff(const boost::filesystem::path& output_path, const DynamicPrintConfig& config, const t_config_option_keys& diff_keys);
+
 // Add or remove support modifier ModelVolumes from model_object_dst to match the ModelVolumes of model_object_new
 // in the exact order and with the same IDs.
 // It is expected, that the model_object_dst already contains the non-support volumes of model_object_new in the correct order.
@@ -798,6 +801,7 @@ bool verify_update_print_object_regions(
                         t_config_option_keys diff = region.region->config().diff(cfg);
                         callback_invalidate(region.region->config(), cfg, diff);
                         region.region->config_apply_only(cfg, diff, false);
+                        output_config_diff(TEST_FLAG_PATH, DynamicPrintConfig(cfg), diff);
                     } else {
                         // Region is referenced multiple times, thus the region is being split. We need to reslice.
                         return false;
@@ -823,6 +827,7 @@ bool verify_update_print_object_regions(
                     t_config_option_keys diff = region.region->config().diff(cfg);
                     callback_invalidate(region.region->config(), cfg, diff);
                     region.region->config_apply_only(cfg, diff, false);
+                    output_config_diff(TEST_FLAG_PATH, DynamicPrintConfig(cfg), diff);
                 } else {
                     // Region is referenced multiple times, thus the region is being split. We need to reslice.
                     return false;
@@ -1051,7 +1056,7 @@ static void output_config_diff(const boost::filesystem::path& output_path, const
 {
     try
     {
-        if (diff_keys.size() < 1) {
+        if (!boost::filesystem::exists(TEST_FLAG_PATH) || diff_keys.size() < 1) {
             return;
         }
 
@@ -1110,10 +1115,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         full_config_diff.clear();
 
     //Add Preset diff output to file by Galen Xiao,2023/09/06
-    boost::filesystem::path test_flag_path = boost::filesystem::temp_directory_path() / "anker_studio_test.config";
-    if (boost::filesystem::exists(test_flag_path)){
-        output_config_diff(test_flag_path, new_full_config, full_config_diff);
-    }
+    output_config_diff(TEST_FLAG_PATH, new_full_config, full_config_diff);
 
     // Collect changes to object and region configs.
     t_config_option_keys object_diff      = m_default_object_config.diff(new_full_config);
@@ -1348,6 +1350,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                     if (! diff.empty()) {
                         update_apply_status(print_object_status.print_object->invalidate_state_by_config_options(print_object_status.print_object->config(), new_config, diff));
                         print_object_status.print_object->config_apply_only(new_config, diff, true);
+                        output_config_diff(TEST_FLAG_PATH, DynamicPrintConfig(new_config), diff);
                     }
                 }
             }

@@ -1,6 +1,7 @@
 #ifndef _ANKER_TITLED_PANEL_H_
 #define _ANKER_TITLED_PANEL_H_
 
+#include "AnkerGUIConfig.hpp"
 #include "wx/wx.h"
 
 
@@ -16,7 +17,7 @@ public:
 		RIGHT
 	};
 public:
-	AnkerTitledPanel(wxWindow* parent, int titleHeight = 50, int titleBorder = 5);
+	AnkerTitledPanel(wxWindow* parent, int titleHeight = 32, int titleBorder = 5, wxColour bgClr = wxColour(PANEL_BACK_RGB_INT));
 	~AnkerTitledPanel();
 
 	void setTitle(wxString title);

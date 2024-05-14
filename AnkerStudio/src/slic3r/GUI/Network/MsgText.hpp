@@ -10,7 +10,7 @@ using namespace AnkerNet;
 enum NetworkMsgLevel
 {
     LEVEL_URGENCY = 0,
-    LEVEL_NORMAL1 = 1,
+    LEVEL_NORMAL1,
 };
 
 struct NetworkMsg
@@ -24,9 +24,14 @@ struct NetworkMsg
     std::string context = "";
     std::string btn1Text = "";
     std::string btn2Text = "";
+    std::string imagePath;
+
+    // extern info
+    std::string filamentName;
 
     bool operator==(const NetworkMsg& other) const {
         return haveCancel == other.haveCancel &&
+            filamentName == other.filamentName &&
             level == other.level &&
             clear == other.clear &&
             type == other.type &&
@@ -96,8 +101,7 @@ namespace NetworkMsgText {
         NetworkMsg msg;
         msg.title = _L("common_popup_title_heatingerror").c_str();
         msg.context = _L("common_popup_content_temptohigh").c_str();
-        msg.btn1Text = _L("OK").c_str();
-        
+        msg.btn1Text = _L("OK").c_str();        
         msg.clear = true;
         return msg;
     }
@@ -105,9 +109,10 @@ namespace NetworkMsgText {
     inline NetworkMsg getGeneralException2Gui_Filament_Broken_Error_Msg_Text() {
         NetworkMsg msg;
         msg.title = _L("common_popup_titlenotice").c_str();
-        msg.context = _L("common_print_popup_filamentbroken").c_str();
+        msg.context = _L("common_print_popup_filamentbroken_new"
+            /*"Filament transfer interrupted, please load a new %s filament."*/).c_str();
         msg.btn1Text = _L("OK").c_str();
-        
+        msg.imagePath = "msg_broken.png";
         msg.clear = true;
         return msg;
     }

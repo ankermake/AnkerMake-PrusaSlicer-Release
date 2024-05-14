@@ -38,7 +38,7 @@ bool GLGizmoMove3D::on_mouse(const wxMouseEvent &mouse_event) {
     return use_grabbers(mouse_event);
 }
 
-void GLGizmoMove3D::data_changed() {
+void GLGizmoMove3D::data_changed(bool is_serializing) {
     m_grabbers[2].enabled = !m_parent.get_selection().is_wipe_tower();
 }
 
@@ -331,13 +331,13 @@ void GLGizmoMove3D::set_input_window_state(bool on)
                 {
                     m_panelVisibleFlag = false;
 
-                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                    wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
                 }
                 });
         }
     
         auto returnFunc = [this]() {
-            wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+            wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
         };
         wxGetApp().aobj_manipul()->setReturnFunc(returnFunc);
 

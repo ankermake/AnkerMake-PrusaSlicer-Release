@@ -12,9 +12,12 @@
 #define SCENE_BG_RGB_FLOAT  0.094f, 0.098f, 0.106f
 
 #define PANEL_BACK_RGB_INT 41, 42, 45
+#define PANEL_TITLE_BACK_RGB_INT 58, 59, 63
+#define PANEL_TITLE_BACK_DARK_RGB_INT 32, 33, 36
 #define PANEL_BACK_LIGHT_RGB_INT 58, 59, 63
-#define TEXT_LIGHT_RGB_INT 255, 255, 255
-#define TEXT_DARK_RGB_INT 183, 183, 183
+#define TEXT_LIGHT_RGB_INT 255, 255, 255 
+#define TEXT_DARK_RGB_INT 169, 170, 171  //#a9aaab
+#define TITLE_TEXT_DARK_RGB_INT 105, 106, 108  //#696a6c
 
 // all self-defined wxwidget ids, please defined here
 enum {

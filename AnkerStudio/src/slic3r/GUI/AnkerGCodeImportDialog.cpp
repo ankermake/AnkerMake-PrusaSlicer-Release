@@ -14,8 +14,8 @@
 #include "slic3r/Utils/WxFontUtils.hpp"
 #include "slic3r/GUI/FilamentMaterialConvertor.hpp"
 #include "slic3r/Utils/GcodeInfo.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "AnkerNetBase.h"
-#include "DeviceObjectBase.h"
 #include "../AnkerComFunction.hpp"
 #ifdef _WIN32
 #include <dbt.h>
@@ -53,6 +53,7 @@ AnkerGCodeImportDialog::AnkerGCodeImportDialog(std::string currentDeviceSn, wxWi
 	, m_pSpeedText(nullptr)
 	, m_pFilamentText(nullptr)
 	, m_pPrintTimeText(nullptr)
+	, m_filamentText(nullptr)
 	, m_pSearchTextCtrl(nullptr)
 	, m_pLoadingMask(nullptr)
 	, m_currentMode(Slic3r::GUI::FSM_NONE)
@@ -187,6 +188,7 @@ void AnkerGCodeImportDialog::requestCallback(int type)
 		}
 		else
 		{
+			SetFilamentChangeHint(currentDev);
 			setFileInfoFilament(std::to_string(gcodeInfo.filamentUsed) + gcodeInfo.filamentUnit);
 			int leftTime = gcodeInfo.leftTime;
 			setFileInfoTime(leftTime);
@@ -334,6 +336,71 @@ std::string AnkerGCodeImportDialog::setFileInfoTime(int seconds)
 	m_importResult.m_timeSecond = seconds;
 
 	return newTime;
+}
+
+void AnkerGCodeImportDialog::SetFilamentChangeHint(AnkerNet::DeviceObjectBasePtr currentDev, const wxString& filePath)
+{	
+	bool showhint = false;
+	std::string currentFilament;
+
+	do {
+		if (!currentDev) {
+			ANKER_LOG_WARNING << "current device is nullptr";
+			break;
+		}
+		std::string lastFilament = Slic3r::GcodeInfo::GetFilamentName(currentDev->GetLastFilament());
+		if (lastFilament.empty()) {
+			ANKER_LOG_INFO << "last filament is empty, no need hint";
+			break;
+		}
+
+		if (filePath.empty()) {
+			auto gcodeInfo = currentDev->GetGcodeInfo();
+			currentFilament = Slic3r::GcodeInfo::GetFilamentName(gcodeInfo.filamentType);
+		}
+		else {
+			auto filaments = Slic3r::GcodeInfo::GetFilamentFromGCode(filePath);
+			if (filaments.empty()) {
+				break;
+			}
+			currentFilament = Slic3r::GcodeInfo::GetFilamentName(filaments.at(0));
+		}
+		if (currentFilament.empty()) {
+			ANKER_LOG_INFO << "current filament is empty, no need hint";
+			break;
+		}
+
+		if (currentFilament != lastFilament) {
+			showhint = true;
+			ANKER_LOG_INFO << "current filament " << currentFilament << ", last filament " << lastFilament;
+		}
+	} while (false);
+
+	if (!showhint) {
+		m_filamentText->Show(false);
+		Layout();
+		return;
+	}
+
+	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+	wxString contentMain = _L("common_print_popup_filament_notequal");
+	wxString content = Slic3r::GUI::format_wxstr(contentMain, currentFilament);
+
+	int filamentTextWidth = this->GetSize().GetWidth() - AnkerLength(60);
+#ifdef _WIN32
+	if (type == wxLanguage::wxLANGUAGE_CHINESE_CHINA ||
+		type == wxLanguage::wxLANGUAGE_JAPANESE_JAPAN ||
+		type == wxLanguage::wxLANGUAGE_JAPANESE) {
+		filamentTextWidth -= AnkerLength(20);
+	}
+#endif
+	wxString wrapText = Slic3r::GUI::WrapEveryCharacter(content, m_filamentText->GetFont(), filamentTextWidth);
+	m_filamentText->Wrap(filamentTextWidth);
+	m_filamentText->SetLabelText(wrapText);
+	m_filamentText->Fit();
+	m_filamentText->Show(true);
+
+	Layout();
 }
 
 void AnkerGCodeImportDialog::setPreviewImage(int width, int height, unsigned char* data, unsigned char* alpha, bool freeFlag)
@@ -593,8 +660,7 @@ void AnkerGCodeImportDialog::initUI()
 	wxBoxSizer* dialogVSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizer(dialogVSizer);
 
-	m_pTitledPanel = new AnkerTitledPanel(this, 44, 8);
-	m_pTitledPanel->SetBackgroundColour(wxColour(PANEL_BACK_LIGHT_RGB_INT));
+	m_pTitledPanel = new AnkerTitledPanel(this, 44, 8, wxColour(PANEL_TITLE_BACK_RGB_INT));
 	m_pTitledPanel->setTitle(L"Select File");
 	m_pTitledPanel->setTitleAlign(AnkerTitledPanel::TitleAlign::CENTER);
 	int closeBtnID = m_pTitledPanel->addTitleButton(wxString::FromUTF8(Slic3r::var("fdm_nav_del_icon.png")), false);
@@ -613,6 +679,7 @@ void AnkerGCodeImportDialog::initUI()
 	dialogVSizer->Add(m_pTitledPanel, 1, wxEXPAND, 0);
 
 	wxPanel* contentPanel = new wxPanel(m_pTitledPanel);
+	contentPanel->SetBackgroundColour(wxColour(PANEL_TITLE_BACK_RGB_INT));
 	wxBoxSizer* mainVSizer = new wxBoxSizer(wxVERTICAL);
 	contentPanel->SetSizer(mainVSizer);
 
@@ -895,8 +962,6 @@ bool AnkerGCodeImportDialog::initFSListSizer(wxWindow* parent)
 
 bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 {
-
-
 	m_pFileInfoPanel = new wxPanel(parent);
 	wxBoxSizer* pFileInfoVSizer = new wxBoxSizer(wxVERTICAL);
 	m_pFileInfoPanel->SetSizer(pFileInfoVSizer);
@@ -1014,6 +1079,20 @@ bool AnkerGCodeImportDialog::initFileInfoSizer(wxWindow* parent)
 		m_pPrintTimeText->SetFont(ANKER_BOLD_FONT_NO_1);
 		m_pPrintTimeText->Fit();
 		printTimeSizer->Add(m_pPrintTimeText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
+	}
+
+	// filament change hint
+	{
+		wxBoxSizer* filamentChangeSizer = new wxBoxSizer(wxHORIZONTAL);
+		filamentChangeSizer->SetMinSize(AnkerSize(264, 32));
+		pFileInfoVSizer->Add(filamentChangeSizer, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 30);
+
+		m_filamentText = new wxStaticText(m_pFileInfoPanel, wxID_ANY, "");
+		m_filamentText->SetBackgroundColour(m_dialogColor);
+		m_filamentText->SetForegroundColour(m_textLightColor);
+		m_filamentText->SetFont(ANKER_FONT_NO_2);
+		m_filamentText->Fit();
+		filamentChangeSizer->Add(m_filamentText, 0, wxALIGN_RIGHT | wxTOP | wxBOTTOM, 8);
 	}
 
 	pFileInfoVSizer->AddStretchSpacer(1);
@@ -1547,7 +1626,7 @@ void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 
 		// get the print info from gcode
 		// set the info to dialog
-		std::string strFilamentCost = out.filament_cost.empty() ? "--" : out.filament_cost;
+		std::string strFilamentCost = out.filament_used_weight_g.empty() ? "--" : out.filament_used_weight_g;
 		setFileInfoFilament(strFilamentCost);
 		m_pMaterialMappingViewModel->m_filamentCost = strFilamentCost;
 		m_pMaterialMappingViewModel->m_PrintTime = setFileInfoTime(out.print_time);
@@ -1582,8 +1661,9 @@ void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 		// get the print info from gcode
 		// set the info to dialog
 
+		SetFilamentChangeHint(deviceObject, resultOriFilePath);
 		//setFileInfoSpeed(out.speed);
-		setFileInfoFilament(out.filament_cost.empty() ? "--" : out.filament_cost);
+		setFileInfoFilament(out.filament_used_weight_g.empty() ? "--" : out.filament_used_weight_g);
 		setFileInfoTime(out.print_time);
 
 		wxImage image;
@@ -1599,6 +1679,8 @@ void AnkerGCodeImportDialog::OnComputerImportBtn(wxCommandEvent& event)
 		}
 
 		setPreviewImage(image.GetWidth(), image.GetHeight(), image.GetData());
+		
+		Layout();
 	}	
 }
 

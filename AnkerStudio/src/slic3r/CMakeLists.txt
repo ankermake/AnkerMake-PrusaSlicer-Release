@@ -16,6 +16,19 @@ set(SLIC3R_GUI_SOURCES
     GUI/BackgroundSlicingProcess.hpp
     GUI/BitmapCache.cpp
     GUI/BitmapCache.hpp
+    GUI/Calibration/FlowCalibration.hpp
+    GUI/Calibration/FlowCalibration.cpp
+    GUI/Calibration/CalibrationAbstractDialog.hpp
+    GUI/Calibration/CalibrationMaxFlowrateDialog.cpp
+    GUI/Calibration/CalibrationMaxFlowrateDialog.hpp
+    GUI/Calibration/CalibrationPresAdvDialog.cpp
+    GUI/Calibration/CalibrationPresAdvDialog.hpp
+    GUI/Calibration/CalibrationTempDialog.cpp
+    GUI/Calibration/CalibrationTempDialog.hpp
+    GUI/Calibration/CalibrationRetractionDialog.cpp
+    GUI/Calibration/CalibrationRetractionDialog.hpp
+    GUI/Calibration/CalibrationVfaDialog.cpp
+    GUI/Calibration/CalibrationVfaDialog.hpp
     GUI/ConfigSnapshotDialog.cpp
     GUI/ConfigSnapshotDialog.hpp
     GUI/3DScene.cpp
@@ -69,6 +82,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoMmuSegmentation.hpp
     GUI/Gizmos/GLGizmoMeasure.cpp
     GUI/Gizmos/GLGizmoMeasure.hpp
+    GUI/Gizmos/GLGizmoSVG.cpp
+    GUI/Gizmos/GLGizmoSVG.hpp
     GUI/GLSelectionRectangle.cpp
     GUI/GLSelectionRectangle.hpp
     GUI/GLModel.hpp
@@ -77,12 +92,16 @@ set(SLIC3R_GUI_SOURCES
     GUI/GLTexture.cpp
     GUI/GLToolbar.hpp
     GUI/GLToolbar.cpp
+    GUI/IMToolbar.hpp
+    GUI/IMToolbar.cpp
     GUI/GCodeViewer.hpp
     GUI/GCodeViewer.cpp    
     GUI/Preferences.cpp
     GUI/Preferences.hpp
     GUI/PresetHints.cpp
     GUI/PresetHints.hpp
+    GUI/AnkerSliceConmentDialog.cpp
+    GUI/AnkerSliceConmentDialog.hpp
     GUI/GUI.cpp
     GUI/GUI.hpp
     GUI/GUI_Init.cpp
@@ -178,6 +197,22 @@ set(SLIC3R_GUI_SOURCES
     GUI/Network/MsgText.hpp
     GUI/Network/SystemInfo.hpp
     GUI/Network/SystemInfo.cpp
+    GUI/Widgets/Button.cpp
+    GUI/Widgets/Button.hpp
+    GUI/Widgets/ComboBox.cpp
+    GUI/Widgets/ComboBox.hpp
+    GUI/Widgets/Label.cpp
+    GUI/Widgets/Label.hpp
+    GUI/Widgets/StaticBox.cpp
+    GUI/Widgets/StaticBox.hpp
+    GUI/Widgets/StateColor.cpp
+    GUI/Widgets/StateColor.hpp
+    GUI/Widgets/StateHandler.cpp
+    GUI/Widgets/StateHandler.hpp
+    GUI/Widgets/TextInput.cpp
+    GUI/Widgets/TextInput.hpp
+    GUI/Widgets/SwitchButton.cpp
+    GUI/Widgets/SwitchButton.hpp
     Config/Snapshot.cpp
     Config/Snapshot.hpp
     Config/Version.cpp
@@ -419,6 +454,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/WebWeak/DownLoadMessage.cpp
     GUI/AnkerCfgTab.hpp
     GUI/AnkerCfgTab.cpp
+    GUI/TextLines.hpp
+    GUI/TextLines.cpp
     GUI/OnlinePreset/OnlinePresetInfo.hpp
     GUI/OnlinePreset/OnlinePresetInfoTool.hpp
     GUI/OnlinePreset/OnlinePresetInfoTool.cpp
@@ -447,8 +484,6 @@ set(SLIC3R_GUI_SOURCES
     Utils/Duet.hpp
     Utils/EmbossStyleManager.cpp
     Utils/EmbossStyleManager.hpp
-    Utils/EmbossStylesSerializable.cpp
-    Utils/EmbossStylesSerializable.hpp
     Utils/FlashAir.cpp
     Utils/FlashAir.hpp
     Utils/FontConfigHelp.cpp

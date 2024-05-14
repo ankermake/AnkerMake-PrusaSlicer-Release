@@ -93,7 +93,6 @@ on_crash_callback(
     std::map<std::string, std::string> map;
     map.insert(std::make_pair(c_cr_error_code, errorCode));
     map.insert(std::make_pair(c_cr_error_msg, errorMsg));
-    initBuryPoint();
     reportBuryEvent(e_crash_report, map, true);
          
     // tell the backend to retain the event

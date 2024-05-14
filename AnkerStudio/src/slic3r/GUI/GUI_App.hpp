@@ -69,7 +69,7 @@ class Downloader;
 struct GUI_InitParams;
 class GalleryDialog;
 class FilamentMaterialManager;
-
+class AnkerObjectLayerEditor;
 
 
 enum FileType
@@ -305,6 +305,12 @@ public:
     void            import_model(wxWindow *parent, wxArrayString& input_files) const;
     void            import_zip(wxWindow* parent, wxString& input_file) const;
     void            load_gcode(wxWindow* parent, wxString& input_file) const;
+    void            change_calibration_dialog(const wxDialog* have_to_destroy, wxDialog* new_one);
+    void            calib_filament_temperature_dialog(wxWindow* parent, Plater* plater);
+    void            calib_pressure_advance_dialog(wxWindow* parent, Plater* plater);
+    void            calib_retraction_dialog(wxWindow* parent, Plater* plater);
+    void            calib_max_flowrate_dialog(wxWindow* parent, Plater* plater);
+    void            calib_vfa_dialog(wxWindow* parent, Plater* plater);
 
     static bool     catch_error(std::function<void()> cb, const std::string& err);
 
@@ -373,9 +379,9 @@ public:
     ObjectManipulation*  obj_manipul();
     AnkerObjectManipulator*  aobj_manipul();
     ObjectSettings*      obj_settings();
-    //ObjectList*          obj_list();
-    //ObjectLayers*        obj_layers();
-    AnkerObjectLayers*   obj_layers();
+    ObjectList*          obj_list();
+    AnkerObjectLayers*   obj_layers_();
+    AnkerObjectLayerEditor* obj_layers();
     Plater*              plater();
     const Plater*        plater() const;
     Model&      		 model();

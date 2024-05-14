@@ -89,8 +89,8 @@ private:
 	bool m_toPrinting;
 	int m_lastLeftSeconds;
 	std::string m_currentDeviceSn;
-	wxTimer* m_pToPrintingTimer;
-	wxTimer* m_pModalingTimer;
+	wxTimer* m_pToPrintingTimer{nullptr};
+	wxTimer* m_pModalingTimer{ nullptr };
 	GUI_DEVICE_STATUS_TYPE m_currentDeviceStatus;
 	GUI_DEVICE_STATUS_TYPE m_lastDeviceStatus;
 	GUI_DEVICE_STATUS_TYPE m_modalingDeviceStatus;
@@ -139,7 +139,7 @@ private:
 	wxStaticText* m_titleEmptyBanner;
 
 	int m_countDownSeconds;
-	wxTimer* m_pLocalCounter;
+	wxTimer* m_pLocalCounter{nullptr};
 };
 
 #endif // _ANKER_TASK_PANEL_H_

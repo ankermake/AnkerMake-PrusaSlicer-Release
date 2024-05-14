@@ -5,6 +5,7 @@
 
 wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_FINISHED, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_ENTER, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_FOCUS, wxCommandEvent);
 class AnkerLineEdit :public wxRichTextCtrl
 {
 public:

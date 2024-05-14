@@ -279,6 +279,19 @@ void AnkerParameterData::getItemList(wxStringList& list, ControlListType listTyp
 		list.Add(_L("Close holes"));
 	}
 	break;
+	case List_ironing_pattern:
+	{
+		list.Add(_L("Concentric"));
+		list.Add(_L("Rectilinear"));
+	}
+	break;
+	case List_print_order:
+	{
+		list.Add(_L("engin_option_wall_sequence_inner_outer"));
+		list.Add(_L("engin_option_wall_sequence_outer_inner"));
+		list.Add(_L("engin_option_wall_sequence_inner_outer_innner"));
+	}
+	break;
 	default:
 		break;
 	}

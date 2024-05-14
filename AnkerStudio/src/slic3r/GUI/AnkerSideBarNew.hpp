@@ -11,6 +11,8 @@
 #include "PresetComboBoxes.hpp"
 #include "./PrinterConfigPlater/AnkerParameterPanel.hpp"
 #include "Search.hpp"
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/GUI_ObjectLayers.hpp"
 
 class wxButton;
 class ScalableButton;
@@ -39,7 +41,7 @@ namespace Slic3r {
 #define MY_PRESETS_SEPARATOR wxString::FromUTF8(SEPARATOR_HEAD) + _L(MY_PRESETS) + wxString::FromUTF8(MY_PRESETS_SEPARATOR_TAIL)
 
 #define SIDEBARNEW_PRINTGER_HEIGHT  90  // 109
-#define SIDEBARNEW_PRINTGER_TEXTBTN_SIZER   40 //46
+#define SIDEBARNEW_PRINTGER_TEXTBTN_SIZER   32 //46
 #define SIDEBARNEW_PRINTGER_HOR_SPAN  10 // 14
 #define SIDEBARNEW_PRINTGER_VER_SPAN  5 // 14
 #define SIDEBARNEW_PRINTGER_COMBO_WIDTH  (SIDEBARNEW_WIDGET_WIDTH - 2* SIDEBARNEW_PRINTGER_HOR_SPAN)  // 276
@@ -53,13 +55,13 @@ namespace Slic3r {
 #endif
 
 #define SIDEBARNEW_FILAMENT_HEIGHT  90 // 111 94
-#define SIDEBARNEW_FILAMENT_TEXTBTN_SIZER  40 // 46
+#define SIDEBARNEW_FILAMENT_TEXTBTN_SIZER  32 // 46
 #define SIDEBARNEW_FILAMENT_PANEL_HEIGHT  (SIDEBARNEW_FILAMENT_HEIGHT - SIDEBARNEW_FILAMENT_TEXTBTN_SIZER)
 #define SIDEBARNEW_FILAMENT_HOR_SPAN  10 // 14
 #define SIDEBARNEW_FILAMENT_VER_SPAN  8 // 14
 
 
-#define SIDEBARNEW_PRINT_TEXTBTN_SIZER  40
+#define SIDEBARNEW_PRINT_TEXTBTN_SIZER  32
 
 
         class Plater;
@@ -180,6 +182,7 @@ namespace Slic3r {
             
         };
 
+
         class AnkerSidebarNew : public wxPanel
         {
             ConfigOptionMode    m_mode{ ConfigOptionMode::comSimple };
@@ -194,7 +197,9 @@ namespace Slic3r {
             void reloadParameterData();
             void updatePreset(DynamicPrintConfig&config);
             void hidePopupWidget();
+            void ChangeViewMode(int mode);
             void enableSliceBtn(bool isSaveBtn, bool isEnable);
+            void updatePreviewBtn(bool GcodeValid, int reason = 0);
             // if you want to reset and restore sidebar,please see usage examples in OnTimer function
             // if sizer is nullptr, use default m_pParameterVSizer instead;
             //changed by alves.
@@ -202,11 +207,14 @@ namespace Slic3r {
             // use default main sizer when sizer is nullptr
             void setMainSizer(wxSizer* sizer = nullptr, bool bForceAllDefault = true);
             bool checkDirtyDataonParameterpanel();
-            void showRightMenuParameterPanel(const wxString& objName, Slic3r::ModelConfig* config);
-            void exitRightMenuParameterPanel();
-           
-            void updatePresets(Slic3r::Preset::Type preset_type);
+            void updateParameterPanel();
 
+            void SetCurrentModelConfig(Slic3r::ModelConfig* config, ObjectDataViewModelNode* node, bool bUpdate = false);
+            void HideLocalParamPanel();
+            void SwitchParamPanelMode(bool show);
+            wxWindow* GetItemParameterPanel();
+            
+            void updatePresets(Slic3r::Preset::Type preset_type);
             void onExtrudersChange(size_t changedExtruderNums = 0);
             //add by alves
             wxString getSizerFlags()const;
@@ -226,7 +234,7 @@ namespace Slic3r {
             void syncFilamentInfo(const std::vector<SFilamentInfo> syncFilamentInfo);
 
             // add by allen for ankerCfgDlg search
-            void check_and_update_searcher(bool respect_mode = false);
+            void check_and_update_searcher(bool respect_mode = false, Preset::Type type= Preset::TYPE_COUNT);
             Search::OptionsSearcher& get_searcher();
             std::string& get_search_line();
             void update_mode();
@@ -236,6 +244,8 @@ namespace Slic3r {
             void getItemList(wxStringList& list, ControlListType listType);
             void setItemValue(const wxString tabName, const wxString& widgetLabel, wxVariant data);
             void openSupportMaterialPage(wxString itemName, wxString text);
+            void setItemSupportValue(const wxString tabName, const wxString& configOptionKey, bool value);
+            void setCalibrationValue(const wxString& configOptionKey, wxVariant value, ConfigOption* option);
 
             // set load file flag
             void setLoadProjectFileFlag(bool bFlag = true);
@@ -246,6 +256,18 @@ namespace Slic3r {
             void setFilamentClickedState(bool bClickedFialment = false);
             bool getFilamentClickedState();
             void moveWipeTower(double x, double y, double rotate);
+
+            /////////object list
+            ObjectList* object_list();
+            AnkerObjectLayerEditor* object_layer();
+            AnkerObjectSettings* object_settings();
+            AnkerObjectListControl* GetObjectlistControl();
+            void update_ui_from_settings();
+            void update_current_item_config();
+            void update_objects_list_extruder_column(size_t extruders_count);
+            void set_layer_height_sizer(wxBoxSizer* sizer, bool layer_root = true);
+            void detach_layer_height_sizer();
+
             std::map < wxString, PARAMETER_GROUP> getGlobalParamInfo();
             std::map < wxString, PARAMETER_GROUP> getModelParamInfo();
         private:
@@ -260,6 +282,7 @@ namespace Slic3r {
             void refreshSideBarLayout();
             void createPrinterSiderbar();
             void createFilamentSidebar();
+            void createObjectlistSidebar();
             void createPrintParameterSidebar();
             void createRightMenuPrintParameterSidebar();
             void setFixedDefaultSidebar();
@@ -304,7 +327,7 @@ namespace Slic3r {
 
             void updateCfgTabTimer(wxTimerEvent&);
             void updateUserFilament();
-
+            void updateItemConfigInfo(bool is_item_reset = false, const wxString& option_key = "");
             void selectDefaultFilament();
         private:
             struct priv;

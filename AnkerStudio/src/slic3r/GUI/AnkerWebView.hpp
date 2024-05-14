@@ -73,6 +73,6 @@ private:
 	bool m_isErrorDialogShow = false;
 	int m_retry_time = 0;
 	bool m_showErrorEnable = false;
-	bool m_forceClose = false;
+	std::atomic_bool m_forceClose = false;
 };
 #endif 

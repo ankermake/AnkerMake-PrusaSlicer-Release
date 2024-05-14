@@ -295,6 +295,18 @@ inline double bbox_point_distance_squared(const BoundingBox &bbox, const Point &
                                    coord_t(0));
 }
 
+template<class T>
+BoundingBoxBase<Vec<2, T>> to_2d(const BoundingBox3Base<Vec<3, T>>& bb)
+{
+    return { to_2d(bb.min), to_2d(bb.max) };
+}
+
+template<class Tout, class T>
+BoundingBoxBase<Vec<2, Tout>> to_2d(const BoundingBox3Base<Vec<3, T>>& bb)
+{
+    return { to_2d(bb.min), to_2d(bb.max) };
+}
+
 } // namespace Slic3r
 
 // Serialization through the Cereal library

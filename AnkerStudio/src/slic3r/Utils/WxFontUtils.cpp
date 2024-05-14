@@ -121,6 +121,11 @@ EmbossStyle::Type WxFontUtils::get_actual_type()
 #endif
 }
 
+EmbossStyle::Type WxFontUtils::get_current_type()
+{
+    return get_actual_type();
+}
+
 EmbossStyle WxFontUtils::create_emboss_style(const wxFont &font, const std::string& name)
 {
     std::string name_item = name.empty()? get_human_readable_name(font) : name;
@@ -134,7 +139,6 @@ EmbossStyle WxFontUtils::create_emboss_style(const wxFont &font, const std::stri
     // is approximately 0.0139 inch or 352.8 um. But it is too small, so I
     // decide use point size as mm for emboss
     font_prop.size_in_mm = font.GetPointSize(); // *0.3528f;
-    font_prop.emboss     = font_prop.size_in_mm / 2.f;
 
     WxFontUtils::update_property(font_prop, font);
     return { name_item, fontDesc, type, font_prop };

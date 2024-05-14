@@ -16,6 +16,7 @@
 #include "wxExtensions.hpp"
 #include "libSlic3r/TriangleMesh.hpp"
 #include "GalleryDialog.hpp"
+#include "libslic3r/Geometry.hpp"
 
 #define CONFIG_EXTRUDER_KEY "extruder"
 #define CONFIG_LAYER_HEIGHT_KEY "layer_height"
@@ -1856,6 +1857,10 @@ void AnkerObjectBar::merge(bool to_multipart_object)
         new_object->translate_instances(-new_object->origin_translation);
         new_object->origin_translation = Slic3r::Vec3d::Zero();
 
+        //init asssmble transformation
+        Slic3r::Geometry::Transformation t = new_object->instances[0]->get_transformation();
+        new_object->instances[0]->set_assemble_transformation(t);
+
         // remove selected objects
         for (Slic3r::ModelObject* obj : objs)
         {
@@ -2751,6 +2756,10 @@ void AnkerObjectBar::load_mesh_object(const Slic3r::TriangleMesh& mesh,
 
     new_object->ensure_on_bed();
 
+    //init assmeble transformation
+    Slic3r::Geometry::Transformation t = new_object->instances[0]->get_transformation();
+    new_object->instances[0]->set_assemble_transformation(t);
+
     object_idxs.push_back(model.objects.size() - 1);
 #ifdef _DEBUG
     check_model_ids_validity(model);
@@ -3331,7 +3340,7 @@ void AnkerObjectBar::enableSettingsPanel(bool enable, AnkerObjectItem* item)
 
         wxString objName = item->getText();
         Slic3r::ModelConfig* itemCfg = &(get_item_config(item)/*.getPrintCfg()*/);
-        Slic3r::GUI::wxGetApp().plater()->sidebarnew().showRightMenuParameterPanel(objName, itemCfg);
+        //Slic3r::GUI::wxGetApp().plater()->sidebarnew().showRightMenuParameterPanel(objName, itemCfg);
 
         if (!m_bindFlag)
         {
@@ -3348,7 +3357,7 @@ void AnkerObjectBar::enableSettingsPanel(bool enable, AnkerObjectItem* item)
     {
         m_editingObjectItem = nullptr;
 
-        Slic3r::GUI::wxGetApp().plater()->sidebarnew().exitRightMenuParameterPanel();
+        //Slic3r::GUI::wxGetApp().plater()->sidebarnew().exitRightMenuParameterPanel();
     }
 }
 
@@ -3363,8 +3372,8 @@ void AnkerObjectBar::enableLayerPanel(bool enable, AnkerObjectItem* item)
     else
         m_editingObjectItem = nullptr;
 
-	Slic3r::GUI::wxGetApp().obj_layers()->reset_selection();
-	Slic3r::GUI::wxGetApp().obj_layers()->UpdateAndShow(enable);
+	//Slic3r::GUI::wxGetApp().obj_layers()->reset_selection();
+	//Slic3r::GUI::wxGetApp().obj_layers()->UpdateAndShow(enable);
 }
 
 void AnkerObjectBar::update_info_items(size_t obj_idx, AnkerObjectItem::ItemType type)

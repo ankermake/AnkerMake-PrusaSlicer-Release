@@ -5,21 +5,175 @@
 #include "slic3r/GUI/GLSelectionRectangle.hpp"
 #include "slic3r/GUI/GLModel.hpp"
 #include "slic3r/GUI/I18N.hpp"
-#include "slic3r/GUI/Common/AnkerLineEditUnit.hpp"
+
 #include "libslic3r/TriangleMesh.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/CutUtils.hpp"
 #include "imgui/imgui.h"
+#include "GLGizmosCommon.hpp"
+
+#define ORCA_UI
+//#define PRUSA_UI
+//#define ANKER_SIDEBAR_UI
+
+#ifdef ANKER_SIDERBAR_UI
+#include "slic3r/GUI/Common/AnkerSliderCtrl.hpp"
+#include "slic3r/GUI/Common/AnkerLineEditUnit.hpp"
+#include "slic3r/GUI/Common/AnkerTitledPanel.hpp"
+#include "slic3r/GUI/AnkerCheckBox.hpp"
+#include "slic3r/GUI/AnkerBtn.hpp"
+#include "slic3r/GUI/PresetComboBoxes.hpp"
+#endif
 
 namespace Slic3r {
 
 enum class CutConnectorType : int;
 class ModelVolume;
+class GLShaderProgram;
 struct CutConnectorAttributes;
 
 namespace GUI {
 class Selection;
 
 enum class SLAGizmoEventType : unsigned char;
+
+namespace CommonGizmosDataObjects { class ObjectClipper; }
+
+#ifdef ANKER_SIDEBAR_UI
+struct _Property {
+    _Property(wxPanel* panel, const wxString& unit, const wxString& textValue,
+        double value, const std::array<double, 2>& range, bool show)
+        :_panel(panel), _unit(unit), _textValue(textValue), _value(value), _range(range), _bShow(show) {};
+
+    bool _bShow{ false };
+    double _value{ 0.0f };
+    wxPanel* _panel{ nullptr };
+    wxString _unit{ "" };
+    wxString _textValue{ "" };
+    std::function<double()> _slider_action{ nullptr };
+    std::function<wxString()> _edit_action{ nullptr };
+    std::array<double, 2> _range{ 0.0f, 0.0f };
+    double _step{ 0.01f };
+};
+
+class ImageButtonWarpper
+{
+    using actionCb = std::function<void()>;
+public:
+    ImageButtonWarpper(AnkerTitledPanel* container, wxPanel* panel, const wxString& name, const wxString& normalImage, const wxString& pressImage, std::function<void()> action);
+    ImageButtonWarpper(AnkerTitledPanel* container, wxPanel* panel, const wxString& name, std::function<void()> action, bool show);
+    ~ImageButtonWarpper() = default;
+
+    void select();
+    void unselect();
+    void set_apply_visible(bool visible) { m_apply_btn->Show(visible); }
+    wxButton* get_button() const { return m_btn; }
+    AnkerBtn* get_apply_btn() const { return m_apply_btn; }
+
+private:
+    wxButton* m_btn{ nullptr };
+    actionCb m_cb{ nullptr };
+    AnkerBtn* m_apply_btn{ nullptr };
+    std::pair<wxImage, wxImage> m_pair;
+    AnkerTitledPanel* m_container{ nullptr };
+};
+
+class SliderBoxSizerWrapper
+{
+    using actionCb = std::function<void(double)>;
+public:
+    SliderBoxSizerWrapper(AnkerTitledPanel* container, const std::shared_ptr<_Property>& property, std::function<void(double)> action, bool bAngle = false);
+    ~SliderBoxSizerWrapper() = default;
+
+    void reset();
+    wxBoxSizer* get_boxSizer() const { return m_boxSizer; }
+    void set_visible(bool visible) { if (m_boxSizer) m_boxSizer->Show(visible); };
+    void set_enable(bool enable) { if (m_slider) m_slider->Enable(enable); if(m_lineEdit) m_lineEdit->Enable(enable);  }
+    
+private:
+    AnkerSlider* create_slider(wxPanel* panel, double value, const std::array<double, 2>& range, double step = 0.01);
+    AnkerLineEditUnit* create_lineEditUnit(wxPanel* panel, const wxString& unit, const wxString& text, const std::array<double, 2>& range);
+
+private:
+    bool m_isEditing{ false };
+    bool m_bAngle{ false };
+    actionCb m_cb{ nullptr };
+    wxBoxSizer* m_boxSizer{ nullptr };
+    AnkerSlider* m_slider{ nullptr };
+    AnkerLineEditUnit* m_lineEdit{ nullptr };
+    AnkerTitledPanel* m_container{ nullptr };
+    std::shared_ptr<_Property> m_prop{ nullptr };
+};
+
+enum RadioBoxSizerType {
+    RadioBoxSizerType_Horizontal,
+    RadioBoxSizerType_Vertical
+};
+
+class RadioBoxSizerWrapper
+{
+    using actionCb = std::function<void(size_t)>;
+    using RadioBoxButton = std::pair<wxStaticText*, wxButton*>;
+public:
+    RadioBoxSizerWrapper(wxPanel* panel, const std::vector<wxString>& texts, std::function<void(size_t)> action, RadioBoxSizerType type = RadioBoxSizerType_Horizontal, bool textLightColor = false);
+    ~RadioBoxSizerWrapper() = default;
+
+    wxBoxSizer* get_boxSizer()const { return m_boxSizer; }
+    void set_visible(bool visible) { if (m_boxSizer) m_boxSizer->Show(visible); };
+    void set_enable(bool enable = true);
+    void select_item(size_t index = 0);
+
+private:
+    wxButton* create_button(wxPanel* panel, const wxString& name, const wxString& normalImage, const wxString& pressImage);
+
+private:    
+    std::vector<RadioBoxButton> m_btns{ };
+    actionCb m_cb{ nullptr };
+    wxBoxSizer* m_boxSizer{ nullptr };
+    RadioBoxSizerType m_type;
+};
+
+class ImagePanel : public wxPanel
+{
+private:
+    wxImage m_image;
+
+public:
+    bool visible = false;
+
+public:
+    ImagePanel(wxPanel* parent, const wxString& file, wxBitmapType format)
+        : wxPanel(parent)
+    {
+        m_image.LoadFile(file, format);
+        Bind(wxEVT_PAINT, &ImagePanel::OnPaint, this);
+        Bind(wxEVT_SIZE, &ImagePanel::OnSize, this);
+    }
+
+    void OnPaint(wxPaintEvent& event)
+    {
+        if (!visible) {
+            event.Skip();
+            return;
+        }
+        wxPaintDC dc(this);
+        wxSize size = GetSize();
+        dc.DrawBitmap(wxBitmap(m_image.Scale(size.GetWidth(), size.GetHeight())), 0, 0, false);
+    }
+
+    void OnSize(wxSizeEvent& event)
+    {
+        Refresh();
+        event.Skip();
+    }
+};
+
+enum AnkerLineEditUnitMode {
+    AnkerLineEditUnitMode_None,
+    AnkerLineEditUnitMode_Editing,
+    AnkerLineEditUnitMode_Edited
+};
+#endif
 
 class GLGizmoCut3D : public GLGizmoBase
 {
@@ -28,6 +182,9 @@ class GLGizmoCut3D : public GLGizmoBase
         Y,
         Z,
         CutPlane,
+        CutPlaneZRotation,
+        CutPlaneXMove,
+        CutPlaneYMove,
         Count,
     };
 
@@ -53,6 +210,7 @@ class GLGizmoCut3D : public GLGizmoBase
     double m_radius{ 0.0 };
     double m_grabber_radius{ 0.0 };
     double m_grabber_connection_len{ 0.0 };
+    Vec3d  m_cut_plane_start_move_pos {Vec3d::Zero()};
 
     double m_snap_coarse_in_radius{ 0.0 };
     double m_snap_coarse_out_radius{ 0.0 };
@@ -77,6 +235,7 @@ class GLGizmoCut3D : public GLGizmoBase
     PickingModel m_plane;
     PickingModel m_sphere;
     PickingModel m_cone;
+    PickingModel m_cube;
     std::map<CutConnectorAttributes, PickingModel> m_shapes;
     std::vector<std::shared_ptr<SceneRaycasterItem>> m_raycasters;
 
@@ -110,23 +269,34 @@ class GLGizmoCut3D : public GLGizmoBase
     bool m_rotate_upper{ false };
     bool m_rotate_lower{ false };
 
+    // Input params for cut with tongue and groove
+    Cut::Groove m_groove;
+    bool m_groove_editing { false };
+
+    bool m_is_slider_editing_done { false };
+
+    // Input params for cut with snaps
+    float m_snap_bulge_proportion{ 0.15f };
+    float m_snap_space_proportion{ 0.3f };
+
     bool m_hide_cut_plane{ false };
     bool m_connectors_editing{ false };
     bool m_cut_plane_as_circle{ false };
 
     float m_connector_depth_ratio{ 3.f };
     float m_connector_size{ 2.5f };
+    float m_connector_angle{ 0.f };
 
     float m_connector_depth_ratio_tolerance{ 0.1f };
     float m_connector_size_tolerance{ 0.f };
 
     float m_label_width{ 0.f };
     float m_control_width{ 200.f };
+    double m_editing_window_width{ 1.0f };
     bool  m_imperial_units{ false };
 
     float m_contour_width{ 0.4f };
     float m_cut_plane_radius_koef{ 1.5f };
-    bool  m_is_contour_changed{ false };
     float m_shortcut_label_width{ -1.f };
 
     mutable std::vector<bool> m_selected; // which pins are currently selected
@@ -134,21 +304,63 @@ class GLGizmoCut3D : public GLGizmoBase
 
     GLSelectionRectangle m_selection_rectangle;
 
-    bool m_has_invalid_connector{ false };
+    std::vector<size_t> m_invalid_connectors_idxs;
     bool m_was_cut_plane_dragged { false };
+    bool m_was_contour_selected { false };
+
+    // Vertices of the groove used to detection if groove is valid
+    std::vector<Vec3d> m_groove_vertices;
+
+    bool m_cut_to_parts_show{ true };
+
+    class PartSelection {
+    public:
+        PartSelection() = default;
+        PartSelection(const ModelObject* mo, const Transform3d& cut_matrix, int instance_idx, const Vec3d& center, const Vec3d& normal, const CommonGizmosDataObjects::ObjectClipper& oc);
+        PartSelection(const ModelObject* mo, int instance_idx_in);
+        ~PartSelection() { m_model.clear_objects(); }
+
+        struct Part {
+            GLModel glmodel;
+            MeshRaycaster raycaster;
+            bool selected;
+            bool is_modifier;
+        };
+
+        void render(const Vec3d* normal, GLModel& sphere_model);
+        void toggle_selection(const Vec2d& mouse_pos);
+        void turn_over_selection();
+        ModelObject* model_object() { return m_model.objects.front(); }
+        bool valid() const { return m_valid; }
+        bool is_one_object() const;
+        const std::vector<Part>& parts() const { return m_parts; }
+        const std::vector<size_t>* get_ignored_contours_ptr() const { return (valid() ? &m_ignored_contours : nullptr); }
+
+        std::vector<Cut::Part> get_cut_parts();
+
+    private:
+        Model m_model;
+        int m_instance_idx;
+        std::vector<Part> m_parts;
+        bool m_valid = false;
+        std::vector<std::pair<std::vector<size_t>, std::vector<size_t>>> m_contour_to_parts; // for each contour, there is a vector of parts above and a vector of parts below
+        std::vector<size_t> m_ignored_contours; // contour that should not be rendered (the parts on both sides will both be parts of the same object)
+
+        std::vector<Vec3d> m_contour_points;         // Debugging
+        std::vector<std::vector<Vec3d>> m_debug_pts; // Debugging
+
+        void add_object(const ModelObject* object);
+    };
+
+    PartSelection m_part_selection;
 
     bool                                        m_show_shortcuts{ false };
     std::vector<std::pair<wxString, wxString>>  m_shortcuts;
 
-    // Anker
-    bool m_zHeightEditing;
-    bool m_panelVisibleFlag;
-    wxBoxSizer* m_pInputWindowSizer;
-    AnkerLineEditUnit* m_pZHeightTextCtrl;
-
     enum class CutMode {
         cutPlanar
-        , cutGrig
+        , cutTongueAndGroove
+        //, cutGrig
         //,cutRadial
         //,cutModular
     };
@@ -158,7 +370,7 @@ class GLGizmoCut3D : public GLGizmoBase
         , Manual
     };
 
-//    std::vector<std::string> m_modes;
+    std::vector<std::string> m_modes;
     size_t m_mode{ size_t(CutMode::cutPlanar) };
 
     std::vector<std::string> m_connector_modes;
@@ -166,12 +378,13 @@ class GLGizmoCut3D : public GLGizmoBase
 
     std::vector<std::string> m_connector_types;
     CutConnectorType m_connector_type;
+    CutConnectorType m_last_connector_type{ CutConnectorType::Plug };
 
     std::vector<std::string> m_connector_styles;
-    size_t m_connector_style;
+    int m_connector_style;
 
     std::vector<std::string> m_connector_shapes;
-    size_t m_connector_shape_id;
+    int m_connector_shape_id;
 
     std::vector<std::string> m_axis_names;
 
@@ -183,7 +396,7 @@ public:
     GLGizmoCut3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
 
     std::string get_tooltip() const override;
-    bool unproject_on_cut_plane(const Vec2d& mouse_pos, Vec3d& pos, Vec3d& pos_world);
+    bool unproject_on_cut_plane(const Vec2d& mouse_pos, Vec3d& pos, Vec3d& pos_world, bool respect_contours = true);
     bool gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_position, bool shift_down, bool alt_down, bool control_down);
 
     bool is_in_editing_mode() const override { return m_connectors_editing; }
@@ -203,6 +416,8 @@ public:
     void update_clipper();
     void invalidate_cut_plane();
 
+    virtual bool apply_clipping_plane() { return m_connectors_editing; }
+
     BoundingBoxf3   bounding_box() const;
     BoundingBoxf3   transformed_bounding_box(const Vec3d& plane_center, const Transform3d& rotation_m = Transform3d::Identity()) const;
 
@@ -212,13 +427,14 @@ protected:
     void               on_save(cereal::BinaryOutputArchive&ar) const override;
     std::string        on_get_name(bool i18n = true) const override;
     void               on_set_state() override;
+    void               set_input_window_state(bool on);
     CommonGizmosDataID on_get_requirements() const override;
     void               on_set_hover_id() override;
     bool               on_is_activable() const override;
     bool               on_is_selectable() const override;
     Vec3d              mouse_position_in_local_plane(GrabberID axis, const Linef3&mouse_ray) const;
-    void               dragging_grabber_z(const GLGizmoBase::UpdateData &data);
-    void               dragging_grabber_xy(const GLGizmoBase::UpdateData &data);
+    void               dragging_grabber_move(const GLGizmoBase::UpdateData &data);
+    void               dragging_grabber_rotation(const GLGizmoBase::UpdateData &data);
     void               dragging_connector(const GLGizmoBase::UpdateData &data);
     void               on_dragging(const UpdateData&data) override;
     void               on_start_dragging() override;
@@ -231,17 +447,23 @@ protected:
     void select_all_connectors();
     void render_shortcuts();
     void apply_selected_connectors(std::function<void(size_t idx)> apply_fn);
-    void render_connectors_input_window(CutConnectors &connectors);
+    void render_connectors_input_window(CutConnectors &connectors, float x = 0, float y = 0, float bottom_limit = 0);
     void render_build_size();
     void reset_cut_plane();
     void set_connectors_editing(bool connectors_editing);
     void flip_cut_plane();
+    void process_contours();
+    void reset_cut_by_contours();
     void render_flip_plane_button(bool disable_pred = false);
     void add_vertical_scaled_interval(float interval);
     void add_horizontal_scaled_interval(float interval);
     void add_horizontal_shift(float shift);
     void render_color_marker(float size, const ImU32& color);
-    void render_cut_plane_input_window(CutConnectors &connectors);
+    void render_groove_float_input(const std::string &label, float &in_val, const float &init_val, float &in_tolerance);
+    void render_groove_angle_input(const std::string &label, float &in_val, const float &init_val, float min_val, float max_val);
+    bool render_angle_input(const std::string& label, float& in_val, const float& init_val, float min_val, float max_val);
+    void render_snap_specific_input(const std::string& label, const wxString& tooltip, float& in_val, const float& init_val, const float min_val, const float max_val);
+    void render_cut_plane_input_window(CutConnectors &connectors, float x = 0, float y = 0, float bottom_limit = 0);
     void init_input_window_data(CutConnectors &connectors);
     void render_input_window_warning() const;
     bool add_connector(CutConnectors&connectors, const Vec2d&mouse_position);
@@ -256,20 +478,27 @@ protected:
     void set_volumes_picking_state(bool state);
     void update_raycasters_for_picking_transform();
 
+    void update_plane_model();
+
     void on_render_input_window(float x, float y, float bottom_limit) override;
+    void updateAnkerData() override;
+    void show_tooltip_information(float x, float y);
 
     bool wants_enter_leave_snapshots() const override       { return true; }
     std::string get_gizmo_entering_text() const override    { return _u8L("Entering Cut gizmo"); }
     std::string get_gizmo_leaving_text() const override     { return _u8L("Leaving Cut gizmo"); }
     std::string get_action_snapshot_name() const override   { return _u8L("Cut gizmo editing"); }
 
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
+    Transform3d get_cut_matrix(const Selection& selection);
 
 private:
-    void set_center(const Vec3d& center, bool update_tbb = false);
-    bool render_combo(const std::string& label, const std::vector<std::string>& lines, size_t& selection_idx);
+    void set_center(const Vec3d&center, bool update_tbb = false);
+    void switch_to_mode(size_t new_mode);
+    bool render_cut_mode_combo();
+    bool render_combo(const std::string&label, const std::vector<std::string>&lines, int&selection_idx);
     bool render_double_input(const std::string& label, double& value_in);
-    bool render_slider_double_input(const std::string& label, float& value_in, float& tolerance_in);
+    bool render_slider_double_input(const std::string& label, float& value_in, float& tolerance_in, float min_val = -0.1f, float max_tolerance = -0.1f);
     void render_move_center_input(int axis);
     void render_connect_mode_radio_button(CutConnectorMode mode);
     bool render_reset_button(const std::string& label_id, const std::string& tooltip) const;
@@ -279,16 +508,20 @@ private:
     void render_connectors();
 
     bool can_perform_cut() const;
+    bool has_valid_groove() const;
     bool has_valid_contour() const;
-    void apply_connectors_in_model(ModelObject* mo, bool &create_dowels_as_separate_object);
+    // Aden update.
+    //void apply_connectors_in_model(ModelObject* mo, bool &create_dowels_as_separate_object);
+    void apply_connectors_in_model(ModelObject* mo, int& dowels_count);
     bool cut_line_processing() const;
     void discard_cut_line_processing();
 
+    void apply_color_clip_plane_colors();
     void render_cut_plane();
-    void render_model(GLModel& model, const ColorRGBA& color, Transform3d view_model_matrix);
+    static void render_model(GLModel& model, const ColorRGBA& color, Transform3d view_model_matrix);
     void render_line(GLModel& line_model, const ColorRGBA& color, Transform3d view_model_matrix, float width);
     void render_rotation_snapping(GrabberID axis, const ColorRGBA& color);
-    void render_grabber_connection(const ColorRGBA& color, Transform3d view_matrix);
+    void render_grabber_connection(const ColorRGBA& color, Transform3d view_matrix, double line_len_koef = 1.0);
     void render_cut_plane_grabbers();
     void render_cut_line();
     void perform_cut(const Selection&selection);
@@ -304,9 +537,149 @@ private:
     void validate_connector_settings();
     bool process_cut_line(SLAGizmoEventType action, const Vec2d& mouse_position);
 
-    // Anker
-    void set_input_window_state(bool on);
-    void update_input_window();
+    // Aden update.
+    void check_and_update_connectors_state();
+
+    void toggle_model_objects_visibility();
+
+    indexed_triangle_set its_make_groove_plane();
+
+    indexed_triangle_set get_connector_mesh(CutConnectorAttributes connector_attributes);
+    void apply_cut_connectors(ModelObject* mo, const std::string& connector_name);
+
+#ifdef ANKER_SIDEBAR_UI
+    void initGUI();
+    void OnModeComboBoxChanged(wxCommandEvent& event);
+
+    void perform_cut_show(bool show);
+
+
+    static AnkerSimpleCombox* createCombox(wxPanel* panel, const wxArrayString& itemList);
+#endif
+
+    private:
+#ifdef ANKER_SIDEBAR_UI
+        std::string panelFlag{ "GLGizmoCut3D" };
+        wxBoxSizer* m_pInputWindowSizer{ nullptr };
+        AnkerTitledPanel* container{ nullptr };
+
+        bool m_panelVisibleFlag = false;
+        wxPanel* m_cutPanel{ nullptr };
+        // Mode
+        wxStaticText* m_modeText{ nullptr };
+        AnkerSimpleCombox* m_modeComboBox{ nullptr };  // Plannar/Dovetail
+        
+        // Build Volume
+        wxStaticText* m_buildVolumeText{ nullptr };
+        wxStaticText* m_buildVolumeTextSize{ nullptr };
+        Vec3d m_tbb_size{};
+
+        // Cut Position
+        wxStaticText* m_cutPositionText{ nullptr };
+        ScalableButton* m_cutPositionResetBtn{ nullptr };
+        wxStaticText* m_cutPositionZText{ nullptr }; 
+        AnkerLineEditUnit* m_cutPositionZLineEdit{ nullptr }; // Z: 28.24
+        AnkerLineEditUnitMode m_cutPositionZEditMode{ AnkerLineEditUnitMode_None };
+        
+        // Add Connectors Btn/ Reset Cut Btn
+        wxBoxSizer* m_addConnectorBtnSizer{ nullptr };
+        AnkerBtn* m_addConnectorsBtn{ nullptr };
+        AnkerBtn* m_resetCutBtn{ nullptr };
+        bool m_resetCutBtnEnable{ true };
+
+
+
+        wxPanel* m_croovePanel{ nullptr };
+        // Croove
+        wxStaticText* m_crooveText{ nullptr };
+        
+        wxStaticText* m_depthText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_depthValueSlider{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_depthToleranceSlider{ nullptr };
+
+        wxStaticText* m_widthText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_widthValueSlider{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_widthToleranceSlider{ nullptr };
+
+        wxStaticText* m_flapAngleText{ nullptr };
+        std::unique_ptr <SliderBoxSizerWrapper> m_flapAngleSlider{ nullptr };
+
+        wxStaticText* m_grooveAngleText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_grooveAngleSlider{ nullptr };
+
+
+
+        wxPanel* m_resultPanel{ nullptr };
+        // Cut Result
+        wxStaticText* m_cutResultText{ nullptr };
+        AnkerCheckBox* m_objectACheckBox{ nullptr };    // Object A
+        std::unique_ptr<RadioBoxSizerWrapper> m_objectARadioBoxSizer{ nullptr };
+
+        AnkerCheckBox* m_objectBCheckBox{ nullptr };    // Object B
+        std::unique_ptr<RadioBoxSizerWrapper> m_objectBRadioBoxSizer{ nullptr };
+
+
+
+        wxPanel* m_intoPanel{ nullptr };
+        // Cut Into
+        wxStaticText* m_cutIntoText{ nullptr };
+        std::unique_ptr<RadioBoxSizerWrapper> m_cutIntoRadioBoxSizer{ nullptr };
+
+        AnkerBtn* m_performCutBtn{ nullptr };
+
+        wxPanel* m_connectorsPanel{ nullptr };
+        // Connectors
+        wxStaticText* m_connectorsText{ nullptr };
+        ScalableButton* m_connectorsResetBtn{ nullptr };
+        AnkerBtn* m_flipCutPlaneBtn{ nullptr };
+        bool m_flipCutPlaneBtnEnable{ true };
+
+        // Type
+        wxStaticText* m_typeText{ nullptr };
+        std::unique_ptr<RadioBoxSizerWrapper> m_connectorsTypeRadioBoxSizer{ nullptr };
+
+        // Style
+        wxStaticText* m_styleText{ nullptr };
+        AnkerSimpleCombox* m_styleComboBox{ nullptr };
+        
+        // Shape
+        wxStaticText* m_shapeText{ nullptr };
+        AnkerSimpleCombox* m_shapeComboBox{ nullptr };
+
+        // Depth
+        wxStaticText* m_connectorsDepthText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsDepthValueSlider{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsDepthToleranceSlider{ nullptr };
+
+        // Size
+        wxStaticText* m_connectorsSizeText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsSizeValueSlider{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsSizeToleranceSlider{ nullptr };
+
+        // Rotation
+        wxStaticText* m_connectorsRotationText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsRotationValueSlider{ nullptr };
+
+        // Bulge
+        wxStaticText* m_connectorsBulgeText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsBulgeSlider{ nullptr };
+
+        // Space
+        wxStaticText* m_connectorsSpaceText{ nullptr };
+        std::unique_ptr<SliderBoxSizerWrapper> m_connectorsSpaceSlider{ nullptr };
+
+        AnkerBtn* m_connectorsCancelBtn{ nullptr };
+        AnkerBtn* m_connectorsConfirmConnectorsBtn{ nullptr };
+
+        wxStaticText* m_invalidCutInfoText{ nullptr };
+        wxString m_lastInvalidCutInfoStr;
+        ImagePanel* m_warningInvalidCutInfoImage{ nullptr };
+
+        // Invalid connectors detected:-1 connector is out of object
+        wxStaticText* m_invalidConnectorsInfoText{ nullptr };
+        wxString m_lastInvalidConnectorsInfoStr;
+        ImagePanel* m_warningInvalidConnectorsImage{ nullptr };
+#endif
 };
 
 } // namespace GUI

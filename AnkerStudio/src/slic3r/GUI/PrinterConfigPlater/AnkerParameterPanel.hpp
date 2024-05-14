@@ -26,11 +26,19 @@
 #include "../PresetComboBoxes.hpp"
 #include "AnkerPrintParaItem.hpp"
 #include "AnkerParameterData.hpp"
+#include "libslic3r/Model.hpp"
+#include "slic3r/GUI/ObjectDataViewModel.hpp"
+
+#include "slic3r/GUI/GUI_ObjectList.hpp"
+#include "slic3r/GUI/GUI_ObjectLayers.hpp"
+#include "slic3r/GUI/Widgets/SwitchButton.hpp"
+
+using namespace Slic3r::GUI;
 
 class AnkerPrintParaItem;
 class AnkerSimpleCombox;
 
-
+#define DEFAULT_OBJECT_LIST_HEIGHT 180
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SAVEALL_BTN_CLICKED, wxCommandEvent);
@@ -41,11 +49,57 @@ wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_EXIT_RIGHT_MENU_PANEL, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RESETBTN_UPDATE, wxCommandEvent);
 
+class AnkerObjectListControl : public wxControl
+{
+public:
+	AnkerObjectListControl(wxWindow* parent);
+	~AnkerObjectListControl() {};
+
+	void Init();
+
+	inline ObjectList* get_object_list() const {
+		return m_object_list;
+	}
+
+	inline std::shared_ptr<AnkerObjectSettings> get_object_setting() const {
+		return m_object_setting;
+	}
+
+private:
+	ObjectList* m_object_list{ nullptr };
+	std::shared_ptr<AnkerObjectSettings> m_object_setting{ std::make_shared<AnkerObjectSettings>() };
+};
+
+
+class AnkerAcodeExportProgressDialog : public wxFrame
+{
+public:
+	AnkerAcodeExportProgressDialog(wxWindow* parent);
+	~AnkerAcodeExportProgressDialog() {};
+	void InitUI();
+
+private:
+	void onProgressChange(float percentage);
+
+private:
+	wxStaticText* m_exportingLabel = nullptr;
+	wxBitmapButton* m_stopExportBtn = nullptr;
+	wxGauge* m_exportProgressBar = nullptr;;
+	wxStaticText* m_exportProgressText = nullptr;
+};
+
+
+
+
 typedef struct paramItemTag {
 	wxString strParamName;
 	ControlType controlType;
 	ItemDataType dataType;
 	std::vector<wxString> contentStrList;
+	bool local_show{ true };
+	bool layer_height_show{ true };
+	bool part_show{ true };
+	bool modifer_show{ true };
 	GroupParamUIConfig uiConifg = GroupParamUIConfig();
 }paramItem;
 
@@ -55,7 +109,6 @@ typedef struct groupItemTag {
 	wxString strTabName;
 	std::vector<paramItem> paramVec;
 }groupItem;
-
 
 class AnkerParameterPanel:public wxControl
 {
@@ -71,6 +124,13 @@ public:
 		m_AllPrintParamInfo.clear();
 	}
 
+
+	//void ChangeViewMode(Slic3r::GUI::ViewMode mode);
+	void ChangeViewMode(int mode);
+	void SetAIVisibilityByPrinterModel();
+	void UpdateAI(int reason);
+	//void UpdatePreviewModeButtons(bool GcodeValid, Slic3r::GUI::RightSidePanelUpdateReason reason = Slic3r::GUI::REASON_NONE);
+	void UpdatePreviewModeButtons(bool GcodeValid, int reason = 0);
 	void enableSliceBtn(bool isSaveBtn, bool isEnable);
 	void resetAllUi(int iResetType = 0);
 	bool saveAllUi();
@@ -84,11 +144,23 @@ public:
 	void updatePreset(Slic3r::DynamicPrintConfig& printConfig);
 	void updatePresetEx(Slic3r::DynamicPrintConfig* printConfig);
 	void getItemList(wxStringList& list,ControlListType listType);
+	void setItemValue(const wxString& optionKey, wxVariant data);
 	void setItemValue(const wxString tabName, const wxString& optionKey, wxVariant data);
 	void setItemValueEx(const wxString tabName, const wxString &optionKey, wxVariant data,bool needReset);
 	void openSupportMaterialPage(wxString itemName, wxString text);
-	void setObjectName(const wxString& objName, Slic3r::ModelConfig* config);
-	void showRightParameterpanel();
+	
+	bool refreshParamPanel(const Slic3r::DynamicPrintConfig& current_config, std::map<std::string, Slic3r::ConfigOption*> &mp);
+	void setItemDataValue(const wxString& tabName, const std::string& key, ItemDataType type);
+	void updateItemParamPanel(const std::map<std::string, Slic3r::ConfigOption*>& mp);
+	void showRightParameterpanel(bool show = true);
+	wxString GetTabNameByKey(const std::string& key);
+
+
+	void setCurrentModelConfig(Slic3r::ModelConfig* config, const Slic3r::DynamicPrintConfig& current_config,  Slic3r::GUI::ObjectDataViewModelNode* node, 
+		bool bUpdate);
+
+	void hideLocalParamPanel();
+	void setParamVisible(Slic3r::GUI::ItemType type, Slic3r::ModelVolumeType volume_type, bool bUpdate);
 	
 	bool getObjConfig(Slic3r::ModelConfig*& config);
 	void onComboBoxClick(Slic3r::GUI::AnkerPlaterPresetComboBox* presetComboBox);
@@ -98,20 +170,28 @@ public:
 	std::map<wxString, PARAMETER_GROUP> getAllPrintParamInfos();
 	bool isSelectSystemPreset();
 
+	void onPrinterPresetChange();
 
-
-
+	void set_layer_height_sizer(wxBoxSizer* sizer, bool layer_root);
+	void detach_layer_height_sizer();
+	SwitchButton* get_switch_btn() const { return m_mode_region; }
 protected:
-	void setItemValueWithToolTips(const wxString tabName, const wxString& optionKey, wxVariant data, const wxString& tipswxValue);
+	void setItemValueWithToolTips(const wxString tabName, const wxString& optionKey, wxVariant data, const wxString& tipswxValue, bool* p_has_dirty = nullptr);
 	void initUi();
 	void onBtnClicked(wxCommandEvent &event);
-	void showCurrentWidget(const wxString &tabName);
+	//void showCurrentWidget(const wxString& tabName);
+	//void showCurrentWidget(const wxString &tabName, Slic3r::GUI::ItemType type = Slic3r::GUI::ItemType::itUndef);
+
+	void showCurrentWidget(const wxString& tabName, Slic3r::GUI::ItemType type = Slic3r::GUI::ItemType::itUndef, 
+		Slic3r::ModelVolumeType volume_type = Slic3r::ModelVolumeType::INVALID);
 
 	void getSearResMap(std::map<wxString, std::map<wxString, wxString >>& searchResMap, const wxString& searchData);
 	void showEasyModel();
 	wxString getSelectedPrintMode();
 	void showExpertModel();
 	void switchToOption(const wxString& strTab,const wxString &optionKey);
+
+	void InitViewMode();
 
 	// iInitType equal 0: init all the data by init UI or revert by revert all group params.
 	// iInitType equal 1:  revert all model params.
@@ -142,15 +222,36 @@ private:
 									std::string& optionKey,
 									wxString& optionLabel);
 	void onResetBtnStatusChanged(bool isAble);
-	AnkerPrintParaItem* createGroupItem(groupItem& pGroupItem);
-	void onPresetOpPopupClick(wxCommandEvent& event);
+	AnkerPrintParaItem* createGroupItem(groupItem& pGroupItem, bool local = true, bool layer_height = true, bool part = false, bool modifer = false);
+	//void onPresetOpPopupClick(wxCommandEvent& event);
 	void rename_preset();
 	void delete_preset();
+
+	void CreateExportProgressDlg();
+	void SetAIValByPrinterModel();
+	void OnExportBtnClick(wxCommandEvent& event);
+	void OnPrintBtnClick(wxCommandEvent& event);
+	void EnableAIUI(bool enable);
+	std::string getFormatedFilament(std::string filamentStr);
+	void UpdateBtnClr();
+
+	void OnToggled(wxCommandEvent& event);
+	void ChangeParamMode(PrintParamMode mode);
+	AnkerChooseBtn* GetTabBtnByName(const wxString& name);
+
+private:
+	void CreateGlobalParamPanel();
+	void CreateLocalParamPanel();
+	void createObjectlistPanel();
+	void UpdateObjectListControlHeigh();
+
 private:
 	AnkerEasyPanel* m_pEasyWidget{ nullptr };
 	ScalableButton* m_printParameterEditBtn{ nullptr };
 	wxStaticText* m_pTitleLabel{ nullptr };
 	wxStaticText* m_pExpertLabel{ nullptr };
+
+	SwitchButton* m_mode_region{ nullptr };
 	AnkerToggleBtn* m_pExpertModeBtn{ nullptr };
 	ScalableButton* m_deleteBtn{ nullptr };
 	ScalableButton* m_pExitBtn{ nullptr };
@@ -179,12 +280,27 @@ private:
 	AnkerLineEdit* m_pSearchTextCtrl{ nullptr };
 	wxBoxSizer* m_pMainVSizer{ nullptr };
 
+	// objectlist
+	wxBoxSizer* m_object_sizer{ nullptr };
+	AnkerObjectListControl* m_control{ nullptr };
+	// layer height
+	wxBoxSizer* m_layer_height_sizer{ new wxBoxSizer(wxVERTICAL) };
+
 	wxScrolledWindow* m_pTabBtnScrolledWindow{ nullptr };
 	wxScrolledWindow* m_pTabItemScrolledWindow{ nullptr };
 
 	wxPanel* m_pBtnPanel{ nullptr };
 	AnkerBtn* m_pSliceBtn{ nullptr };
 	AnkerBtn* m_pSaveProjectBtn{ nullptr };
+
+	// preview mode UI
+	wxBoxSizer* m_AISizer = nullptr;
+	wxStaticText* m_AILabel = { nullptr };
+	AnkerToggleBtn* m_createAIFileToggleBtn{ nullptr };
+	AnkerBtn* m_pExportBtn{ nullptr };
+	AnkerBtn* m_pPrintBtn{ nullptr };
+	AnkerAcodeExportProgressDialog* m_exportProgressDlg = {nullptr};
+	std::atomic_bool m_onOneKeyPrint{ false };
 
 	std::vector<AnkerChooseBtn*>	m_tabBtnVector;
 	std::map<wxString, std::list<AnkerPrintParaItem*>> m_windowTabMap;//tab-groups
@@ -195,7 +311,13 @@ private:
 	AnkerParameterData m_parameterData;   //  data redundancy, it's wast of memery beacause each option group heve one AnkerParameterData object
 	wxBoxSizer* m_pTabItemScrolledVWinSizer;
 	std::map<wxString, PARAMETER_GROUP> m_AllPrintParamInfo;
-	PrintParamMode m_PrintParamMode;
+	const PrintParamMode m_PrintParamMode;
+
+	wxTimer m_slice_delay_timer;
+	bool m_isFold{ false };
+	wxString m_current_tab_name { " "};
+	Slic3r::GUI::ItemType m_current_type { Slic3r::GUI::ItemType::itUndef };
+	Slic3r::ModelVolumeType m_volume_type{ Slic3r::ModelVolumeType::INVALID };
 };
 
 #endif

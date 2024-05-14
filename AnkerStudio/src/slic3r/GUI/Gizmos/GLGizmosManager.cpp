@@ -22,6 +22,7 @@
 #include "slic3r/GUI/Gizmos/GLGizmoMmuSegmentation.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoSimplify.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoEmboss.hpp"
+#include "slic3r/GUI/Gizmos/GLGizmoSVG.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoMeasure.hpp"
 
 #include "libslic3r/format.hpp"
@@ -110,9 +111,12 @@ bool GLGizmosManager::init()
     m_gizmos.emplace_back(new GLGizmoMmuSegmentation(m_parent, "mmu_segmentation.svg", 9));
     m_gizmos.emplace_back(new GLGizmoMeasure(m_parent, "measure.svg", 10));
     m_gizmos.emplace_back(new GLGizmoEmboss(m_parent));
+    m_gizmos.emplace_back(new GLGizmoSVG(m_parent));
     m_gizmos.emplace_back(new GLGizmoSimplify(m_parent));
 
     m_common_gizmos_data.reset(new CommonGizmosDataPool(&m_parent));
+    if (!m_assemble_view_data)
+        m_assemble_view_data.reset(new AssembleViewDataPool(&m_parent));
 
     for (auto& gizmo : m_gizmos) {
         if (! gizmo->init()) {
@@ -186,10 +190,13 @@ bool GLGizmosManager::open_gizmo(EType type)
 
     // re-open same type cause closing
     if (m_current == type) type = Undefined;
-
-    if (m_gizmos[idx]->is_activable() && activate_gizmo(type)) {
+    auto is_active = m_gizmos[idx]->is_activable();
+    auto active = activate_gizmo(type);
+    if (is_active && active) {
         // remove update data into gizmo itself
         update_data();
+        // update main toolbar status
+        wxGetApp().plater()->canvas3D()->update_main_toolbar_state();
         return true;
     }
     return false;
@@ -216,6 +223,16 @@ void GLGizmosManager::set_hover_id(int id)
     m_gizmos[m_current]->set_hover_id(id);
 }
 
+void GLGizmosManager::update_assemble_view_data()
+{
+    if (m_assemble_view_data) {
+        if (!wxGetApp().plater()->get_assmeble_canvas3D()->get_wxglcanvas()->IsShown())
+            m_assemble_view_data->update(AssembleViewDataID(0));
+        else
+            m_assemble_view_data->update(AssembleViewDataID((int)AssembleViewDataID::ModelObjectsInfo | (int)AssembleViewDataID::ModelObjectsClipper));
+    }
+}
+
 void GLGizmosManager::update_data()
 {
     if (!m_enabled) return;
@@ -223,7 +240,7 @@ void GLGizmosManager::update_data()
         m_common_gizmos_data->update(get_current()
                                    ? get_current()->get_requirements()
                                    : CommonGizmosDataID(0));
-    if (m_current != Undefined) m_gizmos[m_current]->data_changed();
+    if (m_current != Undefined) m_gizmos[m_current]->data_changed(m_serializing);
 }
 
 bool GLGizmosManager::is_running() const
@@ -238,15 +255,25 @@ bool GLGizmosManager::is_running() const
 
 bool GLGizmosManager::handle_shortcut(int key)
 {
-    if (!m_enabled || m_parent.get_selection().is_empty())
+    if (!m_enabled)
         return false;
 
-    auto it = std::find_if(m_gizmos.begin(), m_gizmos.end(),
-            [key](const std::unique_ptr<GLGizmoBase>& gizmo) {
-                int gizmo_key = gizmo->get_shortcut_key();
-                return gizmo->is_activable()
-                       && ((gizmo_key == key - 64) || (gizmo_key == key - 96));
-    });
+    auto is_key = [pressed_key = key](int gizmo_key) { return (gizmo_key == pressed_key - 64) || (gizmo_key == pressed_key - 96); };
+    // allowe open shortcut even when selection is empty 
+    if (GLGizmoBase* gizmo_emboss = m_gizmos[Emboss].get()) {
+        if (gizmo_emboss && is_key(gizmo_emboss->get_shortcut_key())) {
+            dynamic_cast<GLGizmoEmboss*>(gizmo_emboss)->on_shortcut_key();
+            return true;
+        }
+    }
+
+    if (m_parent.get_selection().is_empty())
+        return false;
+
+    auto is_gizmo = [is_key](const std::unique_ptr<GLGizmoBase> &gizmo) {
+        return gizmo->is_activable() && is_key(gizmo->get_shortcut_key());
+    };
+    auto it = std::find_if(m_gizmos.begin(), m_gizmos.end(), is_gizmo);
 
     if (it == m_gizmos.end())
         return false;
@@ -299,6 +326,18 @@ ClippingPlane GLGizmosManager::get_clipping_plane() const
     }
 }
 
+ClippingPlane GLGizmosManager::get_assemble_view_clipping_plane() const
+{
+    if (!m_assemble_view_data
+        || !m_assemble_view_data->model_objects_clipper()
+        || m_assemble_view_data->model_objects_clipper()->get_position() == 0.)
+        return ClippingPlane::ClipsNothing();
+    else {
+        const ClippingPlane& clp = *m_assemble_view_data->model_objects_clipper()->get_clipping_plane();
+        return ClippingPlane(-clp.get_normal(), clp.get_data()[3]);
+    }
+}
+
 bool GLGizmosManager::wants_reslice_supports_on_undo() const
 {
     return (m_current == SlaSupports
@@ -326,6 +365,12 @@ void GLGizmosManager::render_painter_gizmo()
     gizmo->render_painter_gizmo();
 }
 
+void GLGizmosManager::render_painter_assemble_view() const
+{
+    if (m_assemble_view_data && m_assemble_view_data->model_objects_clipper())
+        m_assemble_view_data->model_objects_clipper()->render_cut();
+}
+
 void GLGizmosManager::render_overlay()
 {
     if (!m_enabled)
@@ -335,6 +380,46 @@ void GLGizmosManager::render_overlay()
         generate_icons_texture();
 
     do_render_overlay();
+}
+
+void GLGizmosManager::render_anker_data()
+{
+    if (m_current != Undefined) {
+        m_gizmos[m_current]->updateAnkerData();
+    }
+    if (m_current == Emboss || m_current == Svg || m_current == Cut) {
+        const std::vector<size_t> selectable_idxs = get_selectable_idxs();
+        if (selectable_idxs.empty())
+            return;
+        const Size cnv_size = m_parent.get_canvas_size();
+
+        const float cnv_w = (float)cnv_size.get_width();
+        const float cnv_h = (float)cnv_size.get_height();
+        if (cnv_w == 0 || cnv_h == 0)
+            return;
+
+        float main_toolbar_width = m_parent.get_main_toolbar_size();
+        float c_x = (cnv_size.get_width() - main_toolbar_width) / 2.0;
+        Vec2d pos{ 0,0 };
+        size_t item = 0;
+        if (m_current == Emboss || m_current == Svg) {
+            item = 14;
+        }
+        else if (m_current == Cut) {
+            item = 8;
+        }
+        m_parent.get_main_toolbar_item_pos(item, pos);
+#ifdef __APPLE__
+        pos[0] += 150;
+#endif
+        pos[0] += c_x;
+
+        m_gizmos[m_current]->render_input_window(
+            pos[0],
+            pos[1],
+            cnv_h - wxGetApp().plater()->get_view_toolbar().get_height());
+    }
+        
 }
 
 std::string GLGizmosManager::get_tooltip() const
@@ -926,10 +1011,13 @@ void GLGizmosManager::update_hover_state(const EType &type)
 // gizmo vetoed its deactivation.
 bool GLGizmosManager::activate_gizmo(EType type)
 {
-    assert(!m_gizmos.empty());
+    //assert(!m_gizmos.empty());
 
     // already activated
-    if (m_current == type) return true;
+    //if (m_current == type) return true;
+
+    if (m_gizmos.empty() || m_current == type)
+        return true;
 
     if (m_current != Undefined) {
         // clean up previous gizmo

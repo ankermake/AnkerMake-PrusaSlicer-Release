@@ -21,6 +21,7 @@
 #define ANKER_CONTROL_WIDTH 140
 #define R_PANEL_CONTROLS_HEIGHT 24
 #define ParameterPanelBgColor (wxColor("#292A2D"))
+#define ParameterPanelTitleBgColor (wxColor("#202124"))
 
 enum ControlListType
 {
@@ -45,6 +46,8 @@ enum ControlListType
 	List_Bottom_interface_layers,
 	List_interface_pattern,
 	List_Slicing_Mode,
+	List_ironing_pattern,
+	List_print_order
 };
 
 enum ItemDataType
@@ -70,6 +73,8 @@ enum ItemDataType
 	Item_enum_SlicingMode,
 	Item_Percent,
 	Item_Multi_Strings,
+	Item_enum_ironing_pattern,
+	Item_enum_print_order,
 	Item_UNKONWN
 };
 
@@ -134,6 +139,35 @@ typedef struct _PARAMETER_GROUP
 	DEPENDENCY_INFO dependencyInfo;
 }*pPARAMETER_GROUP, PARAMETER_GROUP;
 
+
+struct GroupItemProperty
+{
+	GroupItemProperty(const wxString& key, wxStaticText* label, ScalableButton* btn,  bool local, bool layer_height, bool part, bool modifer)
+		: _key(key), _label(label), reset_btn(btn), local_show(local), layer_height_show(layer_height), part_show(part), modifer_show(modifer){};
+
+	wxStaticText* _label { nullptr };
+	wxWindow* _window { nullptr };
+	ScalableButton* reset_btn { nullptr };
+	wxBoxSizer* _boxSizer { nullptr };
+	wxString _key { "" };
+
+	bool local_show { true };
+	bool layer_height_show { true };
+	bool part_show { true };
+	bool modifer_show { true };
+};
+
+struct GroupProperty
+{
+	GroupProperty(bool local, bool layer_height, bool part, bool modifer) 
+		: local_show(local), layer_height_show(layer_height), part_show(part), modifer_show(modifer) {}
+	bool local_show{ true };
+	bool layer_height_show{ true };
+	bool part_show{ true };
+	bool modifer_show{ true };
+	wxBoxSizer* title_Sizer{ nullptr };
+	std::vector<std::shared_ptr<GroupItemProperty>> propertyItems;
+};
 
 class AnkerParameterData
 {

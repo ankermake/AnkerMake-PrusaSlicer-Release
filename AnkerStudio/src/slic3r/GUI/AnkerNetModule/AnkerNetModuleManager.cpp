@@ -136,12 +136,16 @@ public:
 		return (boost::filesystem::path(Slic3r::data_dir()) / OnlineAnkerNetDir / SLIC3R_VERSION);
 	}
 
+	static bfpath GetExeDir()
+	{
+		return boost::dll::program_location().parent_path();
+	}
+
 	static bfpath GetDefaultDir()
 	{
 		bfpath ret;
-#if defined(_WIN32) || defined(_DEBUG) || !defined(NDEBUG)
-		bfpath executablePath = boost::dll::program_location().parent_path();
-		ret = executablePath;
+#if defined(_DEBUG) || !defined(NDEBUG)
+		ret = GetExeDir();
 #else
 		ret = boost::filesystem::path(Slic3r::data_dir()) / OnlineAnkerNetDir / CurrentDir;
 		// create default dir
@@ -297,19 +301,17 @@ public:
 		}
 	}	
 
-	static bool HaveNetFileInDefault()
+	static bool HaveNetFileInDir(bfpath& checkDir)
 	{
-		namespace fs = boost::filesystem;
-		auto defaultDir = GetDefaultDir();
-
-		if (!fs::exists(defaultDir) || !fs::is_directory(defaultDir)) {
-			ANKER_LOG_ERROR << "does not exist or is not a directory: " << defaultDir;
+		namespace fs = boost::filesystem;		
+		if (!fs::exists(checkDir) || !fs::is_directory(checkDir)) {
+			ANKER_LOG_ERROR << "does not exist or is not a directory: " << checkDir;
 			return false;
 		}
 
 		try {
 			fs::directory_iterator end_iter;
-			for (fs::directory_iterator dir_iter(defaultDir); dir_iter != end_iter; ++dir_iter) {
+			for (fs::directory_iterator dir_iter(checkDir); dir_iter != end_iter; ++dir_iter) {
 				if (fs::is_regular_file(dir_iter->status())) {
 					std::string filename = dir_iter->path().filename().string();
 					if (filename.find(NetLibPatternStart) == 0 &&
@@ -560,7 +562,12 @@ AnkerNetModuleManager::LoadRet AnkerNetModuleManager::LoadLibraryDefault()
 
 	if (!AnkerNetModuleHelp::FileExist(filePath)) {
 		// search if have ankernet file
-		if (AnkerNetModuleHelp::HaveNetFileInDefault()) {
+		auto defaultDir = AnkerNetModuleHelp::GetDefaultDir();
+		if (AnkerNetModuleHelp::HaveNetFileInDir(defaultDir)) {
+			return LoadRet::VersionNotMatch;
+		}
+		auto exeDir = AnkerNetModuleHelp::GetExeDir();
+		if (AnkerNetModuleHelp::HaveNetFileInDir(exeDir)) {
 			return LoadRet::VersionNotMatch;
 		}
 		return LoadRet::FileNotFound;
@@ -707,6 +714,7 @@ void AnkerNetModuleManager::DownloadThread(AnkerNetDownloadDialog* dialog)
 	auto netDir = AnkerNetModuleHelp::GetAnkerNetDir();
 	HttpTool::RetStatus downRet = HttpTool::RetStatus::Failed;
 	bool mostInNeed = false;
+	int resultCode = 0;
 	do {
 		if (AnkerNetModuleHelp::DirExist(netDir)) {
 			ANKER_LOG_INFO << "delete dir " << netDir;
@@ -755,9 +763,7 @@ void AnkerNetModuleManager::DownloadThread(AnkerNetDownloadDialog* dialog)
 		
 		ANKER_LOG_INFO << "try to most need, downRet: " << (int)downRet << 
 			", buryResult: " << (int)buryResult;
-		if (dialog) {
-			dialog->UpdateProgress(99);
-		}
+		resultCode = 1;
 		if (MostInNeed()) {
 			isSuccess = true;
 			break;
@@ -779,7 +785,7 @@ void AnkerNetModuleManager::DownloadThread(AnkerNetDownloadDialog* dialog)
 				ANKER_LOG_INFO << "download success, finish click";
 				BuryDownloadResult(buryResult);
 				dialog->EndModal((int)AnkerNetDownloadDialog::Result::Success);
-		});
+		}, resultCode);
 	}
 	else {
 		dialog->Change(AnkerNetDownloadDialog::Status::DownLoadFailed, [this, dialog]() {
@@ -791,7 +797,7 @@ void AnkerNetModuleManager::DownloadThread(AnkerNetDownloadDialog* dialog)
 			ANKER_LOG_INFO << "download failed, cancel click";
 			BuryDownloadResult(buryResult);
 			dialog->EndModal((int)AnkerNetDownloadDialog::Result::Failed);
-		});
+		}, (int)buryResult);
 	}
 
 	ANKER_LOG_INFO << "net plugin download thread over";

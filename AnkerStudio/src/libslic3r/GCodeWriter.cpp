@@ -34,6 +34,8 @@ void GCodeWriter::apply_print_config(const PrintConfig &print_config)
         print_config.machine_max_acceleration_extruding.values.front() : 0));
     m_max_travel_acceleration = static_cast<unsigned int>(std::round((use_mach_limits && print_config.machine_limits_usage.value == MachineLimitsUsage::EmitToGCode && supports_separate_travel_acceleration(print_config.gcode_flavor.value)) ?
         print_config.machine_max_acceleration_travel.values.front() : 0));
+    m_max_jerk = std::lrint(
+        use_mach_limits ? std::min(print_config.machine_max_jerk_x.values.front(), print_config.machine_max_jerk_y.values.front()) : 0);
 }
 
 void GCodeWriter::set_extruders(std::vector<unsigned int> extruder_ids)
@@ -162,6 +164,45 @@ std::string GCodeWriter::set_bed_temperature(unsigned int temperature, bool wait
         gcode << "M116 ; wait for bed temperature to be reached\n";
     
     return gcode.str();
+}
+
+std::string GCodeWriter::set_pressure_advance(double pa) const
+{
+    std::ostringstream gcode;
+    if (pa < 0)
+        return gcode.str();
+
+    if (FLAVOR_IS(gcfKlipper))
+        gcode << "SET_PRESSURE_ADVANCE ADVANCE=" << std::setprecision(4) << pa << "; Override pressure advance value\n";
+    else if (FLAVOR_IS(gcfRepRapFirmware))
+        gcode << ("M572 D0 S") << std::setprecision(4) << pa << "; Override pressure advance value\n";
+    else
+        gcode << "M900 K" << std::setprecision(4) << pa << "; Override pressure advance value\n";
+
+    return gcode.str();
+}
+
+std::string GCodeWriter::set_jerk_xy(double jerk)
+{
+    // Clamp the jerk to the allowed maximum.
+    if (m_max_jerk > 0 && jerk > m_max_jerk)
+        jerk = m_max_jerk;
+
+    if (jerk < 0.01 || is_approx(jerk, m_last_jerk))
+        return std::string();
+
+    m_last_jerk = jerk;
+
+    std::ostringstream gcode;
+    if (FLAVOR_IS(gcfKlipper))
+        gcode << "SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=" << jerk;
+    else
+        gcode << "M205 X" << jerk << " Y" << jerk;
+
+    gcode << "\n";
+
+    return gcode.str();
+
 }
 
 std::string GCodeWriter::set_acceleration_internal(Acceleration type, unsigned int acceleration)

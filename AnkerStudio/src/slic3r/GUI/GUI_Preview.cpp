@@ -71,10 +71,12 @@ bool View3D::init(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrintConfig
     m_canvas->set_model(model);
     m_canvas->set_process(process);
     m_canvas->set_config(config);
+    m_canvas->set_type(GLCanvas3D::ECanvasType::CanvasView3D);
     m_canvas->enable_gizmos(true);
     m_canvas->enable_selection(true);
     m_canvas->enable_main_toolbar(true);
     m_canvas->enable_undoredo_toolbar(true);
+
     m_canvas->enable_labels(true);
     m_canvas->enable_slope(true);
 
@@ -209,9 +211,12 @@ bool Preview::init(wxWindow* parent, Bed3D& bed, Model* model)
     m_canvas->set_config(m_config);
     m_canvas->set_model(model);
     m_canvas->set_process(m_process);
+    m_canvas->set_type(GLCanvas3D::ECanvasType::CanvasPreview);
     //m_canvas->enable_legend_texture(true);
     m_canvas->enable_dynamic_background(true);
+#if USE_ANKER_SLIDER
     createGcodePreviewLayerToolbar();
+#endif
     m_layers_slider_sizer = create_layers_slider_sizer();
 
     wxGetApp().UpdateDarkUI(m_bottom_toolbar_panel = new wxPanel(this));
@@ -240,12 +245,6 @@ bool Preview::init(wxWindow* parent, Bed3D& bed, Model* model)
     SetMinSize(GetSize());
     GetSizer()->SetSizeHints(this);
 
-#ifndef USE_ANKER_SLIDER
-    m_layers_slider_sizer->Hide((size_t)0);
-    bottom_toolbar_sizer->Hide((size_t)0);
-#else
-
-#endif
 
     bind_event_handlers();
 
@@ -441,7 +440,7 @@ void Preview::on_move(wxMoveEvent& evt)
 
 void Preview::shutdown()
 {
-#ifdef USE_ANKER_SLIDER
+#if USE_ANKER_SLIDER
     if (toolbar)
     {
         toolbar->Hide();
@@ -585,6 +584,12 @@ wxBoxSizer* Preview::create_layers_slider_sizer()
 
     sizer->Add(m_layers_slider, 0, wxEXPAND, 0);
 
+    /*
+    wxPanel* vSplitline = new wxPanel(this, wxID_ANY);
+    vSplitline->SetBackgroundColour(wxColour(24, 25, 27));
+    vSplitline->SetMinSize(wxSize(5, -1));
+    sizer->Add(vSplitline, 0, wxEXPAND , 0);
+    */
     // sizer, m_canvas_widget
     m_canvas_widget->Bind(wxEVT_KEY_DOWN, &Preview::update_layers_slider_from_canvas, this);
     m_canvas_widget->Bind(wxEVT_KEY_UP, [this](wxKeyEvent& event) {
@@ -654,7 +659,7 @@ void Preview::check_layers_slider_values(std::vector<CustomGCode::Item>& ticks_f
 void Preview::update_layers_slider(const std::vector<double>& layers_z, bool keep_z_range)
 {
    // std::cout<< "=====update_layers_slider" << std::endl;
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     // Save the initial slider span.
     double z_low = m_layers_slider->GetLowerValueD();
     double z_high = m_layers_slider->GetHigherValueD();
@@ -672,7 +677,7 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
     bool force_sliders_full_range = was_empty;
     if (!keep_z_range)
     {
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
         bool span_changed = layers_z.empty() || std::abs(layers_z.back() - m_layers_slider->GetMaxValueD()) > DoubleSlider::epsilon()/*1e-6*/;
 #else
         bool span_changed = layers_z.empty() || std::abs(layers_z.back() - toolbar->GetLayerSliderMaxValueD()) > DoubleSlider::epsilon()/*1e-6*/;
@@ -680,7 +685,7 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
 
         force_sliders_full_range |= span_changed;
     }
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     bool   snap_to_min = force_sliders_full_range || m_layers_slider->is_lower_at_min();
     bool   snap_to_max = force_sliders_full_range || m_layers_slider->is_higher_at_max();
 #else
@@ -701,7 +706,7 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
     check_layers_slider_values(ticks_info_from_model.gcodes, layers_z);
 
     //first of all update extruder colors to avoid crash, when we are switching printer preset from MM to SM
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_layers_slider->SetExtruderColors(plater->get_extruder_colors_from_plater_config(wxGetApp().is_editor() ? nullptr : m_gcode_result));
     m_layers_slider->SetSliderValues(layers_z);
     assert(m_layers_slider->GetMinValue() == 0);
@@ -713,7 +718,7 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
 #endif
 
     int idx_low = 0;
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     int idx_high = m_layers_slider->GetMaxValue();
 #else
     int idx_high = toolbar->GetLayerSliderMaxValue();
@@ -730,7 +735,7 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
                 idx_high = idx_new;
         }
     }
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_layers_slider->SetSelectionSpan(idx_low, idx_high);
     m_layers_slider->SetTicksValues(ticks_info_from_model);
 #else
@@ -817,7 +822,7 @@ void Preview::update_layers_slider(const std::vector<double>& layers_z, bool kee
         }
     }
 
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_layers_slider_sizer->Show((size_t)0);
 #else
     if (plater->IsShown()) {
@@ -881,7 +886,7 @@ void Preview::update_layers_slider_mode()
         }
     }
 
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_layers_slider->SetModeAndOnlyExtruder(one_extruder_printed_model, only_extruder);
 #else
     if (toolbar)
@@ -891,7 +896,7 @@ void Preview::update_layers_slider_mode()
 
 void Preview::reset_layers_slider()
 {
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_layers_slider->SetHigherValue(0);
     m_layers_slider->SetLowerValue(0);
 #else
@@ -960,7 +965,7 @@ void Preview::update_moves_slider()
         alternate_values.emplace_back(static_cast<double>(view.gcode_ids[i]));
     }
 
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_moves_slider->SetSliderValues(values);
     m_moves_slider->SetSliderAlternateValues(alternate_values);
     m_moves_slider->SetMaxValue(int(values.size()) - 1);
@@ -979,7 +984,7 @@ void Preview::update_moves_slider()
 void Preview::enable_moves_slider(bool enable)
 {
     //std::cout << " ======== Preview::enable_moves_slider: enable = "<< enable << std::endl;
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     bool render_as_disabled = !enable;
     if (m_moves_slider != nullptr && m_moves_slider->is_rendering_as_disabled() != render_as_disabled) {
         m_moves_slider->set_render_as_disabled(render_as_disabled);
@@ -988,6 +993,18 @@ void Preview::enable_moves_slider(bool enable)
 #else
     toolbar->setMovesSliderEnable(enable);
 #endif
+}
+
+void Preview::UpdateGcodeInfo(std::string gcode_file)
+{
+    if (gcode_file.empty())
+        return;
+
+    wxString tmp_GcodePath = gcode_file;
+    if (boost::filesystem::exists(boost::filesystem::path(tmp_GcodePath.ToUTF8().data()))) {
+        Slic3r::GCodeProcessor processor;
+        processor.process_file_ext(tmp_GcodePath.ToUTF8().data(), m_gcode_info);
+    }
 }
 
 void Preview::load_print_as_fff(bool keep_z_range)
@@ -1022,7 +1039,7 @@ void Preview::load_print_as_fff(bool keep_z_range)
 
     if (wxGetApp().is_editor() && !has_layers) {
         hide_layers_slider();
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
         m_left_sizer->Hide(m_bottom_toolbar_panel);
         m_left_sizer->Layout();
         Refresh();
@@ -1069,7 +1086,7 @@ void Preview::load_print_as_fff(bool keep_z_range)
             Refresh();
             zs = m_canvas->get_gcode_layers_zs();
             if (!zs.empty()) {
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
                 m_left_sizer->Show(m_bottom_toolbar_panel);
 #else
                 toolbar->setMovesSliderEnable(true);
@@ -1080,7 +1097,7 @@ void Preview::load_print_as_fff(bool keep_z_range)
         else if (wxGetApp().is_editor()) {
             // Load the initial preview based on slices, not the final G-code.
             m_canvas->load_preview(colors, color_print_values);
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
             m_left_sizer->Hide(m_bottom_toolbar_panel);
             m_left_sizer->Layout();
 #else
@@ -1090,7 +1107,7 @@ void Preview::load_print_as_fff(bool keep_z_range)
             zs = m_canvas->get_volumes_print_zs(true);
         }
         else {
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
             m_left_sizer->Hide(m_bottom_toolbar_panel);
             m_left_sizer->Layout();
 #else
@@ -1103,7 +1120,7 @@ void Preview::load_print_as_fff(bool keep_z_range)
             unsigned int number_extruders = wxGetApp().is_editor() ?
                 (unsigned int)print->extruders().size() :
                 m_canvas->get_gcode_extruders_count();
-            std::vector<Item> gcodes = wxGetApp().is_editor() ?
+            std::vector<CustomGCode::Item> gcodes = wxGetApp().is_editor() ?
                 wxGetApp().plater()->model().custom_gcode_per_print_z.gcodes :
                 m_canvas->get_custom_gcode_per_print_z();
             const bool contains_color_gcodes = std::any_of(std::begin(gcodes), std::end(gcodes),
@@ -1158,7 +1175,7 @@ void Preview::load_print_as_sla()
 
     if (IsShown()) {
         m_canvas->load_sla_preview();
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
         m_left_sizer->Hide(m_bottom_toolbar_panel);
         m_left_sizer->Layout();
 #else
@@ -1175,7 +1192,7 @@ void Preview::load_print_as_sla()
 
 void Preview::on_layers_slider_scroll_changed(wxCommandEvent& event)
 {
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     if (IsShown()) {
         PrinterTechnology tech = m_process->current_printer_technology();
         if (tech == ptFFF) {
@@ -1224,7 +1241,7 @@ void Preview::on_pausePrintList_changed(wxCommandEvent& event)
 
 void Preview::on_moves_slider_scroll_changed(wxCommandEvent& event)
 {
-#ifndef USE_ANKER_SLIDER
+#if !USE_ANKER_SLIDER
     m_canvas->update_gcode_sequential_view_current(static_cast<unsigned int>(m_moves_slider->GetLowerValueD() - 1.0), static_cast<unsigned int>(m_moves_slider->GetHigherValueD() - 1.0));
 #else
     int first = static_cast<unsigned int> (toolbar->GetMovesSliderMinValueD() - 1.0);
@@ -1233,6 +1250,97 @@ void Preview::on_moves_slider_scroll_changed(wxCommandEvent& event)
 #endif
     m_canvas->render();
 }
+
+AssembleView::AssembleView(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrintConfig* config, BackgroundSlicingProcess* process)
+    : m_canvas_widget(nullptr)
+    , m_canvas(nullptr)
+{
+    init(parent, bed, model, config, process);
+}
+
+AssembleView::~AssembleView()
+{
+    delete m_canvas;
+    delete m_canvas_widget;
+}
+
+bool AssembleView::init(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrintConfig* config, BackgroundSlicingProcess* process)
+{
+    if (!Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0 /* disable wxTAB_TRAVERSAL */))
+        return false;
+
+    m_canvas_widget = OpenGLManager::create_wxglcanvas(*this);
+    if (m_canvas_widget == nullptr)
+        return false;
+
+    m_canvas = new GLCanvas3D(m_canvas_widget, bed);
+    m_canvas->set_context(wxGetApp().init_glcontext(*m_canvas_widget));
+
+    m_canvas->allow_multisample(OpenGLManager::can_multisample());
+    // XXX: If have OpenGL
+    m_canvas->enable_picking(true);
+    m_canvas->enable_moving(true);
+    // XXX: more config from 3D.pm
+    m_canvas->set_model(model);
+    m_canvas->set_process(process);
+    m_canvas->set_type(GLCanvas3D::ECanvasType::CanvasAssembleView);
+    m_canvas->set_config(config);
+    m_canvas->enable_gizmos(true);
+    m_canvas->enable_selection(true);
+    m_canvas->enable_main_toolbar(false);
+    m_canvas->enable_labels(false);
+    m_canvas->enable_slope(false);
+
+    m_canvas->enable_return_toolbar(true);
+
+    // BBS: set volume_selection_mode to Volume
+    m_canvas->get_selection().set_volume_selection_mode(Selection::Volume);
+    m_canvas->get_selection().lock_volume_selection_mode();
+
+    wxBoxSizer* main_sizer = new wxBoxSizer(wxVERTICAL);
+    main_sizer->Add(m_canvas_widget, 1, wxALL | wxEXPAND, 0);
+
+    SetSizer(main_sizer);
+    SetMinSize(GetSize());
+    GetSizer()->SetSizeHints(this);
+
+    return true;
+}
+
+void AssembleView::set_as_dirty()
+{
+    if (m_canvas != nullptr)
+        m_canvas->set_as_dirty();
+}
+
+void AssembleView::render()
+{
+    if (m_canvas != nullptr)
+        m_canvas->set_as_dirty();
+}
+
+bool AssembleView::is_reload_delayed() const
+{
+    return (m_canvas != nullptr) ? m_canvas->is_reload_delayed() : false;
+}
+
+void AssembleView::reload_scene(bool refresh_immediately, bool force_full_scene_refresh)
+{
+    if (m_canvas != nullptr) {
+        if (!m_canvas->is_initialized()) {
+            m_canvas->render(true);
+        }
+        m_canvas->reload_scene(refresh_immediately, force_full_scene_refresh);
+    }
+}
+
+void AssembleView::select_view(const std::string& direction)
+{
+    if (m_canvas != nullptr)
+        m_canvas->select_view(direction);
+}
+
+
 
 } // namespace GUI
 } // namespace Slic3r

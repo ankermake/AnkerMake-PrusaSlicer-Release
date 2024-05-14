@@ -426,8 +426,8 @@ void GCodeViewer::SequentialView::GCodeWindow::render(float top, float bottom, u
         return ret;
     };
 
-    static const ImVec4 LINE_NUMBER_COLOR    = ImGuiWrapper::COL_ORANGE_LIGHT;
-    static const ImVec4 SELECTION_RECT_COLOR = ImGuiWrapper::COL_ORANGE_DARK;
+    static const ImVec4 LINE_NUMBER_COLOR    = { 0.38f, 0.82f, 0.38f, 1.0f };//ImGuiWrapper::COL_ORANGE_LIGHT;
+    static const ImVec4 SELECTION_RECT_COLOR = { 0.27f, 0.54f, 0.27f, 1.0f };//ImGuiWrapper::COL_ORANGE_DARK;
     static const ImVec4 COMMAND_COLOR        = { 0.8f, 0.8f, 0.0f, 1.0f };
     static const ImVec4 PARAMETERS_COLOR     = { 1.0f, 1.0f, 1.0f, 1.0f };
     static const ImVec4 COMMENT_COLOR        = { 0.7f, 0.7f, 0.7f, 1.0f };
@@ -3431,8 +3431,8 @@ void GCodeViewer::set_role_visible(GCodeExtrusionRole role, bool visible)
 
 void GCodeViewer::render_legend(float& legend_height)
 {
-    if (!m_legend_enabled)
-        return;
+    //if (!m_legend_enabled)
+    //    return;
 
     const Size cnv_size = wxGetApp().plater()->get_current_canvas3D()->get_canvas_size();
 
@@ -3440,11 +3440,18 @@ void GCodeViewer::render_legend(float& legend_height)
 
     imgui.set_next_window_pos(0.0f, 0.0f, ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+
     ImGui::SetNextWindowBgAlpha(0.6f);
+
+#ifdef __APPLE__
+    const float wind_width = 700;
+#else
+    const float wind_width = 350 * wxGetApp().em_unit() * 0.1;
+#endif
     const float max_height = 0.75f * static_cast<float>(cnv_size.get_height());
     const float child_height = 0.3333f * max_height;
-    ImGui::SetNextWindowSizeConstraints({ 0.0f, 0.0f }, { -1.0f, max_height });
-    imgui.begin(std::string("Legend"), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove| ImGuiWindowFlags_NoTitleBar);
+    ImGui::SetNextWindowSizeConstraints({ wind_width, 100.0f }, { wind_width, max_height }/*{-1.0f, max_height}*/);
+    imgui.begin(std::string(_u8L("Color Scheme")), ImGuiWindowFlags_AlwaysAutoResize /* | ImGuiWindowFlags_NoTitleBar*/ | ImGuiWindowFlags_NoResize /* | ImGuiWindowFlags_NoCollapse */ | ImGuiWindowFlags_NoMove);
 
     enum class EItemType : unsigned char
     {
@@ -3456,20 +3463,22 @@ void GCodeViewer::render_legend(float& legend_height)
 
     const PrintEstimatedStatistics::Mode& time_mode = m_print_statistics.modes[static_cast<size_t>(m_time_estimate_mode)];
     bool show_estimated_time = time_mode.time > 0.0f && (m_view_type == EViewType::FeatureType ||
-        m_view_type == EViewType::LayerTimeLinear || m_view_type == EViewType::LayerTimeLogarithmic ||
-        (m_view_type == EViewType::ColorPrint && !time_mode.custom_gcode_times.empty()));
+        /*m_view_type == EViewType::LayerTimeLinear || m_view_type == EViewType::LayerTimeLogarithmic || */
+        (m_view_type == EViewType::ColorPrint/* && !time_mode.custom_gcode_times.empty()*/));
 
     const float icon_size = ImGui::GetTextLineHeight();
     const float percent_bar_size = 2.0f * ImGui::GetTextLineHeight();
 
     bool imperial_units = wxGetApp().app_config->get_bool("use_inches");
+    double koef = imperial_units ? 1.0 / ObjectManipulation::in_to_mm : 0.001;
+    double unit_conver = imperial_units ? ObjectManipulation::oz_to_g : 1;
 
     auto append_item = [icon_size, percent_bar_size, &imgui, imperial_units](EItemType type, const ColorRGBA& color, const std::string& label,
         bool visible = true, const std::string& time = "", float percent = 0.0f, float max_percent = 0.0f, const std::array<float, 4>& offsets = { 0.0f, 0.0f, 0.0f, 0.0f },
-        double used_filament_m = 0.0, double used_filament_g = 0.0,
+        bool show_filament = false, double used_filament_m = 0.0, double used_filament_g = 0.0,bool checkBox = false,
         std::function<void()> callback = nullptr) {
-        if (!visible)
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.3333f);
+        //if (!visible)
+        //    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.333333f); 
 
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -3495,63 +3504,56 @@ void GCodeViewer::render_legend(float& legend_height)
             break;
         }
         }
-#if 1
-       // callback = nullptr;
 
         // draw text
         ImGui::Dummy({ icon_size, icon_size });
         ImGui::SameLine();
-
         if (callback != nullptr) {
-            imgui.text(label);
-#if 0 //dhf
-
             if (ImGui::MenuItem(label.c_str()))
-                callback();
+                callback();       // clicked item
             else {
-                // show tooltip
+                // show tooltip   // hover on item
                 if (ImGui::IsItemHovered()) {
-                    if (!visible)
-                        ImGui::PopStyleVar();
+                    //if (!visible)               // set the invisible item grey
+                    //    ImGui::PopStyleVar();
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImGuiWrapper::COL_WINDOW_BACKGROUND);
                     ImGui::BeginTooltip();
                     imgui.text(visible ? _u8L("Click to hide") : _u8L("Click to show"));
                     ImGui::EndTooltip();
                     ImGui::PopStyleColor();
-                    if (!visible)
-                        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.3333f);
+                    //if (!visible)
+                    //    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.3333f);
 
                     // to avoid the tooltip to change size when moving the mouse
                     imgui.set_requires_extra_frame();
                 }
             }
-#else
-         //   if (!visible)
-        //        ImGui::PopStyleVar();
-
-#endif
-
-
 
             if (!time.empty()) {
                 ImGui::SameLine(offsets[0]);
                 imgui.text(time);
+                
                 ImGui::SameLine(offsets[1]);
-                pos = ImGui::GetCursorScreenPos();
-                const float width = std::max(1.0f, percent_bar_size * percent / max_percent);
-                draw_list->AddRectFilled({ pos.x, pos.y + 2.0f }, { pos.x + width, pos.y + icon_size - 2.0f },
-                    ImGui::GetColorU32(ImGuiWrapper::COL_ORANGE_LIGHT));
-                ImGui::Dummy({ percent_bar_size, icon_size });
-                ImGui::SameLine();
-                char buf[64];
+                char buf[64] = {0};
                 ::sprintf(buf, "%.1f%%", 100.0f * percent);
-                ImGui::TextUnformatted((percent > 0.0f) ? buf : "");
+                ImGui::TextUnformatted((percent > 0.0f) ? buf : "");          
+            }
+
+            if (show_filament)
+            {
                 ImGui::SameLine(offsets[2]);
-                ::sprintf(buf, imperial_units ? "%.2f in" : "%.2f m", used_filament_m);
+                char buf[64] = { 0 };
+                ::sprintf(buf, imperial_units ? "%.2f in    %.2f g" : "%.2f m    %.2f g", used_filament_m, used_filament_g);
                 imgui.text(buf);
+            }
+
+            if (checkBox) {
                 ImGui::SameLine(offsets[3]);
-                ::sprintf(buf, "%.2f g", used_filament_g);
-                imgui.text(buf);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0, 0.0));
+                ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));
+                ImGui::Checkbox("", &visible);
+                ImGui::PopStyleColor(1);
+                ImGui::PopStyleVar(1);
             }
         }
         else {
@@ -3566,28 +3568,25 @@ void GCodeViewer::render_legend(float& legend_height)
                     ImGui::GetColorU32(ImGuiWrapper::COL_ORANGE_LIGHT));
                 ImGui::Dummy({ percent_bar_size, icon_size });
                 ImGui::SameLine();
-                char buf[64];
+                char buf[64] = { 0 };
                 ::sprintf(buf, "%.1f%%", 100.0f * percent);
                 ImGui::TextUnformatted((percent > 0.0f) ? buf : "");
             }
             else if (used_filament_m > 0.0) {
                 char buf[64];
-                ImGui::SameLine(offsets[0]);
-                ::sprintf(buf, imperial_units ? "%.2f in" : "%.2f m", used_filament_m);
-                imgui.text(buf);
-                ImGui::SameLine(offsets[1]);
-                ::sprintf(buf, "%.2f g", used_filament_g);
+                ImGui::SameLine(offsets[3]);
+                ::sprintf(buf, imperial_units ? "%.2f in    %.2f g" : "%.2f m    %.2f g", used_filament_m, used_filament_g);
                 imgui.text(buf);
             }
         }
-#endif
-        if (!visible)
-            ImGui::PopStyleVar();
+
+        //if (!visible)
+        //    ImGui::PopStyleVar();
     };
 
     auto append_range = [append_item](const Extrusions::Range& range, unsigned int decimals) {
         auto append_range_item = [append_item](int i, float value, unsigned int decimals) {
-            char buf[1024];
+            char buf[1024] = {0};
             ::sprintf(buf, "%.*f", decimals, value);
             append_item(EItemType::Rect, Range_Colors[i], buf);
         };
@@ -3698,21 +3697,21 @@ void GCodeViewer::render_legend(float& legend_height)
     };
 
     auto upto_label = [](double z) {
-        char buf[64];
+        char buf[64] = { 0 };
         ::sprintf(buf, "%.2f", z);
         return _u8L("up to") + " " + std::string(buf) + " " + _u8L("mm");
     };
 
     auto above_label = [](double z) {
-        char buf[64];
+        char buf[64] = { 0 };
         ::sprintf(buf, "%.2f", z);
         return _u8L("above") + " " + std::string(buf) + " " + _u8L("mm");
     };
 
     auto fromto_label = [](double z1, double z2) {
-        char buf1[64];
+        char buf1[64] = { 0 };
         ::sprintf(buf1, "%.2f", z1);
-        char buf2[64];
+        char buf2[64] = { 0 };
         ::sprintf(buf2, "%.2f", z2);
         return _u8L("from") + " " + std::string(buf1) + " " + _u8L("to") + " " + std::string(buf2) + " " + _u8L("mm");
     };
@@ -3732,13 +3731,21 @@ void GCodeViewer::render_legend(float& legend_height)
     };
 
     // data used to properly align items in columns when showing time
-    std::array<float, 4> offsets = { 0.0f, 0.0f, 0.0f, 0.0f };
+    std::array<float, 4> offsets;
+    offsets[0] = 0.0f;
+    offsets[1] = 120.0f * wxGetApp().em_unit() * 0.1;
+    offsets[2] = 180.0f * wxGetApp().em_unit() * 0.1;
+    offsets[3] = 240.0f * wxGetApp().em_unit() * 0.1;
+
     std::vector<std::string> labels;
     std::vector<std::string> times;
     std::vector<float> percents;
     std::vector<double> used_filaments_m;
     std::vector<double> used_filaments_g;
     float max_time_percent = 0.0f;
+    double total_model_used_filament_m = 0, total_model_used_filament_g = 0;
+
+    const PrintStatistics& ps = Slic3r::GUI::wxGetApp().plater()->fff_print().print_statistics();
 
     if (m_view_type == EViewType::FeatureType) {
         // calculate offsets to align time/percentage data
@@ -3758,24 +3765,26 @@ void GCodeViewer::render_legend(float& legend_height)
 
         std::string longest_percentage_string;
         for (double item : percents) {
-            char buffer[64];
+            char buffer[64] = {0};
             ::sprintf(buffer, "%.2f %%", item);
             if (::strlen(buffer) > longest_percentage_string.length())
                 longest_percentage_string = buffer;
         }
-        longest_percentage_string += "            ";
+        longest_percentage_string += "";
         if (_u8L("Percentage").length() > longest_percentage_string.length())
             longest_percentage_string = _u8L("Percentage");
 
+        /*
         std::string longest_used_filament_string;
         for (double item : used_filaments_m) {
-            char buffer[64];
+            char buffer[64] = { 0 };
             ::sprintf(buffer, imperial_units ? "%.2f in" : "%.2f m", item);
             if (::strlen(buffer) > longest_used_filament_string.length())
                 longest_used_filament_string = buffer;
         }
+        */
 
-        offsets = calculate_offsets(labels, times, { _u8L("Feature type"), _u8L("Time"), longest_percentage_string, longest_used_filament_string }, icon_size);
+        offsets = calculate_offsets(labels, times, { _u8L("Line Type"), _u8L("Time")+"    ", longest_percentage_string+"    ", /*longest_used_filament_string*/_u8L("Display")}, icon_size);
     }
 
     // get used filament (meters and grams) from used volume in respect to the active extruder
@@ -3815,34 +3824,56 @@ void GCodeViewer::render_legend(float& legend_height)
 
     // selection section
     bool view_type_changed = false;
-#if 0
-    int old_view_type = static_cast<int>(get_view_type());
-    int view_type = old_view_type;
-    std::cerr << std::endl << "===old type:"<< old_view_type << std::endl;
-#endif
+    EViewType old_view_type = get_view_type();
+    EViewType view_type = old_view_type;
+
     if (!m_legend_resizer.dirty)
         ImGui::SetNextItemWidth(-1.0f);
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, { 0.1f, 0.1f, 0.1f, 0.8f });
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, { 0.2f, 0.2f, 0.2f, 0.8f });
-#if 0
-    imgui.combo("", { _u8L("Feature type"),
-                      _u8L("Height (mm)"),
-                      _u8L("Width (mm)"),
-                      _u8L("Speed (mm/s)"),
-                      _u8L("Fan speed (%)"),
-                      _u8L("Temperature (°C)"),
-                      _u8L("Volumetric flow rate (mm³/s)"),
-                      _u8L("Layer time (linear)"),
-                      _u8L("Layer time (logarithmic)"),
-                      _u8L("Tool"),
-                      _u8L("Color Print") }, view_type, ImGuiComboFlags_HeightLargest);
-#endif
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, { 0.2f, 0.2f, 0.2f,0.8f });
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, { 0.3f, 0.3f, 0.3f, 0.8f });
+
+    ImGui::SetNextItemWidth(wind_width - ImGui::GetStyle().WindowPadding.x * 2 - 10);
+
+    std::map<std::string, EViewType> viewType_for_name = {
+        {_u8L("Line Type") , GCodeViewer::EViewType::FeatureType },
+        {_u8L("Layer Height") , GCodeViewer::EViewType::Height },
+        {_u8L("Line Width") , GCodeViewer::EViewType::Width },
+        {_u8L("Speed") , GCodeViewer::EViewType::Feedrate },
+        {_u8L("Fan Speed") , GCodeViewer::EViewType::FanSpeed },
+        {_u8L("Temperature") , GCodeViewer::EViewType::Temperature },
+        {_u8L("Flow") , GCodeViewer::EViewType::VolumetricRate },
+        {_u8L("Tool") , GCodeViewer::EViewType::Tool },
+        {_u8L("Filament") , GCodeViewer::EViewType::ColorPrint },
+        {_u8L("Layer Time") , GCodeViewer::EViewType::LayerTimeLinear },
+        {_u8L("Layer time (logarithmic)") , GCodeViewer::EViewType::LayerTimeLogarithmic },
+        {_u8L("Tool"), GCodeViewer::EViewType::Tool}
+    };
+
+    std::vector<std::string> view_type_display = {
+            _u8L("Line Type"),
+            _u8L("Filament"),
+            _u8L("Speed"),
+            _u8L("Layer Height"),
+            _u8L("Line Width"),
+            _u8L("Flow"),
+            _u8L("Layer Time"),
+            _u8L("Fan Speed"),
+            _u8L("Temperature"),
+    };
+
+    int select_item = 0;
+    for (int i = 0; i < view_type_display.size(); ++i) {
+        if (viewType_for_name[view_type_display[i]] == view_type)
+            select_item = i;
+    }
+
+    imgui.combo(std::string(""), view_type_display, select_item, ImGuiComboFlags_HeightLargest);
+    if (select_item < view_type_display.size())
+        view_type = viewType_for_name[view_type_display[select_item]];
+
     ImGui::PopStyleColor(2);
 
-    static int  old_view_type = 0;
-    int view_type = static_cast<int>(get_view_type());
-    // std::cerr << "===render_legend, view_type:" << (int)view_type << std::endl;
     if (old_view_type != view_type) {
         set_view_type(static_cast<EViewType>(view_type));
         wxGetApp().plater()->set_keep_current_preview_type(true);
@@ -3852,47 +3883,66 @@ void GCodeViewer::render_legend(float& legend_height)
     }
 
     // extrusion paths section -> title
-    if (m_view_type == EViewType::FeatureType)
-        append_headers({ _u8L("Feature type"), _u8L("Time"), _u8L("Percentage"), _u8L("Used filament") }, offsets);
+    if (m_view_type == EViewType::FeatureType) {
+        auto right_most_label = _u8L("Display");
+        offsets[3] = offsets[2]; //wind_width - ImGui::GetStyle().WindowPadding.x - ImGui::CalcTextSize(right_most_label.c_str()).x;
+        append_headers({ _u8L("Line Type"), _u8L("Time"), _u8L("Percentage"),"",right_most_label}, offsets);
+    }
+    else if (m_view_type == EViewType::Height)
+        imgui.title(_u8L("Layer Height")+_u8L(" (mm)"));
+    else if (m_view_type == EViewType::Width)
+        imgui.title(_u8L("Line Width")+ _u8L(" (mm)"));
+    else if (m_view_type == EViewType::Feedrate)
+        imgui.title(_u8L("Speed")+ _u8L(" (mm/s)"));
+    else if (m_view_type == EViewType::Temperature)
+        imgui.title(_u8L("Temperature")+ _u8L(" (°C)"));
+    else if (m_view_type == EViewType::VolumetricRate)
+        imgui.title(_u8L("Volumetric flow rate (mm³/s)"));    
+    else if (m_view_type == EViewType::LayerTimeLinear)
+        imgui.title(_u8L("Layer Time")+ _u8L(" (s)"));
+    else if (m_view_type == EViewType::LayerTimeLogarithmic)
+        imgui.title(_u8L("Layer Time (s)"));
+    else if (m_view_type == EViewType::FanSpeed) {
+        imgui.title(_u8L("Fan Speed (%)"));
+    }
+    else if (m_view_type == EViewType::ColorPrint) {
+        offsets[3] = 210 * wxGetApp().em_unit() * 0.1;
+        append_headers({ _u8L("Filament"), "", "", "",_u8L("Model") }, offsets);
+    }
     else if (m_view_type == EViewType::Tool)
     {
-        for (int i = 0;i < offsets.size(); i++)
+        for (int i = 0; i < offsets.size(); i++)
         {
             offsets[i] += 80;
         }
         append_headers({ "", _u8L("Used filament"), "", "" }, offsets);
     }
-        
     else
         ImGui::Separator();
+
 
     if (!view_type_changed) {
         // extrusion paths section -> items
         switch (m_view_type)
         {
-        case EViewType::FeatureType: //dhf
+        case EViewType::FeatureType:
         {
             max_time_percent = std::max(max_time_percent, time_mode.travel_time / time_mode.time);
-
             for (size_t i = 0; i < m_roles.size(); ++i) {
                 GCodeExtrusionRole role = m_roles[i];
                 if (role >= GCodeExtrusionRole::Count)
                     continue;
                 const bool visible = is_visible(role);
                 append_item(EItemType::Rect, Extrusion_Role_Colors[static_cast<unsigned int>(role)], labels[i],
-                    visible, times[i], percents[i], max_time_percent, offsets, used_filaments_m[i], used_filaments_g[i], [this, role, visible]() {
+                    visible, times[i], percents[i], max_time_percent, offsets, false, used_filaments_m[i], used_filaments_g[i], true, [this, role, visible]() {
                         m_extrusions.role_visibility_flags = visible ? m_extrusions.role_visibility_flags & ~(1 << int(role)) : m_extrusions.role_visibility_flags | (1 << int(role));
                         // update buffers' render paths
                         refresh_render_paths(false, false);
-                        wxGetApp().plater()->update_preview_moves_slider();    // dhf
+                        wxGetApp().plater()->update_preview_moves_slider();
                         wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
                     }
                 );
             }
-
-            if (m_buffers[buffer_id(EMoveType::Travel)].visible)
-                append_item(EItemType::Line, Travel_Colors[0], _u8L("Travel"), true, short_time(get_time_dhms(time_mode.travel_time)),
-                    time_mode.travel_time / time_mode.time, max_time_percent, offsets, 0.0f, 0.0f);
 
             break;
         }
@@ -3910,11 +3960,12 @@ void GCodeViewer::render_legend(float& legend_height)
                 if (extruder_id < used_filaments_m.size() && extruder_id < used_filaments_g.size()) {
                     if (used_filaments_m[extruder_id] > 0.0 && used_filaments_g[extruder_id] > 0.0)
                         append_item(EItemType::Rect, m_tool_colors[extruder_id], _u8L("Extruder") + " " + std::to_string(extruder_id + 1),
-                            true, "", 0.0f, 0.0f, offsets, used_filaments_m[extruder_id], used_filaments_g[extruder_id]);
+                            true, "", 0.0f, 0.0f, offsets, true ,used_filaments_m[extruder_id], used_filaments_g[extruder_id]);
                 }
             }
             break;
         }
+/*
         case EViewType::ColorPrint:
         {
             const std::vector<CustomGCode::Item>& custom_gcode_per_print_z = wxGetApp().is_editor() ? wxGetApp().plater()->model().custom_gcode_per_print_z.gcodes : m_custom_gcode_per_print_z;
@@ -3982,6 +4033,62 @@ void GCodeViewer::render_legend(float& legend_height)
 
             break;
         }
+*/
+        case EViewType::ColorPrint:
+        {
+            size_t total_items = 1;
+            const bool need_scrollable = static_cast<float>(total_items) * (icon_size + ImGui::GetStyle().ItemSpacing.y) > child_height;
+            if (need_scrollable)
+                ImGui::BeginChild("color_prints", { -1.0f, child_height }, false);
+
+
+            bool imperial_units = wxGetApp().app_config->get("use_inches") == "1";
+            for (size_t extruder_id : m_extruder_ids) {
+                if (m_print_statistics.volumes_per_extruder.find(extruder_id) == m_print_statistics.volumes_per_extruder.end()) {
+                    used_filaments_m.push_back(0.0);
+                    used_filaments_g.push_back(0.0);
+                }
+                else {
+                    double volume = m_print_statistics.volumes_per_extruder.at(extruder_id);
+                    auto [model_used_filament_m, model_used_filament_g] = get_used_filament_from_volume(volume, extruder_id);
+                    used_filaments_m.push_back(model_used_filament_m);
+                    used_filaments_g.push_back(model_used_filament_g);
+                    total_model_used_filament_m += model_used_filament_m;
+                    total_model_used_filament_g += model_used_filament_g;
+                }
+            }
+
+            // shows only extruders actually used
+            size_t i = 0;
+            for (auto extruder_idx : m_extruder_ids) {
+                const bool filament_visible = true;
+                if (i < used_filaments_m.size() && i < used_filaments_g.size()) {
+                    char buf[64];
+                    ::sprintf(buf, imperial_units ? "%.2f in    %.2f oz" : "%.2f m    %.2f g", used_filaments_m[i], used_filaments_g[i] / unit_conver);
+                    append_item(EItemType::Rect, m_tool_colors.front(), std::to_string(extruder_idx + 1), true, "", 0.0f, max_time_percent, offsets, true, used_filaments_m[i], used_filaments_g[i] / unit_conver, true, nullptr);
+                }
+                i++;
+            }
+
+            if (need_scrollable)
+                ImGui::EndChild();
+
+            // display filament change times
+            char buf[64];
+            imgui.text(_u8L("Filament change times") + ":");
+            ImGui::SameLine();
+            ::sprintf(buf, "%d", m_print_statistics.total_filamentchanges);
+            imgui.text(buf);
+
+            // display cost
+            imgui.text(_u8L("Cost") + ":");
+            ImGui::SameLine();
+            ::sprintf(buf, "%.2f", ps.total_cost);
+            imgui.text(buf);
+
+            break;
+        }
+
         default: { break; }
         }
     }
@@ -4127,10 +4234,11 @@ void GCodeViewer::render_legend(float& legend_height)
                 }
             }
 
+            /*
             offsets = calculate_offsets(labels, times, { _u8L("Event"), _u8L("Remaining time"), _u8L("Duration"), longest_used_filament_string }, 2.0f * icon_size);
 
             ImGui::Spacing();
-            append_headers({ _u8L("Event"), _u8L("Remaining time"), _u8L("Duration"), _u8L("Used filament") }, offsets);
+            append_headers({ _u8L("Event"), _u8L("Remaining time"), _u8L("Duration"), _u8L("Display") }, offsets);
             const bool need_scrollable = static_cast<float>(partial_times.size()) * icon_size + (static_cast<float>(partial_times.size()) - 1.0f) * ImGui::GetStyle().ItemSpacing.y > child_height;
             if (need_scrollable)
                 // add scrollable region
@@ -4158,8 +4266,12 @@ void GCodeViewer::render_legend(float& legend_height)
 
             if (need_scrollable)
                 ImGui::EndChild();
+            */
         }
     }
+
+
+
 
     auto add_strings_row_to_table = [&imgui](const std::string& col_1, const ImVec4& col_1_color, const std::string& col_2, const ImVec4& col_2_color) {
         ImGui::TableNextRow();
@@ -4217,72 +4329,200 @@ void GCodeViewer::render_legend(float& legend_height)
         }
     }
 
+    // move type option sectioin
+    auto show_moves_type_options = [&]()
+    {
+        // MoveType section
+        bool show_time = true;
+        std::map<EMoveType, wxString> options_label = {
+            {EMoveType::Travel,"Travel"},
+            {EMoveType::Retract,"Retract"},
+            {EMoveType::Unretract,"Unretract"},
+            {EMoveType::Wipe,"Wipe"},
+            {EMoveType::Seam,"Seams"},
+        };
+        std::vector<EMoveType> MoveType_items;
+
+        if (this->m_view_type == EViewType::FeatureType) {
+            MoveType_items.push_back(EMoveType::Travel);
+            MoveType_items.push_back(EMoveType::Retract);
+            MoveType_items.push_back(EMoveType::Unretract);
+            MoveType_items.push_back(EMoveType::Wipe);
+            // seam is not real move and extrusion, put at last line
+            MoveType_items.push_back(EMoveType::Seam);
+        }
+        if (this->m_view_type == EViewType::ColorPrint) {
+            ImGui::Spacing();
+            auto right_most_label = _u8L("Display");
+            // offsets[offsets.size() - 1] = wind_width - ImGui::GetStyle().WindowPadding.x - ImGui::CalcTextSize(right_most_label.c_str()).x;
+            append_headers({ _u8L("Options"),"",  "", "", right_most_label }, offsets);
+
+            show_time = false;
+            MoveType_items.push_back(EMoveType::Travel);
+            MoveType_items.push_back(EMoveType::Retract);
+            MoveType_items.push_back(EMoveType::Unretract);
+            MoveType_items.push_back(EMoveType::Wipe);
+            // seam is not real move and extrusion, put at last line
+            MoveType_items.push_back(EMoveType::Seam);
+        }
+        else if (m_view_type == EViewType::Feedrate)
+        {
+            ImGui::Spacing();
+            auto right_most_label = _u8L("Display");
+            // offsets[offsets.size() - 1] = wind_width - ImGui::GetStyle().WindowPadding.x - ImGui::CalcTextSize(right_most_label.c_str()).x;
+            append_headers({ _u8L("Options"),"",  "", "", right_most_label }, offsets);
+
+            show_time = false;
+            MoveType_items.push_back(EMoveType::Travel);
+        }
+
+        for (auto itemType : MoveType_items) {
+            const bool visible = m_buffers[buffer_id(itemType)].visible;
+            auto moveType_visible_change_callBack = [this, itemType, visible]() {
+                m_buffers[buffer_id(itemType)].visible = !m_buffers[buffer_id(itemType)].visible;
+                // update buffers' render paths
+                refresh_render_paths(false, false);
+                wxGetApp().plater()->update_preview_moves_slider();
+                wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();
+            };
+
+            if (itemType == EMoveType::Travel) {
+                append_item(EItemType::Rect, Travel_Colors[0], _u8L(options_label[itemType]), visible, show_time ? short_time(get_time_dhms(time_mode.travel_time)) : "",
+                    time_mode.travel_time / time_mode.time, max_time_percent, offsets, false, 0.0f, 0.0f, true, moveType_visible_change_callBack);
+            }
+            else {
+                ColorRGBA itemColor;
+                if (itemType == EMoveType::Wipe)
+                    itemColor = Wipe_Color;
+                else if (itemType >= EMoveType::Retract && itemType <= EMoveType::Custom_GCode)
+                    itemColor = option_color(itemType);
+
+                append_item(EItemType::Rect, itemColor, _u8L(options_label[itemType]), visible, "", 0.0f, max_time_percent, offsets, false,0.0f, 0.0f, true, moveType_visible_change_callBack);
+            }
+        }
+    };
+
+
     // total estimated printing time section
-    if (show_estimated_time) {
-        ImGui::Spacing();
-        std::string time_title = _u8L("Estimated printing times");
-        auto can_show_mode_button = [this](PrintEstimatedStatistics::ETimeMode mode) {
-            bool show = false;
-            if (m_print_statistics.modes.size() > 1 && m_print_statistics.modes[static_cast<size_t>(mode)].roles_times.size() > 0) {
-                for (size_t i = 0; i < m_print_statistics.modes.size(); ++i) {
-                    if (i != static_cast<size_t>(mode) &&
-                        m_print_statistics.modes[i].time > 0.0f &&
-                        short_time(get_time_dhms(m_print_statistics.modes[static_cast<size_t>(mode)].time)) != short_time(get_time_dhms(m_print_statistics.modes[i].time))) {
-                        show = true;
-                        break;
+    auto show_estimated_data = [&]() {
+        if (show_estimated_time) {
+            ImGui::Spacing();
+            std::string time_title = m_view_type == EViewType::ColorPrint ? _u8L("Time Estimation") : _u8L("Total Estimation") ;
+            auto can_show_mode_button = [this](PrintEstimatedStatistics::ETimeMode mode) {
+                bool show = false;
+                if (m_print_statistics.modes.size() > 1 && m_print_statistics.modes[static_cast<size_t>(mode)].roles_times.size() > 0) {
+                    for (size_t i = 0; i < m_print_statistics.modes.size(); ++i) {
+                        if (i != static_cast<size_t>(mode) &&
+                            m_print_statistics.modes[i].time > 0.0f &&
+                            short_time(get_time_dhms(m_print_statistics.modes[static_cast<size_t>(mode)].time)) != short_time(get_time_dhms(m_print_statistics.modes[i].time))) {
+                            show = true;
+                            break;
+                        }
                     }
                 }
-            }
-            return show;
-        };
+                return show;
+            };
 
-        if (can_show_mode_button(m_time_estimate_mode)) {
-            switch (m_time_estimate_mode)
-            {
-            case PrintEstimatedStatistics::ETimeMode::Normal:  { time_title += " [" + _u8L("Normal mode") + "]"; break; }
-            case PrintEstimatedStatistics::ETimeMode::Stealth: { time_title += " [" + _u8L("Stealth mode") + "]"; break; }
+            if (can_show_mode_button(m_time_estimate_mode)) {
+                switch (m_time_estimate_mode)
+                {
+                case PrintEstimatedStatistics::ETimeMode::Normal: { time_title += " [" + _u8L("Normal mode") + "]"; break; }
+                case PrintEstimatedStatistics::ETimeMode::Stealth: { time_title += " [" + _u8L("Stealth mode") + "]"; break; }
+                default: { assert(false); break; }
+                }
+            }
+
+            auto convert_mm_to_m = [](std::string& mm_str)->std::string {
+                auto  ends_with_mm = [](const std::string& str) {
+                    size_t pos = str.find("mm");
+                    if (pos != std::string::npos && pos == str.length() - 2) {
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (!ends_with_mm(mm_str))
+                    return "";
+
+                std::string numStr;
+                for (char c : mm_str) {
+                    if (isdigit(c) || c == '.') {
+                        numStr += c;
+                    }
+                }
+
+                std::stringstream ss(numStr);
+                double mm;
+                ss >> mm;
+
+                double m = mm / 1000.0;
+
+                std::stringstream out_ss;
+                out_ss << std::fixed << std::setprecision(2) << m << " m";
+                return out_ss.str();
+            };
+
+            // add space between number and unit. eg, 12.63g  -> 12.63 g
+            auto formating_unit_str = [](std::string& str)->std::string {
+                std::regex pattern("(\\d+(\\.\\d+)?)\\s*(\\w+)");
+                return regex_replace(str, pattern, "$1 $3");
+            };
+
+            auto gcode_info = wxGetApp().plater()->get_gcode_info();
+            if (gcode_info) {
+                imgui.title(time_title);
+                if (ImGui::BeginTable("Times", 2)) {
+
+                    if (m_view_type == EViewType::ColorPrint)
+                        add_strings_row_to_table(_u8L("Model printing time") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), short_time(get_time_dhms(gcode_info->print_time)), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
+                    else
+                    {
+                        add_strings_row_to_table(_u8L("Filament") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), convert_mm_to_m(gcode_info->filament_used_length_mm) + "    " + formating_unit_str(gcode_info->filament_used_weight_g), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
+                        add_strings_row_to_table(_u8L("Cost") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), gcode_info->filament_used_cost, ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
+                        add_strings_row_to_table(_u8L("Model printing time") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), short_time(get_time_dhms(gcode_info->print_time)), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
+                        add_strings_row_to_table(_u8L("Size") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), wxString::Format("%.2f X %.2f X %.2f mm", gcode_info->boxSize[0], gcode_info->boxSize[1], gcode_info->boxSize[2]).ToStdString(), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
+
+                    }
+                    ImGui::EndTable();
+                }
+            }
+
+            auto show_mode_button = [this, &imgui, can_show_mode_button](const wxString& label, PrintEstimatedStatistics::ETimeMode mode) {
+                if (can_show_mode_button(mode)) {
+                    if (imgui.button(label)) {
+                        m_time_estimate_mode = mode;
+                        if (m_view_type == EViewType::LayerTimeLinear || m_view_type == EViewType::LayerTimeLogarithmic)
+                            refresh_render_paths(false, false);
+                        imgui.set_requires_extra_frame();
+                    }
+                }
+            };
+
+            switch (m_time_estimate_mode) {
+            case PrintEstimatedStatistics::ETimeMode::Normal: {
+                show_mode_button(_L("Show stealth mode"), PrintEstimatedStatistics::ETimeMode::Stealth);
+                break;
+            }
+            case PrintEstimatedStatistics::ETimeMode::Stealth: {
+                show_mode_button(_L("Show normal mode"), PrintEstimatedStatistics::ETimeMode::Normal);
+                break;
+            }
             default: { assert(false); break; }
             }
         }
+    };
 
-        imgui.title(time_title + ":");
-
-        if (ImGui::BeginTable("Times", 2)) {
-            if (!time_mode.layers_times.empty()) {
-                add_strings_row_to_table(_u8L("First layer") + ":", ImGuiWrapper::COL_ORANGE_LIGHT,
-                    short_time(get_time_dhms(time_mode.layers_times.front())), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
-            }
-
-            add_strings_row_to_table(_u8L("Total") + ":", ImGuiWrapper::COL_ORANGE_LIGHT,
-                short_time(get_time_dhms(time_mode.time)), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
-
-            ImGui::EndTable();
-        }
-
-        auto show_mode_button = [this, &imgui, can_show_mode_button](const wxString& label, PrintEstimatedStatistics::ETimeMode mode) {
-            if (can_show_mode_button(mode)) {
-                if (imgui.button(label)) {
-                    m_time_estimate_mode = mode;
-                    if (m_view_type == EViewType::LayerTimeLinear || m_view_type == EViewType::LayerTimeLogarithmic)
-                        refresh_render_paths(false, false);
-                    imgui.set_requires_extra_frame();
-                }
-            }
-        };
-
-        switch (m_time_estimate_mode) {
-        case PrintEstimatedStatistics::ETimeMode::Normal: {
-            show_mode_button(_L("Show stealth mode"), PrintEstimatedStatistics::ETimeMode::Stealth);
-            break;
-        }
-        case PrintEstimatedStatistics::ETimeMode::Stealth: {
-            show_mode_button(_L("Show normal mode"), PrintEstimatedStatistics::ETimeMode::Normal);
-            break;
-        }
-        default : { assert(false); break; }
-        }
+    if (m_view_type == EViewType::FeatureType) {
+        show_moves_type_options();
+        show_estimated_data();
     }
-#if 1
+    else {
+        show_estimated_data();
+        show_moves_type_options();
+    }
+
+
+/*
     // toolbar section
     auto toggle_button = [this, &imgui, icon_size](Preview::OptionType type, const std::string& name,
         std::function<void(ImGuiWindow& window, const ImVec2& pos, float size)> draw_callback) {
@@ -4386,7 +4626,7 @@ void GCodeViewer::render_legend(float& legend_height)
     toggle_button(Preview::OptionType::ToolMarker, _u8L("common_preview_sheethover_toolmarker"), [image_icon](ImGuiWindow& window, const ImVec2& pos, float size) {
         image_icon(window, pos, size, ImGui::LegendToolMarker);
         });
-#endif
+*/
     bool size_dirty = !ImGui::GetCurrentWindow()->ScrollbarY && ImGui::CalcWindowNextAutoFitSize(ImGui::GetCurrentWindow()).x != ImGui::GetWindowWidth();
     if (m_legend_resizer.dirty || size_dirty != m_legend_resizer.dirty) {
         wxGetApp().plater()->get_current_canvas3D()->set_as_dirty();

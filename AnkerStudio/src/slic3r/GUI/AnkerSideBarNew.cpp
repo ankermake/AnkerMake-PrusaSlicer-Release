@@ -45,7 +45,9 @@ namespace Slic3r {
         {
             Plater* plater;
 
-            priv(Plater* plater) : plater(plater) {}
+            priv(Plater* plater, AnkerSidebarNew* q) : plater(plater)
+                , m_control(new AnkerObjectListControl(q))
+                , m_object_layers(new AnkerObjectLayerEditor(q)){}
             ~priv() {};
 
             // Fixed printer configuration panel
@@ -65,6 +67,12 @@ namespace Slic3r {
             //right key menu parameter panel defualt universal Sizer
 			//wxBoxSizer* m_pRightMenuParameterVSizer{ nullptr };
 			AnkerParameterPanel* m_pAnkerRightMenuParameterPanel{ nullptr };
+            DynamicPrintConfig m_current_item_config;
+
+            // objectlist (embeded in m_pAnkerRightMenuParameterPanel)
+            AnkerObjectListControl* m_control{ nullptr };
+            //objectlayer (embeded in m_pAnkerRightMenuParameterPanel)
+            AnkerObjectLayerEditor* m_object_layers{ nullptr };
 
             // custom universal sizer, you can define your generic sizer to replace it
             wxBoxSizer* m_universalCustomSizer{ nullptr };
@@ -211,7 +219,6 @@ namespace Slic3r {
             contentVSizer->Add(m_comboColor, 1, wxEXPAND | wxLEFT | wxRIGHT, AnkerLength(12));
 #endif
             contentVSizer->AddStretchSpacer(1);
-
             SetSizer(contentVSizer);
         }
 
@@ -498,16 +505,18 @@ namespace Slic3r {
 			}
 		}
 
+
+
         // AnkerSidebarNew / public
         AnkerSidebarNew::AnkerSidebarNew(Plater* parent)
-            : wxPanel(parent, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1)), p(new priv(parent)) {
+            : wxPanel(parent, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1)), p(new priv(parent, this)) {
             SetBackgroundColour(wxColour("#18191B"));
 
             // if we have selected new filament colour, we should update the filament info
             Bind(wxCUSTOMEVT_UPDATE_FILAMENT_INFO, &AnkerSidebarNew::onUpdateFilamentInfo, this);
             Bind(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, [this](wxCommandEvent& event) {
 	            if (p->m_pAnkerParameterPanel)
-		            p->m_pAnkerParameterPanel->reloadData();
+                    p->m_pAnkerParameterPanel->reloadData();
 	            });
 
             // if you want to experience the effect of reset and restore sidebar
@@ -542,11 +551,32 @@ namespace Slic3r {
                 p->m_pAnkerParameterPanel->hidePoupWidget();
 		}
 
+		void AnkerSidebarNew::ChangeViewMode(int mode)
+		{
+            if(p->m_pAnkerParameterPanel)
+                p->m_pAnkerParameterPanel->ChangeViewMode(mode);
+
+            if (p->m_pAnkerRightMenuParameterPanel)
+                p->m_pAnkerRightMenuParameterPanel->ChangeViewMode(mode);
+		}
+
 		void AnkerSidebarNew::enableSliceBtn(bool isSaveBtn, bool isEnable)
 		{
             if(p->m_pAnkerParameterPanel)
                 p->m_pAnkerParameterPanel->enableSliceBtn(isSaveBtn, isEnable);
+
+            if (p->m_pAnkerRightMenuParameterPanel) 
+                p->m_pAnkerRightMenuParameterPanel->enableSliceBtn(isSaveBtn, isEnable);
 		}
+
+        void AnkerSidebarNew::updatePreviewBtn(bool GcodeValid, int reason)
+        {
+            if (p->m_pAnkerParameterPanel)
+                p->m_pAnkerParameterPanel->UpdatePreviewModeButtons(GcodeValid, reason);
+
+            if (p->m_pAnkerRightMenuParameterPanel)
+                p->m_pAnkerRightMenuParameterPanel->UpdatePreviewModeButtons(GcodeValid, reason);
+        }
 
         bool AnkerSidebarNew::replaceUniverseSubSizer(wxSizer* sizer, wxString sizerFlags) {
             this->Freeze();
@@ -578,11 +608,13 @@ namespace Slic3r {
             {
                 p->m_pAnkerParameterPanel->Hide();
                 p->m_pAnkerRightMenuParameterPanel->Show();
+                p->m_pAnkerRightMenuParameterPanel->get_switch_btn()->SetValue(true);
             }
             else if (m_showRightMenuPanel == PANEL_PARAMETER_PANEL)
             {
                 p->m_pAnkerParameterPanel->Show();
                 p->m_pAnkerRightMenuParameterPanel->Hide();
+                p->m_pAnkerParameterPanel->get_switch_btn()->SetValue(false);
             }
             else
             {
@@ -642,6 +674,19 @@ namespace Slic3r {
             this->Thaw();
         }
 
+
+        void AnkerSidebarNew::detach_layer_height_sizer()
+        {
+            if (p && p->m_pAnkerRightMenuParameterPanel)
+                p->m_pAnkerRightMenuParameterPanel->detach_layer_height_sizer();
+        }
+
+        void AnkerSidebarNew::set_layer_height_sizer(wxBoxSizer* sizer, bool layer_root)
+        {
+            if (p && p->m_pAnkerRightMenuParameterPanel)
+                p->m_pAnkerRightMenuParameterPanel->set_layer_height_sizer(sizer, layer_root);
+        }
+    
         void AnkerSidebarNew::setFixedDefaultSidebar() {
             p->m_marginBase = int(0.1 * wxGetApp().em_unit()); // 1
             // m_mainSizer
@@ -654,21 +699,20 @@ namespace Slic3r {
             createFilamentSidebar();
 
 
+
             const int margin = 8 * p->m_marginBase;
             // 1.top margin sizer
-            p->m_mainSizer->AddSpacer(12);
+            //p->m_mainSizer->AddSpacer(12);  // bug: top half part of m_pulldown_btn in m_printerSizer can not click (in windows)
             // 2.printer sizer
-            p->m_mainSizer->Add(p->m_printerSizer, 0, wxEXPAND | wxBOTTOM, margin);
+            p->m_mainSizer->Add(p->m_printerSizer, 0, wxEXPAND | wxBOTTOM, /*margin*/0);
             // 3. filament sizer
-            p->m_mainSizer->Add(p->m_filamentSizer, 0, wxEXPAND | wxBOTTOM, margin);
+            p->m_mainSizer->Add(p->m_filamentSizer, 0, wxEXPAND | wxBOTTOM, /*margin */0);
             // 4.parameterPanel sizer
-            
             createPrintParameterSidebar();
 			createRightMenuPrintParameterSidebar();
 			p->m_pAnkerRightMenuParameterPanel->Hide();
             p->m_mainSizer->Add(p->m_pParameterVSizer, wxEXPAND | wxALL, wxEXPAND | wxALL, 0);
                         
-            
             SetSizer(p->m_mainSizer);
         }
 
@@ -682,9 +726,9 @@ namespace Slic3r {
             setMainSizer(p->m_mainSizer);
 
             // use preview right sidebar default in preview mode
-            if (!wxGetApp().is_editor()) {
-               setMainSizer(wxGetApp().plater()->CreatePreViewRightSideBar());
-            }
+            //if (!wxGetApp().is_editor()) {
+            //   setMainSizer(wxGetApp().plater()->CreatePreViewRightSideBar());
+            //}
         }
 
         void AnkerSidebarNew::refreshSideBarLayout() {
@@ -792,6 +836,7 @@ namespace Slic3r {
 
               case Preset::TYPE_PRINT:
                    p->m_pAnkerParameterPanel->reloadDataEx();
+                   p->m_pAnkerRightMenuParameterPanel->reloadDataEx();
                    break;
             /*
                case Preset::TYPE_SLA_PRINT:
@@ -1062,30 +1107,39 @@ namespace Slic3r {
             p->m_printerSizer = new wxBoxSizer(wxVERTICAL);
 
             // titile
+            auto titleVSizer = new wxBoxSizer(wxVERTICAL);
             wxPanel* title_panel = new wxPanel(this);
-            title_panel->SetBackgroundColour(wxColour("#292A2D"));
+            title_panel->SetBackgroundColour(wxColour("#202124"));
+            title_panel->SetSize(AnkerSize(PARAMETER_PANEL_WITH, SIDEBARNEW_PRINT_TEXTBTN_SIZER));
             auto titleSizer = new wxBoxSizer(wxHORIZONTAL);
             titleSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_PRINTGER_TEXTBTN_SIZER));
 
             auto* text = new wxStaticText(title_panel, wxID_ANY, _L("common_slicepannel_title_printer"));
             text->SetFont(ANKER_BOLD_FONT_NO_1);
             text->SetForegroundColour(wxColour("#FFFFFF"));
-            text->SetBackgroundColour(wxColour("#292A2D"));
+            text->SetBackgroundColour(wxColour("#202124"));
             titleSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             titleSizer->Add(text, 0, wxALIGN_CENTER_VERTICAL, 0);
             titleSizer->AddStretchSpacer(1);
 
-            auto m_pulldown_btn = new ScalableButton(title_panel, wxID_ANY, "pulldown_48x48", "");
+            auto m_pulldown_btn = new ScalableButton(title_panel, wxID_ANY, "pullup_48x48", "");
+            m_pulldown_btn->SetBackgroundColour(wxColour("#202124"));
             m_pulldown_btn->SetMaxSize(AnkerSize(25, 32));
             m_pulldown_btn->SetSize(AnkerSize(25, 32));
             m_pulldown_btn->Bind(wxEVT_BUTTON, [&, m_pulldown_btn](wxCommandEvent) {
                 this->p->m_printerPanel->Show(!(p->m_printerPanel->IsShown()));
-                p->m_printerPanel->IsShown() ? m_pulldown_btn->SetBitmap_("pulldown_48x48") : m_pulldown_btn->SetBitmap_("pullup_48x48");
+                p->m_printerPanel->IsShown() ? m_pulldown_btn->SetBitmap_("pullup_48x48") : m_pulldown_btn->SetBitmap_("pulldown_48x48");
                 Layout();
                 Refresh();
                 });
             titleSizer->Add(m_pulldown_btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             title_panel->SetSizer(titleSizer);
+
+            wxPanel* pLine = new wxPanel(this, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
+            pLine->SetBackgroundColour(wxColour("#292A2D"));
+
+            titleVSizer->Add(title_panel, 0, wxALL, 0);
+            titleVSizer->Add(pLine, 0, wxALL, 0);
 
             // content
             p->m_printerPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
@@ -1102,8 +1156,8 @@ namespace Slic3r {
                 wxNO_BORDER | wxCB_READONLY,
                 wxDefaultValidator,
                 "");
-            (*comboPrinter)->SetBackgroundColour(wxColour("#434447"));
-            (*comboPrinter)->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+            (*comboPrinter)->SetBackgroundColour(wxColour("#292A2D"));
+            (*comboPrinter)->setColor(wxColour("#434447"), wxColour("#292A2D"));
             (*comboPrinter)->SetFont(ANKER_FONT_NO_1);
             (*comboPrinter)->set_button_clicked_function([this, comboPrinter]() {
                 if (!comboPrinter)
@@ -1150,17 +1204,12 @@ namespace Slic3r {
             comboAndbtnSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             comboAndbtnSizer->Add(EditBtn, 0, wxALIGN_CENTER_VERTICAL, 0);
 
-
-            wxPanel* pLine = new wxPanel(p->m_printerPanel, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
-            pLine->SetBackgroundColour(wxColour("#38393C"));
-
-            contentSizer->Add(pLine, 0, /*wxEXPAND | */ wxALL, 0);
             contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
             contentSizer->Add(comboAndbtnSizer, 1, wxEXPAND |wxLEFT | wxRIGHT | wxALIGN_CENTER_VERTICAL, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             contentSizer->AddSpacer(AnkerLength(SIDEBARNEW_PRINTGER_COMBO_VER_SPAN));
             p->m_printerPanel->SetSizer(contentSizer);
 
-            p->m_printerSizer->Add(title_panel, 0, wxEXPAND | wxALL, 0);
+            p->m_printerSizer->Add(titleVSizer, 0, wxEXPAND | wxALL, 0);
             p->m_printerSizer->Add(p->m_printerPanel, 0, wxEXPAND | wxALL, 0);
         }
 
@@ -1170,16 +1219,20 @@ namespace Slic3r {
             p->m_filamentSizer = new wxBoxSizer(wxVERTICAL);
 
             // titile
+            auto titleVSizer = new wxBoxSizer(wxVERTICAL);
             wxPanel* title_panel = new wxPanel(this);
-            title_panel->SetBackgroundColour(wxColour("#292A2D"));
+            title_panel->SetBackgroundColour(wxColour("#202124"));
+            title_panel->SetMinSize(AnkerSize(PARAMETER_PANEL_WITH, SIDEBARNEW_PRINT_TEXTBTN_SIZER));
+            title_panel->SetMaxSize(AnkerSize(PARAMETER_PANEL_WITH, SIDEBARNEW_PRINT_TEXTBTN_SIZER));
+            title_panel->SetSize(AnkerSize(PARAMETER_PANEL_WITH, SIDEBARNEW_PRINT_TEXTBTN_SIZER));
+
             auto titleSizer = new wxBoxSizer(wxHORIZONTAL);
             titleSizer->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, SIDEBARNEW_FILAMENT_TEXTBTN_SIZER));
 
             auto* text = new wxStaticText(title_panel, wxID_ANY, _L("common_slicepannel_title_filament"));
             text->SetFont(ANKER_BOLD_FONT_NO_1);
-
             text->SetForegroundColour(wxColour("#FFFFFF"));
-            text->SetBackgroundColour(wxColour("#292A2D"));
+            text->SetBackgroundColour(wxColour("#202124"));
             titleSizer->AddSpacer(AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));
             titleSizer->Add(text, 0, wxALIGN_CENTER_VERTICAL, 0);
             titleSizer->AddStretchSpacer(1);
@@ -1198,20 +1251,31 @@ namespace Slic3r {
 
             titleSizer->Add(p->m_filamentSyncBtn, 0, wxTop | wxRIGHT, AnkerLength(SIDEBARNEW_FILAMENT_HOR_SPAN));*/
 
-            auto m_pulldown_btn = new ScalableButton(title_panel, wxID_ANY, "pulldown_48x48", "");
+            auto m_pulldown_btn = new ScalableButton(title_panel, wxID_ANY, "pullup_48x48", "");
+            m_pulldown_btn->SetBackgroundColour(wxColour("#202124"));
             m_pulldown_btn->SetMaxSize(AnkerSize(25, 32));
             m_pulldown_btn->SetSize(AnkerSize(25, 32));
             m_pulldown_btn->Bind(wxEVT_BUTTON, [&, m_pulldown_btn](wxCommandEvent) {
                 this->p->m_filamentPanel->Show(!(p->m_filamentPanel->IsShown()));
-                p->m_filamentPanel->IsShown() ? m_pulldown_btn->SetBitmap_("pulldown_48x48") : m_pulldown_btn->SetBitmap_("pullup_48x48");
+                p->m_filamentPanel->IsShown() ? m_pulldown_btn->SetBitmap_("pullup_48x48") : m_pulldown_btn->SetBitmap_("pulldown_48x48");
                 Layout();
                 Refresh();
                 });
             titleSizer->Add(m_pulldown_btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, AnkerLength(SIDEBARNEW_PRINTGER_HOR_SPAN));
             title_panel->SetSizer(titleSizer);
 
+            // separate line
+            wxPanel* SplitepLine = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+            SplitepLine->SetMaxSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
+            SplitepLine->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
+            SplitepLine->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
+            SplitepLine->SetBackgroundColour(wxColour("#292A2D"));
+
+            titleVSizer->Add(title_panel, 0, wxALL , 0);
+            titleVSizer->Add(SplitepLine, 0, wxALL, 0);
+
             // content
-            p->m_filamentPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+            p->m_filamentPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1), wxTAB_TRAVERSAL);
             p->m_filamentPanel->SetBackgroundColour(wxColour("#292A2D"));
 
             p->m_filamentPanelSizer = new wxFlexGridSizer(3, 1, 1, 2);
@@ -1223,8 +1287,8 @@ namespace Slic3r {
 
             // separate line
             wxPanel* pLine = new wxPanel(p->m_filamentPanel, wxID_ANY, wxDefaultPosition, AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 1));
-            pLine->SetBackgroundColour(wxColour("#38393C"));
-            contentSizer->Add(pLine, 1, wxEXPAND | wxTop, SIDEBARNEW_FILAMENT_VER_SPAN);
+            pLine->SetBackgroundColour(wxColour("#292A2D"));
+            contentSizer->Add(pLine, 1, wxEXPAND , 0);
 
             // update filament info
             //updateFilamentInfo();
@@ -1247,8 +1311,8 @@ namespace Slic3r {
                     wxNO_BORDER | wxCB_READONLY,
                     wxDefaultValidator,
                     "");
-                (*comboFilament)->SetBackgroundColour(wxColour("#434447"));
-                (*comboFilament)->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+                (*comboFilament)->SetBackgroundColour(wxColour("#292A2D"));
+                (*comboFilament)->setColor(wxColour("#434447"), wxColour("#292A2D"));
                 (*comboFilament)->SetFont(ANKER_FONT_NO_1);
 
 
@@ -1325,8 +1389,8 @@ namespace Slic3r {
             p->combos_filament.push_back(nullptr);
             init_combo(&p->combos_filament[0], _L("Filament"), Preset::TYPE_FILAMENT, true);
 
-            p->m_filamentSizer->Add(title_panel, 0, wxEXPAND | wxALL, 0);
-            p->m_filamentSizer->Add(p->m_filamentPanel, 0, wxEXPAND | wxALL, 0);
+            p->m_filamentSizer->Add(titleVSizer, 0, wxEXPAND | wxALL, 0);
+            p->m_filamentSizer->Add(p->m_filamentPanel, 1, wxEXPAND | wxALL, 0);
         }
 
 
@@ -1357,7 +1421,6 @@ namespace Slic3r {
                 p->m_pAnkerParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
                 p->m_pAnkerParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
                 p->m_pParameterVSizer->Add(p->m_pAnkerParameterPanel, 1, wxEXPAND);
-                p->m_pParameterVSizer->AddSpacer(4);
             }
         }
 
@@ -1395,6 +1458,11 @@ namespace Slic3r {
                     this->Thaw();
                     });
 
+                p->m_pAnkerRightMenuParameterPanel->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, [this](wxCommandEvent& event) {           
+                    updateItemConfigInfo(event.GetInt(), event.GetString());
+                    wxGetApp().mainframe->on_config_changed(&wxGetApp().plater()->get_global_config());
+                });
+
 				p->m_pAnkerRightMenuParameterPanel->SetBackgroundColour(wxColour("#292A2D"));
 				p->m_pAnkerRightMenuParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
 				p->m_pAnkerRightMenuParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
@@ -1402,6 +1470,32 @@ namespace Slic3r {
 				p->m_pParameterVSizer->AddSpacer(4);
 			}
 		}
+
+        void AnkerSidebarNew::update_current_item_config() {
+            if (p->m_pAnkerRightMenuParameterPanel) {
+                p->m_pAnkerRightMenuParameterPanel->updatePreset(p->m_current_item_config);
+            }
+        }
+
+        void AnkerSidebarNew::updateItemConfigInfo(bool is_item_reset/* = false*/, const wxString& option_key/* = ""*/)
+        {
+            update_current_item_config();
+
+            wxDataViewItemArray items;
+            object_list()->GetSelections(items);
+            if (items.empty()) return;
+
+            ObjectDataViewModelNode* node = static_cast<ObjectDataViewModelNode*>(items[0].GetID());
+            if (!node) return;
+
+            auto objects_model  = object_list()->GetModel();
+            auto model_config   = objects_model->GetModelConfig(items[0]);
+            if (!model_config) return;
+
+            if (!option_key.IsEmpty()) {
+                node->set_dirty_setting(option_key.ToStdString(), !is_item_reset);
+            }
+        }
 
         void AnkerSidebarNew::onFilamentListToggle(wxEvent& event) {
             p->m_filamentViewType = (p->m_filamentViewType == multiColorVerView) ? multiColorHorView : multiColorVerView;
@@ -1593,18 +1687,21 @@ namespace Slic3r {
         }
 
         // // add by allen for ankerCfgDlg search
-        void AnkerSidebarNew::check_and_update_searcher(bool respect_mode /*= false*/)
+        void AnkerSidebarNew::check_and_update_searcher(bool respect_mode /*= false*/, Preset::Type type/* = Preset::TYPE_COUNT*/)
         {
             std::vector<Search::InputInfo> search_inputs{};
 
             auto& tabs_list = wxGetApp().ankerTabsList;
             auto print_tech = wxGetApp().preset_bundle->printers.get_selected_preset().printer_technology();
-            for (auto tab : tabs_list)
-                if (tab->supports_printer_technology(print_tech))
-                    search_inputs.emplace_back(Search::InputInfo{ tab->get_config(), tab->type() });
+            for (auto tab : tabs_list) {
+                if (tab->supports_printer_technology(print_tech)) {
+                    if (type == Preset::TYPE_COUNT  || tab->type() == type || type == Preset::TYPE_INVALID)  // search all tab (default) OR search the tab of type
+                        search_inputs.emplace_back(Search::InputInfo{ tab->get_config(), tab->type() });
+                }
+            }
 
             p->searcher.check_and_update(wxGetApp().preset_bundle->printers.get_selected_preset().printer_technology(),
-                respect_mode ? m_mode : comExpert, search_inputs);
+                respect_mode ? m_mode : comExpert, type, search_inputs);
         }
 
         std::map < wxString, PARAMETER_GROUP> AnkerSidebarNew::getGlobalParamInfo()
@@ -1678,6 +1775,25 @@ namespace Slic3r {
             p->m_pAnkerParameterPanel->setItemValue(tabName, configOptionKey, data);
         }
 
+        void AnkerSidebarNew::setItemSupportValue(const wxString tabName, const wxString& configOptionKey, bool value)
+        {
+            p->m_pAnkerRightMenuParameterPanel->setItemValue(tabName, configOptionKey, value);
+            object_list()->update_item_support_config(configOptionKey, value);
+        }
+
+        void AnkerSidebarNew::setCalibrationValue(const wxString& configOptionKey, wxVariant value, ConfigOption* option)
+        {
+            if (!option) return;
+
+            p->m_pAnkerParameterPanel->setItemValue(configOptionKey, value);
+            auto &global_config = wxGetApp().plater()->get_global_config();
+            if (global_config.has(configOptionKey.ToStdString())) {
+                global_config.set_key_value(configOptionKey.ToStdString(), option);
+            }
+
+            object_list()->sync_calibration_config(configOptionKey, option);
+        }
+
         void AnkerSidebarNew::openSupportMaterialPage(wxString itemName, wxString text)
         {
             p->m_pAnkerParameterPanel->openSupportMaterialPage(itemName, text);
@@ -1717,6 +1833,38 @@ namespace Slic3r {
         void AnkerSidebarNew::moveWipeTower(double x, double y, double rotate)
         {
             p->m_pAnkerParameterPanel->moveWipeTower(x, y, rotate);
+        }
+
+
+        ObjectList* AnkerSidebarNew::object_list()
+        {
+            return p->m_control->get_object_list();
+        }
+
+        AnkerObjectLayerEditor* AnkerSidebarNew::object_layer()
+        {
+            return p->m_object_layers;
+        }
+
+        AnkerObjectListControl* AnkerSidebarNew::GetObjectlistControl()
+        {
+            return p->m_control;
+        }
+
+        AnkerObjectSettings* AnkerSidebarNew::object_settings()
+        {
+            return p->m_control->get_object_setting().get();
+        }
+
+
+        void AnkerSidebarNew::update_ui_from_settings()
+        {
+
+        }
+
+        void AnkerSidebarNew::update_objects_list_extruder_column(size_t extruders_count)
+        {
+            object_list()->update_objects_list_extruder_column(extruders_count);
         }
 
         void AnkerSidebarNew::modifyExtrudersInfo(const std::vector<SFilamentEditInfo> filamentInfoList, 
@@ -2320,7 +2468,7 @@ namespace Slic3r {
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, [this](wxCommandEvent&event) {
 
                 if(p->m_pAnkerParameterPanel)
-                    p->m_pAnkerParameterPanel->reloadData();				
+                    p->m_pAnkerParameterPanel->reloadData();	
 
                 });
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_CHECK_RIGHT_DIRTY_DATA, [this](wxCommandEvent& event) {
@@ -2452,7 +2600,7 @@ namespace Slic3r {
                 return;
             }
             if (ankerNet->IsLogined() == false) {
-                wxGetApp().mainframe->ShowAnkerWebView();
+                wxGetApp().mainframe->ShowAnkerWebView("sync filament info");
                 return;
             }
 
@@ -2570,7 +2718,8 @@ namespace Slic3r {
             // update data in mmu
             wxGetApp().plater()->get_current_canvas3D()->get_gizmos_manager().update_data();
             // update data in objectbar
-            wxGetApp().plater()->objectbar()->update_objects_list_extruder_column(p->m_editFilamentInfoList.size());
+            //wxGetApp().plater()->objectbar()->update_objects_list_extruder_column(p->m_editFilamentInfoList.size());
+            wxGetApp().obj_list()->update_objects_list_extruder_column(p->m_editFilamentInfoList.size());
 
             // reload data by AnkerParameterPanel
             if (p->m_pAnkerParameterPanel) {
@@ -2638,33 +2787,55 @@ namespace Slic3r {
             }
         }
 
-		void AnkerSidebarNew::showRightMenuParameterPanel(const wxString& objName, Slic3r::ModelConfig* config)
-		{
-            if (!p->m_pAnkerRightMenuParameterPanel||!p->m_pParameterVSizer)
+        void AnkerSidebarNew::SetCurrentModelConfig(Slic3r::ModelConfig* config, ObjectDataViewModelNode* node, bool bUpdate)
+        {
+            if (!p->m_pAnkerRightMenuParameterPanel)
                 return;
 
-            replaceUniverseSubSizer();
+            p->m_pAnkerRightMenuParameterPanel->setCurrentModelConfig(config, p->m_current_item_config, node, bUpdate);
+        }
 
-            m_showRightMenuPanel = PANEL_RIGHT_MENU_PARAMETER;
-            p->m_pAnkerParameterPanel->Hide();
-            p->m_pAnkerRightMenuParameterPanel->setObjectName(objName, config);                                            
-            p->m_pAnkerRightMenuParameterPanel->Show();                        
+        void AnkerSidebarNew::HideLocalParamPanel()
+        {
+            if (!p->m_pAnkerRightMenuParameterPanel) return;
+            
+            p->m_pAnkerRightMenuParameterPanel->hideLocalParamPanel();
+        }
+
+        void AnkerSidebarNew::SwitchParamPanelMode(bool show)
+        {
+            if (!show) {
+                m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
+                p->m_pAnkerRightMenuParameterPanel->Hide();
+                p->m_pAnkerParameterPanel->Show();
+                p->m_pAnkerParameterPanel->get_switch_btn()->SetValue(false);
+            }
+            else {
+                replaceUniverseSubSizer();
+                m_showRightMenuPanel = PANEL_RIGHT_MENU_PARAMETER;
+                p->m_pAnkerParameterPanel->Hide();
+                p->m_pAnkerRightMenuParameterPanel->Show();
+                p->m_pAnkerRightMenuParameterPanel->get_switch_btn()->SetValue(true);
+                object_list()->update_selections();
+                //object_list()->part_selection_changed(); (use this code when support/seam param create by imgui)
+            }
+
             refreshSideBarLayout();
-                
-		}
+        }
 
-		void AnkerSidebarNew::exitRightMenuParameterPanel()
-		{
-            if (m_sizerFlags != "")
+        void AnkerSidebarNew::updateParameterPanel()
+        {
+            if (!p->m_pAnkerParameterPanel)
                 return;
 
-			m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
-            p->m_pAnkerRightMenuParameterPanel->setObjectName("", nullptr);
-			p->m_pAnkerRightMenuParameterPanel->Hide();
-			p->m_pAnkerParameterPanel->Show();
-			Refresh();
-			Layout();
-		}
+            p->m_pAnkerParameterPanel->saveAllUi();
+        }
+
+        wxWindow* AnkerSidebarNew::GetItemParameterPanel()
+        {
+            return  p->m_pAnkerRightMenuParameterPanel;
+        }
+
         bool AnkerSidebarNew::checkDirtyDataonParameterpanel()
         {
            return p->m_pAnkerParameterPanel->checkDirtyData();
@@ -2686,6 +2857,10 @@ namespace Slic3r {
 				Slic3r::Preset::Type presetType = presetChoice->type();
 				Slic3r::GUI::wxGetApp().getAnkerTab(presetType)->select_preset(Slic3r::Preset::remove_suffix_modified(preset_name));
 
+                if (presetType == Preset::TYPE_PRINTER) {
+                    if (p && p->m_pAnkerParameterPanel)
+                        p->m_pAnkerParameterPanel->onPrinterPresetChange();
+                }
 			}
 		}
 
@@ -2695,6 +2870,7 @@ namespace Slic3r {
 		}
 
         void AnkerSidebarNew::updateCfgTabTimer(wxTimerEvent&) {
+            ANKER_LOG_INFO << "updateCfgTabTimer enter";
             updateCfgTabPreset();
         }
 

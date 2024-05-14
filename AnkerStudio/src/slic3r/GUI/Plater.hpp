@@ -15,6 +15,7 @@
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/BoundingBox.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r/calib.hpp"
 #include "Jobs/Job.hpp"
 #include "Jobs/Worker.hpp"
 #include "Search.hpp"
@@ -33,6 +34,7 @@ class wxString;
 class AnkerChooseDeviceDialog;
 
 wxDECLARE_EVENT(wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SLICE_FOR_CONMENT, wxCommandEvent);
 
 namespace Slic3r {
     // use sidebar new
@@ -89,19 +91,23 @@ namespace Slic3r {
         enum ViewMode
         {
             VIEW_MODE_3D,
-            VIEW_MODE_PREVIEW
+            VIEW_MODE_PREVIEW,
+            VIEW_MODE_ASSEMBLE
         };
 
         enum RightSidePanelUpdateReason {
             REASON_NONE = 0,
             LOAD_GCODE_FILE_FOR_PREVIEW,
             LOAD_ACODE_FILE_FOR_PREVIEW,
+            PRINTABLE_OBJ_CHANGE,
             EXPORT_START,
             EXPORT_ACODE_COMPLETE,
             EXPORT_ACODE_CANCEL,
             PROCCESS_GCODE_COMPLETE,
             SLICING_CANCEL,
             GCODE_INVALID,
+            PRINT_PRESET_DATA_DIRTY,
+            SELECT_VIEW_MODE_3D,
             SELECT_VIEW_MODE_PREVIEW,
             PLATER_TAB_HIDE,
             DELETE_ALL_OBJECT,
@@ -220,26 +226,32 @@ namespace Slic3r {
             ///web download
             void request_model_download(std::string url);
 
-            void new_project();
+            bool new_project(wxString project_name = "");
             void load_project();
             void load_project(const wxString& filename);
             void add_model(bool imperial_units = false);
             void import_zip_archive();
             void import_sl1_archive();
+
+            void cut_horizontal(size_t obj_idx, size_t instance_idx, double z, ModelObjectCutAttributes attributes);
+            void apply_cut_object_to_model(size_t obj_idx, const ModelObjectPtrs& new_objects);
+            void orient();
+
             void extract_config_from_project();
             void load_gcode();
             void load_gcode(const wxString& filename);
             void reload_gcode_from_disk();
             void refresh_print();
+            void setStarConmentFlagsTimes(const int& sliceTimes);
 
-            std::string get_acode_extract_path();
+            static std::string get_acode_extract_path();
             void clear_acode_extract_path();
-            bool ExtractFilesFromTar(const wxString& tarFilePath, const wxString& outputDir, std::string file_pattern_regex = ".*");
-            wxString extract_aiGcode_file_from_tar(const wxString& tarFilePath);
+            static bool ExtractFilesFromTar(const wxString& tarFilePath, const wxString& outputDir, std::string file_pattern_regex = ".*");
+            static wxString extract_aiGcode_file_from_tar(const wxString& tarFilePath);
 
-            std::vector<size_t> load_files(const std::vector<boost::filesystem::path>& input_files, bool load_model = true, bool load_config = true, bool imperial_units = false);
+            std::vector<size_t> load_files(const std::vector<boost::filesystem::path>& input_files, bool load_model = true, bool load_config = true, bool imperial_units = false, bool calibration = false);
             // To be called when providing a list of files to the GUI slic3r on command line.
-            std::vector<size_t> load_files(const std::vector<std::string>& input_files, bool load_model = true, bool load_config = true, bool imperial_units = false);
+            std::vector<size_t> load_files(const std::vector<std::string>& input_files, bool load_model = true, bool load_config = true, bool imperial_units = false, bool calibration = false);
             // to be called on drag and drop
             bool load_files(const wxArrayString& filenames, bool delete_after_load = false);
             bool isImportGCode() const;
@@ -251,6 +263,8 @@ namespace Slic3r {
             const wxString& get_last_loaded_gcode() const { return m_last_loaded_gcode; }
 
             void update();
+
+            void update(int flag);
 
             // Get the worker handling the UI jobs (arrange, fill bed, etc...)
             // Here is an example of starting up an ad-hoc job:
@@ -314,6 +328,8 @@ namespace Slic3r {
             void select_all();
             void deselect_all();
             int get_object_count();
+            int get_printable_object_count();
+
             void remove(size_t obj_idx);
             void reset();
             void reset_with_confirm();
@@ -327,6 +343,7 @@ namespace Slic3r {
             void scale_selection_to_fit_print_volume();
             void convert_unit(ConversionType conv_type);
             void toggle_layers_editing(bool enable);
+            void set_selected_visible(bool visible);
 
             void cut(size_t obj_idx, size_t instance_idx, const Transform3d& cut_matrix, ModelObjectCutAttributes attributes);
 
@@ -341,8 +358,8 @@ namespace Slic3r {
             bool is_cancel_exporting_Gcode();
             void set_create_AI_file_val(bool val);
             bool get_create_AI_file_val();
-            void set_droping_file(bool val);
-            bool is_droping_file();
+            void set_view_drop_file(bool val);
+            bool is_view_drop_file();
             void a_key_print_clicked();
             bool ExportGacode();
             void UpdateDeviceList(bool hideList);
@@ -362,6 +379,7 @@ namespace Slic3r {
             void clear_before_change_mesh(int obj_idx, const std::string& notification_msg);
             void changed_mesh(int obj_idx);
 
+            void changed_object(ModelObject *object);
             void changed_object(int obj_idx);
             void changed_objects(const std::vector<size_t>& object_idxs);
             void schedule_background_process(bool schedule = true);
@@ -426,6 +444,9 @@ namespace Slic3r {
             const GLCanvas3D* canvas3D() const;
             GLCanvas3D* canvas_preview();
             GLCanvas3D* get_current_canvas3D();
+            GLCanvas3D* get_assmeble_canvas3D();
+            GLCanvas3D* get_view3D_canvas3D();
+            GCodeProcessorResultExt* get_gcode_info();
 
             void arrange();
 
@@ -442,10 +463,12 @@ namespace Slic3r {
 
             void copy_selection_to_clipboard();
             void paste_from_clipboard();
-            void search(bool plater_is_active, wxString defaultSearchData="");
+            void search(bool plater_is_active, wxString defaultSearchData="", Preset::Type type= Preset::TYPE_COUNT);
             void mirror(Axis axis);
             void split_object();
             void split_volume();
+
+            void fill_color(int extruder_id);
 
             bool can_delete() const;
             bool can_delete_all() const;
@@ -468,6 +491,10 @@ namespace Slic3r {
             bool can_mirror() const;
             bool can_split(bool to_objects) const;
             bool can_scale_to_print_volume() const;
+
+            //assmeble
+            bool can_fillcolor() const;
+            bool has_assmeble_view() const;
 
             void msw_rescale();
             void sys_color_changed();
@@ -510,6 +537,7 @@ namespace Slic3r {
             void set_bed_shape() const;
             void set_bed_shape(const Pointfs& shape, const double max_print_height, const std::string& custom_texture, const std::string& custom_model, bool force_as_custom = false) const;
             void set_default_bed_shape() const;
+            BoundingBox get_bed_shape() const;
 
             NotificationManager* get_notification_manager();
             const NotificationManager* get_notification_manager() const;
@@ -574,6 +602,7 @@ namespace Slic3r {
             wxMenu* object_menu();
             wxMenu* part_menu();
             wxMenu* text_part_menu();
+            wxMenu* svg_part_menu();
             wxMenu* sla_object_menu();
             wxMenu* default_menu();
             wxMenu* instance_menu();
@@ -585,6 +614,7 @@ namespace Slic3r {
             static void show_illegal_characters_warning(wxWindow* parent);
 
             void setAKeyPrintSlicerTempGcodePath(const std::string& gcodePath);
+            // return utf8 file name
             std::string getAKeyPrintSlicerTempGcodePath() {
                 return m_currentPrintGcodeFile;
             };
@@ -611,6 +641,22 @@ namespace Slic3r {
                 m_filament = std::move(filament);
             }
             DynamicPrintConfig& get_global_config();
+
+            ////calibration/////
+            void calib_pa(const Calib_Params& params);
+            void _calib_pa_pattern(const Calib_Params& params);
+            void _calib_pa_tower(const Calib_Params& params);
+            void _calib_pa_select_added_objects();
+            void calib_flowrate(int pass);
+            void calib_temp(const Calib_Params& params);
+            void calib_retraction(const Calib_Params& params);
+            void calib_max_vol_speed(const Calib_Params& params);
+            void calib_VFA(const Calib_Params& params);
+            void set_calibration(bool bCalibration) { m_input_model_from_calibration = bCalibration; }
+            bool get_calibration_enable() { return m_input_model_from_calibration; }
+            CalibMode get_calibration_mode() { return m_calibModel; }
+            /////////
+
         private:
             void reslice_until_step_inner(int step, const ModelObject& object, bool postpone_error_messages);
 
@@ -624,7 +670,7 @@ namespace Slic3r {
             wxString m_tracking_popup_menu_error_message;
 
             wxString m_last_loaded_gcode;
-            std::string m_currentPrintGcodeFile;
+            std::string m_currentPrintGcodeFile;  // utf8 
             std::string m_onekeyPrintGcodeFile;
             wxString  m_model_object_size_text;
             wxString  m_scaled_model_object_size_text;
@@ -638,7 +684,8 @@ namespace Slic3r {
             void allow_snapshots();
 
             AnkerChooseDeviceDialog* m_chooseDeviceDialog = nullptr;
-
+            bool m_input_model_from_calibration = false;
+            CalibMode m_calibModel{ CalibMode::Calib_None };
             friend class SuppressBackgroundProcessingUpdate;
         };
 

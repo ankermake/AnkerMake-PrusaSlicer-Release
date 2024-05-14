@@ -390,9 +390,9 @@ namespace Slic3r::GUI {
 		m_parent.set_as_dirty();
 	}
 
-	void GLGizmoFdmSupports::data_changed()
+	void GLGizmoFdmSupports::data_changed(bool is_serializing)
 	{
-		GLGizmoPainterBase::data_changed();
+		GLGizmoPainterBase::data_changed(is_serializing);
 		if (!m_c->selection_info())
 			return;
 
@@ -472,8 +472,7 @@ namespace Slic3r::GUI {
 
 		if (updated) {
 			const ModelObjectPtrs& mos = wxGetApp().model().objects;
-			wxGetApp().objectbar()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin(), AnkerObjectItem::ITYPE_SUPPORT);
-
+			wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
 			m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
 		}
 	}
@@ -621,7 +620,7 @@ namespace Slic3r::GUI {
 				m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
 				auto green_font_color = wxColour("#62D361");
 
-				AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+				AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 32, 0, wxColour(PANEL_TITLE_BACK_DARK_RGB_INT));
 				container->setTitle(wxString::FromUTF8(get_name(true, false)));
 				container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
 				int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
@@ -629,7 +628,8 @@ namespace Slic3r::GUI {
 				m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
 
 				supportPanel = new wxPanel(container);
-				supportPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 600));
+				supportPanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+				supportPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, 2000));
 				supportPanelSizer = new wxBoxSizer(wxVERTICAL);
 				supportPanel->SetSizer(supportPanelSizer);
 				container->setContentPanel(supportPanel);
@@ -766,11 +766,11 @@ namespace Slic3r::GUI {
 					// More Setting
 					wxBoxSizer* moreSettingSizer = new wxBoxSizer(wxHORIZONTAL);
 					supportPanelSizer->Add(moreSettingSizer, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 24);
-					AnkerBtn* moreSettingButton = add_button(moreSettingSizer, supportPanel, align_left, wxSize(100, 25));
+					AnkerBtn* moreSettingButton = add_button(moreSettingSizer, supportPanel, align_left, wxSize(115, 30));
 					moreSettingButton->SetText(_L("common_slice_toolpannelsupport_more"));
 					moreSettingButton->SetTextColor(green_font_color);
 					moreSettingButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent) {
-						wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+						wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
 						wxGetApp().sidebarnew().openSupportMaterialPage(_L("common_slicepannel_style11_expert"),_L("Support"));
 						});
 
@@ -792,14 +792,17 @@ namespace Slic3r::GUI {
 					}
 					enforceSizer->AddStretchSpacer(1);
 
-					AnkerBtn* enforceButton = add_button(enforceSizer, supportPanel, align_right, wxSize(102, 25));
+					AnkerBtn* enforceButton = add_button(enforceSizer, supportPanel, align_right, wxSize(102, 30));
 					enforceButton->SetText(_L("common_slice_toolpannelsupport_buttonenforce"));
 					enforceButton->SetTextColor(green_font_color);
 					enforceButton->Bind(wxEVT_BUTTON, [this, enforceButton](wxCommandEvent& event) {
 						select_facets_by_angle(m_selected_angle, false);
 
 						//set generate support material on
-						wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material"), true); // todo change tab name
+						//wxGetApp().sidebarnew().setItemValue(_L("Support"), _L("support_material"), true); // todo change tab name
+
+						// for item local config support 
+						wxGetApp().sidebarnew().setItemSupportValue(_L("Support"), _L("support_material"), true);
 						});
 				}
 
@@ -901,7 +904,7 @@ namespace Slic3r::GUI {
 					int btnID = event.GetInt();
 					if (btnID == returnBtnID)
 					{
-						wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+						wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
 					}
 					else if (btnID == clearBtnID)
 					{
@@ -920,7 +923,7 @@ namespace Slic3r::GUI {
 					{
 						m_panelVisibleFlag = false;
 
-						wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+						wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
 					}
 					});
 			}

@@ -84,11 +84,6 @@ void AnkerDialogPanel::hideCloseButton(bool hide)
 	closeBtn->Show(!hide);
 }
 
-void AnkerDialogPanel::SetOkBtnCallBack(AnkerDialogBtnCallBack_T callback)
-{
-	m_okBtnCallBack = callback;
-}
-
 AnkerDialog::AnkerDialog(
 	wxWindow* parent, wxWindowID id, const wxString& title,
 	const wxString& context, const wxPoint& pos,
@@ -331,8 +326,12 @@ void AnkerDialogCancelOkPanel::okButtonClicked(wxCommandEvent& event)
 	}
 }
 
-AnkerDialogOkPanel::AnkerDialogOkPanel(wxWindow* parent, const wxString& title, 
-	const wxSize& size) : 
+AnkerDialogOkPanel::AnkerDialogOkPanel(
+	wxWindow* parent, 
+	const wxString& title, 
+	const wxSize& size,
+	AnkerDialogBtnCallBack_T okBtnCallBack) :
+	m_okBtnCallBack(okBtnCallBack),
 	AnkerDialogPanel(parent, title, size)
 {
 	int widthInterval = 24;
@@ -383,15 +382,23 @@ void AnkerDialogOkPanel::okButtonClicked(wxCommandEvent& event)
 	wxWindow* parent = GetParent();
 	AnkerDialog* parentDialog = dynamic_cast<AnkerDialog*>(parent);
 	if (parentDialog) {
-        ANKER_LOG_INFO<<"CALL parentDialog->EndModal(wxID_OK);";
-		parentDialog->EndModal(wxID_OK);
+		if (parentDialog->IsModal()) {
+			ANKER_LOG_INFO << "CALL parentDialog->EndModal(wxID_OK);";
+			parentDialog->EndModal(wxID_OK);
+		}
+		else {
+			parentDialog->Close();
+		}
 	}
 	else {
         ANKER_LOG_INFO<< "CALL closeWindow() of AnkerDialogOkPanel";
 		closeWindow();
 	}
-}
 
+	if (m_okBtnCallBack) {
+		m_okBtnCallBack(event);
+	}
+}
 
 AnkerDialogCustomSizer::AnkerDialogCustomSizer(wxWindow* parent, wxBoxSizer* contentSizer, const wxString& title,
 	const wxSize& size) :
@@ -407,9 +414,13 @@ AnkerDialogCustomSizer::~AnkerDialogCustomSizer()
 }
 
 
-AnkerDialogDisplayTextOkPanel::AnkerDialogDisplayTextOkPanel(wxWindow* parent, const wxString& title, 
-	const wxSize& size, const wxString& context) :
-	AnkerDialogOkPanel(parent, title, size)
+AnkerDialogDisplayTextOkPanel::AnkerDialogDisplayTextOkPanel(
+	wxWindow* parent, 
+	const wxString& title, 
+	const wxSize& size, 
+	const wxString& context,
+	AnkerDialogBtnCallBack_T okBtnCallBack) :
+	AnkerDialogOkPanel(parent, title, size, okBtnCallBack)
 {
 	wxColour bkColour = wxColour("#333438");
 	if (parent) {
@@ -435,49 +446,68 @@ AnkerDialogDisplayTextOkPanel::AnkerDialogDisplayTextOkPanel(wxWindow* parent, c
 	m_centerPanel->GetSizer()->AddSpacer(interval);
 }
 
-AnkerDialogDisplayTextOkPanel::~AnkerDialogDisplayTextOkPanel()
-{
-}
-
-AnkerDialogDisplayTextCancelOkPanel::AnkerDialogDisplayTextCancelOkPanel(wxWindow* parent, const wxString& title, const wxSize& size,
-	const wxString& context) :AnkerDialogCancelOkPanel(parent, title, size)
+AnkerDialogIconTextOkPanel::AnkerDialogIconTextOkPanel(
+	wxWindow* parent,
+	const wxString& iconPath,
+	const wxString& title,
+	const wxString& context,
+	const wxSize& size,
+	AnkerDialogBtnCallBack_T okBtnCallBack) :
+	AnkerDialogOkPanel(parent, title, size, okBtnCallBack)
 {
 	wxColour bkColour = wxColour("#333438");
 	if (parent) {
 		bkColour = parent->GetBackgroundColour();
 	}
 
-	int interval = 12;
-	m_centerPanel->GetSizer()->AddSpacer(interval);
-	wxBoxSizer* contextSizer = new wxBoxSizer(wxHORIZONTAL);
-	contextSizer->AddSpacer(interval);
-	wxPoint contextPos(interval, interval);
-	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+	int interval = AnkerLength(24);
 
-	wxSize contextSize(size.GetWidth() - 2 * interval, m_okBtn->GetPosition().y - contextPos.y - interval);
-	m_contextText = new AnkerStaticText(m_centerPanel, wxID_ANY, context, contextPos, contextSize, wxST_ELLIPSIZE_MIDDLE);
-	wxFont titleFont = ANKER_FONT_NO_2;
-	m_contextText->SetFont(titleFont);
+	// icon image
+	wxStaticBitmap* iconImage = nullptr;
+	if (!iconPath.empty()) {
+		auto imageName = wxString::FromUTF8(Slic3r::var(iconPath.ToStdString(wxConvUTF8)));
+		wxImage image = wxImage(imageName, wxBITMAP_TYPE_PNG);
+		image.Rescale(86, 86);
+		iconImage = new wxStaticBitmap(m_centerPanel, wxID_ANY, image);
+		iconImage->SetMinSize(image.GetSize());
+		iconImage->SetMaxSize(image.GetSize());
+		iconImage->SetBackgroundColour(bkColour);
+	}
+
+	// text
+	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+	int contextWidth = size.GetWidth() - 2 * interval;
+	m_contextText = new AnkerStaticText(m_centerPanel, wxID_ANY, "");
+	m_contextText->SetFont(ANKER_FONT_NO_2);
 	m_contextText->SetForegroundColour("#FFFFFF");
 	m_contextText->SetBackgroundColour(bkColour);
-	setStrWrap(m_contextText, contextSize.GetWidth(), context, type);
-	contextSizer->Add(m_contextText, 0);
-	contextSizer->AddSpacer(interval);
-	m_centerPanel->GetSizer()->Add(contextSizer);
-	m_centerPanel->GetSizer()->AddSpacer(interval);
-	bindBtnEvent();
-	setOkBtnText();
-	setCancelBtnText();
-}
 
-AnkerDialogDisplayTextCancelOkPanel::~AnkerDialogDisplayTextCancelOkPanel()
-{
+	wxString wrapLabel = Slic3r::GUI::WrapEveryCharacter(context, ANKER_FONT_NO_2, contextWidth);
+	m_contextText->SetLabelText(wrapLabel);
+	m_contextText->Wrap(contextWidth);
+
+	wxBoxSizer* contextSizer = new wxBoxSizer(wxVERTICAL);
+	if (iconImage) {
+		auto imageInterval = size.GetWidth() - 2 * interval - iconImage->GetSize().GetWidth();
+		contextSizer->Add(iconImage, 0, wxLEFT | wxRIGHT, imageInterval / 2);
+		contextSizer->AddSpacer(AnkerLength(24));
+	}
+	contextSizer->Add(m_contextText, 0, wxALIGN_CENTER_HORIZONTAL, 0);
+
+	m_centerPanel->GetSizer()->Add(contextSizer, 0, wxTOP | wxBOTTOM | wxALIGN_CENTER_HORIZONTAL, interval);
+
+	//Layout();
 }
 
 AnkerDialogDisplayTextCheckBoxOkPanel::AnkerDialogDisplayTextCheckBoxOkPanel(
-	const wxString& title, const wxSize& size, const wxString& context, const wxString& checkBoxStr,
-	AnkerDialog::EventCallBack_T callback, wxWindow* parent)
-	: AnkerDialogOkPanel(parent, title, size)
+	const wxString& title, 
+	const wxSize& size, 
+	const wxString& context, 
+	const wxString& checkBoxStr,
+	AnkerDialog::EventCallBack_T callback, 
+	wxWindow* parent,
+	AnkerDialogBtnCallBack_T okBtnCallBack)
+	: AnkerDialogOkPanel(parent, title, size, okBtnCallBack)
 {
 	wxColour bkColour = wxColour("#333438");
 	if (parent) {
@@ -529,7 +559,7 @@ AnkerDialogDisplayTextCheckBoxOkPanel::AnkerDialogDisplayTextCheckBoxOkPanel(
 
 	m_centerPanel->GetSizer()->AddSpacer(interval);
 	m_centerPanel->GetSizer()->Add(centerBox);
-	m_centerPanel->GetSizer()->AddSpacer(interval);	
+	m_centerPanel->GetSizer()->AddSpacer(interval);
 
 	setOkBtnText(_AnkerL("common_button_ok"));
 
@@ -537,10 +567,43 @@ AnkerDialogDisplayTextCheckBoxOkPanel::AnkerDialogDisplayTextCheckBoxOkPanel(
 		if (callback) {
 			callback(event, dynamic_cast<wxControl*>(checkBox));
 		}
-	});
+		});
 
 	Layout();
 }
+
+
+AnkerDialogDisplayTextCancelOkPanel::AnkerDialogDisplayTextCancelOkPanel(wxWindow* parent, const wxString& title, const wxSize& size,
+	const wxString& context) : AnkerDialogCancelOkPanel(parent, title, size)
+{
+	wxColour bkColour = wxColour("#333438");
+	if (parent) {
+		bkColour = parent->GetBackgroundColour();
+	}
+
+	int interval = 12;
+	m_centerPanel->GetSizer()->AddSpacer(interval);
+	wxBoxSizer* contextSizer = new wxBoxSizer(wxHORIZONTAL);
+	contextSizer->AddSpacer(interval);
+	wxPoint contextPos(interval, interval);
+	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+
+	wxSize contextSize(size.GetWidth() - 2 * interval, m_okBtn->GetPosition().y - contextPos.y - interval);
+	m_contextText = new AnkerStaticText(m_centerPanel, wxID_ANY, context, contextPos, contextSize, wxST_ELLIPSIZE_MIDDLE);
+	wxFont titleFont = ANKER_FONT_NO_2;
+	m_contextText->SetFont(titleFont);
+	m_contextText->SetForegroundColour("#FFFFFF");
+	m_contextText->SetBackgroundColour(bkColour);
+	setStrWrap(m_contextText, contextSize.GetWidth(), context, type);
+	contextSizer->Add(m_contextText, 0);
+	contextSizer->AddSpacer(interval);
+	m_centerPanel->GetSizer()->Add(contextSizer);
+	m_centerPanel->GetSizer()->AddSpacer(interval);
+	bindBtnEvent();
+	setOkBtnText();
+	setCancelBtnText();
+}
+
 
 AnkerDialogDisplayTextCheckBoxCancelOkPanel::AnkerDialogDisplayTextCheckBoxCancelOkPanel(
 	const wxString& title, const wxSize& size, const wxString& context, const wxString& checkBoxStr, 
@@ -613,10 +676,6 @@ AnkerDialogDisplayTextCheckBoxCancelOkPanel::AnkerDialogDisplayTextCheckBoxCance
 			callback(event, dynamic_cast<wxControl*>(checkBox));
 		}
 	});
-}
-
-AnkerDialogDisplayTextCheckBoxCancelOkPanel::~AnkerDialogDisplayTextCheckBoxCancelOkPanel()
-{
 }
 
 AnkerDialogBase::AnkerDialogBase(wxWindow* parent, 
@@ -834,77 +893,3 @@ void AnkerDialogBase::OnSize(wxSizeEvent& event)
 	event.Skip();
 }
 
-AnkerDialogIconTextOkPanel::AnkerDialogIconTextOkPanel(EventCallBack_T callback, 
-	const wxString& context, const std::string& iconPath, const wxSize& size, wxWindow* parent)
-	: AnkerBox(parent)
-{
-	wxColour bkcolour = wxColour("#333639");
-	if (parent) {
-		bkcolour = parent->GetBackgroundColour();
-	}
-
-	int broadInterval = AnkerLength(20);
-
-	// icon
-	auto iconPathStr = iconPath.empty() ? Slic3r::var("msg_broken.png") : iconPath;
-	wxImage iconImage = wxImage(wxString::FromUTF8(iconPathStr), wxBITMAP_TYPE_PNG);
-	iconImage.Rescale(86, 86, wxIMAGE_QUALITY_NORMAL);
-	wxBitmap deviceBitmap(iconImage);
-	auto iconBitmap = new wxStaticBitmap(this, wxID_ANY, deviceBitmap);
-
-	wxBoxSizer* iconBoxSizer = new wxBoxSizer(wxHORIZONTAL);
-	iconBoxSizer->Add(iconBitmap);
-
-	// display content		
-	auto contextText = new AnkerStaticText(this, wxID_ANY, context);
-	contextText->SetFont(ANKER_FONT_NO_1);
-	contextText->SetForegroundColour("#FFFFFF");
-	// contextText->SetBackgroundColour(wxColour(0, 255, 0));
-#ifdef __APPLE__
-	int width = AnkerLength(60 );
-#else
-	int width = AnkerLength(0);
-#endif
-	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
-	Slic3r::GUI::WxFontUtils::setText_wrap(contextText, contextText->GetSize().GetWidth() - width, context, type);
-
-	wxBoxSizer* contextSizer = new wxBoxSizer(wxHORIZONTAL);
-	contextSizer->Add(contextText, 0, wxLEFT | wxRIGHT, AnkerLength(24));
-	contextSizer->Layout();
-
-	// ok button
-	wxSize okBtnSize(size.GetWidth() - 2* broadInterval, AnkerLength(48));
-	auto okBtn = new AnkerBtn(this, wxID_ANY);
-	okBtn->SetSize(okBtnSize);
-    okBtn->SetMinSize(okBtnSize);
-    okBtn->SetMaxSize(okBtnSize);
-	okBtn->SetText(_AnkerL("common_button_ok"));
-	okBtn->SetFont(ANKER_BOLD_FONT_NO_1);
-	okBtn->SetBackgroundColour("#62D361");
-	okBtn->SetTextColor("#FFFFFF");
-	okBtn->SetRadius(10);
-	okBtn->Bind(wxEVT_BUTTON, callback);
-
-	wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
-	btnSizer->Add(okBtn);
-	btnSizer->Layout();
-
-	// main sizer
-	auto mainSizer = new wxBoxSizer(wxVERTICAL);
-	mainSizer->AddSpacer(AnkerLength(38));
-	mainSizer->Add(iconBoxSizer, 0, wxALIGN_CENTER, broadInterval);
-	mainSizer->AddSpacer(AnkerLength(27));
-	//mainSizer->AddStretchSpacer(1);
-	mainSizer->Add(contextSizer, 0, wxALIGN_CENTER, broadInterval);
-	//mainSizer->AddStretchSpacer(1);
-	mainSizer->AddSpacer(AnkerLength(33));
-	mainSizer->Add(btnSizer, 0, wxALIGN_CENTER, broadInterval);
-	mainSizer->AddSpacer(AnkerLength(20));
-	mainSizer->Layout();
-
-	SetSizer(mainSizer);
-}
-
-AnkerDialogIconTextOkPanel::~AnkerDialogIconTextOkPanel()
-{
-}

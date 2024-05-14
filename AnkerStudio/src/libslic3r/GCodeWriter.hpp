@@ -47,6 +47,8 @@ public:
     std::string postamble() const;
     std::string set_temperature(unsigned int temperature, bool wait = false, int tool = -1) const;
     std::string set_bed_temperature(unsigned int temperature, bool wait = false);
+    std::string set_jerk_xy(double jerk);
+    std::string set_pressure_advance(double pa) const;
     std::string set_print_acceleration(unsigned int acceleration)   { return set_acceleration_internal(Acceleration::Print, acceleration); }
     std::string set_travel_acceleration(unsigned int acceleration)  { return set_acceleration_internal(Acceleration::Travel, acceleration); }
     std::string reset_e(bool force = false);
@@ -90,6 +92,10 @@ public:
     // by this function while the current Z-hop accumulator is updated.
     void        update_position(const Vec3d &new_pos);
 
+    //BBS: set offset for gcode writer
+    void set_xy_offset(double x, double y) { m_x_offset = x; m_y_offset = y; }
+    Vec2f get_xy_offset() { return Vec2f{ m_x_offset, m_y_offset }; };
+
     // Returns whether this flavor supports separate print and travel acceleration.
     static bool supports_separate_travel_acceleration(GCodeFlavor flavor);
 
@@ -116,6 +122,8 @@ private:
     // If set to zero, the limit is not in action.
     unsigned int    m_max_acceleration;
     unsigned int    m_max_travel_acceleration;
+    double          m_max_jerk;
+    double          m_last_jerk;
 
     unsigned int    m_last_bed_temperature;
     bool            m_last_bed_temperature_reached;
@@ -123,6 +131,10 @@ private:
     Vec3d           m_pos = Vec3d::Zero();
     bool            m_is_first_layer = true;
     double          m_current_speed;
+
+    //BBS: x, y offset for gcode generated
+    double          m_x_offset{ 0 };
+    double          m_y_offset{ 0 };
 
     enum class Acceleration {
         Travel,

@@ -213,6 +213,11 @@ inline Points to_points(const ExPolygons &src)
     return points;
 }
 
+inline void translate(ExPolygons& expolys, const Point& p) {
+    for (ExPolygon& expoly : expolys)
+        expoly.translate(p);
+}
+
 inline Polylines to_polylines(const ExPolygon &src)
 {
     Polylines polylines;
@@ -468,6 +473,9 @@ std::vector<BoundingBox> get_extents_vector(const ExPolygons &polygons);
 // Test for duplicate points. The points are copied, sorted and checked for duplicates globally.
 bool has_duplicate_points(const ExPolygon &expoly);
 bool has_duplicate_points(const ExPolygons &expolys);
+
+// Return True when erase some otherwise False.
+bool remove_same_neighbor(ExPolygons& expolys);
 
 bool remove_sticks(ExPolygon &poly);
 void keep_largest_contour_only(ExPolygons &polygons);

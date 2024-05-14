@@ -172,7 +172,7 @@ void Selection::add(unsigned int volume_idx, bool as_single_selection, bool chec
             clear();
 
         if (!keep_instance_mode)
-            m_mode = volume->is_modifier ? Volume : Instance;
+            m_mode = volume->is_modifier ? Volume : m_volume_selection_mode;
     }
     else
       // keep current mode
@@ -683,6 +683,16 @@ const BoundingBoxf3& Selection::get_bounding_box() const
         }
     }
     return *m_bounding_box;
+}
+
+Vec3d Selection::calc_dragging_center() const
+{
+    BoundingBoxf3 bbox;
+    for (unsigned int i : m_list) {
+        bbox.merge((*m_volumes)[i]->transformed_bounding_box());
+    }
+
+    return bbox.center();
 }
 
 const BoundingBoxf3& Selection::get_unscaled_instance_bounding_box() const
@@ -1213,6 +1223,12 @@ void Selection::scale_and_translate(const Vec3d& scale, const Vec3d& world_trans
             }
             else
                 transform_instance_relative(v, volume_data, transformation_type, Geometry::translation_transform(world_translation) * Geometry::scale_transform(relative_scale), m_cache.dragging_center);
+
+            // update the instance assemble transform
+            ModelObject* object = m_model->objects[v.object_idx()];
+            Geometry::Transformation assemble_transform = object->instances[v.instance_idx()]->get_assemble_transformation();
+            assemble_transform.set_scaling_factor(v.get_instance_scaling_factor());
+            object->instances[v.instance_idx()]->set_assemble_transformation(assemble_transform);
         }
         else {
             if (!is_single_volume_or_modifier()) {
@@ -1407,14 +1423,14 @@ void Selection::erase()
         return;
 
     if (is_single_full_object())
-        wxGetApp().objectbar()->delete_from_model_and_list(AnkerObjectItem::ItemType::ITYPE_OBJECT, get_object_idx(), 0);
+        wxGetApp().obj_list()->delete_from_model_and_list(ItemType::itObject, get_object_idx(), 0);
     else if (is_multiple_full_object()) {
-        std::vector<AnkerObjectBar::ItemForDelete> items;
+        std::vector<ItemForDelete> items;
         items.reserve(m_cache.content.size());
         for (ObjectIdxsToInstanceIdxsMap::iterator it = m_cache.content.begin(); it != m_cache.content.end(); ++it) {
-            items.emplace_back(AnkerObjectItem::ItemType::ITYPE_OBJECT, it->first, 0);
+            items.emplace_back(ItemType::itObject, it->first, 0);
         }
-        wxGetApp().objectbar()->delete_from_model_and_list(items);
+        wxGetApp().obj_list()->delete_from_model_and_list(items);
     }
     else if (is_multiple_full_instance()) {
         std::set<std::pair<int, int>> instances_idxs;
@@ -1424,17 +1440,17 @@ void Selection::erase()
             }
         }
 
-        std::vector<AnkerObjectBar::ItemForDelete> items;
+        std::vector<ItemForDelete> items;
         items.reserve(instances_idxs.size());
         for (const std::pair<int, int>& i : instances_idxs) {
-            items.emplace_back(AnkerObjectItem::ItemType::ITYPE_INSTANCE, i.first, i.second);
+            items.emplace_back(ItemType::itInstance, i.first, i.second);
         }
-        wxGetApp().objectbar()->delete_from_model_and_list(items);
+        wxGetApp().obj_list()->delete_from_model_and_list(items);
     }
     else if (is_single_full_instance())
-        wxGetApp().objectbar()->delete_from_model_and_list(AnkerObjectItem::ItemType::ITYPE_INSTANCE, get_object_idx(), get_instance_idx());
+        wxGetApp().obj_list()->delete_from_model_and_list(ItemType::itInstance, get_object_idx(), get_instance_idx());
     else if (is_mixed()) {
-        std::set<AnkerObjectBar::ItemForDelete> items_set;
+        std::set<ItemForDelete> items_set;
         std::map<int, int> volumes_in_obj;
 
         for (auto i : m_list) {
@@ -1444,9 +1460,9 @@ void Selection::erase()
 
             if (model_object->instances.size() == 1) {
                 if (model_object->volumes.size() == 1)
-                    items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_OBJECT, glv_obj_idx, -1));
+                    items_set.insert(ItemForDelete(ItemType::itObject, glv_obj_idx, -1));
                 else {
-                    items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_VOLUME, glv_obj_idx, gl_vol->volume_idx()));
+                    items_set.insert(ItemForDelete(ItemType::itVolume, glv_obj_idx, gl_vol->volume_idx()));
                     int idx = (volumes_in_obj.find(glv_obj_idx) == volumes_in_obj.end()) ? 0 : volumes_in_obj.at(glv_obj_idx);
                     volumes_in_obj[glv_obj_idx] = ++idx;
                 }
@@ -1459,9 +1475,9 @@ void Selection::erase()
                 if (obj_ins.first == glv_obj_idx) {
                     if (obj_ins.second.find(glv_ins_idx) != obj_ins.second.end()) {
                         if (obj_ins.second.size() == model_object->instances.size())
-                            items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_OBJECT, glv_obj_idx, -1));
+                            items_set.insert(ItemForDelete(ItemType::itObject, glv_obj_idx, -1));
                         else
-                            items_set.insert(AnkerObjectBar::ItemForDelete(AnkerObjectItem::ItemType::ITYPE_INSTANCE, glv_obj_idx, glv_ins_idx));
+                            items_set.insert(ItemForDelete(ItemType::itInstance, glv_obj_idx, glv_ins_idx));
 
                         break;
                     }
@@ -1469,21 +1485,21 @@ void Selection::erase()
             }
         }
 
-        std::vector<AnkerObjectBar::ItemForDelete> items;
+        std::vector<ItemForDelete> items;
         items.reserve(items_set.size());
-        for (const AnkerObjectBar::ItemForDelete & i : items_set) {
-            if (i.type == AnkerObjectItem::ItemType::ITYPE_VOLUME) {
+        for (const ItemForDelete& i : items_set) {
+            if (i.type == ItemType::itVolume) {
                 const int vol_in_obj_cnt = volumes_in_obj.find(i.obj_idx) == volumes_in_obj.end() ? 0 : volumes_in_obj.at(i.obj_idx);
                 if (vol_in_obj_cnt == (int)m_model->objects[i.obj_idx]->volumes.size()) {
                     if (i.sub_obj_idx == vol_in_obj_cnt - 1)
-                        items.emplace_back(AnkerObjectItem::ItemType::ITYPE_OBJECT, i.obj_idx, 0);
+                        items.emplace_back(ItemType::itObject, i.obj_idx, 0);
                     continue;
                 }
             }
             items.emplace_back(i.type, i.obj_idx, i.sub_obj_idx);
         }
 
-        wxGetApp().objectbar()->delete_from_model_and_list(items);
+        wxGetApp().obj_list()->delete_from_model_and_list(items);
     }
     else {
         std::set<std::pair<int, int>> volumes_idxs;
@@ -1495,23 +1511,15 @@ void Selection::erase()
                 volumes_idxs.insert(std::make_pair(v->object_idx(), v->volume_idx()));
         }
 
-        std::vector<AnkerObjectBar::ItemForDelete> items;
+        std::vector<ItemForDelete> items;
         items.reserve(volumes_idxs.size());
         for (const std::pair<int, int>& v : volumes_idxs) {
-            items.emplace_back(AnkerObjectItem::ItemType::ITYPE_VOLUME, v.first, v.second);
+            items.emplace_back(ItemType::itVolume, v.first, v.second);
         }
 
-        wxGetApp().objectbar()->delete_from_model_and_list(items);
+        wxGetApp().obj_list()->delete_from_model_and_list(items);
         ensure_not_below_bed();
     }
-
- //   // Anker: remove all selection model --- by xavier
- //   for (auto itr = m_cache.content.begin(); itr != m_cache.content.end();)
- //   {
- //       wxGetApp().objectbar()->delete_from_model_and_list(itr->first);
- //       itr = m_cache.content.begin();
- //   }
-	//ensure_not_below_bed();
 }
 
 void Selection::render(float scale_factor)
@@ -1692,6 +1700,12 @@ void Selection::paste_from_clipboard()
         break;
     }
     }
+}
+
+void Selection::fill_color(int extruder_id)
+{
+    //TODO Assemble
+    //wxGetApp().obj_list()->set_extruder_for_selected_items(extruder_id);
 }
 
 std::vector<unsigned int> Selection::get_volume_idxs_from_object(unsigned int object_idx) const
@@ -2003,7 +2017,7 @@ void Selection::set_caches()
         if (v.is_sinking())
             m_cache.sinking_volumes.push_back(i);
     }
-    m_cache.dragging_center = get_bounding_box().center();
+    m_cache.dragging_center = calc_dragging_center();
 }
 
 void Selection::do_add_volume(unsigned int volume_idx)
@@ -2850,8 +2864,7 @@ void Selection::paste_volumes_from_clipboard()
             }
         }
 
-        //wxGetApp().obj_list()->paste_volumes_into_list(dst_obj_idx, volumes);
-        wxGetApp().objectbar()->paste_volumes_into_list(dst_obj_idx, volumes);
+        wxGetApp().obj_list()->paste_volumes_into_list(dst_obj_idx, volumes);
     }
 
 #ifdef _DEBUG
@@ -2875,6 +2888,10 @@ void Selection::paste_objects_from_clipboard()
         for (ModelInstance* inst : dst_object->instances)
         {
             inst->set_offset(inst->get_offset() + displacement);
+
+            //init asssmble transformation
+            Geometry::Transformation t = inst->get_transformation();
+            inst->set_assemble_transformation(t);
         }
 
         object_idxs.push_back(m_model->objects.size() - 1);
@@ -2883,8 +2900,7 @@ void Selection::paste_objects_from_clipboard()
 #endif /* _DEBUG */
     }
 
-    //wxGetApp().obj_list()->paste_objects_into_list(object_idxs);
-    wxGetApp().objectbar()->paste_objects_into_list(object_idxs);
+    wxGetApp().obj_list()->paste_objects_into_list(object_idxs);
 
 #ifdef _DEBUG
     check_model_ids_validity(*m_model);

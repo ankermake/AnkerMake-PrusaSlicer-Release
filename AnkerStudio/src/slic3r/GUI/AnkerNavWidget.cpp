@@ -31,6 +31,7 @@ AnkerBtnList::AnkerBtnList(wxWindow* parent,
 
 void AnkerBtnList::clearExpiredTab(const std::string& sn)
 {
+	ANKER_LOG_INFO << "clearExpiredTab enter, id: " << sn.c_str();
 	AnkerNetBase* ankerNet = AnkerNetInst();
 	if (!ankerNet) {
 		return;
@@ -58,6 +59,7 @@ void AnkerBtnList::clearExpiredTab(const std::string& sn)
 			}
 		}
 	}
+	ANKER_LOG_INFO << "clearExpiredTab leave, id: " << sn.c_str();
 }
 
 bool AnkerBtnList::checkTabExist(const std::string& sn)

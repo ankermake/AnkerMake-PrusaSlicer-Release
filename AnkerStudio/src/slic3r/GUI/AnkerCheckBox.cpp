@@ -55,6 +55,7 @@ AnkerCheckBox::~AnkerCheckBox()
 
 void AnkerCheckBox::OnDelayTimer(wxTimerEvent& event)
 {
+	ANKER_LOG_INFO << "OnDelayTimer Enter";
 	wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED);
 	evt.SetEventObject(this);
 	ProcessEvent(evt);

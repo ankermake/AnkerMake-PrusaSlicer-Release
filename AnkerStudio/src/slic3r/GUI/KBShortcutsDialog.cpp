@@ -89,7 +89,7 @@ void KBShortcutsDialog::fill_shortcuts()
             { ctrl + alt + "S", L("Save project as (3mf)") },
             { ctrl + "R", L("(Re)slice") },
             // File>Import
-            { ctrl + "I", L("Import STL/3MF/STEP/OBJ/AMF without config, keep plater") },
+            { ctrl + "I", L("Import STL/3MF/STEP/OBJ/AMF/SVG without config, keep plater") },
             { ctrl + "L", L("Import Config from ini/amf/3mf/gcode") },
             { ctrl + alt + "L", L("Load Config from ini/amf/3mf/gcode and merge") },
             // File>Export

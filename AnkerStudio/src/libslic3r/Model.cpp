@@ -14,6 +14,8 @@
 #include "Format/STL.hpp"
 #include "Format/3mf.hpp"
 #include "Format/STEP.hpp"
+#include "Format/bbs_3mf.hpp"
+#include "Format/SVG.hpp"
 
 #include <float.h>
 
@@ -22,6 +24,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/nowide/iostream.hpp>
+
+#include <tbb/concurrent_vector.h>
 
 #include "SVG.hpp"
 #include <Eigen/Dense>
@@ -142,9 +146,21 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
         result = load_step(input_file.c_str(), &model);
     else if (boost::algorithm::iends_with(input_file, ".amf") || boost::algorithm::iends_with(input_file, ".amf.xml"))
         result = load_amf(input_file.c_str(), config, config_substitutions, &model, options & LoadAttribute::CheckVersion);
-    else if (boost::algorithm::iends_with(input_file, ".3mf"))
-        //FIXME options & LoadAttribute::CheckVersion ? 
-        result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, false);
+    else if (boost::algorithm::iends_with(input_file, ".3mf")){
+        if (check_3mf_from_bambu_custom(input_file)) {
+            // BBS: add part plate related logic
+            bool is_bbl_3mf = true;
+            Semver file_version;
+            result = load_bbs_3mf(input_file.c_str(), &temp_config, config_substitutions, &model, &is_bbl_3mf, &file_version, nullptr, LoadStrategy::LoadModel);
+        }
+        else {
+            //FIXME options & LoadAttribute::CheckVersion ? 
+            result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, false);
+        }
+    }
+    else if (boost::algorithm::iends_with(input_file, ".svg")) {
+        result = load_svg(input_file, model);
+    }
     else
     {
         errorCode = "-1";
@@ -222,8 +238,21 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
     buryMap.insert(std::make_pair(c_sm_status, handleType));
 
     bool result = false;
-    if (boost::algorithm::iends_with(input_file, ".3mf"))
-        result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, options & LoadAttribute::CheckVersion);
+    if (boost::algorithm::iends_with(input_file, ".3mf")) {
+        if (check_3mf_from_bambu_custom(input_file)) {
+            // BBS: add part plate related logic
+// BBS: backup & restore
+            bool is_bbl_3mf = true;
+            Semver file_version;
+            DynamicPrintConfig temp_config;
+            result = load_bbs_3mf(input_file.c_str(), &temp_config, config_substitutions, &model, &is_bbl_3mf, &file_version, nullptr, LoadStrategy::LoadModel);
+        }
+        else {
+            // for Prusa 3mf
+            result = load_3mf(input_file.c_str(), *config, *config_substitutions, &model, options & LoadAttribute::CheckVersion);
+        }
+
+    }
     else if (boost::algorithm::iends_with(input_file, ".zip.amf"))
         result = load_amf(input_file.c_str(), config, config_substitutions, &model, options & LoadAttribute::CheckVersion);
     else
@@ -839,6 +868,15 @@ ModelVolume* ModelObject::add_volume(const ModelVolume &other, TriangleMesh &&me
     return v;
 }
 
+ModelVolume* ModelObject::add_volume_with_shared_mesh(const ModelVolume& other, ModelVolumeType type /*= ModelVolumeType::INVALID*/)
+{
+    ModelVolume* v = new ModelVolume(this, other.m_mesh);
+    if (type != ModelVolumeType::INVALID && v->type() != type)
+        v->set_type(type);
+    this->volumes.push_back(v);
+    return v;
+}
+
 void ModelObject::delete_volume(size_t idx)
 {
     ModelVolumePtrs::iterator i = this->volumes.begin() + idx;
@@ -1128,18 +1166,15 @@ const BoundingBoxf3& ModelObject::raw_bounding_box() const
 // This returns an accurate snug bounding box of the transformed object instance, without the translation applied.
 BoundingBoxf3 ModelObject::instance_bounding_box(size_t instance_idx, bool dont_translate) const
 {
-    ANKER_LOG_INFO << "enter instance_bounding_box:" << instance_idx;
     BoundingBoxf3 bb;
     const Transform3d inst_matrix = dont_translate ?
         this->instances[instance_idx]->get_transformation().get_matrix_no_offset() :
         this->instances[instance_idx]->get_transformation().get_matrix();
 
-    ANKER_LOG_INFO << "start transformed_bounding_box";
     for (ModelVolume *v : this->volumes) {
-        if (v->is_model_part() && v != nullptr)
+        if (v != nullptr && v->is_model_part())
             bb.merge(v->mesh().transformed_bounding_box(inst_matrix * v->get_matrix()));
     }
-    ANKER_LOG_INFO << "exit instance_bounding_box";
     return bb;
 }
 
@@ -1148,12 +1183,19 @@ BoundingBoxf3 ModelObject::instance_bounding_box(size_t instance_idx, bool dont_
 // This method is used by the auto arrange function.
 Polygon ModelObject::convex_hull_2d(const Transform3d& trafo_instance) const
 {
-    Points pts;
-    for (const ModelVolume* v : volumes) {
-        if (v->is_model_part())
-            append(pts, its_convex_hull_2d_above(v->mesh().its, (trafo_instance * v->get_matrix()).cast<float>(), 0.0f).points);
-    }
-    return Geometry::convex_hull(std::move(pts));
+    tbb::concurrent_vector<Polygon> chs;
+    chs.reserve(volumes.size());
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, volumes.size()), [&](const tbb::blocked_range<size_t>& range) {
+        for (size_t i = range.begin(); i < range.end(); ++i) {
+            const ModelVolume* v = volumes[i];
+            if (v->is_model_part())
+                chs.emplace_back(its_convex_hull_2d_above(v->mesh().its, (trafo_instance * v->get_matrix()).cast<float>(), 0.0f));
+        }
+    });
+
+    Polygons polygons;
+    polygons.assign(chs.begin(), chs.end());
+    return Geometry::convex_hull(polygons);
 }
 
 void ModelObject::center_around_origin(bool include_modifiers)
@@ -1233,6 +1275,7 @@ void ModelObject::rotate(double angle, Axis axis)
     for (ModelVolume *v : this->volumes) {
         v->rotate(angle, axis);
     }
+
     center_around_origin();
     this->invalidate_bounding_box();
 }
@@ -1242,6 +1285,12 @@ void ModelObject::rotate(double angle, const Vec3d& axis)
     for (ModelVolume *v : this->volumes) {
         v->rotate(angle, axis);
     }
+
+    // update assemble transformation when modify volume rotation
+    for (int i = 0; i < instances.size(); i++) {
+        instances[i]->rotate_assemble(-angle, axis);
+    }
+
     center_around_origin();
     this->invalidate_bounding_box();
 }
@@ -1709,6 +1758,13 @@ static void reset_instance_transformation(ModelObject* object, size_t src_instan
 
     for (size_t i = 0; i < object->instances.size(); ++i) {
         auto& obj_instance = object->instances[i];
+
+        Geometry::Transformation instance_transformation_copy = obj_instance->get_transformation();
+        instance_transformation_copy.set_offset(Vec3d(0, 0, 0));
+        if (object->volumes.size() == 1) {
+            instance_transformation_copy.set_offset(-object->volumes[0]->get_offset());
+        }
+
         const Vec3d offset = obj_instance->get_offset();
         const double rot_z = obj_instance->get_rotation().z();
 
@@ -1738,6 +1794,16 @@ static void reset_instance_transformation(ModelObject* object, size_t src_instan
         }
 
         obj_instance->set_rotation(rotation);
+
+        //Assemble update the assemble matrix
+        const Transform3d& assemble_matrix = obj_instance->get_assemble_transformation().get_matrix();
+        const Transform3d& instance_inverse_matrix = instance_transformation_copy.get_matrix().inverse();
+        Transform3d new_instance_inverse_matrix = instance_inverse_matrix * obj_instance->get_transformation().get_matrix_no_offset().inverse();
+        if (place_on_cut) { // reset the rotation of cut plane
+            new_instance_inverse_matrix = new_instance_inverse_matrix * Transformation(cut_matrix).get_rotation_matrix().inverse();
+        }
+        Transform3d new_assemble_transform = assemble_matrix * new_instance_inverse_matrix;
+        obj_instance->set_assemble_from_transform(new_assemble_transform);
     }
 }
 
@@ -1914,6 +1980,18 @@ void ModelObject::split(ModelObjectPtrs* new_objects)
             for (ModelInstance* model_instance : new_object->instances) {
                 const Vec3d shift = model_instance->get_transformation().get_matrix_no_offset() * new_vol->get_offset();
                 model_instance->set_offset(model_instance->get_offset() + shift);
+
+                //Assemble related logic
+                //Geometry::Transformation instance_transformation_copy = model_instance->get_transformation();
+                //instance_transformation_copy.set_offset(-shift);
+                //const Transform3d& assemble_matrix = model_instance->get_assemble_transformation().get_matrix();
+                //const Transform3d& instance_inverse_matrix = instance_transformation_copy.get_matrix().inverse();
+                //Transform3d new_instance_inverse_matrix = instance_inverse_matrix * model_instance->get_transformation().get_matrix_no_offset();
+                //Transform3d new_assemble_transform = assemble_matrix * new_instance_inverse_matrix;
+                Geometry::Transformation assemble_transformation = model_instance->get_assemble_transformation();
+                assemble_transformation.set_offset(model_instance->get_offset());
+                model_instance->set_assemble_transformation(assemble_transformation);
+                model_instance->set_offset_to_assembly(new_vol->get_offset());
             }
 
             new_vol->set_offset(Vec3d::Zero());
@@ -2190,6 +2268,14 @@ bool ModelObject::has_solid_mesh() const
     return false;
 }
 
+bool ModelObject::has_negative_volume_mesh() const
+{
+    for (const ModelVolume* volume : volumes)
+        if (volume->is_negative_volume())
+            return true;
+    return false;
+}
+
 void ModelVolume::set_material_id(t_model_material_id material_id)
 {
     m_material_id = material_id;
@@ -2237,8 +2323,10 @@ void ModelVolume::center_geometry_after_creation(bool update_source_offset)
     Vec3d shift = this->mesh().bounding_box().center();
     if (!shift.isApprox(Vec3d::Zero()))
     {
-    	if (m_mesh)
-        	const_cast<TriangleMesh*>(m_mesh.get())->translate(-(float)shift(0), -(float)shift(1), -(float)shift(2));
+        if (m_mesh) {
+            const_cast<TriangleMesh*>(m_mesh.get())->translate(-(float)shift(0), -(float)shift(1), -(float)shift(2));
+            const_cast<TriangleMesh*>(m_mesh.get())->set_init_shift(shift);
+        }
         if (m_convex_hull)
 			const_cast<TriangleMesh*>(m_convex_hull.get())->translate(-(float)shift(0), -(float)shift(1), -(float)shift(2));
         translate(shift);
@@ -2359,6 +2447,10 @@ size_t ModelVolume::split(unsigned int max_extruders)
             --i;
         }
         ++i;
+    }
+
+    for (auto instance : this->object->instances) {
+        instance->set_assemble_transformation(instance->get_transformation());
     }
 
     return idx;

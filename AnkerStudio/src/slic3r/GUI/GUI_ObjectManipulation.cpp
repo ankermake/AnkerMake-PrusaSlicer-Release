@@ -25,6 +25,8 @@ namespace GUI
 
 const double ObjectManipulation::in_to_mm = 25.4;
 const double ObjectManipulation::mm_to_in = 1 / ObjectManipulation::in_to_mm;
+const double ObjectManipulation::oz_to_g = 28.34952;
+const double ObjectManipulation::g_to_oz = 0.035274;
 
 // Helper function to be used by drop to bed button. Returns lowest point of this
 // volume in world coordinate system.
@@ -131,9 +133,9 @@ ObjectManipulation::ObjectManipulation(wxWindow* parent) :
                 if (m_fix_throught_netfab_bitmap->GetBitmap().GetRefData() == wxNullBitmap.GetRefData())
                     return;
 
-                wxGetApp().objectbar()->fix_through_netfabb();
+                //wxGetApp().obj_list()->fix_through_netfabb();
                 // Anker: TODO
-                //update_warning_icon_state(wxGetApp().objectbar()->get_mesh_errors_info());
+                update_warning_icon_state(wxGetApp().obj_list()->get_mesh_errors_info());
             });
 
     sizer->Add(m_fix_throught_netfab_bitmap);
@@ -460,7 +462,8 @@ ObjectManipulation::ObjectManipulation(wxWindow* parent) :
     m_check_inch->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent&) {
         wxGetApp().app_config->set("use_inches", m_check_inch->GetValue() ? "1" : "0");
         //wxGetApp().sidebar().update_ui_from_settings();
-        wxGetApp().objectbar()->update_ui_from_settings();
+        //wxGetApp().objectbar()->update_ui_from_settings();
+        wxGetApp().sidebarnew().update_ui_from_settings();
     });
 
     m_main_grid_sizer->Add(m_check_inch, 1, wxEXPAND);

@@ -6,6 +6,7 @@ bin
 .vs
 stl
 *.log
+*.ttf
 *.ps1
 *.user
 *.vcxproj
@@ -56,3 +57,4 @@ stl
 /AnkerStudio/dump
 /AnkerStudio/CMakeSettings.json
 /AnkerStudio/enc_temp_folder
+.DS_Store

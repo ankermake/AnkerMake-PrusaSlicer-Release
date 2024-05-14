@@ -1159,7 +1159,7 @@ void AnkerGcodeInfoPanel::UpdateSlicedInfo(bool GcodeValid, Slic3r::GUI::RightSi
             // we still open the file which filepath may contains special characters
             processor.process_file_ext(tmpGcodePath, out);
             m_sizeValueLabel->SetLabelText(wxString::Format("%.2f X %.2f X %.2f mm", out.boxSize[0], out.boxSize[1], out.boxSize[2]));
-            std::string filament = getFormatedFilament(out.filament_cost);
+            std::string filament = getFormatedFilament(out.filament_used_weight_g);
             m_filametValueLabel->SetLabelText(filament.empty() ? "--" : filament);
             m_printTimeValLabel->SetLabelText(getReadableTime(out.print_time));
             auto get_filament = [](const std::string& filament) {
@@ -1414,6 +1414,7 @@ void AnkerGcodePreviewSideBar::UpdateGcodePreviewSideBar(bool GcodeValid, RightS
     }
 
     timer.Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
+        ANKER_LOG_INFO << "UpdateAllGCodeExtrusionRoleUI timer Enter";
         if (m_gCodeExtrusionRoleSelectPanel) {
             m_gCodeExtrusionRoleSelectPanel->UpdateAllGCodeExtrusionRoleUI();
         }
