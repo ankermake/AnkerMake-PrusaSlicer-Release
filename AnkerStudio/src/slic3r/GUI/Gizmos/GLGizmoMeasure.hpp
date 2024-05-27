@@ -10,6 +10,7 @@
 #include "libslic3r/Model.hpp"
 #include "slic3r/GUI/Common/AnkerLineEditUnit.hpp"
 
+class AnkerBtn;
 namespace Slic3r {
 
 enum class ModelVolumeType : int;
@@ -152,6 +153,8 @@ class GLGizmoMeasure : public GLGizmoBase
     wxStaticText* m_firstResultValue;
     wxStaticText* m_secondResultType;
     wxStaticText* m_secondResultValue;
+    bool m_restartBtnEnable{ false };
+    AnkerBtn* restartButton;
 
 #if ENABLE_MEASURE_GIZMO_DEBUG
     void render_debug_dialog();
@@ -167,7 +170,7 @@ public:
     /// <returns>Return True when use the information otherwise False.</returns>
     bool on_mouse(const wxMouseEvent &mouse_event) override;
 
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
 
     bool gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_position, bool shift_down, bool alt_down, bool control_down);
 

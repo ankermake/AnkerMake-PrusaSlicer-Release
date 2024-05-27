@@ -1,13 +1,12 @@
 #include "AnkerTitledPanel.hpp"
 
-#include "AnkerGUIConfig.hpp"
 #include "AnkerSplitCtrl.hpp"
 #include "Slic3r/GUI/GUI_App.hpp"
 
 
 wxDEFINE_EVENT(wxANKEREVT_ATP_BUTTON_CLICKED, wxCommandEvent);
 
-AnkerTitledPanel::AnkerTitledPanel(wxWindow* parent, int titleHeight, int titleBorder)
+AnkerTitledPanel::AnkerTitledPanel(wxWindow* parent, int titleHeight, int titleBorder, wxColour bgClr)
 	: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER)
 	, m_titleHeight(titleHeight)
 	, m_titleBorder(titleBorder)
@@ -21,6 +20,7 @@ AnkerTitledPanel::AnkerTitledPanel(wxWindow* parent, int titleHeight, int titleB
 	, m_pTitledPanel(nullptr)
 	, m_pContentPanel(nullptr)
 {
+	SetBackgroundColour(bgClr);
 	initUI();
 }
 
@@ -73,7 +73,7 @@ int AnkerTitledPanel::addTitleButton(wxString iconPath, bool beforeTitle)
 			btn->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent& event) {SetCursor(wxCursor(wxCURSOR_HAND)); });
 			btn->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {SetCursor(wxCursor(wxCURSOR_NONE)); });
 
-			m_pTitleSizer->Insert(beforeTitle ? m_titleBeforeBtnCount : m_titleBeforeBtnCount + 3, btn, 0, (beforeTitle ? wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxLEFT : wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxRIGHT), 0);
+			m_pTitleSizer->Insert(beforeTitle ? m_titleBeforeBtnCount : m_titleBeforeBtnCount + 3, btn, 0, (beforeTitle ? /*wxALIGN_LEFT | */ wxALIGN_CENTER_VERTICAL | wxRIGHT : wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxRIGHT), beforeTitle ? 8 : 0);
 
 			Fit();
 			Layout();
@@ -151,14 +151,12 @@ wxPanel* AnkerTitledPanel::setContentPanel(wxPanel* content)
 
 void AnkerTitledPanel::initUI()
 {
-	SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
-
 	m_pMainSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizer(m_pMainSizer);
 
 	int titlePanelHeight = m_titleHeight - 2 * m_titleBorder;
 	m_pTitledPanel = new wxPanel(this);
-	//m_pTitledPanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
+	m_pTitledPanel->SetBackgroundColour(GetBackgroundColour());
 	m_pTitledPanel->SetMinSize(AnkerSize(300, titlePanelHeight));
 	m_pTitledPanel->SetMaxSize(AnkerSize(500, titlePanelHeight));
 	m_pTitledPanel->SetSize(AnkerSize(300, titlePanelHeight));
@@ -186,7 +184,7 @@ void AnkerTitledPanel::initUI()
 //#endif // __APPLE___
 //	m_pTitleText->SetFont(font);
 	m_pTitleText->SetFont(ANKER_BOLD_FONT_NO_1);
-	m_pTitleSizer->Add(m_pTitleText, 0, wxALIGN_CENTER , 4);
+	m_pTitleSizer->Add(m_pTitleText, 0, wxALIGN_CENTRE_VERTICAL , 0);
 
 	m_pTitleAfterStretch = m_pTitleSizer->AddStretchSpacer(1);
 

@@ -1199,8 +1199,8 @@ void GCodeProcessor::process_file_ext(const std::string& filename, GCodeProcesso
 
             //producer fillter
             if (m_producer  == EProducer::AnkerMake || m_producer == EProducer::AnkerStudio || m_producer == EProducer::PrusaSlicer || m_producer == EProducer::Cura) {
-                //if tast_flag = ox11111 = 31 , quit parse
-                if (task_flag >= 31) {
+                //if tast_flag = ox111_1111 = 127 , quit parse
+                if (task_flag >= 127) {
                     m_parser.quit_parsing();
                 }
 
@@ -1215,29 +1215,40 @@ void GCodeProcessor::process_file_ext(const std::string& filename, GCodeProcesso
                     return;
                 }
 
-                if (begin != end && search_for_thumbnail_target(std::string_view(begin, end - begin), { 256,256 }, format, task_flag))
+                if (begin != end && search_for_thumbnail_target(std::string_view(begin, end - begin), { 256,256 }, format, task_flag))  // thumbnail begin 256x256
                 {
                     has_searched_thumbtag = true;
                     return;
                 }
 
-                if (begin != end && search_for_speed_target(std::string_view(begin, end - begin),out.speed) ) {
+                if (begin != end && search_for_speed_target(std::string_view(begin, end - begin),out.speed) ) {    // max_print_speed =
                     task_flag = task_flag | (1 << 1);
                     return;
                 }
 
-                if (begin != end && search_for_filament_cost_target(std::string_view(begin, end - begin), out.filament_cost)) {
+
+                if (begin != end && search_for_filament_weight_target(std::string_view(begin, end - begin), out.filament_used_weight_g)) {    // total filament used [g]
                     task_flag = task_flag | (1 << 2);
                     return;
                 }
 
-                if (begin != end && search_for_print_time_target(std::string_view(begin, end - begin), out.print_time)){
+                if (begin != end && search_for_filament_length_target(std::string_view(begin, end - begin), out.filament_used_length_mm)) {   // filament used [mm] =
                     task_flag = task_flag | (1 << 3);
                     return;
                 }
 
-                if (begin != end && search_for_obj_size(std::string_view(begin, end - begin), out.boxSize)) {
+                if (begin != end && search_for_filament_cost_target(std::string_view(begin, end - begin), out.filament_used_cost)) {    // total filament cost
                     task_flag = task_flag | (1 << 4);
+                    return;
+                }
+
+                if (begin != end && search_for_print_time_target(std::string_view(begin, end - begin), out.print_time)){        //estimated printing time (normal mode) = 
+                    task_flag = task_flag | (1 << 5);
+                    return;
+                }
+
+                if (begin != end && search_for_obj_size(std::string_view(begin, end - begin), out.boxSize)) {    // MINX  MINY MINZ   MAXX  MAXY MAXZ
+                    task_flag = task_flag | (1 << 6);
                     return;
                 }
 
@@ -3939,6 +3950,9 @@ void GCodeProcessor::process_T(const std::string_view command)
                     process_filaments(CustomGCode::ToolChange);
                     m_extruder_id = id;
                     m_cp_color.current = m_extruder_colors[id];
+                    //increase filament change times
+                    m_result.print_statistics.total_filamentchanges++;
+
                     // Specific to the MK3 MMU2:
                     // The initial value of extruder_unloaded is set to true indicating
                     // that the filament is parked in the MMU2 unit and there is nothing to be unloaded yet.
@@ -5082,7 +5096,7 @@ bool Slic3r::GCodeProcessor::search_for_obj_size(std::string_view line_str, std:
     return false;
 }
 
-bool Slic3r::GCodeProcessor::search_for_filament_cost_target(std::string_view line_str, std::string& filament_cost)
+bool Slic3r::GCodeProcessor::search_for_filament_weight_target(std::string_view line_str, std::string& filament_cost)
 {
     std::string search_string = "Filament weight:";
     if (m_producer == EProducer::AnkerMake) {
@@ -5100,6 +5114,46 @@ bool Slic3r::GCodeProcessor::search_for_filament_cost_target(std::string_view li
         if (pos != line_str.npos) {
             filament_cost = line_str.substr(pos + search_string.length());
             filament_cost += "g";
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+bool Slic3r::GCodeProcessor::search_for_filament_length_target(std::string_view line_str, std::string& filament_length)
+{
+    std::string search_string = "Filament used:";
+    if (m_producer == EProducer::AnkerMake) {
+        const size_t pos = line_str.find(search_string);
+        if (pos != line_str.npos) {
+            filament_length = line_str.substr(pos + search_string.length());
+            return true;
+        }
+        return false;
+    }
+
+    if (m_producer == EProducer::AnkerStudio) {
+        search_string = "filament used [mm] =";
+        const size_t pos = line_str.find(search_string);
+        if (pos != line_str.npos) {
+            filament_length = line_str.substr(pos + search_string.length());
+            filament_length += "mm";
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+
+bool Slic3r::GCodeProcessor::search_for_filament_cost_target(std::string_view line_str, std::string& filament_cost)
+{
+    if (m_producer == EProducer::AnkerStudio) {
+        std::string search_string = "total filament cost =";
+        const size_t pos = line_str.find(search_string);
+        if (pos != line_str.npos) {
+            filament_cost = line_str.substr(pos + search_string.length());
             return true;
         }
         return false;

@@ -24,6 +24,7 @@
 #include "AnkerWebView.hpp"
 #include "AnkerFunctionPanel.h"
 #include "AnkerConfigDialog/AnkerConfigDialog.hpp"
+#include "AnkerSliceConmentDialog.hpp"
 
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RELOAD_DATA, wxCommandEvent);
@@ -47,6 +48,11 @@ class Plater;
 class MainFrame;
 class PreferencesDialog;
 class GalleryDialog;
+class CalibrationMaxFlowrateDialog;
+class CalibrationPresAdvDialog;
+class CalibrationTempDialog;
+class CalibrationRetractionDialog;
+class CalibrationVfaDialog;
 
 
 enum QuickSlice
@@ -157,6 +163,7 @@ class MainFrame : public DPIFrame
 
     // vector of a MenuBar items changeable in respect to printer technology 
     std::vector<wxMenuItem*> m_changeable_menu_items;
+    wxMenu* m_calibration_menu = nullptr;
 
     wxFileHistory m_recent_projects;
 
@@ -202,11 +209,23 @@ protected:
 
 
 public:
+    enum TabPosition
+    {
+        tpHome = 0,
+        tp3DEditor = 1,
+        tpPreview = 2,
+        tpMonitor = 3,
+        tpProject = 4,
+        tpCalibration = 5,
+        tpAuxiliary = 6,
+        toDebugTool = 7,
+    };
+
     MainFrame(const int font_point_size);
     ~MainFrame();// = default;
     void createAnkerCfgDlg();
     void InitDeviceWidget();
-    void ShowAnkerWebView();
+    void ShowAnkerWebView(const std::string& from);
     void update_layout();
     void update_mode_markers();
     void setUrl(std::string webUrl = std::string());
@@ -224,7 +243,7 @@ public:
     void        update_title();
 
     void        init_tabpanel();
-    void        getwebLoginDataBack();
+    void        getwebLoginDataBack(const std::string& from);
     AnkerWebView* CreateWebView(bool background);
     void        InitAnkerDevice();
     void        create_preset_tabs();
@@ -279,6 +298,7 @@ public:
 
     void        add_to_recent_projects(const wxString& filename);
     void        technology_changed();
+    void        clearStarConmentData();
 
     PrintHostQueueDialog* printhost_queue_dlg() { return m_printhost_queue_dlg; }
 
@@ -287,7 +307,10 @@ public:
 
     AnkerTab* openAnkerTabByPresetType(const Preset::Type type);
 
+    void loginFinishHandle();
+
     AnkerWebView*         m_loginWebview{ nullptr };    // background
+    bool                  m_showConmentWebView{ false };
     Plater*               m_plater { nullptr };
     wxBookCtrlBase*       m_tabpanel { nullptr };
     // add by allen for ankerCfgDlg
@@ -302,7 +325,7 @@ public:
     GalleryDialog*        m_gallery_dialog{ nullptr };
 
     AnkerFunctionPanel*        m_pFunctionPanel;
-
+    AnkerSliceConmentDialog* m_sliceConmentDialog{ nullptr };    
 
 #ifdef __APPLE__
     std::unique_ptr<wxTaskBarIcon> m_taskbar_icon;
@@ -336,9 +359,9 @@ public:
     wxTimer* m_otaTimer = nullptr;
     wxTimer* m_extrusionTimer = nullptr;
     
-    bool m_bIsOpenWebview {false};
+    std::atomic_bool m_bIsOpenWebview {false};
     
-    mutable std::mutex m_ReadWriteMutex;
+    //mutable std::mutex m_ReadWriteMutex;
     
     bool m_normalExit { false };
     wxDateTime m_buryTime;

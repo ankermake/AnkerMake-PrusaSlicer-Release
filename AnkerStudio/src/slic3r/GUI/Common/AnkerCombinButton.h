@@ -55,6 +55,7 @@ namespace Slic3r {
 			void OnMouseEnter(wxMouseEvent& event);
 			void OnMouseLeave(wxMouseEvent& event);
 			void OnBtnPressed(wxMouseEvent& event);
+			wxString GetText() { return m_Text; }
 
 
 		private:

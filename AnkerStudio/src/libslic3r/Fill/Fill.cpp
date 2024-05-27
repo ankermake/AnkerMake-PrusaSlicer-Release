@@ -865,7 +865,10 @@ void Layer::make_ironing()
 				ironing_params.speed 		= config.ironing_speed;
 				//ironing_params.angle = config.fill_angle * M_PI / 180.;
 				ironing_params.angle = (config.ironing_angle >= 0 ? config.ironing_angle : config.fill_angle) * M_PI / 180.;
-				ironing_params.pattern = config.ironing_pattern;
+				if (config.ironing_pattern == IroningPattern::IronConcentric)
+					ironing_params.pattern = ipConcentric;
+				else if(config.ironing_pattern == IroningPattern::IronRectilinearc)
+					ironing_params.pattern = ipRectilinear;
 
 				ironing_params.layerm = layerm;
 				ironing_params.region_id = region_id;

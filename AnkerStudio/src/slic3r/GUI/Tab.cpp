@@ -2292,7 +2292,7 @@ void TabPrinter::build_fff()
 
     auto   *nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(m_config->option("nozzle_diameter"));
     m_initial_extruders_count = m_extruders_count = nozzle_diameter->values.size();
-    wxGetApp().objectbar()->update_objects_list_extruder_column(m_initial_extruders_count);
+    wxGetApp().sidebarnew().update_objects_list_extruder_column(m_initial_extruders_count);
 
     const Preset* parent_preset = m_printer_technology == ptSLA ? nullptr // just for first build, if SLA printer preset is selected 
                                   : m_presets->get_selected_preset_parent();
@@ -2653,7 +2653,7 @@ void TabPrinter::extruders_count_changed(size_t extruders_count)
 
     if (is_count_changed) {
         on_value_change("extruders_count", extruders_count);
-        wxGetApp().objectbar()->update_objects_list_extruder_column(extruders_count);
+        wxGetApp().sidebarnew().update_objects_list_extruder_column(extruders_count);
     }
 }
 
@@ -3057,7 +3057,7 @@ void TabPrinter::update_pages()
         else
             m_pages.swap(m_pages_fff);
 
-         wxGetApp().objectbar()->update_objects_list_extruder_column(m_extruders_count);
+         wxGetApp().sidebarnew().update_objects_list_extruder_column(m_extruders_count);
     }
     else
         m_pages_sla.empty() ? build_sla() : m_pages.swap(m_pages_sla);
@@ -3247,7 +3247,7 @@ void Tab::load_current_preset()
         if (preset.printer_technology() == ptFFF)
             on_preset_loaded();
         else
-            wxGetApp().objectbar()->update_objects_list_extruder_column(1);
+            wxGetApp().sidebarnew().update_objects_list_extruder_column(1);
     }
     // Reload preset pages with the new configuration values.
     reload_config();

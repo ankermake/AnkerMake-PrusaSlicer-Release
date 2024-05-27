@@ -79,6 +79,7 @@ public:
         MmuSegmentation,
         Measure,
         Emboss,
+        Svg,
         Simplify,
         Undefined
     };
@@ -130,6 +131,7 @@ private:
     /// On false, event should be process by others.</returns>
     bool gizmos_toolbar_on_mouse(const wxMouseEvent &mouse_event);
 public:
+    std::unique_ptr<AssembleViewDataPool> m_assemble_view_data;
     explicit GLGizmosManager(GLCanvas3D& parent);
 
     bool init();
@@ -177,6 +179,7 @@ public:
     // Anker
     bool is_rendered() const { return m_UIRendered; }
     void set_UI_rendered(bool rendered) { m_UIRendered = rendered; }
+    void render_anker_data();
 
     void set_overlay_icon_size(float size);
     void set_overlay_scale(float scale);
@@ -193,6 +196,7 @@ public:
     /// Should be called when selection changed
     /// </summary>
     void update_data();
+    void update_assemble_view_data();
 
     EType get_current_type() const { return m_current; }
     GLGizmoBase* get_current() const;
@@ -205,6 +209,7 @@ public:
     bool is_dragging() const;
 
     ClippingPlane get_clipping_plane() const;
+    ClippingPlane get_assemble_view_clipping_plane() const;
     bool wants_reslice_supports_on_undo() const;
 
     bool is_in_editing_mode(bool error_notification = false) const;
@@ -212,8 +217,11 @@ public:
 
     void render_current_gizmo() const;
     void render_painter_gizmo();
+    void render_painter_assemble_view() const;
 
     void render_overlay();
+
+    
 
     void render_arrow(const GLCanvas3D& parent, EType highlighted_type) const;
 
@@ -232,6 +240,8 @@ public:
     void set_highlight(EType gizmo, bool highlight_shown) { m_highlight = std::pair<EType, bool>(gizmo, highlight_shown); }
     bool get_highlight_state() const { return m_highlight.second; }
 
+    float get_scaled_total_height() const;
+    float get_scaled_total_width() const;
 private:
     bool gizmo_event(SLAGizmoEventType action,
                      const Vec2d &     mouse_position = Vec2d::Zero(),
@@ -242,9 +252,6 @@ private:
     void render_background(float left, float top, float right, float bottom, float border_w, float border_h) const;
 
     void do_render_overlay() const;
-
-    float get_scaled_total_height() const;
-    float get_scaled_total_width() const;
 
     bool generate_icons_texture();
 

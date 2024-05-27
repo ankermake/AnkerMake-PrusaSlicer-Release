@@ -141,7 +141,7 @@ public:
     /// <returns>Return True when use the information otherwise False.</returns>
     bool on_mouse(const wxMouseEvent &mouse_event) override;
 
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
 protected:
     bool on_init() override;
     std::string on_get_name(bool i18n = true) const override;

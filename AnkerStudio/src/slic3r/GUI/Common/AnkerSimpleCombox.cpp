@@ -113,42 +113,39 @@ void AnkerSimpleCombox::OnDrawItem(wxDC& dc, const wxRect& rect, int item, int f
             dc.SetTextForeground(m_textColor);
         }
 	}
-   
+  
 	dc.DrawText(GetString(item),
 		textPoint);
 }
 
 void AnkerSimpleCombox::OnDrawBackground(wxDC& dc, const wxRect& rect, int item, int flags) const
 {
-	wxRect rectAreaEx = rect;		
-	
-	dc.SetBrush(wxBrush(m_borderColor));
-	dc.SetPen(wxPen(m_borderColor));
-	dc.DrawRectangle(rectAreaEx);
-
 	wxRect rectArea = rect;
-	rectArea.SetX(rect.x + 1);
-	rectArea.SetY(rect.y + 1);
-
-#ifndef __APPLE__
-	rectArea.SetWidth(rect.width + 1);
-#else
-	rectArea.SetWidth(rect.width - 2);
-#endif // !__APPLE__
 	
-//	rectArea.SetHeight(rect.height - 2);
+	dc.SetBrush(wxBrush(m_bgColor));
+	dc.SetPen(wxPen(m_bgColor));
+	dc.DrawRectangle(rectArea);
+
+	wxRect rectAreaEx = rect;
+	rectAreaEx.SetX(rect.x + 1);
+	rectAreaEx.SetY(rect.y + 1);
+	rectAreaEx.SetWidth(rect.width - 2);
+	rectAreaEx.SetHeight(rect.height - 2);
 
 // 	dc.SetBrush(wxBrush(m_bgColor));
 // 	dc.SetPen(wxPen(m_bgColor));
 // 	dc.DrawRectangle(rectArea);
 
-	wxOwnerDrawnComboBox::OnDrawBackground(dc, rect, item, flags);
+	wxPen pen(m_borderColor, 4);
+	dc.SetPen(pen);
+	dc.SetBrush(*wxTRANSPARENT_BRUSH);
+	dc.DrawRectangle(rectAreaEx);
 
+	wxOwnerDrawnComboBox::OnDrawBackground(dc, rectAreaEx, item, flags);
 }
 
 void AnkerSimpleCombox::DrawButton(wxDC& dc, const wxRect& rect, int flags)
 {
-
 	dc.SetBrush(m_borderColor);
 	dc.SetPen(m_borderColor);
 	dc.DrawRectangle(rect);

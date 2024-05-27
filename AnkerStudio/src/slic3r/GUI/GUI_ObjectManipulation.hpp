@@ -72,7 +72,8 @@ class ObjectManipulation : public OG_Settings
 public:
     static const double in_to_mm;
     static const double mm_to_in;
-
+    static const double g_to_oz;
+    static const double oz_to_g;
 private:
     struct Cache
     {

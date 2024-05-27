@@ -1696,8 +1696,8 @@ void AnkerPlaterPresetComboBox::OnSelect(wxCommandEvent& evt)
         m_last_selected = selected_item;
         on_selection_changed(selected_item);
     }
-
-    evt.Skip();
+    // fix bug:zz_3d_pc#3584
+   // evt.Skip();
 }
 
 std::string AnkerPlaterPresetComboBox::get_selected_ph_printer_name() const

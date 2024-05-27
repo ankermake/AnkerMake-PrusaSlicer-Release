@@ -7,9 +7,10 @@
 #include "DeviceObjectBase.h"
 #include <slic3r/Utils/DataMangerUi.hpp>
 
-// v8111/v8110 p2p transfer preheat function must > V3.2.17/V3.1.43
-static const std::string V8111_PREHEAT_HINT_VERSION = "V3.2.17";  // 3.2.17_3.0.94
-static const std::string V8110_PREHEAT_HINT_VERSION = "V3.1.43";
+// v8111/v8110 p2p transfer preheat function
+static const std::string V8111_PREHEAT_HINT_VERSION = "3.2.24_3.0.97";
+static const std::string V8110_PREHEAT_HINT_VERSION1 = "V3.1.47";
+static const std::string V8110_PREHEAT_HINT_VERSION2 = "V3.1.51";
 
 
 bool PrintCheckHint::QueryStatus(DeviceObjectBasePtr currentDev)
@@ -391,19 +392,30 @@ bool PrintCheckHint::DevVerMatchForTempHint(DeviceObjectBasePtr currentDev)
         ANKER_LOG_INFO << "current dev is nullptr";
         return false;
     }
+    if (currentDev->GetPreheatFunction()) {
+        return true;
+    }
+
     auto curDevVesion = currentDev->GetDeviceVersion();
     std::string targetVersion;
     
     ANKER_LOG_INFO << "cur device version: " << curDevVesion << ", device type: "
         << currentDev->GetDeviceType();
     if (currentDev->GetDeviceType() == DEVICE_V8110_TYPE) {
-        targetVersion = V8110_PREHEAT_HINT_VERSION;
+        if (DeviceVersionUtil::Equal(curDevVesion, V8110_PREHEAT_HINT_VERSION1) ||
+            DeviceVersionUtil::Equal(curDevVesion, V8110_PREHEAT_HINT_VERSION2)) {
+            return true;
+        }
+        return false;
     }
     else if (currentDev->GetDeviceType() == DEVICE_V8111_TYPE) {
-        targetVersion = V8111_PREHEAT_HINT_VERSION;
+        if (DeviceVersionUtil::Equal(curDevVesion, V8111_PREHEAT_HINT_VERSION)) {
+            return true;
+        }
+        return false;
     }
     else {
-        ANKER_LOG_INFO << "thirdparty gcode, no need hint";
+        ANKER_LOG_INFO << "not suit device, no need temp hint";
         return false;
     }
 

@@ -14,7 +14,7 @@
 #include "I18N.hpp"
 #include "format.hpp"
 #include "ConfigManipulation.hpp"
-
+#include "slic3r/GUI/Calibration/FlowCalibration.hpp"
 #include <wx/wupdlock.h>
 
 namespace Slic3r
@@ -75,10 +75,9 @@ bool ObjectSettings::update_settings_list()
     m_settings_list_sizer->Clear(true);
     m_og_settings.resize(0);
 
-    // Anker: TODO
-    //auto objects_ctrl   = wxGetApp().obj_list();
-    //auto objects_model  = wxGetApp().obj_list()->GetModel();
-    //auto config         = wxGetApp().obj_list()->config();
+    auto objects_ctrl   = wxGetApp().obj_list();
+    auto objects_model  = wxGetApp().obj_list()->GetModel();
+    auto config         = wxGetApp().obj_list()->config();
 
   //  const auto item = objects_ctrl->GetSelection();
   //  
@@ -278,6 +277,117 @@ void ObjectSettings::sys_color_changed()
     for (auto group : m_og_settings)
         group->sys_color_changed();
 }
+
+void AnkerObjectSettings::UpdateAndShow(bool show)
+{
+    update_settings_list(show);
+}
+
+bool AnkerObjectSettings::update_settings_list(bool enable)
+{    
+    if (!wxGetApp().is_editor())
+        return false;
+
+    if (!wxGetApp().mainframe->IsShown())
+        return false;
+
+    if (!wxGetApp().plater())  
+        return false;
+
+    if (!enable) {                //exit paramel
+        Slic3r::GUI::wxGetApp().plater()->sidebarnew().HideLocalParamPanel();
+        return true;
+    }
+
+    wxDataViewItemArray sels;
+    wxGetApp().obj_list()->GetSelections(sels);
+    if (sels.IsEmpty() || sels.size() > 1) { //exit paramel
+        Slic3r::GUI::wxGetApp().plater()->sidebarnew().HideLocalParamPanel();
+        return true;
+    }
+
+    if (!sels.front().IsOk())
+        return false;
+
+    m_node = static_cast<ObjectDataViewModelNode*>(sels.front().GetID());
+    if (!m_node) return false;
+
+    if (m_node->GetType() & ItemType::itVolume ) {
+        if (m_node->GetVolumeType() == ModelVolumeType::NEGATIVE_VOLUME 
+            || m_node->GetVolumeType() == ModelVolumeType::SUPPORT_BLOCKER 
+            || m_node->GetVolumeType() == ModelVolumeType::SUPPORT_ENFORCER) {  // exit paramel
+            Slic3r::GUI::wxGetApp().plater()->sidebarnew().HideLocalParamPanel();
+            return false;
+        }
+    }
+
+    m_model_config_sels = wxGetApp().obj_list()->GetModel()->GetModelConfig(sels.front());
+    if (!m_model_config_sels) return false;
+
+    int extruder = -1;
+    auto calibration = GetCalibrationValue(m_model_config_sels, extruder);
+    if (!m_node->has_setting()) {
+        SetItemModelConfig(m_model_config_sels);
+        if (UpdateModelConfig(calibration, m_model_config_sels, extruder)) {
+            m_node->clear_dirty_settings();
+        }
+
+        m_node->set_has_setting(true);
+    }
+
+    Slic3r::GUI::wxGetApp().plater()->sidebarnew().SetCurrentModelConfig(m_model_config_sels, m_node, (m_ID != sels.front().GetID()));
+
+    m_ID = sels.front().GetID();
+    return true;
+}
+
+void AnkerObjectSettings::SetItemModelConfig(ModelConfig*& config)
+{
+    const auto& global_config = wxGetApp().plater()->get_global_config();
+    DynamicPrintConfig src_normalized(global_config);
+    PrintObjectConfig obj_config;
+    PrintRegionConfig region_config;
+    obj_config.apply(global_config, true);
+    region_config.apply(global_config, true);
+
+    config->apply(obj_config);
+    config->apply(region_config);
+}
+
+std::map<t_config_option_key, ConfigOption*> AnkerObjectSettings::GetCalibrationValue(Slic3r::ModelConfig* config, int &extruder)
+{
+    auto plater = wxGetApp().plater();
+    if (!plater || !config)
+        return {};
+
+    if (config->has("extruder")) {
+        extruder = config->get().opt_int("extruder");
+    }
+
+    if (plater->get_calibration_enable()) {
+        auto keys = CalibrationWrapper::get_option_keys(plater->get_calibration_mode());
+        return CalibrationWrapper::get_config_options(keys, config);
+    }
+
+    return {};
+}
+
+bool AnkerObjectSettings::UpdateModelConfig(const std::map<t_config_option_key, ConfigOption*>& calibrations, ModelConfig* config, int extruder)
+{
+    if (extruder > -1) {
+        config->set_key_value("extruder", new Slic3r::ConfigOptionInt(extruder));
+    }
+
+    if (!calibrations.empty()) {
+        for (auto& option : calibrations) {
+            config->set_key_value(option.first, option.second);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 
 } //namespace GUI
 } //namespace Slic3r 

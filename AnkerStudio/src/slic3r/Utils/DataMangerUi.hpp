@@ -23,6 +23,8 @@ wxDECLARE_EVENT(wxCUSTOMEVT_ACCOUNT_EXTRUSION, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_HTTP_CONNECT_ERROR, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_OTA_UPDATE, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ACCOUNT_LOGOUT, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_GET_CONMENT_FLAGS, wxCommandEvent);
+
 
 
 class wxVectorClientData : public wxClientData
@@ -64,8 +66,7 @@ public:
 	void sendSigToUpdateDeviceStatus(const std::string& sn, aknmt_command_type_e type);
 	void sendSigToTransferFileProgressValue(const std::string& sn, int progress, FileTransferResult result);	
 	void sendShowDeviceListDialog();
-	void GeneralExceptionMsgBox(GeneralException2Gui type, 
-		const std::string& stationName, const std::string& sn);
+	void GeneralExceptionMsgBox(const AnkerNet::ExceptionInfo& info);
 	void SendSigAccountLogout();
 	
 	void ShowNextAlertMsg();
@@ -74,6 +75,7 @@ public:
 	static void Callback_RecoverCurl();	
 	static void Callback_OtaUpdate(OtaInfo info);
 	static void Callback_FilamentUpdate();
+	static void Callback_GetConmentFlags(std::vector<std::string> dataList);
 
 	void SetIsPrintFinishFailedDialogShow(bool isShow) {
 #ifdef __APPLE__

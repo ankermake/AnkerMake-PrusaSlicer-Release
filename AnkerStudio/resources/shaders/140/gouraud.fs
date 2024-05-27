@@ -28,6 +28,7 @@ uniform bool use_color_clip_plane;
 uniform vec4 uniform_color_clip_plane_1;
 uniform vec4 uniform_color_clip_plane_2;
 uniform SlopeDetection slope;
+uniform bool use_assemble_view;
 
 #ifdef ENABLE_ENVIRONMENT_MAP
     uniform sampler2D environment_tex;
@@ -80,7 +81,9 @@ void main()
 		pv_check_min = vec3(delta_radius, 0.0, world_pos.z - print_volume.z_data.x);
 		pv_check_max = vec3(0.0, 0.0, world_pos.z - print_volume.z_data.y);
 	}
-	color.rgb = (any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
+	if(!use_assemble_view) { 
+	   color.rgb = (any(lessThan(pv_check_min, ZERO)) || any(greaterThan(pv_check_max, ZERO))) ? mix(color.rgb, ZERO, 0.3333) : color.rgb;
+	}
 	
 #ifdef ENABLE_ENVIRONMENT_MAP
     if (use_environment_tex)

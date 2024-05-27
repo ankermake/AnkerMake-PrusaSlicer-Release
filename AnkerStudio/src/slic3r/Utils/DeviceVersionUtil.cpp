@@ -21,6 +21,24 @@ bool DeviceVersionUtil::IsTargetLessCurrent(const std::string& tarVec, const std
     return false;
 }
 
+bool DeviceVersionUtil::Equal(const std::string& tarVec, const std::string& currentVec)
+{
+    std::vector<int> tarVecArr = GainArrFromVersion(tarVec);
+    std::vector<int> curVecArr = GainArrFromVersion(currentVec);
+    if (tarVecArr.size() != curVecArr.size()) {
+        return false;
+    }
+
+    for (size_t i = 0; i < tarVecArr.size(); ++i) {
+        if (curVecArr[i] != tarVecArr[i]) {
+            ANKER_LOG_INFO << "tarVec: " << tarVec << " != currentVec: " << currentVec;
+            return false;
+        }
+    }
+    ANKER_LOG_INFO << "tarVec: " << tarVec << " == currentVec: " << currentVec;
+    return true;
+}
+
 std::vector<int> DeviceVersionUtil::GainArrFromVersion(const std::string& vec)
 {
     std::vector<int> listData;

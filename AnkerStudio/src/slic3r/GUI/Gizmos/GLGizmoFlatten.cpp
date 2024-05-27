@@ -57,7 +57,7 @@ bool GLGizmoFlatten::on_mouse(const wxMouseEvent &mouse_event)
     return false;
 }
 
-void GLGizmoFlatten::data_changed()
+void GLGizmoFlatten::data_changed(bool is_serializing)
 {
     const Selection &  selection    = m_parent.get_selection();
     const ModelObject *model_object = nullptr;

@@ -79,7 +79,10 @@ enum class IroningType {
     AllSolid,
     Count,
 };
-
+enum class IroningPattern {
+    IronConcentric,
+    IronRectilinearc,
+};
 enum class WallSequence {
     InnerOuter,
     OuterInner,
@@ -173,6 +176,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(AuthorizationType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(FuzzySkinType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(InfillPattern)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(IroningType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(IroningPattern)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SlicingMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SupportMaterialPattern)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(SupportMaterialStyle)
@@ -553,6 +557,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInt,                 wall_distribution_count))
     ((ConfigOptionFloatOrPercent,      min_feature_size))
     ((ConfigOptionFloatOrPercent,      min_bead_width))
+    ((ConfigOptionPercent,             first_layer_min_bead_width))
     ((ConfigOptionBool,                support_material))
     // Automatic supports (generated based fdm support point generator).
     ((ConfigOptionBool,                support_material_auto))
@@ -643,6 +648,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloat,                fuzzy_skin_thickness))
     ((ConfigOptionFloat,                fuzzy_skin_point_dist))
     ((ConfigOptionBool,                 gap_fill_enabled))
+    ((ConfigOptionFloat,                filter_out_gap_fill))
     ((ConfigOptionFloat,                gap_fill_speed))
     ((ConfigOptionFloatOrPercent,       infill_anchor))
     ((ConfigOptionFloatOrPercent,       infill_anchor_max))
@@ -655,7 +661,7 @@ PRINT_CONFIG_CLASS_DEFINE(
     // Ironing options
     ((ConfigOptionBool,                 ironing))
     ((ConfigOptionEnum<IroningType>,    ironing_type))
-    ((ConfigOptionEnum<InfillPattern>,  ironing_pattern))
+    ((ConfigOptionEnum<IroningPattern>,  ironing_pattern))
     ((ConfigOptionFloat,                ironing_direction))
     ((ConfigOptionFloat,                ironing_angle))
     ((ConfigOptionPercent,              ironing_flowrate))
@@ -692,8 +698,15 @@ PRINT_CONFIG_CLASS_DEFINE(
 
 	((ConfigOptionBool,                 precise_outer_wall))
 	((ConfigOptionFloat,                inter_ext_perimeter_spacing))
+    ((ConfigOptionFloat,                hole_offset))
+    ((ConfigOptionFloat,                overhangPerimeters_flow_ratio))
+
     //orca overhang printable
     ((ConfigOptionBool,                 make_overhang_printable))
+    ((ConfigOptionFloat,                print_flow_ratio))
+
+    ((ConfigOptionBool,                 only_one_wall_first_layer))
+
 )
 
 PRINT_CONFIG_CLASS_DEFINE(
@@ -883,6 +896,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              gcode_resolution))
     ((ConfigOptionFloats,             retract_before_travel))
     ((ConfigOptionBools,              retract_layer_change))
+    ((ConfigOptionFloat,              skirt_speed))
     ((ConfigOptionFloat,              skirt_distance))
     ((ConfigOptionInt,                skirt_height))
     ((ConfigOptionInt,                skirts))
@@ -897,6 +911,8 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              top_solid_infill_acceleration))
     ((ConfigOptionFloat,              travel_acceleration))
     ((ConfigOptionBools,              wipe))
+    ((ConfigOptionBool,               role_based_wipe_speed))
+    ((ConfigOptionBool,               wipe_on_loops))
     ((ConfigOptionFloatOrPercent,     wipe_speed))
     ((ConfigOptionBool,               wipe_tower))
     ((ConfigOptionFloat,              wipe_tower_x))
@@ -910,11 +926,12 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              wipe_tower_bridging))
     ((ConfigOptionFloats,             wiping_volumes_matrix))
     ((ConfigOptionFloats,             wiping_volumes_extruders))
-    ((ConfigOptionBool,               move_inward))
     ((ConfigOptionFloat,              z_offset))
     //Jerk Control(X&Y)
     ((ConfigOptionBool,               jerk_enable))
     ((ConfigOptionFloat,              jerk_travel))
+    ((ConfigOptionFloat,              jerk_first_layer))
+    ((ConfigOptionFloat,              jerk_top_surface))
     ((ConfigOptionFloat,              jerk_print))
     ((ConfigOptionFloat,              jerk_infill))
     ((ConfigOptionFloat,              jerk_outer_wall))

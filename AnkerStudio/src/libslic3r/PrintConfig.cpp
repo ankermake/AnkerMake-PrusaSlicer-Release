@@ -121,6 +121,12 @@ static const t_config_enum_values s_keys_map_IroningType {
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(IroningType)
 
+static const t_config_enum_values s_keys_map_IroningPattern{
+    { "concentric",         int(IroningPattern::IronConcentric) },
+    { "rectilinear",        int(IroningPattern::IronRectilinearc) }
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(IroningPattern)
+
 static const t_config_enum_values s_keys_map_SinglePerimeterType{
     { "none",           int(SinglePerimeterType::None) },
     { "top",            int(SinglePerimeterType::TopSurfaces) },
@@ -979,6 +985,22 @@ void PrintConfigDef::init_fff_params()
 	def->mode = comExpert;
 	def->set_default_value(new ConfigOptionFloat(0.05));
 
+    def = this->add("hole_offset", coFloat);
+    // def->label = L("spacinig ext_perimeters/perimeters");
+    //def->tooltip = L("spacinig between ext_perimeters and perimeters");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("overhangPerimeters_flow_ratio", coFloat);
+    def->label = L("overhangPerimeters flow ratio");
+    def->category = L("Advanced");
+    def->tooltip = L("This factor affects overhangPerimeters flow ratio . ");
+    def->min = 0;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(1.0));
+
     def = this->add("extra_perimeters", coBool);
     def->label = L("Extra perimeters if needed");
     def->category = L("Layers and Perimeters");
@@ -1446,10 +1468,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(130));
 
+    def = this->add("only_one_wall_first_layer", coBool);
+    def->label = L("Only one wall on first layer");
+    def->category = L("Quality");
+    def->tooltip = L("Use only one wall on first layer, to give more space to the bottom infill pattern");
+    def->set_default_value(new ConfigOptionBool(true));
+
     def = this->add("slow_down_layers", coInt);
-    def->label = L("Number of slow layers");
-    def->tooltip = L("The first few layers are printed slower than normal. "
-        "The speed is gradually increased in a linear fashion over the specified number of layers.");
+    def->label = L("engin_option_slow_down_layers");
+    def->tooltip = L("engin_optionTip_slow_down_layers");
     def->category = L("Speed");
     def->min = 0;
     def->mode = comAdvanced;
@@ -1534,6 +1561,13 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(20));
 
+    def = this->add("filter_out_gap_fill", coFloat);
+    def->label = L("engin_option_filter_out_gap_fill");
+    def->category = L("Layers and Perimeters");
+    def->tooltip = L("engin_optionTip_filter_out_gap_fill");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0));
+
     //================G2/G3 support Add By Galen.Xiao 2023/1031 start
     def = this->add("enable_arc_fitting", coBool);
     def->label = L("Arc fitting");
@@ -1554,6 +1588,22 @@ void PrintConfigDef::init_fff_params()
     def->label = L("Travel");
     def->category = L("Jerk Control");
     def->tooltip = L("engin_optionTip_jerk_travel");
+    def->sidetext = L("mm/s");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_first_layer", coFloat);
+    def->label = L("First layer");
+    def->tooltip = L("Jerk for initial layer");
+    def->sidetext = L("mm/s");
+    def->min = 1;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(10));
+
+    def = this->add("jerk_top_surface", coFloat);
+    def->label = L("Top surface");
+    def->tooltip = L("Jerk for top surface");
     def->sidetext = L("mm/s");
     def->min = 1;
     def->mode = comAdvanced;
@@ -1936,9 +1986,9 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(new ConfigOptionFloat(1));
 
     def = this->add("wall_sequence", coEnum);
-    def->label = L("Walls printing order");
+    def->label = L("engin_option_wall_sequence");
     def->category = L("Quality");
-    def->tooltip = L("Print sequence of the internal (inner) and external (outer) walls. \n\nUse Inner/Outer for best overhangs. This is because the overhanging walls can adhere to a neighouring perimeter while printing. However, this option results in slightly reduced surface quality as the external perimeter is deformed by being squashed to the internal perimeter.\n\nUse Inner/Outer/Inner for the best external surface finish and dimensional accuracy as the external wall is printed undisturbed from an internal perimeter. However, overhang performance will reduce as there is no internal perimeter to print the external wall against. This option requires a minimum of 3 walls to be effective as it prints the internal walls from the 3rd perimeter onwards first, then the external perimeter and, finally, the first internal perimeter. This option is recomended against the Outer/Inner option in most cases. \n\nUse Outer/Inner for the same external wall quality and dimensional accuracy benefits of Inner/Outer/Inner option. However, the z seams will appear less consistent as the first extrusion of a new layer starts on a visible surface.\n\n ");
+    def->tooltip = L("engin_optionTip_wall_sequence");
     def->set_enum<WallSequence>({
     { "inner wall/outer wall",   L("Inner/Outer") },
     { "outer wall/inner wall",   L("Outer/Inner") },
@@ -2041,21 +2091,20 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(new ConfigOptionEnum<IroningType>(IroningType::TopSurfaces));
 
     def = this->add("ironing_pattern", coEnum);
-    def->label = L("Ironing Pattern");
-    def->tooltip = L("The pattern that will be used when ironing");
+    def->label = L("engin_option_ironing_pattern");
+    def->tooltip = L("engin_optionTip_ironing_pattern");
     def->category = L("Quality");
-    def->set_enum<InfillPattern>({
+    def->set_enum<IroningPattern>({
         { "concentric",    L("Concentric") },
-        { "zig-zag",      L("Rectilinear") }
+        { "rectilinear",      L("Rectilinear") }
         });
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionEnum<InfillPattern>(ipRectilinear/*ipConcentric*/));
-
+    def->set_default_value(new ConfigOptionEnum<IroningPattern>(IroningPattern::IronRectilinearc));
 
     def = this->add("ironing_flowrate", coPercent);
-    def->label = L("Flow rate");
+    def->label = L("Ironing flow");
     def->category = L("Ironing");
-    def->tooltip = L("Percent of a flow rate relative to object's normal layer height.");
+    def->tooltip = L("The amount of material to extrude during ironing. Relative to flow of normal layer height. Too high value results in overextrusion on the surface");
     def->sidetext = L("%");
     def->ratio_over = "layer_height";
     def->min = 0;
@@ -2082,9 +2131,9 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(new ConfigOptionFloat(15));
 
     def = this->add("ironing_angle", coFloat);
-    def->label = L("Ironing angle");
+    def->label = L("engin_option_ironing_angle");
     def->category = L("Quality");
-    def->tooltip = L("The angle ironing is done at. A negative number disables this function and uses the default method.");
+    def->tooltip = L("engin_optionTip_ironing_angle");
     def->sidetext = L("°");
     def->min = -1;
     def->max = 359;
@@ -2410,7 +2459,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("overhangs", coBool);
     def->label = L("Slow down for overhang");
     def->category = L("Layers and Perimeters");
-    def->tooltip = L("Enable this option to slow printing down for different overhang degree");
+    def->tooltip = L("Detect the overhang percentage relative to line width and use different speed to print. For 100%% overhang, bridge speed is used.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
 
@@ -2777,6 +2826,15 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(15, true));
+
+    def = this->add("skirt_speed", coFloat);
+    def->label = L("engin_option_skirt_speed");
+    def->full_label = L("Skirt speed");
+    def->tooltip = L("engin_optionTip_skirt_speed");
+    def->min = 0;
+    def->sidetext = L("mm/s");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(50.0));
 
     def = this->add("skirt_distance", coFloat);
     def->label = L("Skirt distance");
@@ -3478,6 +3536,17 @@ void PrintConfigDef::init_fff_params()
     def->max = max_temp;
     def->set_default_value(new ConfigOptionInts { 200 });
 
+    def = this->add("print_flow_ratio", coFloat);
+    def->label = L("Flow ratio");
+    def->tooltip = L("The material may have volumetric change after switching between molten state and crystalline state. "
+        "This setting changes all extrusion flow of this filament in gcode proportionally. "
+        "Recommended value range is between 0.95 and 1.05. "
+        "Maybe you can tune this value to get nice flat surface when there has slight overflow or underflow");
+    def->mode = comAdvanced;
+    def->max = 2;
+    def->min = 0.01;
+    def->set_default_value(new ConfigOptionFloat(1));
+
     def = this->add("thick_bridges", coBool);
     def->label = L("Thick bridges");
     def->category = L("Layers and Perimeters");
@@ -3628,15 +3697,25 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(new ConfigOptionBools { false });
 
     def = this->add("wipe_speed", coFloatOrPercent);
-    def->label = L("Wipe speed");
-    def->tooltip = L("The wipe speed is determined by the speed setting specified in this configuration."
-        "If the value is expressed as a percentage (e.g. 80%), it will be calculated based on the travel speed setting above."
-        "The default value for this parameter is 80%");
+    def->label = L("engin_option_wipe_speed");
+    def->tooltip = L("engin_optionTip_wipe_speed");
     def->sidetext = L("mm/s or %");
     def->ratio_over = "travel_speed";
     def->min = 0;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloatOrPercent(80, true));
+
+    def = this->add("role_based_wipe_speed", coBool);
+    def->label = L("engin_option_role_based_wipe_speed");
+    def->tooltip = L("engin_optionTip_role_based_wipe_speed");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("wipe_on_loops", coBool);
+    def->label = L("engin_option_wipe_on_loops");
+    def->tooltip = L("engin_optionTip_wipe_on_loops");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
 
     def = this->add("wipe_tower", coBool);
     def->label = L("Enable");
@@ -3738,12 +3817,6 @@ void PrintConfigDef::init_fff_params()
     def->sidetext = L("mm");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionFloat(10.));
-
-    def = this->add("move_inward", coBool);
-    def->label = L("Move inward before retraction");
-    def->tooltip = L("This flag will move the nozzle inside the loop before retraction to minimize the possible blob.");
-    def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionBool{ false });
 
     def = this->add("xy_size_compensation", coFloat);
     def->label = L("X-Y contour compensation");
@@ -3866,6 +3939,15 @@ void PrintConfigDef::init_fff_params()
         " Otherwise, rectilinear pattern is used defaultly.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("first_layer_min_bead_width", coPercent);
+    def->label = L("engin_option_first_layer_min_bead_width");
+    def->category = L("Quality");
+    def->tooltip = L("engin_optionTip_first_layer_min_bead_width");
+    def->sidetext = L("%");
+    def->mode = comAdvanced;
+    def->min = 0;
+    def->set_default_value(new ConfigOptionPercent(85));
 
     // Declare retract values for filament profile, overriding the printer's extruder profile.
     for (const char *opt_key : {

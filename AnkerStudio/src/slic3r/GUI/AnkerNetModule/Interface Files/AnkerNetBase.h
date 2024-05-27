@@ -45,6 +45,7 @@ public:
 	//post feedback by http
 	//it is a async interface
 	virtual void AsyPostFeedBack(FeedBackInfo info) = 0;
+	virtual void AsyPostGetPrintStopReasons(PrintStopReasons &reasons) = 0;
 
 	//set callback for Recover Curl , triggered when curl return CURLE_COULDNT_RESOLVE_HOST
 	virtual void SetCallback_RecoverCurl(NormalCallBack callback) = 0;
@@ -52,6 +53,7 @@ public:
 	virtual void SetCallback_OtaInfoRecv(CallBack_OtaInfoRecv callback) = 0;
 	//set callback for update filament info , triggered when receive filament info and is newer than local
 	virtual void SetCallback_FilamentRecv(NormalCallBack callback) = 0;
+	virtual void SetCallback_ConmentFlagsRecv(ConmentFlagsCallBack callback) = 0;
 	//set callback for process http error , triggered when http interface return error
 	virtual void SetsendSigHttpError(sendSigHttpError_T function) = 0;
 
@@ -145,6 +147,11 @@ public:
 
 	//get user info
 	virtual std::string GetUserInfo() = 0;
+
+	virtual void reportConmentData(StarConmentData data) = 0;
+
+	// process something after web login finish 
+	virtual void ProcessWebLoginFinish() = 0;
 };
 
 }

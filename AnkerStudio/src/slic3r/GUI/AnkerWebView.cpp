@@ -14,6 +14,7 @@
 #include <wx/webviewfshandler.h>
 #include <wx/webviewarchivehandler.h>
 #include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/GUI/MainFrame.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "AnkerNetBase.h"
 
@@ -54,7 +55,7 @@ AnkerWebView::AnkerWebView(wxWindow* parent,
 	m_showErrorEnable = true;
 	m_loadTimer = new wxTimer(this, wxID_ANY);
 	Bind(wxEVT_TIMER, &AnkerWebView::OnLoadTimer, this);
-	ANKER_LOG_INFO << "start load timer: " << m_loadTimeMs;
+	ANKER_LOG_INFO << "webview create. start load timer: " << m_loadTimeMs << ", background: " << m_background;
 	m_loadTimer->StartOnce(m_loadTimeMs);
 	BuryEvent(LoginStatus::LoginStart, "start");
 	initUi();
@@ -63,11 +64,12 @@ AnkerWebView::AnkerWebView(wxWindow* parent,
 
 AnkerWebView::~AnkerWebView()
 {
+	ANKER_LOG_INFO << "start webview destroy";
 	m_loadTimer->Stop();
 	delete m_loadTimer;
 	m_loadTimer = nullptr;
 
-	ANKER_LOG_INFO << "delete webview";
+	ANKER_LOG_INFO << "end webview destroy";
 }
 
 void AnkerWebView::onLogOut()
@@ -79,7 +81,11 @@ void AnkerWebView::onLogOut()
 	if (m_webView)
 	{
 		CallAfter([=] {
+#ifdef _WIN32
+			m_webView->RunScript("localStorage.clear();");
+#else
 			m_webView->RunScriptAsync("localStorage.clear();");
+#endif
 		});
 	}		
 }
@@ -180,7 +186,9 @@ void AnkerWebView::OnNewWindow(wxWebViewEvent& evt)
 
 void AnkerWebView::OnScriptMessage(wxWebViewEvent& evt)
 {
-	m_loadTimer->Stop();
+	if(m_loadTimer->IsRunning())
+		m_loadTimer->Stop();
+
 	if (m_forceClose) return;
 
 	wxString webJsonData = evt.GetString();	
@@ -213,7 +221,6 @@ void AnkerWebView::OnScriptMessage(wxWebViewEvent& evt)
 			return;
 		}
 
-
 		std::string action;
 		if (result.action == WEB_ACTION::EM_LOGIN) {
 			action = "login";
@@ -221,16 +228,29 @@ void AnkerWebView::OnScriptMessage(wxWebViewEvent& evt)
 		else if (result.action == WEB_ACTION::EM_LOGINBACK) {
 			action = "login back";
 		}
-		BuryEvent(LoginStatus::LoginSuccess, "login success, " + action);
+		
+		ANKER_LOG_INFO << "send wxCUSTOMEVT_WEB_LOGIN_FINISH event start2";
+#ifdef _WIN32
+		Hide();
+		//Close();
 
-		ANKER_LOG_INFO << "send wxCUSTOMEVT_WEB_LOGIN_FINISH event";
+		/*wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_WEB_LOGIN_FINISH);
+		wxQueueEvent(Slic3r::GUI::wxGetApp().mainframe, evt.Clone());*/
+		Slic3r::GUI::wxGetApp().mainframe->loginFinishHandle();
+
+		ANKER_LOG_INFO << "post wxCUSTOMEVT_WEB_LOGIN_FINISH event end not Close";
+		//Close();
+#else
 		wxCommandEvent testEvent(wxCUSTOMEVT_WEB_LOGIN_FINISH, GetId());
 		testEvent.SetEventObject(this);
 		GetEventHandler()->ProcessEvent(testEvent);
+		ANKER_LOG_INFO << "send wxCUSTOMEVT_WEB_LOGIN_FINISH event end";
 
-		ANKER_LOG_INFO << "LOGIN SUCESS,SATRT CALL EndModal(wxID_ANY)";
+		ANKER_LOG_INFO << "LOGIN SUCESS,START CALL EndModal(wxID_ANY)";
 		this->EndModal(wxID_ANY);
 		ANKER_LOG_INFO << "LOGIN SUCESS,END CALL EndModal(wxID_ANY)";
+#endif
+		BuryEvent(LoginStatus::LoginSuccess, "login success, " + action);
 	}
 	else if (result.action == WEB_ACTION::EM_LOGINOUT) {
 		wxCommandEvent testEvent(wxCUSTOMEVT_WEB_LOGOUT_FINISH, GetId());
@@ -290,7 +310,9 @@ void AnkerWebView::OnError(wxWebViewEvent& evt)
 	}
 
 
-	std::string errorInfo = std::string("webview error , url = ") + evt.GetURL().ToStdString(wxConvUTF8) + ",target = " + evt.GetTarget().ToStdString(wxConvUTF8) + ",description = " + e + "," + evt.GetString().ToStdString(wxConvUTF8);
+	std::string errorInfo = std::string("webview error , url = ") + evt.GetURL().ToStdString(wxConvUTF8) + 
+		",target = " + evt.GetTarget().ToStdString(wxConvUTF8) + ",description = " + e + 
+		"," + evt.GetString().ToStdString(wxConvUTF8);
 	ANKER_LOG_ERROR << errorInfo;
 
 
@@ -301,7 +323,14 @@ void AnkerWebView::OnError(wxWebViewEvent& evt)
 	BuryEvent(LoginStatus::LoadError, errorInfo);
 
 	if (m_forceClose) return;
-	ShowErrorDialog();
+
+	// Running a message loop synchronously in an event handler in Webview can cause reentrancy issue. 
+	// Please refer to https://docs.microsoft.com/en-us/microsoft-edge/webview2/concepts/threading-model#re-entrancy 
+	// for more information about threading model in WebView2 and how to enable native code debugging for this scenario.
+	//ShowErrorDialog();
+	CallAfter([this] {
+		ShowErrorDialog();
+	});
 }
 
 void AnkerWebView::SetForceClose(bool close)
@@ -320,7 +349,7 @@ void AnkerWebView::initUi()
 		delete m_webView;
 		m_webView = nullptr;
 	}
-	m_webView = CreateWebView(this, m_url);	
+	m_webView = std::move(CreateWebView(this, m_url));
 
 	if (m_webView)
 	{		
@@ -562,7 +591,7 @@ void AnkerWebView::RemoveBrowserCache()
 		//step 1.2. close all matched pids
 		RemoveChildIds(matchedPids);
 	}
-
+	
 #else
 
 #endif

@@ -155,8 +155,14 @@ static void connect_layer_slices(
                                 // Second source contour of this expolygon was found.
                                 if (i > j)
                                     std::swap(i, j);
-                                if (i >= m_offset_above || j < m_offset_above)
+                                if (i >= m_offset_above) {
+                                    i = -1;
                                     continue;
+                                }
+                                if (j < m_offset_above) {
+                                    j = -1;
+                                    continue;
+                                }
                                 assert(assert_intersection_valid(i, j));
                                 goto end;
                             }

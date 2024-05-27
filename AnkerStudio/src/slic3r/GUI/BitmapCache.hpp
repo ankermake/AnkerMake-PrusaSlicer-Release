@@ -42,6 +42,9 @@ public:
 	// Load png from resources/icons. bitmap_key is given without the .png suffix. Bitmap will be rescaled to provided height/width if nonzero.
     wxBitmap* 		load_png(const std::string &bitmap_key, unsigned width = 0, unsigned height = 0, const bool grayscale = false);
 
+	// Load png from resources/icons. bitmap_key is given without the .png suffix. Bitmap will be rescaled to provided height/width if nonzero.
+	wxBitmap* load_png(const std::string& bitmap_key, unsigned width = 0, unsigned height = 0, const bool grayscale = false, const float scale_in_center = 0.f);
+
 	// Parses SVG file from a file, returns SVG image as paths.
 	// And makes replases befor parsing
 	// replace_map containes old_value->new_value
@@ -53,6 +56,9 @@ public:
 	wxBitmapBundle* from_png(const std::string& bitmap_name, unsigned width, unsigned height);
 	// Load svg from resources/icons. bitmap_key is given without the .svg suffix. SVG will be rasterized to provided height/width.
     wxBitmap* 		load_svg(const std::string &bitmap_key, unsigned width = 0, unsigned height = 0, const bool grayscale = false, const bool dark_mode = false, const std::string& new_color = "");
+
+	// Load svg from resources/icons. bitmap_key is given without the .svg suffix. SVG will be rasterized to provided height/width.
+	wxBitmap*       load_svg_(const std::string& bitmap_key, unsigned width = 0, unsigned height = 0, const bool grayscale = false, const bool dark_mode = false, const std::string& new_color = "", const float scale_in_center = 0.f);
 
 	wxBitmapBundle	mksolid(size_t width, size_t height, unsigned char r, unsigned char g, unsigned char b, unsigned char transparency, size_t border_width = 0, bool dark_mode = false);
 	wxBitmapBundle*	mksolid_bndl(size_t width, size_t height, const std::string& color = std::string(), size_t border_width = 0, bool dark_mode = false);

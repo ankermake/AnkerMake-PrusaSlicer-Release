@@ -216,9 +216,7 @@ void GLGizmoSeam::update_model_object() const
 
     if (updated) {
         const ModelObjectPtrs& mos = wxGetApp().model().objects;
-        //wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
-        wxGetApp().objectbar()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin(), AnkerObjectItem::ITYPE_SEAM);
-
+        wxGetApp().obj_list()->update_info_items(std::find(mos.begin(), mos.end(), mo) - mos.begin());
         m_parent.post_event(SimpleEvent(EVT_GLCANVAS_SCHEDULE_BACKGROUND_PROCESS));
     }
 }
@@ -304,7 +302,7 @@ void GLGizmoSeam::set_input_window_state(bool on)
 			m_cursor_radius = brushInitSize;
 			m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
 
-			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+			AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 32, 0, wxColour(PANEL_TITLE_BACK_DARK_RGB_INT));
 			container->setTitle(/*wxString::FromUTF8(get_name(true, false))*/_("common_slice_toolpannel_seampaint"));
 			container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
 			int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
@@ -312,6 +310,7 @@ void GLGizmoSeam::set_input_window_state(bool on)
             m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
 
 			wxPanel* zeamPanel = new wxPanel(container);
+            zeamPanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
 			wxBoxSizer* zeamPanelSizer = new wxBoxSizer(wxVERTICAL);
 			zeamPanel->SetSizer(zeamPanelSizer);
 			container->setContentPanel(zeamPanel);
@@ -404,7 +403,7 @@ void GLGizmoSeam::set_input_window_state(bool on)
 				int btnID = event.GetInt();
 				if (btnID == returnBtnID)
 				{
-					wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+					wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
 				}
 				else if (btnID == clearBtnID)
 				{
@@ -559,7 +558,7 @@ void GLGizmoSeam::set_input_window_state(bool on)
                 {
                     m_panelVisibleFlag = false;
 
-                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                    wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
                 }
                 });
 		}

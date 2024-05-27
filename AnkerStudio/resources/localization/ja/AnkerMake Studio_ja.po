@@ -2237,8 +2237,8 @@ msgid "Choose one or more files (STL, OBJ):"
 msgstr "1つ以上のファイル(STL, OBJ)を選択します："
 
 #: src/slic3r/GUI/GUI_App.cpp:1870
-msgid "Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO):"
-msgstr "1つ以上のファイルの選択(STL/3MF/STEP/OBJ/AMF/AKPRO):"
+msgid "Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO/SVG):"
+msgstr "1つ以上のファイルの選択(STL/3MF/STEP/OBJ/AMF/AKPRO/SVG):"
 
 #: src/slic3r/GUI/ConfigWizard.cpp:1361
 msgid "Choose the type of firmware used by your printer."
@@ -3113,7 +3113,7 @@ msgid "Delete Instance"
 msgstr "インスタンス削除"
 
 #: src/slic3r/GUI/Plater.cpp:2984
-msgid "Delete Object"
+msgid "Delete object"
 msgstr "オブジェクト削除"
 
 #: src/slic3r/GUI/GUI_ObjectSettings.cpp:105
@@ -5896,8 +5896,8 @@ msgid "Import STL/3MF/STEP/OBJ/AM&F"
 msgstr "STL/3MF/STEP/OBJ/AMFのインポート(&F)"
 
 #: src/slic3r/GUI/KBShortcutsDialog.cpp:83
-msgid "Import STL/3MF/STEP/OBJ/AMF without config, keep plater"
-msgstr "既存のプレートを保持しながらSTL/3MF/STEP/OBJ/AMFを設定なしでインポート"
+msgid "Import STL/3MF/STEP/OBJ/AMF/SVG without config, keep plater"
+msgstr "既存のプレートを保持しながらSTL/3MF/STEP/OBJ/AMF/SVGを設定なしでインポート"
 
 #: src/slic3r/GUI/Plater.cpp:5293
 msgid "Import config only"
@@ -6270,7 +6270,7 @@ msgstr "下側パーツをキープ"
 
 #: src/slic3r/GUI/GLCanvas3D.cpp:286
 msgid "Keep min"
-msgstr "最小に保つ"
+msgstr "最小限に抑える"
 
 #: src/slic3r/GUI/UnsavedChangesDialog.cpp:942
 msgid "Keep the selected settings."
@@ -18602,7 +18602,7 @@ msgstr "MacGreek"
 
 #: ../src/richtext/richtextborderspage.cpp:615
 msgid "Groove"
-msgstr ""
+msgstr "溝継ぎ手"
 
 #: ../src/common/zstream.cpp:158 ../src/common/zstream.cpp:318
 msgid "Gzip not supported by this version of zlib"
@@ -20635,7 +20635,7 @@ msgstr "'%s' は正しいメッセージカタログではありません。"
 #. TRANSLATORS: Name of keyboard key
 #: ../src/common/accelcmn.cpp:56
 msgid "Return"
-msgstr ""
+msgstr "戻る"
 
 #: ../src/common/stockitem.cpp:189
 msgid "Revert to Saved"
@@ -20698,11 +20698,6 @@ msgstr "別名で保存(&A) ..."
 
 #: ../src/common/docview.cpp:366
 msgid "Save As"
-msgstr "Save As"
-
-#: ../src/common/stockitem.cpp:191
-#, fuzzy
-msgid "Save as"
 msgstr "Save As"
 
 #: ../src/common/stockitem.cpp:267
@@ -20929,8 +20924,8 @@ msgid "Single"
 msgstr "1"
 
 #: ../src/osx/carbon/fontdlg.cpp:339
-msgid "Size:"
-msgstr "大きさ:"
+#msgid "Size:"
+#msgstr "大きさ:"
 
 #. TRANSLATORS: System cursor name
 #: ../src/propgrid/advprops.cpp:1775
@@ -23618,7 +23613,7 @@ msgid "common_menu_file_Importconfigbundle"
 msgstr "全ての設定をインポート"
 
 msgid "common_menu_file_Importlist"
-msgstr "STL/3MF/STEP/OBJ/AMFファイルをインポート"
+msgstr "STL/3MF/STEP/OBJ/AMF/SVGファイルをインポート"
 
 msgid "common_menu_file_ejectsd"
 msgstr "SDカード/フラッシュドライブの取り外し"
@@ -26109,6 +26104,9 @@ msgstr "頂点"
 msgid "common_right_panel_measure_title"
 msgstr "測定する"
 
+msgid "common_measure_Distance"
+msgstr "距離"
+
 msgid "common_right_panel_measure_type_angle"
 msgstr "角度"
 
@@ -26469,3 +26467,1008 @@ msgstr "壁と表面"
 
 msgid "No ironing"
 msgstr "しない"
+
+msgid "Color Scheme"
+msgstr "配色スキーム"
+
+msgid "Line Type"
+msgstr "種類"
+
+msgid "Retract"
+msgstr "リトラクション"
+
+msgid "Unretract"
+msgstr "リトラクション回復"
+
+msgid "Total Estimation"
+msgstr "予測合計"
+
+msgid "Model printing time"
+msgstr "モデル造形時間"
+
+msgid "Filament change times"
+msgstr "フィラメント交換回数"
+
+msgid "Time Estimation"
+msgstr "予測時間"
+
+msgid "Layer Height"
+msgstr "積層ピッチ"
+
+msgid "Layer Time"
+msgstr "積層時間"
+
+msgid "Line Width"
+msgstr "押出線幅"
+
+msgid "Fan Speed"
+msgstr "ファン回転速度"
+
+
+msgid "Assembly View"
+msgstr "組立て"
+
+msgid "Assembly Return"
+msgstr "戻る"
+
+msgid "return"
+msgstr "戻る"
+
+msgid "Explosion Ratio"
+msgstr "分解比率"
+
+msgid "Section View"
+msgstr "断面"
+
+msgid "Assemble Control"
+msgstr "組立て"
+
+msgid "Assembly Info"
+msgstr "アセンブリ情報"
+
+msgid "Volume:"
+msgstr "ボリューム:"
+
+msgid "Size:"
+msgstr "サイズ:"
+
+msgid "Hide"
+msgstr "非表示"
+
+msgid "Planar"
+msgstr "平面"
+
+msgid "Dovetail"
+msgstr "V字継ぎ手"
+
+msgid "Build Volume"
+msgstr "ビルドボリューム"
+
+msgid "Cut position"
+msgstr "カット位置"
+
+msgid "Reset cutting plane"
+msgstr "カット面をリセット"
+
+msgid "Add connectors"
+msgstr "コネクター追加"
+
+msgid "After cut"
+msgstr "カットをリセット"
+
+msgid "engin_cut_groove"
+msgstr "溝継ぎ手"
+
+msgid "engin_cut_depth"
+msgstr "深さ"
+
+msgid "engin_cut_width"
+msgstr "幅"
+
+msgid "Flap Angle"
+msgstr "フラップ角度"
+
+msgid "Groove Angle"
+msgstr "溝の角度"
+
+msgid "Cut result"
+msgstr "カット結果"
+
+msgid "engin_cut_object"
+msgstr "オブジェクト"
+
+msgid "Keep Orientation"
+msgstr "方向をキープ"
+
+msgid "Place on cut"
+msgstr "カット上に置く"
+
+msgid "Flip"
+msgstr "上下反転"
+
+msgid "Cut Into"
+msgstr "にカットする"
+
+msgid "Cut to parts"
+msgstr "部品に切断"
+
+msgid "engin_cut_objects"
+msgstr "オブジェクト"
+
+msgid "engin_cut_parts"
+msgstr "パーツ"
+
+msgid "engin_cut_part"
+msgstr "パート"
+
+msgid "Upper part"
+msgstr "上部"
+
+msgid "Lower part"
+msgstr "下部"
+
+msgid "Connectors"
+msgstr "コネクター"
+
+msgid "Remove connectors"
+msgstr "コネクターの削除"
+
+msgid "Flip cut plane"
+msgstr "カット面の反転"
+
+msgid "engin_cut_type"
+msgstr "タイプ"
+
+msgid "engin_cut_plug"
+msgstr "プラグ"
+
+msgid "Plug"
+msgstr "プラグ"
+
+msgid "engin_cut_dowel"
+msgstr "だぼ"
+
+msgid "Dowel"
+msgstr "だぼ"
+
+msgid "engin_cut_snap"
+msgstr "スナップ継ぎ手"
+
+msgid "Snap"
+msgstr "スナップ継ぎ手"
+
+msgid "engin_cut_style"
+msgstr "スタイル"
+
+msgid "Prism"
+msgstr "プリズム"
+
+msgid "Frustum"
+msgstr "錐台"
+
+msgid "engin_cut_shape"
+msgstr "シェイプ"
+
+msgid "Triangle"
+msgstr "三角形"
+
+msgid "Square"
+msgstr "四角形"
+
+msgid "Hexagon"
+msgstr "六角形"
+
+msgid "engin_cut_circle"
+msgstr "円"
+
+msgid "engin_cut_size"
+msgstr "サイズ"
+
+msgid "Bulge"
+msgstr "バルジ"
+
+msgid "engin_cut_space"
+msgstr "スペース"
+
+msgid "Bulge proportion related to radius"
+msgstr "バルジの比率と半径の関係"
+
+msgid "Space proportion related to radius"
+msgstr "半径に関係する空間の割合"
+
+msgid "Reset cut"
+msgstr "切断をリセット"
+
+msgid "Tolerance"
+msgstr "に耐える"
+
+msgid "Confirm connectors"
+msgstr "コネクタの確認"
+
+msgid "Invalid connectors detected"
+msgstr "無効なコネクターを検出"
+
+msgid "connector is out of \nobject"
+msgstr "ネクタがオブジェクト\nから外れています"
+
+msgid "Select at least one object to keep after cutting."
+msgstr "カットした後に残すものを1つ以上選んでください。"
+
+msgid "Cut plane is placed out of object"
+msgstr "カット面はオブジェクトの外に配置される"
+
+msgid "Cut plane with groove is invalid"
+msgstr "溝のあるカット面は無効"
+
+#: Emboss
+msgid "Text rotate"
+msgstr "テキストの回転"
+
+msgid "Text move"
+msgstr "テキストの移動"
+
+msgid "Emboss"
+msgstr "エンボス"
+
+msgid ""
+"Can't load exactly same font(\"%1%\"). Aplication selected a similar "
+"one(\"%2%\"). You have to specify font for enable edit text."
+msgstr ""
+"全く同じフォント(\"%1%\")を読み込むことができません。アプリケーションは似たよ"
+"うなもの(\"%2%\")を選択しました。編集テキストを有効にするには、フォントを指定"
+"する必要があります。"
+
+msgid "Can't rename temporary style."
+msgstr "テンポラリスタイルの名前を変更できません。"
+
+msgid "Font \"%1%\" can't be selected."
+msgstr "フォント\"%1%\"は選択できません。"
+
+msgid "Font doesn't have any shape for given text."
+msgstr "与えられたテキストに対して、フォントのシェイプがない。"
+
+msgid "Change Text Type"
+msgstr "テキストタイプ変更"
+
+msgid "Rename style(%1%) for embossing text"
+msgstr "エンボステキスト用のスタイル(%1%) をリネームする"
+
+msgid "Rename style"
+msgstr "スタイルの名前を変更"
+
+msgid "Can't remove the last existing style."
+msgstr "最後に存在したスタイルを削除できません。"
+
+msgid "Are you sure you want to permanently remove the \"%1%\" style?"
+msgstr "本当に\"%1%\"スタイルを永久に削除しますか？"
+
+msgid "Delete \"%1%\" style."
+msgstr "\"%1%\"スタイル削除"
+
+msgid "Can't delete \"%1%\". It is last style."
+msgstr "\"%1%\"を削除できません。直前に使用していたスタイルです。"
+
+msgid "Can't delete temporary style \"%1%\"."
+msgstr "テンポラリスタイル\"%1%\"を削除できません。"
+
+msgid "Modified style \"%1%\""
+msgstr "変更したスタイル\"%1%\""
+
+msgid "Current style is \"%1%\""
+msgstr "現在のスタイルは\"%1%\""
+
+msgid ""
+"Changing style to \"%1%\" will discard current style modification.\n"
+"\n"
+"Would you like to continue anyway?"
+msgstr ""
+"スタイルを\"%1%\"に変更すると、現在のスタイル変更は破棄されます。\n"
+"\n"
+"それでもこのまま続けますか？"
+
+msgid "Not valid style."
+msgstr "有効なスタイルではありません。"
+
+msgid "Style \"%1%\" can't be used and will be removed from a list."
+msgstr "スタイル\"%1%\"は使用できないので、リストから削除されます。"
+
+msgid "Distance between characters"
+msgstr "文字の間隔"
+
+msgid "Distance between lines"
+msgstr "ライン間距離"
+
+msgid "Tiny / Wide glyphs"
+msgstr "小さい/広いグリフ"
+
+msgid "Italic strength ratio"
+msgstr "イタリック体の強度比"
+
+msgid "Distance of the center of the text to the model surface."
+msgstr "テキストの中心からモデル表面までの距離。"
+
+msgid "Rotate text Clock-wise."
+msgstr "テキストを時計回りに回転。"
+
+msgid "Depth"
+msgstr "深さ"
+
+msgid "Use surface"
+msgstr "サーフェースを使用"
+
+msgid "Per glyph"
+msgstr "文字あたり"
+
+msgid "Char gap"
+msgstr "文字間ギャップ"
+
+msgid "Line gap"
+msgstr "ラインギャップ"
+
+msgid "Boldness"
+msgstr "ボールドネス"
+
+msgid "Skew ratio"
+msgstr "傾斜比"
+
+msgid "From surface"
+msgstr "表面から"
+
+msgid "Keep up"
+msgstr "続ける"
+
+msgid "Collection"
+msgstr "コレクション"
+
+msgid "Set text to face camera"
+msgstr "テキストをカメラに向ける"
+
+msgid "Operation"
+msgstr "オペレーション"
+
+msgid "Join"
+msgstr "結合"
+
+msgid "engin_emboss_alignment"
+msgstr "アライメント"
+
+msgid "Face the camera"
+msgstr "カメラに向ける"
+
+msgid "Change file"
+msgstr "ファイル変更"
+
+msgid "Forget the file path"
+msgstr "ファイルパスを忘れる"
+
+msgid "Bake"
+msgstr "焼付け"
+
+msgid "Save as"
+msgstr "別名で保存"
+
+msgid "SVG file path is \"%1%\""
+msgstr "SVGファイルパス： \"%1%\""
+
+msgid "Reload SVG file from disk."
+msgstr "ディスクからSVGファイルを再読込みします。"
+
+msgid "Change to another .svg file"
+msgstr "別の .svg ファイルに変更します"
+
+msgid ""
+"Do NOT save local path to 3MF file.\n"
+"Also disables 'reload from disk' option."
+msgstr ""
+"ローカルパスを3MFファイルに保存しない。\n"
+"また、'reload from disk' オプションも無効にする。"
+
+msgid "Bake into model as uneditable part"
+msgstr "編集不可パーツとしてモデルに焼付けする"
+
+msgid "Save as '.svg' file"
+msgstr "'.svg' ファイルとして保存"
+
+msgid "Size in emboss direction."
+msgstr "エンボス方向のサイズです。"
+
+msgid "Lock/unlock the aspect ratio of the SVG."
+msgstr "SVG のアスペクト比をロック/アンロックします。"
+
+msgid "Width of SVG."
+msgstr "SVGの幅"
+
+msgid "Height of SVG."
+msgstr "SVGの高さ"
+
+msgid "Scale also changes amount of curve samples (%1%)"
+msgstr "スケールによりカーブ サンプル量も変更されます(%1%)"
+
+msgid "Unknown filename"
+msgstr "不明なファイル名"
+
+msgid "Set italic"
+msgstr "イタリック設定"
+
+msgid "Set bold"
+msgstr "ボールド設定"
+
+msgid "Rename current style."
+msgstr "源左のスタイルの名前を変更"
+
+msgid "No changes to save."
+msgstr "保存する変更点はありません。"
+
+msgid "Save as new style."
+msgstr "新しいスタイルとして保存します。"
+
+msgid "Select from True Type Collection."
+msgstr "True Type コレクションから選択。"
+
+msgid "Orient the text towards the camera."
+msgstr "テキストの向きをカメラ側にする。"
+
+msgid "Embossed text"
+msgstr "エンボステキスト"
+
+msgid "Set position and orientation per glyph."
+msgstr "文字ごとに位置と方向を設定する。"
+
+msgid "Click to change text into object part."
+msgstr "クリックすると、テキストをオブジェクトパーツに変更します。"
+
+msgid "Click to change part type into negative volume."
+msgstr "クリックすると、パーツタイプをマイナスボリュームに変更します。"
+
+msgid ""
+"Final shape constains selfintersection or multiple points with same "
+"coordinate."
+msgstr "最終的な形状には、同じ座標を持つ複数の点の自己交差が含まれています。"
+
+msgid "Fill of shape (%1%) contains unsupported: %2%."
+msgstr ""
+"形状の塗りつぶし(%1%) にはサポートされていないものが含まれています: %2%"
+
+msgid "Path can't be healed from selfintersection and multiple points."
+msgstr "自己交差および複数のポイントからパスを修復できません。"
+
+msgid "common_calib_calibration"
+msgstr "較正"
+
+msgid "common_calib_temperature"
+msgstr "温度"
+
+msgid "common_calib_temperature_calibration"
+msgstr "温度の調整"
+
+msgid "common_calib_filament_type"
+msgstr "フィラメントタイプ"
+
+msgid "common_calib_custom"
+msgstr "カスタム"
+
+msgid "common_calib_settings"
+msgstr "設定"
+
+msgid "common_calib_start_temp"
+msgstr "開始温度: "
+
+msgid "common_calib_end_temp"
+msgstr "終了温度: "
+
+msgid "common_calib_temp_step"
+msgstr "温度の推移: "
+
+msgid "common_calib_flow_rate"
+msgstr "押出し量"
+
+msgid "common_calib_pass_1"
+msgstr "パス1"
+
+msgid "common_calib_pass_2"
+msgstr "パス2"
+
+msgid "common_calib_pressure_advance"
+msgstr "プレッシャーアドバンス"
+
+msgid "common_calib_PA_calibration"
+msgstr "PA較正"
+
+msgid "common_calib_extruder_type"
+msgstr "エクストルーダータイプ"
+
+msgid "common_calib_DDE"
+msgstr "DDE"
+
+msgid "common_calib_bowden"
+msgstr "ボーデン"
+
+msgid "common_calib_method"
+msgstr "方法"
+
+msgid "common_calib_PA_tower"
+msgstr "PAタワー"
+
+msgid "common_calib_PA_line"
+msgstr "PAライン"
+
+msgid "common_calib_PA_pattern"
+msgstr "PAパターン"
+
+msgid "common_calib_start_PA"
+msgstr "PAを開始: "
+
+msgid "common_calib_end_PA"
+msgstr "PAを終了: "
+
+msgid "common_calib_PA_step"
+msgstr "PAステップ: "
+
+msgid "common_calib_print_numbers"
+msgstr "番号をプリント"
+
+msgid "common_calib_retraction_test"
+msgstr "引き戻しのテスト"
+
+msgid "common_calib_start_retraction_length"
+msgstr "開始時の引き戻し長さ: "
+
+msgid "common_calib_end_retraction_length"
+msgstr "終了時の引き戻し長さ: "
+
+msgid "common_calib_step"
+msgstr "ステップ: "
+
+msgid "common_calib_more"
+msgstr "詳細..."
+
+msgid "common_calib_max_flowrate"
+msgstr "最大押出し量"
+
+msgid "common_calib_max_volumetric_speed_test"
+msgstr "最大体積速度のテスト"
+
+msgid "common_calib_start_volumetric_speed"
+msgstr "開始時の体積速度: "
+
+msgid "common_calib_end_volumetric_speed"
+msgstr "終了時の体積速度: "
+
+msgid "common_calib_VFA"
+msgstr "VFA"
+
+msgid "common_calib_VFA_test"
+msgstr "VFAテスト"
+
+msgid "common_calib_start_speed"
+msgstr "開始速度"
+
+msgid "common_calib_end_speed"
+msgstr "終了速度"
+
+msgid "common_print_popup_filamentbroken_new"
+msgstr "フィラメントの転送が中断されました。新しいフィラメント%sをロードしてください。"
+
+msgid "common_print_popup_filament_notequal"
+msgstr "現在必要なフィラメント%sは前回のプリントと異なります。プリントを開始する前に、確認してください。"
+
+msgid "Process"
+msgstr "プロセス"
+
+msgid "common_global_settings"
+msgstr "全般設定"
+
+msgid "common_print_settings"
+msgstr "プリント設定"
+
+msgid "engin_option_wall_sequence_inner_outer"
+msgstr "内側/外側"
+
+msgid "engin_option_wall_sequence_outer_inner"
+msgstr "外側/内側"
+
+msgid "engin_option_wall_sequence_inner_outer_innner"
+msgstr "内側/外側/内側"
+
+msgid "engin_option_wall_generator"
+msgstr "壁の生成"
+
+msgid "engin_option_seam_slope_type"
+msgstr "スカーフジョイントシーム（beta）"
+
+msgid "engin_option_seam_slope_conditional"
+msgstr "条件付きスカーフジョイント"
+
+msgid "engin_option_scarf_joint_speed"
+msgstr "スカーフのジョイントスピード"
+
+msgid "engin_option_seam_slope_start_height"
+msgstr "スカーフの開始高さ"
+
+msgid "engin_option_seam_slope_entire_loop"
+msgstr "壁全体にスカーフを巻く"
+
+msgid "engin_option_seam_slope_min_length"
+msgstr "スカーフの長さ"
+
+msgid "engin_option_seam_slope_steps"
+msgstr "スカーフステップ"
+
+msgid "engin_option_scarf_joint_flow_ratio"
+msgstr "スカーフジョイントのフロー比率"
+
+msgid "engin_option_seam_slope_inner_walls"
+msgstr "内壁用のスカーフジョイント"
+
+msgid "engin_option_seam_slope_type_none"
+msgstr "なし"
+
+msgid "engin_option_seam_slope_type_external"
+msgstr "輪郭"
+
+msgid "engin_option_seam_slope_type_all"
+msgstr "輪郭と穴"
+
+msgid "engin_optionTip_seam_slope_type"
+msgstr "継ぎ目を目立たせないようにする、また継ぎ目の強度を高めるには、スカーフジョイントを使用してください。"
+
+msgid "engin_optionTip_seam_slope_conditional"
+msgstr "スカーフジョイントは、従来の継ぎ目では鋭角の継ぎ目を効果的に隠すことができない滑らかな外周部にのみ適用してください。"
+
+msgid "engin_optionTip_scarf_joint_speed"
+msgstr ""
+    "このオプションは、スカーフジョイントのプリント速度を設定します。スカーフジョイントをプリントする際は、低速（100 mm/s未満）でプリントすることをお勧めします。\n"
+    "設定速度が外壁や内壁の速度と大きく異なる場合は、「押出速度スムージング」を有効にすることをお勧めします。ここで指定した速度が外壁または内壁の速度よりも高い場合、プリンターはデフォルトで2つの速度のうち遅い方を選択します。\n"
+    "パーセンテージ（例えば80%）で指定した場合、速度はそれぞれの外壁または内壁の速度に基づいて計算されます。デフォルト値は100%に設定されています。"
+
+msgid "engin_optionTip_seam_slope_start_height"
+msgstr "スカーフの開始地点の高さ。\nこの値はミリメートルまたは現在のレイヤーの高さに対するパーセンテージで指定できます。このパラメータのデフォルト値は0です。"
+
+msgid "engin_optionTip_seam_slope_entire_loop"
+msgstr "スカーフは壁の全長にわたって伸びています。"
+
+msgid "engin_optionTip_seam_slope_min_length"
+msgstr "スカーフの長さ。この数値を「0」に設定すると、スカーフが無効になります。"
+
+msgid "engin_optionTip_seam_slope_steps"
+msgstr "各スカーフの最小セグメント数。"
+
+msgid "engin_optionTip_scarf_joint_flow_ratio"
+msgstr "これは、スカーフジョイントの材料の量に影響を与えます。"
+
+msgid "engin_optionTip_seam_slope_inner_walls"
+msgstr "内壁にもスカーフジョイントを使用してください。"
+
+msgid "common_star_conment_cancel_btn"
+msgstr "キャンセル"
+
+msgid "common_star_conment_content"
+msgstr "AnkerMake Studio%sでの体験を評価してください。フィードバックをお待ちしています。"
+
+msgid "common_star_conment_finish_tips"
+msgstr "AnkerMake Studio%sの評価を送信しました。"
+
+msgid "common_star_conment_ok_btn"
+msgstr "OK"
+
+msgid "common_star_conment_placed_text"
+msgstr "お客様の製品体験についてお聞かせください。AnkerMake Studioでお困りのことがあれば、弊社より直接ご連絡させていただきます（オプション）。"
+
+msgid "common_star_conment_refused_btn"
+msgstr "次回から表示しない"
+
+msgid "common_star_conment_submit_btn"
+msgstr "送信する"
+
+msgid "common_star_conment_thanks_tips"
+msgstr "フィードバックいただきありがとうございます"
+
+msgid "common_star_conment_title"
+msgstr "評価する"
+
+msgid "common_tab_documentation_entrance"
+msgstr "ドキュメント"
+
+msgid "common_tab_feed_back_entrance"
+msgstr "フィードバックする"
+
+msgid "common_tab_feed_back_hlep_tips"
+msgstr "フィードバックとヘルプ"
+
+msgid "common_tab_release_note_entrance"
+msgstr "更新内容"
+
+msgid "%1$d connector is out of cut contour"
+msgid_plural "%1$d connectors are out of cut contour"
+msgstr[0] "%1$dコネクタがカット輪郭から外れている"
+msgstr[1] ""
+msgstr[2] "%1$dコネクタがカット輪郭から外れている"
+
+msgid "%1$d connector is out of object"
+msgid_plural "%1$d connectors are out of object"
+msgstr[0] "%1$d コネクタがオブジェクトから外れています"
+msgstr[1] ""
+msgstr[2] "%1$d コネクタがオブジェクトから外れています"
+
+msgid "Some connectors are overlapped"
+msgstr "一部のコネクターが重なっています"
+
+msgid "Embossed text cannot contain only white spaces."
+msgstr "エンボス加工されたテキストは、空白部分のみを含むことはできません。"
+
+msgid "Distance of the center of the SVG to the model surface."
+msgstr "SVG の中心からモデル表面までの距離。"
+
+msgid "Click to change part type into modifier."
+msgstr "クリックすると、パーツタイプをモディファイアに変更します。"
+
+msgid "Text contains character glyph (represented by '?') unknown by font."
+msgstr "テキストにフォントで不明な文字記号（ '?'で表される）が含まれている。"
+
+msgid "NORMAL"
+msgstr "ノーマル"
+
+msgid "SMALL"
+msgstr "スモール"
+
+msgid "ITALIC"
+msgstr "イタリック"
+
+msgid "SWISS"
+msgstr "スイス"
+
+msgid "MODERN"
+msgstr "モダン"
+
+msgid "Save preset modifications to existing user profile"
+msgstr "プリセットの変更を既存のユーザープロファイルに保存する"
+
+msgid "This name is used for an external profile name, use another."
+msgstr ""
+"この名前は、外部プロファイル名に使用されますので、別のものを使用してくださ"
+"い。"
+
+msgid "This name is used for a system profile name, use another."
+msgstr ""
+"この名前は、システムプロファイル名に使用されているので、別のものを使用してく"
+"ださい。"
+
+msgid "Delete object which is a part of cut object"
+msgstr "カットの一部であるオブジェクトからコネクタを削除"
+
+msgid ""
+"This action will break a cut information.\n"
+"After that AnkerMake Studio can't guarantee model consistency"
+msgstr ""
+"この操作により、カット情報が壊れます。\n"
+"その後、AnkerMake Studioはモデルの整合性を保証できなくなります。"
+
+msgid ""
+"To manipulate with solid parts or negative volumes you have to invalidate cut infornation first."
+msgstr ""
+"ソリッドパーツやネガティブボリュームを操作するには、まずカット情報を無効化す"
+"る必要があります。"
+
+msgid "You try to delete an object which is a part of a cut object."
+msgstr "カットされたオブジェクトの一部であるオブジェクトを削除しようとした。"
+
+msgid "Global"
+msgstr "全般"
+
+msgid "Objects"
+msgstr "OBJ"
+
+msgid "Reset cutting plane and remove connectors"
+msgstr "カット面をリセットし、コネクターを削除"
+
+msgid "Unset italic"
+msgstr "イタリック設定を解除"
+
+msgid "Unset bold"
+msgstr "ボールド設定解除"
+
+msgid "Unlock the text's rotation when moving text along the object's surface."
+msgstr ""
+"オブジェクトの表面に沿ってテキストを移動させる時に、テキストの回転ロックを解"
+"除する。"
+
+msgid "Edit connectors"
+msgstr "コネクター編集"
+
+msgid "Delete connector from object which is a part of cut"
+msgstr "カットの一部であるオブジェクトからコネクタを削除"
+
+msgid ""
+"This action will break a cut information.\n"
+"After that AnkerMake Studio can't guarantee model consistency."
+msgstr ""
+"この操作により、カット情報が壊れます。\n"
+"その後、AnkerMake Studioはモデルの整合性を保証できなくなります。"
+
+msgid ""
+"To save cut information you can delete all connectors from all related "
+"objects."
+msgstr ""
+"カットされた情報を保存するために、すべての関連するオブジェクトからすべてのコ"
+"ネクタを削除することができます。"
+
+msgid ""
+"To manipulate with solid parts or negative volumes you have to invalidate "
+"cut information first."
+msgstr ""
+"ソリッドパーツやネガティブボリュームを操作するには、まずカット情報を無効化す"
+"る必要があります。"
+
+msgid "Invalidate cut info"
+msgstr "カット情報の無効化"
+
+msgid "Delete all connectors"
+msgstr "全てのコネクターを削除"
+
+msgid "Delete solid part from object which is a part of cut"
+msgstr "カットの一部であるオブジェクトからソリッドパーツを削除"
+
+msgid "Delete negative volume from object which is a part of cut"
+msgstr "カットの一部であるオブジェクトから負のボリュームを削除"
+
+msgid "Lock the text's rotation when moving text along the object's surface."
+msgstr ""
+"オブジェクトの表面に沿ってテキストを移動させる時に、テキストの回転をロックす"
+"る。"
+
+msgid "Set global orientation for whole text."
+msgstr "テキスト全体のグローバルな方向を設定する。"
+
+msgid "Middle"
+msgstr "ミドル"
+
+msgid "Undo rotation"
+msgstr "回転を取り消す"
+
+msgid "Undo translation"
+msgstr "移動を取り消す"
+
+msgid "Undo letter's skew"
+msgstr "文字の傾きを取り消す"
+
+msgid "Revert font changes."
+msgstr "フォント変更を元に戻す"
+
+msgid "Revert text size."
+msgstr "テキストサイズを元に戻す"
+
+msgid "Revert embossed depth."
+msgstr "エンボス深さを元に戻す"
+
+msgid "Revert alignment."
+msgstr "アライメントを戻す。"
+
+msgid "Revert gap between characters"
+msgstr "文字間のズレを戻す"
+
+msgid "Revert gap between lines"
+msgstr "ライン間のズレを戻す"
+
+msgid "Revert Transformation per glyph."
+msgstr "文字ごとに変換を戻す。"
+
+msgid "Revert using of model surface."
+msgstr "モデル面の使用を元に戻す。"
+
+msgid "Text input doesn't show font skew."
+msgstr "テキスト入力でイタリック体が表示されない。"
+
+msgid "Too small, enlarged font height inside text input."
+msgstr "小さすぎます、テキスト入力時のフォント高さを大きくしました。"
+
+msgid "Too tall, diminished font height inside text input."
+msgstr "高すぎます、テキスト入力の文字高を小さくしました。"
+
+msgid "Save %1% style"
+msgstr "%1% スタイル保存"
+
+msgid "Save as new style"
+msgstr "新しいスタイルとして保存します。"
+
+msgid "New name of style"
+msgstr "スタイルの新しい名前"
+
+msgid "Name has to be unique."
+msgstr "名前は一意でなければなりません。"
+
+msgid "Text input doesn't show font boldness."
+msgstr "文字入力でボールドフォントが表示されない。"
+
+msgid "Text doesn't show current horizontal alignment."
+msgstr "テキストが現在の水平アライメントを示さない。"
+
+msgid "Text input doesn't show gap between lines."
+msgstr "テキスト入力で、行間が表示されない。"
+
+msgid "Reset distance"
+msgstr "距離をリセット"
+
+msgid "Object"
+msgstr "オブジェクト"
+
+msgid "Remove style"
+msgstr "スタイル削除"
+
+msgid "Undo boldness"
+msgstr "ボールドネス取り消し"
+
+msgid "Name can't be empty."
+msgstr "名前を空にすることはできません。"
+
+msgid "No symbol"
+msgstr "シンボルなし"
+
+msgid "Only valid font can be added to style."
+msgstr "スタイルに追加できるのは、有効なフォントだけです。"
+
+msgid "points"
+msgstr "ポイント"
+
+msgid ""
+"The text cannot be written using the selected font. Please try choosing a "
+"different font."
+msgstr ""
+"選択されているフォントでは、文字が書けません。別のフォントを選択してみてくだ"
+"さい。"
+
+msgid "Lock/unlock rotation angle when dragging above the surface."
+msgstr "表面上をドラッグするときの回転角度のロック/アンロック。"
+
+msgid "Edit to scale"
+msgstr "スケールに合わせて編集"
+
+msgid "Center of circle"
+msgstr "円の中心"
+
+msgid "Center of edge"
+msgstr "エッジの中心"
+
+msgid "Direct distance"
+msgstr "直線距離"
+
+msgid "Distance"
+msgstr "距離"
+
+msgid "Distance XYZ"
+msgstr "XYZ距離"
+
+msgid "Enable point selection"
+msgstr "ポイント選択を有効にする"
+
+msgid "Perpendicular distance"
+msgstr "垂直距離"
+
+msgid "Point on circle"
+msgstr "円上の点"
+
+msgid "Point on edge"
+msgstr "エッジ上の点"
+
+msgid "Point on plane"
+msgstr "面上の点"
+
+msgid "Select center"
+msgstr "中心を選択"
+
+msgid "Select feature"
+msgstr "機能の選択"
+
+msgid "Select point"
+msgstr "ポイント選択"
+
+msgid "Unselect"
+msgstr "選択解除"
+
+msgid "Unselect feature"
+msgstr "機能の選択解除"
+
+msgid "Unselect point"
+msgstr "ポイントの選択解除"
+
+msgid "Vertex"
+msgstr "頂点"

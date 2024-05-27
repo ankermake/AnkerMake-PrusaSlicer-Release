@@ -11,7 +11,7 @@
 
 #include "AnkerGcodePreviewToolBar.hpp"
 
-#define USE_ANKER_SLIDER 1 
+//#define USE_ANKER_SLIDER 0
 
 class wxGLCanvas;
 class wxBoxSizer;
@@ -89,6 +89,7 @@ class Preview : public wxPanel
     BackgroundSlicingProcess* m_process;
     GCodeProcessorResult* m_gcode_result;
 
+    GCodeProcessorResultExt m_gcode_info;
 #ifdef __linux__
     // We are getting mysterious crashes on Linux in gtk due to OpenGL context activation GH #1874 #1955.
     // So we are applying a workaround here.
@@ -161,6 +162,8 @@ public:
     bool ImportIsACode() const { return m_ImportIsACode; };
     void setImportIsACode(bool isACode) { m_ImportIsACode = isACode; }
 
+    void UpdateGcodeInfo(std::string gcode_file);
+    GCodeProcessorResultExt* GetGcodeInfo() { return &m_gcode_info; };
     void update_moves_slider();
     void enable_moves_slider(bool enable);
     void move_moves_slider(wxKeyEvent& evt);
@@ -201,6 +204,29 @@ private:
     void on_pausePrintList_changed(wxCommandEvent& event);
     void on_moves_slider_scroll_changed(wxCommandEvent& event);
 };
+
+class AssembleView : public wxPanel
+{
+    wxGLCanvas* m_canvas_widget{ nullptr };
+    GLCanvas3D* m_canvas{ nullptr };
+public:
+    AssembleView(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrintConfig* config, BackgroundSlicingProcess* process);
+    ~AssembleView();
+
+    wxGLCanvas* get_wxglcanvas() { return m_canvas_widget; }
+    GLCanvas3D* get_canvas3d() { return m_canvas; }
+
+    void set_as_dirty();
+    void render();
+
+    bool is_reload_delayed() const;
+    void reload_scene(bool refresh_immediately, bool force_full_scene_refresh = false);
+    void select_view(const std::string& direction);
+
+private:
+    bool init(wxWindow* parent, Bed3D& bed, Model* model, DynamicPrintConfig* config, BackgroundSlicingProcess* process);
+};
+
 
 } // namespace GUI
 } // namespace Slic3r

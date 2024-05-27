@@ -78,6 +78,7 @@ Control::Control( wxWindow *parent,
     m_style(style == wxSL_HORIZONTAL || style == wxSL_VERTICAL ? style: wxSL_HORIZONTAL),
     m_extra_style(style == wxSL_VERTICAL ? wxSL_AUTOTICKS | wxSL_VALUE_LABEL : 0)
 {
+    SetBackgroundColour(wxColor(24, 25, 27));
 #ifdef __WXOSX__ 
     is_osx = true;
 #endif //__WXOSX__
@@ -527,6 +528,7 @@ void Control::render()
 #else
     SetBackgroundColour(GetParent()->GetBackgroundColour());
 #endif // _WIN32 
+    this->SetBackgroundColour(wxColor(24, 25, 27));
 
     wxPaintDC dc(this);
     dc.SetFont(m_font);
@@ -610,15 +612,17 @@ void Control::draw_action_icon(wxDC& dc, const wxPoint pt_beg, const wxPoint pt_
     else
         is_horizontal() ? y_draw = pt_beg.y - m_tick_icon_dim-2 : x_draw = pt_end.x + 3;
 
-    if (m_draw_mode == dmSequentialFffPrint) {
-        wxBitmap disabled_add = get_bmp_bundle("colorchange_add")->GetBitmapFor(this).ConvertToDisabled();
-        dc.DrawBitmap(disabled_add, x_draw, y_draw);
-    }
-    else
-        dc.DrawBitmap((*icon).get_bitmap(), x_draw, y_draw);
+    if (!GUI::wxGetApp().plater()->is_view_drop_file()) {
+        if (m_draw_mode == dmSequentialFffPrint) {
+            wxBitmap disabled_add = get_bmp_bundle("colorchange_add")->GetBitmapFor(this).ConvertToDisabled();
+            dc.DrawBitmap(disabled_add, x_draw, y_draw);
+        }
+        else
+            dc.DrawBitmap((*icon).get_bitmap(), x_draw, y_draw);
 
-    //update rect of the tick action icon
-    m_rect_tick_action = wxRect(x_draw, y_draw, m_tick_icon_dim, m_tick_icon_dim);
+        //update rect of the tick action icon
+        m_rect_tick_action = wxRect(x_draw, y_draw, m_tick_icon_dim, m_tick_icon_dim);
+    }
 }
 
 void Control::draw_info_line_with_icon(wxDC& dc, const wxPoint& pos, const SelectedSlider selection)
@@ -1018,7 +1022,7 @@ void Control::draw_colored_band(wxDC& dc)
 
     // don't color a band for MultiExtruder mode
     if (m_ticks.empty() || m_mode == MultiExtruder) {
-        draw_band(dc, GetParent()->GetBackgroundColour(), main_band);
+        draw_band(dc, /*GetParent()->GetBackgroundColour()*/wxColour(50,50,50), main_band);
         return;
     }
 
@@ -1127,7 +1131,7 @@ void Control::Ruler::update(const std::vector<double>& values, double scroll_ste
         pow++;
     }
 
-    long_step = step == 0 ? -1.0 : (double)step* std::pow(10, pow);
+    long_step = step == 0 ? /*-1.0 */ 1 : (double)step* std::pow(10, pow);
     if (long_step < 0)
         short_step = long_step;
 }
@@ -1264,7 +1268,7 @@ void Control::draw_one_layer_icon(wxDC& dc)
     //                 m_focus == fiOneLayerIcon ? m_bmp_one_layer_unlock_off.bmp() : m_bmp_one_layer_unlock_on.bmp();
     const ScalableBitmap& icon = m_is_one_layer ?
                      m_focus == fiOneLayerIcon ? m_bmp_one_layer_lock_off   : m_bmp_one_layer_lock_on :
-                     m_focus == fiOneLayerIcon ? m_bmp_one_layer_unlock_off : m_bmp_one_layer_unlock_on;
+                     m_focus == fiOneLayerIcon ? m_bmp_one_layer_unlock_off : m_bmp_one_layer_unlock_off/*m_bmp_one_layer_unlock_on*/;
 
     int width, height;
     get_size(&width, &height);
@@ -2044,6 +2048,7 @@ void Control::show_add_context_menu()
 {
     wxMenu menu;
 
+#if 0
     if (m_mode == SingleExtruder) {
         append_menu_item(&menu, wxID_ANY, _L("Add color change") + " (" + gcode(ColorChange) + ")", "",
             [this](wxCommandEvent&) { add_code_as_tick(ColorChange); }, "colorchange_add_m", &menu);
@@ -2054,6 +2059,7 @@ void Control::show_add_context_menu()
         append_change_extruder_menu_item(&menu);
         append_add_color_change_menu_item(&menu);
     }
+#endif
 
     if (!gcode(PausePrint).empty())
         append_menu_item(&menu, wxID_ANY, _L("Add pause print") + " (" + gcode(PausePrint) + ")", "",
@@ -2390,6 +2396,8 @@ void Control::add_current_tick(bool call_from_keyboard /*= false*/)
         !check_ticks_changed_event(m_mode == MultiAsSingle ? ToolChange : ColorChange))
         return;
 
+
+#if 0
     if (m_mode == SingleExtruder)
         add_code_as_tick(ColorChange);
     else
@@ -2419,6 +2427,9 @@ void Control::add_current_tick(bool call_from_keyboard /*= false*/)
 
         GUI::wxGetApp().plater()->PopupMenu(&menu, pos);
     }
+#else
+    add_code_as_tick(PausePrint);
+#endif
 }
 
 void Control::delete_current_tick()

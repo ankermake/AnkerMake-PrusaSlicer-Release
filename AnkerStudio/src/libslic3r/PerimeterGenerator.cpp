@@ -293,7 +293,14 @@ static ExtrusionEntityCollection traverse_loops_classic(const PerimeterGenerator
     Polygon                     fuzzified;
     for (const PerimeterGeneratorLoop &loop : loops) {
         bool is_external = loop.is_external();
-        
+
+        float holeOffset = params.config.hole_offset;
+        Polygon loop_polygon = loop.polygon;
+        if (!loop.is_contour && is_external && std::fabs(loop_polygon.length() * loop_polygon.length() / std::fabs(loop_polygon.area()) - 4 * PI) < 0.1) {
+            //if polygon is circle
+            loop_polygon = offset(loop_polygon, -1.0f * holeOffset).back();
+        }
+
         ExtrusionLoopRole loop_role;
         ExtrusionRole role_normal   = is_external ? ExtrusionRole::ExternalPerimeter : ExtrusionRole::Perimeter;
         ExtrusionRole role_overhang = role_normal | ExtrusionRoleModifier::Bridge;
@@ -308,7 +315,7 @@ static ExtrusionEntityCollection traverse_loops_classic(const PerimeterGenerator
         
         // detect overhanging/bridging perimeters
         ExtrusionPaths paths;
-        const Polygon &polygon = loop.fuzzify ? fuzzified : loop.polygon;
+        const Polygon &polygon = loop.fuzzify ? fuzzified : loop_polygon;
         if (loop.fuzzify) {
             fuzzified = loop.polygon;
             fuzzy_polygon(fuzzified, scaled<float>(params.config.fuzzy_skin_thickness.value), scaled<float>(params.config.fuzzy_skin_point_dist.value));
@@ -1154,7 +1161,8 @@ void PerimeterGenerator::process_arachne(
             Polygons   last_p = to_polygons(last);
             Arachne::WallToolPaths wallToolPaths(last_p, ext_perimeter_spacing, perimeter_spacing, (std::min)(1, coord_t(loop_number + 1)), 0, params.layer_height, params.object_config, params.print_config);
             std::vector<Arachne::VariableWidthLines> perimeters_0 = wallToolPaths.getToolPaths();
-            perimeters.emplace_back(perimeters_0.front());
+            if (!perimeters_0.empty())
+                perimeters.emplace_back(perimeters_0.front());
             perimeter_infill_area = union_ex(wallToolPaths.getInnerContour());
         }
 
@@ -1537,6 +1545,8 @@ void PerimeterGenerator::process_classic(
 
     ExPolygons gaps;
     bool       has_bridge  = false;
+    if (params.layer_id == 0 && params.config.only_one_wall_first_layer)
+        loop_number = 0;
     if (loop_number >= 0) {
         // In case no perimeters are to be generated, loop_number will equal to -1.
         std::vector<PerimeterGeneratorLoops> contours(loop_number+1);    // depth => loops
@@ -1786,14 +1796,15 @@ void PerimeterGenerator::process_classic(
                             if (!(outer + 1 < entities.entities.size() && entities.entities[outer + 1]->role().is_external_perimeter()))
                                 last_outer = outer;
                         }
-                        if ((!loop->polygon().is_counter_clockwise()) &&
-                            loop->role().is_perimeter() && outer - last_outer > 0 && !is_contain_bridge && loop->depth == 1)
-                        {
-                            for (size_t i = 0; i < loop->paths.size(); ++i) {
-                                loop->paths[i].mm3_per_mm = params.mm3_per_mm * 1.2;
+                    
+                        float overhang_flow_ratio = params.config.overhangPerimeters_flow_ratio;
+                            for (size_t i = 0; i < loop->paths.size(); i++)
+                            {
+                                if ((loop->paths)[i].role() == ExtrusionRole::OverhangPerimeter && loop->polygon().is_counter_clockwise())
+                                {
+                                    (loop->paths)[i].mm3_per_mm = params.mm3_per_mm * overhang_flow_ratio;
+                                }
                             }
-
-                        }
                     }
                 }
             }
@@ -1828,6 +1839,11 @@ void PerimeterGenerator::process_classic(
             generate_variable_width_paths(gaps_ex, polylines);
         }
 #endif
+        // SoftFever: filter out tiny gap fills
+        polylines.erase(std::remove_if(polylines.begin(), polylines.end(),
+            [&](const ThickPolyline& p) {
+                return p.length() < scale_(params.config.filter_out_gap_fill.value);
+            }), polylines.end());
 
         if (! polylines.empty()) {
 			ExtrusionEntityCollection gap_fill;

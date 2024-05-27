@@ -208,8 +208,7 @@ void AnkerPrintFinishDialog::initUI()
 	wxBoxSizer* dialogVSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizer(dialogVSizer);
 
-	m_pTitledPanel = new AnkerTitledPanel(this, 44, 8);
-	m_pTitledPanel->SetBackgroundColour(m_dialogColor);
+	m_pTitledPanel = new AnkerTitledPanel(this, 44, 8, m_dialogColor);
 	m_pTitledPanel->setTitle(L"Select File");
 	m_pTitledPanel->setTitleAlign(AnkerTitledPanel::TitleAlign::CENTER);
 	int closeBtnID = m_pTitledPanel->addTitleButton(wxString::FromUTF8(Slic3r::var("fdm_nav_del_icon.png")), false);

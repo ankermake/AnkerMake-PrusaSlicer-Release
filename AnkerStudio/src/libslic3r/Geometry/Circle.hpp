@@ -7,6 +7,65 @@
 
 namespace Slic3r { namespace Geometry {
 
+    // https://en.wikipedia.org/wiki/Circumscribed_circle
+    // Circumcenter coordinates, Cartesian coordinates
+    // In case the three points are collinear, returns their centroid.
+    template<typename Derived, typename Derived2, typename Derived3>
+    Eigen::Matrix<typename Derived::Scalar, 2, 1, Eigen::DontAlign> circle_center(const Derived& a, const Derived2& bsrc, const Derived3& csrc, typename Derived::Scalar epsilon)
+    {
+        static_assert(Derived::IsVectorAtCompileTime && int(Derived::SizeAtCompileTime) == 2, "circle_center(): 1st point is not a 2D vector");
+        static_assert(Derived2::IsVectorAtCompileTime && int(Derived2::SizeAtCompileTime) == 2, "circle_center(): 2nd point is not a 2D vector");
+        static_assert(Derived3::IsVectorAtCompileTime && int(Derived3::SizeAtCompileTime) == 2, "circle_center(): 3rd point is not a 2D vector");
+        static_assert(std::is_same<typename Derived::Scalar, typename Derived2::Scalar>::value && std::is_same<typename Derived::Scalar, typename Derived3::Scalar>::value,
+            "circle_center(): All three points must be of the same type.");
+        using Scalar = typename Derived::Scalar;
+        using Vector = Eigen::Matrix<Scalar, 2, 1, Eigen::DontAlign>;
+        Vector b = bsrc - a;
+        Vector c = csrc - a;
+        Scalar lb = b.squaredNorm();
+        Scalar lc = c.squaredNorm();
+        if (Scalar d = b.x() * c.y() - b.y() * c.x(); std::abs(d) < epsilon) {
+            // The three points are collinear. Take the center of the two points
+            // furthest away from each other.
+            Scalar lbc = (csrc - bsrc).squaredNorm();
+            return Scalar(0.5) * (
+                lb > lc && lb > lbc ? a + bsrc :
+                lc > lb && lc > lbc ? a + csrc : bsrc + csrc);
+        }
+        else {
+            Vector v = lc * b - lb * c;
+            return a + Vector(-v.y(), v.x()) / (2 * d);
+        }
+    }
+
+    // https://en.wikipedia.org/wiki/Circumscribed_circle
+    // Circumcenter coordinates, Cartesian coordinates
+    // Returns no value if the three points are collinear.
+    template<typename Derived, typename Derived2, typename Derived3>
+    std::optional<Eigen::Matrix<typename Derived::Scalar, 2, 1, Eigen::DontAlign>> try_circle_center(const Derived& a, const Derived2& bsrc, const Derived3& csrc, typename Derived::Scalar epsilon)
+    {
+        static_assert(Derived::IsVectorAtCompileTime && int(Derived::SizeAtCompileTime) == 2, "try_circle_center(): 1st point is not a 2D vector");
+        static_assert(Derived2::IsVectorAtCompileTime && int(Derived2::SizeAtCompileTime) == 2, "try_circle_center(): 2nd point is not a 2D vector");
+        static_assert(Derived3::IsVectorAtCompileTime && int(Derived3::SizeAtCompileTime) == 2, "try_circle_center(): 3rd point is not a 2D vector");
+        static_assert(std::is_same<typename Derived::Scalar, typename Derived2::Scalar>::value && std::is_same<typename Derived::Scalar, typename Derived3::Scalar>::value,
+            "try_circle_center(): All three points must be of the same type.");
+        using Scalar = typename Derived::Scalar;
+        using Vector = Eigen::Matrix<Scalar, 2, 1, Eigen::DontAlign>;
+        Vector b = bsrc - a;
+        Vector c = csrc - a;
+        Scalar lb = b.squaredNorm();
+        Scalar lc = c.squaredNorm();
+        if (Scalar d = b.x() * c.y() - b.y() * c.x(); std::abs(d) < epsilon) {
+            // The three points are collinear.
+            return {};
+        }
+        else {
+            Vector v = lc * b - lb * c;
+            return std::make_optional<Vector>(a + Vector(-v.y(), v.x()) / (2 * d));
+        }
+    }
+
+
 // https://en.wikipedia.org/wiki/Circumscribed_circle
 // Circumcenter coordinates, Cartesian coordinates
 template<typename Vector>

@@ -84,6 +84,7 @@ class OptionsSearcher
     std::map<std::string, GroupAndCategory> groups_and_categories;
     PrinterTechnology                       printer_technology {ptAny};
     ConfigOptionMode                        mode{ comUndef };
+    Preset::Type                            type = Preset::TYPE_COUNT;
 
     std::vector<Option>                     options {};
     std::vector<Option>                     preferences_options {};
@@ -115,6 +116,7 @@ public:
     void append_preferences_options(const std::vector<GUI::Line>& opt_lines);
     void check_and_update(  PrinterTechnology pt_in, 
                             ConfigOptionMode mode_in, 
+                            Preset::Type type,
                             std::vector<InputInfo> input_values);
     bool search();
     bool search(const std::string& search, bool force = false);

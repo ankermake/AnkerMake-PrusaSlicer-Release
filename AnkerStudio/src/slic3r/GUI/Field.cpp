@@ -346,7 +346,7 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
 
             float min = m_opt.min;
             float max = m_opt.max;
-            if (wxString(m_opt_id).starts_with("retract_length"))
+            if (wxString(m_opt_id).starts_with("retract_length#"))
             {
                 const Preset& current_preset = wxGetApp().preset_bundle->printers.get_edited_preset();
                 std::string printModel = current_preset.config.opt_string("printer_model");
@@ -356,6 +356,17 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
                    min = 0.0f;
                    max = 1.0f;
                }
+            }
+            else if (wxString(m_opt_id).starts_with("retract_speed#") || wxString(m_opt_id).starts_with("deretract_speed#"))  // retract_speed#nozzle_idx
+            {
+                const Preset& printer_preset = wxGetApp().preset_bundle->printers.get_edited_preset();
+                std::string printModel = printer_preset.config.opt_string("printer_model");
+                std::vector<double> nozzle_diameters = static_cast<const ConfigOptionFloats*>(printer_preset.config.option("nozzle_diameter"))->values;                
+                if (nozzle_diameters.size() == 1) {
+                    if ((printModel == "M5C" || printModel == "M5") && (nozzle_diameters[0] == 0.4 || nozzle_diameters[0] == 0.2)) {
+                         max = 80.0f;
+                    }
+                }
             }
 
             if (min > val || val > max)

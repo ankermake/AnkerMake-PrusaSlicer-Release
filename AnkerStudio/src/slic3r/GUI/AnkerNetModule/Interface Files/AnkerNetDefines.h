@@ -14,7 +14,7 @@
 #include <vector>
 #include <list>
 
-#define MappingVersion 1052109
+#define MappingVersion 1052209
 
 #define DEF_PTR(className) class className; typedef std::shared_ptr<className> className##Ptr;
 
@@ -28,6 +28,7 @@
             const std::string strFuncName, const unsigned int lineNumber)>
 
 #define NormalCallBack std::function<void ()>
+#define ConmentFlagsCallBack std::function<void (std::vector<std::string> dataList)>
 
 //webview
 #define PrivayChoiceCb std::function<void(const std::string&)>
@@ -160,6 +161,47 @@ struct OtaInfo
 
     bool noUpdate = false;//add by tab,means data is null
 };
+
+struct StarConmentData {
+    std::string       reviewNameID = "";
+    std::string       reviewName = "";
+    std::string       appVersion = "";
+    std::string       country = "";
+
+    std::string       sliceCount = "";
+
+    int               action = 2;
+    int               rating = 0;
+    std::string       reviewData = "";
+    std::string       clientId = "";
+};
+
+struct PrintStopReasonInfo
+{
+    std::string reason_title = "";
+    std::string reason_value = "-1";
+    bool support_japan = true;
+    std::string language = "en";
+    int weight = 0;
+    std::string help_desc = "";
+    std::string help_desc_light = "";
+    std::string help_link = "";
+
+    void reset() {
+        reason_title = "";
+        reason_value = "-1";
+        support_japan = true;
+        language = "en";
+        weight = 0;
+        help_desc = "";
+        help_desc_light = "";
+        help_link = "";
+    }
+    bool isValid() { 
+        return !reason_title.empty() && reason_value != "-1"; 
+    }
+};
+using PrintStopReasons = std::vector<PrintStopReasonInfo>;
 
 // http request result.
 // Mainly to solve the problem of http status code return and the problem of http content being returned multiple times.
@@ -322,6 +364,15 @@ enum GeneralException2Gui {
     GeneralException2Gui_Calibration_Failed,
 };
 
+class ExceptionInfo
+{
+public:
+    GeneralException2Gui type = GeneralException2Gui_No_Error;
+    std::string stationName;
+    std::string sn;
+    std::string external;
+};
+
 enum CustomDeviceStatus {
     CustomDeviceStatus_Level_Finished = 20000,
     CustomDeviceStatus_Exception_Finished = 20001,
@@ -449,6 +500,7 @@ public:
     int leftTime = 0;
     int filamentUsed = 0;
     std::string filamentUnit = "mm";
+    std::string filamentType;
     std::vector<GFileNozzle> m_gFileNozzles;
 };
 
@@ -482,7 +534,7 @@ using sendSigToUpdateDevice_T = std::function <void()>;
 using sendSigToUpdateDeviceStatus_T = std::function <void(const std::string& sn, aknmt_command_type_e type)>;
 using sendSigToTransferFileProgressValue_T = std::function <void(const std::string& sn, int progess, FileTransferResult result)>;
 using sendShowDeviceListDialog_T = std::function <void()>;
-using GeneralExceptionMsgBox_T = std::function<void(GeneralException2Gui, const std::string&, const std::string&)>;
+using GeneralExceptionMsgBox_T = std::function<void(const ExceptionInfo&)>;
 using SendSigAccountLogout_T = std::function <void()>;
 
 // Print event

@@ -59,7 +59,9 @@ private:
 class AnkerNetStatusPanel : public AnkerNetBtnPanel
 {
 public:
-	AnkerNetStatusPanel(bool success = true,
+	AnkerNetStatusPanel(
+		int resultCode,
+		bool success = true,
 		bool hideOkBtn = false,
 		wxWindow* parent = nullptr,
 		const wxString& title = "",
@@ -70,12 +72,14 @@ private:
 	bool m_success;
 	wxStaticBitmap* m_statusImage;
 	AnkerStaticText* m_progressText = nullptr;
+	//AnkerStaticText* m_addtionText = nullptr;
 };
 
 class AnkerNetSuccessPanel : public AnkerNetStatusPanel
 {
 public:
-	AnkerNetSuccessPanel(wxWindow* parent = nullptr,
+	AnkerNetSuccessPanel(int resultCode,
+		wxWindow* parent = nullptr,
 		const wxString& title = "",
 		const wxSize& size = wxDefaultSize);
 };
@@ -83,7 +87,8 @@ public:
 class AnkerNetFailedPanel : public AnkerNetStatusPanel
 {
 public:
-	AnkerNetFailedPanel(wxWindow* parent = nullptr,
+	AnkerNetFailedPanel(int resultCode,
+		wxWindow* parent = nullptr,
 		const wxString& title = "",
 		const wxSize& size = wxDefaultSize);
 };
@@ -101,9 +106,9 @@ public:
 	};
 	enum class Result
 	{
-		Success,
-		Cancel,	
-		Failed
+		Success = 100,
+		Cancel = 101,	
+		Failed = 102
 	};
 
 	AnkerNetDownloadDialog(wxWindow* parent,
@@ -116,7 +121,8 @@ public:
 
 	void Change(Status status, 
 		AnkerNetBtnPanel::OkFunc_T okFunc = nullptr, 
-		AnkerNetBtnPanel::CancelFunc_T cancelFunc = nullptr);
+		AnkerNetBtnPanel::CancelFunc_T cancelFunc = nullptr,
+		int resultCode = 0);
 	int ShowHint(Status status, 
 		AnkerNetBtnPanel::OkFunc_T okFunc = nullptr, 
 		AnkerNetBtnPanel::CancelFunc_T cancelFunc = nullptr);
@@ -125,7 +131,8 @@ public:
 private:
 	void ChangeInternal(Status status,
 		AnkerNetBtnPanel::OkFunc_T okFunc = nullptr,
-		AnkerNetBtnPanel::CancelFunc_T cancelFunc = nullptr);
+		AnkerNetBtnPanel::CancelFunc_T cancelFunc = nullptr,
+		int resultCode = 0);
 
 public:
 	static const int defualtWidth = 400;

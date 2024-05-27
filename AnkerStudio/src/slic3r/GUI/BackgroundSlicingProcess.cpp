@@ -160,12 +160,26 @@ std::string BackgroundSlicingProcess::output_filepath_for_project(const boost::f
 void BackgroundSlicingProcess::process_fff()
 {
 	assert(m_print == m_fff_print);
-	m_print->process();
-	wxCommandEvent evt(m_event_slicing_completed_id);
-	// Post the Slicing Finished message for the G-code viewer to update.
-	// Passing the timestamp 
-	evt.SetInt((int)(m_fff_print->step_state_with_timestamp(PrintStep::psSlicingFinished).timestamp));
-	wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+
+	if (this->set_step_started(bspsSliceComplete)) {
+		{
+			wxCommandEvent evt(m_event_slicing_began_id);
+			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+		}
+
+		m_print->process();
+
+		{
+			wxCommandEvent evt(m_event_slicing_completed_id);
+			// Post the Slicing Finished message for the G-code viewer to update.
+			// Passing the timestamp 
+			evt.SetInt((int)(m_fff_print->step_state_with_timestamp(PrintStep::psSlicingFinished).timestamp));
+			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+		}
+
+		this->set_step_done(bspsSliceComplete);
+	}
+
 	//friva change for acode export
 	if (GUI::wxGetApp().plater()) {
 		bool isCreatAiFile = GUI::wxGetApp().plater()->get_create_AI_file_val();
@@ -505,13 +519,13 @@ void BackgroundSlicingProcess::stop_internal()
 		// Allow the worker thread to wake up if blocking on a milestone.
 		m_print->state_mutex().unlock();
 		// Wait until the background processing stops by being canceled.
-		m_condition.wait(lck, [this](){ return m_state == STATE_CANCELED; });
+		m_condition.wait(lck, [this]() { return m_state == STATE_CANCELED; });
 		// Lock it back to be in a consistent state.
 		m_print->state_mutex().lock();
 	}
 	// In the "Canceled" state. Reset the state to "Idle".
 	m_state = STATE_IDLE;
-	m_print->set_cancel_callback([](){});
+	m_print->set_cancel_callback([]() {});
 }
 
 // Execute task from background thread on the UI thread. Returns true if processed, false if cancelled. 
@@ -521,13 +535,14 @@ bool BackgroundSlicingProcess::execute_ui_task(std::function<void()> task)
 	if (m_mutex.try_lock()) {
 		// Cancellation is either not in process, or already canceled and waiting for us to finish.
 		// There must be no UI task planned.
-		assert(! m_ui_task);
-		if (! m_print->canceled()) {
+		assert(!m_ui_task);
+		if (!m_print->canceled()) {
 			running = true;
 			m_ui_task = std::make_shared<UITask>();
 		}
 		m_mutex.unlock();
-	} else {
+	}
+	else {
 		// Cancellation is in process.
 	}
 
@@ -540,17 +555,17 @@ bool BackgroundSlicingProcess::execute_ui_task(std::function<void()> task)
 			if (ctx->state == UITask::Planned) {
 				task();
 				std::unique_lock<std::mutex> lck(ctx->mutex);
-	    		ctx->state = UITask::Finished;
-	    	}
-	    	// Wake up the worker thread from the UI thread.
-    		ctx->condition.notify_all();
-	    });
+				ctx->state = UITask::Finished;
+			}
+			// Wake up the worker thread from the UI thread.
+			ctx->condition.notify_all();
+			});
 
-	    {
+		{
 			std::unique_lock<std::mutex> lock(ctx->mutex);
-	    	ctx->condition.wait(lock, [&ctx]{ return ctx->state == UITask::Finished || ctx->state == UITask::Canceled; });
-	    }
-	    result = ctx->state == UITask::Finished;
+			ctx->condition.wait(lock, [&ctx] { return ctx->state == UITask::Finished || ctx->state == UITask::Canceled; });
+		}
+		result = ctx->state == UITask::Finished;
 		m_ui_task.reset();
 	}
 
@@ -577,16 +592,21 @@ bool BackgroundSlicingProcess::empty() const
 std::string BackgroundSlicingProcess::validate(std::string* warning)
 {
 	assert(m_print != nullptr);
-    return m_print->validate(warning);
+	return m_print->validate(warning);
 }
 
 // Apply config over the print. Returns false, if the new config values caused any of the already
 // processed steps to be invalidated, therefore the task will need to be restarted.
-Print::ApplyStatus BackgroundSlicingProcess::apply(const Model &model, const DynamicPrintConfig &config)
+Print::ApplyStatus BackgroundSlicingProcess::apply(const Model& model, const DynamicPrintConfig& config)
 {
 	assert(m_print != nullptr);
 	assert(config.opt_enum<PrinterTechnology>("printer_technology") == m_print->technology());
 	Print::ApplyStatus invalidated = m_print->apply(model, config);
+
+	if ((invalidated != PrintBase::APPLY_STATUS_UNCHANGED) && m_print->technology() == ptFFF){
+		this->invalidate_step(bspsSliceComplete);
+	}
+
 	if ((invalidated & PrintBase::APPLY_STATUS_INVALIDATED) != 0 && m_print->technology() == ptFFF &&
 		!m_fff_print->is_step_done(psGCodeExport)) {
 		// Some FFF status was invalidated, and the G-code was not exported yet.

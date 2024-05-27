@@ -22,6 +22,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Tesselate.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -207,6 +208,7 @@ const ColorRGBA GLVolume::DISABLED_COLOR         = ColorRGBA::DARK_GRAY();
 const ColorRGBA GLVolume::SLA_SUPPORT_COLOR      = ColorRGBA::LIGHT_GRAY();
 const ColorRGBA GLVolume::SLA_PAD_COLOR          = { 0.0f, 0.2f, 0.0f, 1.0f };
 const ColorRGBA GLVolume::NEUTRAL_COLOR          = { 0.9f, 0.9f, 0.9f, 1.0f };
+std::array<float, 4> GLVolume::MODEL_HIDDEN_COL = { 0.9f, 0.9f, 0.9f, 0.3f };
 const std::array<ColorRGBA, 4> GLVolume::MODEL_COLOR = { {
     ColorRGBA::YELLOW(),
     { 1.0f, 0.5f, 0.5f, 1.0f },
@@ -224,6 +226,7 @@ GLVolume::GLVolume(float r, float g, float b, float a)
     , selected(false)
     , disabled(false)
     , printable(true)
+    , visible(true)
     , is_active(true)
     , zoom_to_volumes(true)
     , shader_outside_printer_detection_enabled(false)
@@ -242,10 +245,20 @@ GLVolume::GLVolume(float r, float g, float b, float a)
     set_render_color(color);
 }
 
+float GLVolume::explosion_ratio = 1.0;
+float GLVolume::last_explosion_ratio = 1.0;
+
 void GLVolume::set_render_color(bool force_transparent)
 {
-    bool outside = is_outside || is_below_printbed();
+    if (!GUI::wxGetApp().plater())
+        return;
 
+    bool is_assemble_view = false;
+    if (auto plater = GUI::wxGetApp().plater()) {
+        is_assemble_view = (plater->get_current_canvas3D()->get_canvas_type() == GUI::GLCanvas3D::ECanvasType::CanvasAssembleView);
+    }
+
+    bool outside = is_outside || is_below_printbed();
     if (force_native_color || force_neutral_color) {
         if (outside && shader_outside_printer_detection_enabled)
             set_render_color(OUTSIDE_COLOR);
@@ -262,20 +275,27 @@ void GLVolume::set_render_color(bool force_transparent)
         else if (hover == HS_Deselect)
             set_render_color(HOVER_DESELECT_COLOR);
         else if (selected)
-            set_render_color(outside ? SELECTED_OUTSIDE_COLOR : SELECTED_COLOR);
+            set_render_color((outside && !is_assemble_view) ? SELECTED_OUTSIDE_COLOR : SELECTED_COLOR);
         else if (disabled)
             set_render_color(DISABLED_COLOR);
-        else if (outside && shader_outside_printer_detection_enabled)
+        else if (outside && shader_outside_printer_detection_enabled && !is_assemble_view)
             set_render_color(OUTSIDE_COLOR);
-        else
+        else {
             set_render_color(color);
+        }
     }
 
-    if (!printable)
+    if (!printable && !is_assemble_view)
         render_color = saturate(render_color, 0.25f);
 
-    if (force_transparent)
+    if (force_transparent && !is_assemble_view)
         render_color.a(color.a());
+
+    //set invisible color
+    if (!visible) {
+        ColorRGBA visible_color (MODEL_HIDDEN_COL[0], MODEL_HIDDEN_COL[1], MODEL_HIDDEN_COL[2], MODEL_HIDDEN_COL[3]);
+        render_color = visible_color;
+    }
 }
 
 void GLVolume::set_mmu_render_data_from_model_volume(const ModelVolume& model_volume)
@@ -312,8 +332,17 @@ ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
 
 Transform3d GLVolume::world_matrix() const
 {
+#if 0
     Transform3d m = m_instance_transformation.get_matrix() * m_volume_transformation.get_matrix();
     m.translation()(2) += m_sla_shift_z;
+#else
+    Transform3d m = m_instance_transformation.get_matrix() * m_volume_transformation.get_matrix();
+    Vec3d ofs2ass = m_offset_to_assembly * (GLVolume::explosion_ratio - 1.0);
+    Vec3d volofs2obj = m_volume_transformation.get_offset() * (GLVolume::explosion_ratio - 1.0);
+
+    m.translation()(2) += m_sla_shift_z;
+    m.translate(ofs2ass + volofs2obj);
+#endif
     return m;
 }
 
@@ -326,12 +355,22 @@ bool GLVolume::is_left_handed() const
 
 const BoundingBoxf3& GLVolume::transformed_bounding_box() const
 {
+#if 0
     if (!m_transformed_bounding_box.has_value()) {
         const BoundingBoxf3& box = bounding_box();
         assert(box.defined || box.min.x() >= box.max.x() || box.min.y() >= box.max.y() || box.min.z() >= box.max.z());
         std::optional<BoundingBoxf3>* trans_box = const_cast<std::optional<BoundingBoxf3>*>(&m_transformed_bounding_box);
         *trans_box = box.transformed(world_matrix());
     }
+#else
+    if (!m_transformed_bounding_box.has_value() || last_explosion_ratio != explosion_ratio) {
+        const BoundingBoxf3& box = bounding_box();
+        assert(box.defined || box.min.x() >= box.max.x() || box.min.y() >= box.max.y() || box.min.z() >= box.max.z());
+        std::optional<BoundingBoxf3>* trans_box = const_cast<std::optional<BoundingBoxf3>*>(&m_transformed_bounding_box);
+        *trans_box = box.transformed(world_matrix());
+        last_explosion_ratio = explosion_ratio;
+    }
+#endif
     return *m_transformed_bounding_box;
 }
 
@@ -517,7 +556,8 @@ int GLVolumeCollection::load_object_volume(
     const ModelObject* model_object,
     int                obj_idx,
     int                volume_idx,
-    int                instance_idx)
+    int                instance_idx,
+    bool               in_assemble_view)
 {
     const ModelVolume   *model_volume = model_object->volumes[volume_idx];
     const int            extruder_id  = model_volume->extruder_id();
@@ -546,7 +586,15 @@ int GLVolumeCollection::load_object_volume(
     }
     v.is_modifier = !model_volume->is_model_part();
     v.shader_outside_printer_detection_enabled = model_volume->is_model_part();
-    v.set_instance_transformation(instance->get_transformation());
+    if (in_assemble_view) {
+        v.set_instance_transformation(instance->get_assemble_transformation());
+        v.set_offset_to_assembly(instance->get_offset_to_assembly());
+    }
+    else {
+        v.set_instance_transformation(instance->get_transformation());
+    }
+
+    //v.set_instance_transformation(instance->get_transformation());
     v.set_volume_transformation(model_volume->get_transformation());
     v.set_mmu_render_data_from_model_volume(*model_volume);
 

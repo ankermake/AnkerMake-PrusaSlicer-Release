@@ -66,6 +66,7 @@ namespace Slic3r {
         std::map<size_t, double>                            cost_per_extruder;
 
         std::array<Mode, static_cast<size_t>(ETimeMode::Count)> modes;
+        unsigned int                                        total_filamentchanges;
 
         PrintEstimatedStatistics() { reset(); }
 
@@ -77,20 +78,25 @@ namespace Slic3r {
             volumes_per_extruder.clear();
             used_filaments_per_role.clear();
             cost_per_extruder.clear();
+            total_filamentchanges = 0;
         }
     };
 
     struct GCodeProcessorResultExt {
         std::string base64_str;
         std::string speed;
-        std::string filament_cost;
+        std::string filament_used_weight_g;
+        std::string filament_used_length_mm;
+        std::string filament_used_cost;
         std::array<float, 3> boxSize;
         float print_time;
 
         void reset() {
             base64_str.clear();
             speed.clear();
-            filament_cost.clear();
+            filament_used_weight_g.clear();
+            filament_used_length_mm.clear();
+            filament_used_cost.clear();
             print_time = 0.0f;
             boxSize.fill(0.0);
         }
@@ -878,6 +884,8 @@ namespace Slic3r {
         bool detect_thumbnail_end(std::string_view line_str, const std::string& format_str, bool has_searched_tag);
         bool search_for_speed_target(std::string_view line_str, std::string& speed);
         bool search_for_obj_size(std::string_view line_str, std::array<float, 3>& boxSize);
+        bool search_for_filament_weight_target(std::string_view line_str, std::string& filament_weight);
+        bool search_for_filament_length_target(std::string_view line_str, std::string& filament_length);
         bool search_for_filament_cost_target(std::string_view line_str, std::string& filament_cost);
         bool search_for_print_time_target(std::string_view line_str, float& print_time);
    };

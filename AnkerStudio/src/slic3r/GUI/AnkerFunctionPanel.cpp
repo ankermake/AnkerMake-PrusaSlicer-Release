@@ -6,10 +6,104 @@
 #include "Plater.hpp"
 #include "Notebook.hpp"
 
-
+wxDEFINE_EVENT(wxCUSTOMEVT_FEEDBACK, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_SHOW_DOC, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_RELEASE_NOTE, wxCommandEvent);
 
 namespace Slic3r {
 	namespace GUI {
+
+		BEGIN_EVENT_TABLE(AnkerTabBarBtn, wxControl)
+			EVT_PAINT(AnkerTabBarBtn::OnPaint)
+			EVT_ENTER_WINDOW(AnkerTabBarBtn::OnEnter)
+			EVT_LEAVE_WINDOW(AnkerTabBarBtn::OnLeave)
+			EVT_LEFT_DOWN(AnkerTabBarBtn::OnPressed)
+			END_EVENT_TABLE()
+
+			IMPLEMENT_DYNAMIC_CLASS(AnkerTabBarBtn, wxControl)
+			wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_TABBAR_BTN_CLICKED, wxCommandEvent);
+		AnkerTabBarBtn::AnkerTabBarBtn()
+		{
+
+		}
+
+		AnkerTabBarBtn::~AnkerTabBarBtn()
+		{
+
+
+		}
+		AnkerTabBarBtn::AnkerTabBarBtn(wxWindow* parent, wxWindowID id,
+			wxImage btnImg,
+			const wxPoint& pos,
+			const wxSize& size,
+			long style,
+			const wxValidator& validator) :m_norImg(btnImg)
+		{
+			Create(parent, id, pos, size, style, validator);
+			SetBackgroundStyle(wxBG_STYLE_PAINT);
+			m_bgColor = wxColor("#202124");
+		}
+		void AnkerTabBarBtn::setImg(wxImage img)
+		{
+			m_norImg = img;
+			Refresh();
+		}
+		void AnkerTabBarBtn::OnPressed(wxMouseEvent& event)
+		{
+			wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_TABBAR_BTN_CLICKED);
+			wxVariant eventData;
+			eventData.ClearList();
+			evt.SetClientData(new wxVariant(eventData));
+			evt.SetEventObject(this);
+			ProcessEvent(evt);
+		}
+		void AnkerTabBarBtn::OnEnter(wxMouseEvent& event)
+		{
+			m_bgColor = wxColor("#333438");
+			Refresh();
+		}
+		void AnkerTabBarBtn::OnLeave(wxMouseEvent& event)
+		{
+			m_bgColor = wxColor("#202124");
+			Refresh();
+		}
+		void AnkerTabBarBtn::OnPaint(wxPaintEvent& event)
+		{
+			wxBufferedPaintDC dc(this);
+			PrepareDC(dc);
+
+			wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+			gc->SetAntialiasMode(wxANTIALIAS_DEFAULT);
+
+			dc.SetBrush(wxBrush(m_bgColor));
+			dc.SetPen(wxPen(m_bgColor));
+
+			auto widgetRect = GetClientRect();
+			widgetRect.SetSize(AnkerSize(widgetRect.width + 20, widgetRect.height + 20));
+			dc.DrawRectangle(widgetRect);
+
+			int w, h;
+			GetClientSize(&w, &h);
+			int squareSize = std::min(w, h);
+
+			wxDouble imgWidth = m_norImg.GetWidth();
+			wxDouble imgHeight = m_norImg.GetHeight();
+			wxDouble scaleX = squareSize / imgWidth;
+			wxDouble scaleY = squareSize / imgHeight;
+			wxDouble scale = std::min(scaleX, scaleY);
+
+			wxDouble scaledWidth = 24;
+			wxDouble scaledHeight = 24;
+			wxDouble posX = (w - scaledWidth) / 2;
+			wxDouble posY = (h - scaledHeight) / 2;
+
+
+			wxGraphicsBitmap bitmap = gc->CreateBitmapFromImage(m_norImg);
+			gc->DrawBitmap(bitmap, posX, posY, scaledWidth, scaledHeight);
+
+			delete gc;
+		}
+
 		AnkerFunctionPanel::AnkerFunctionPanel(
 			wxWindow* parent,
 			wxWindowID winid /*= wxID_ANY*/,
@@ -21,7 +115,14 @@ namespace Slic3r {
 			initUI();
 			initEvent();
 		}
-
+		AnkerFunctionPanel::~AnkerFunctionPanel()
+		{
+			if (m_pFeedbackHelpMenu)
+			{
+				delete m_pFeedbackHelpMenu;
+				m_pFeedbackHelpMenu = nullptr;
+			}
+		}
 		void AnkerFunctionPanel::initUI()
 		{
 			// backgroud colour
@@ -71,12 +172,64 @@ namespace Slic3r {
 			m_pPrintButton->SetMinSize(AnkerSize(160, 35));
 			m_pPrintButton->SetActieBitMap(devcieBitmap_actice);
 			m_pSizer->Add(m_pPrintButton, 0, wxALL, 1);
+			m_pSizer->AddStretchSpacer();
 
 			m_pTabBtnVec.push_back(m_pSliceButton);
 			m_pTabBtnVec.push_back(m_pPrintButton);
 
 			//set Slice button default selected
 			m_pSliceButton->SetSelected(true);
+
+			wxImage feedBackImg = wxImage(wxString::FromUTF8(Slic3r::var("feedback.png")), wxBITMAP_TYPE_PNG);
+			m_FeedBackHelpBtn = new AnkerTabBarBtn(this, wxID_ANY, feedBackImg);
+			m_FeedBackHelpBtn->SetToolTip(_L("common_tab_feed_back_hlep_tips"));
+
+			m_pFeedbackHelpMenu = new wxMenu();
+
+			append_menu_item(m_pFeedbackHelpMenu,
+				wxID_ANY,
+				_L("common_tab_feed_back_entrance"),
+				_L("common_tab_feed_back_entrance"),
+				[=](wxCommandEvent&) {
+					wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_FEEDBACK);
+					evt.SetEventObject(this);
+					ProcessEvent(evt);					
+				});
+			// add by alves wait url
+			//append_menu_item(m_pFeedbackHelpMenu,
+			//	wxID_ANY,
+			//	_L("common_tab_documentation_entrance"),
+			//	_L("common_tab_documentation_entrance"),
+			//	[=](wxCommandEvent&) {
+			//		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_SHOW_DOC);
+			//		evt.SetEventObject(this);
+			//		ProcessEvent(evt);
+			//	});
+
+			append_menu_item(m_pFeedbackHelpMenu,
+				wxID_ANY,
+				_L("common_tab_release_note_entrance"),
+				_L("common_tab_release_note_entrance"),
+				[=](wxCommandEvent&) {
+					wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_RELEASE_NOTE);
+					evt.SetEventObject(this);
+					ProcessEvent(evt);
+
+				});
+
+			m_FeedBackHelpBtn->Bind(wxCUSTOMEVT_ANKER_TABBAR_BTN_CLICKED, [this](wxCommandEvent& event) {				
+				PopupMenu(m_pFeedbackHelpMenu);
+				});			
+			
+			wxCursor handCursor(wxCURSOR_HAND);
+			m_FeedBackHelpBtn->SetBackgroundColour(wxColor("#62D361"));
+			m_FeedBackHelpBtn->SetMinSize(AnkerSize(40, 35));
+			m_FeedBackHelpBtn->SetMaxSize(AnkerSize(40, 35));
+			m_FeedBackHelpBtn->SetSize(AnkerSize(40, 35));
+			m_FeedBackHelpBtn->SetCursor(handCursor);
+
+			m_pSizer->Add(m_FeedBackHelpBtn, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
+			m_pSizer->AddSpacer((10));
 
 			SetSizer(m_pSizer);
 			m_pSizer->Layout();
@@ -108,6 +261,13 @@ namespace Slic3r {
 						evt.SetId(iPageInx);
 						wxPostEvent(m_pPrintTab, evt);
 					}
+					//disable calibration if "Device" selected
+					if (m_calib_menu) {
+						bool enable = pCombinBtn->GetText() == _L("Device") ? !pCombinBtn->GetSelected() : true;
+						for (auto item : m_calib_menu->GetMenuItems()) {
+							item->Enable(enable);
+						}
+					}
 				});
 			}	
 
@@ -126,7 +286,7 @@ namespace Slic3r {
 						m_pTabBtnVec[i]->Refresh();
 					}
 				}
-				});
+			});
 		}
 
 		void AnkerFunctionPanel::OnPaint(wxPaintEvent& event)

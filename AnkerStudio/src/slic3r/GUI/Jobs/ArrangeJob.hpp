@@ -28,9 +28,6 @@ class ArrangeJob : public Job
     // clear m_selected and m_unselected, reserve space for next usage
     void clear_input();
 
-    // Prepare all objects on the bed regardless of the selection
-    void prepare_all();
-
     // Prepare the selected and unselected items separately. If nothing is
     // selected, behaves as if everything would be selected.
     void prepare_selected();
@@ -38,6 +35,9 @@ class ArrangeJob : public Job
     ArrangePolygon get_arrange_poly_(ModelInstance *mi);
 
 public:
+
+    // Prepare all objects on the bed regardless of the selection
+    void prepare_all();
 
     void prepare();
 

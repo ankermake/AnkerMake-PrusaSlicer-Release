@@ -127,6 +127,10 @@ public:
     static const ColorRGBA SLA_PAD_COLOR;
     static const ColorRGBA NEUTRAL_COLOR;
     static const std::array<ColorRGBA, 4> MODEL_COLOR;
+    static std::array<float, 4> MODEL_HIDDEN_COL;
+
+    static float explosion_ratio;
+    static float last_explosion_ratio;
 
     enum EHoverState : unsigned char
     {
@@ -142,6 +146,8 @@ public:
 private:
     Geometry::Transformation m_instance_transformation;
     Geometry::Transformation m_volume_transformation;
+
+    Vec3d m_offset_to_assembly{ 0.0, 0.0, 0.0 };
 
     // Shift in z required by sla supports+pad
     double        m_sla_shift_z;
@@ -233,6 +239,8 @@ public:
 	    bool                disabled : 1;
 	    // Is this object printable?
 	    bool                printable : 1;
+        // Is this object visible(in assemble view)?
+        bool                visible : 1;
 	    // Whether or not this volume is active for rendering
 	    bool                is_active : 1;
 	    // Whether or not to use this volume when applying zoom_to_volumes()
@@ -347,6 +355,9 @@ public:
     void set_convex_hull(std::shared_ptr<const TriangleMesh> convex_hull) { m_convex_hull = std::move(convex_hull); }
     void set_convex_hull(const TriangleMesh &convex_hull) { m_convex_hull = std::make_shared<const TriangleMesh>(convex_hull); }
     void set_convex_hull(TriangleMesh &&convex_hull) { m_convex_hull = std::make_shared<const TriangleMesh>(std::move(convex_hull)); }
+
+    void set_offset_to_assembly(const Vec3d& offset) { m_offset_to_assembly = offset; set_bounding_boxes_as_dirty(); }
+    Vec3d get_offset_to_assembly() { return m_offset_to_assembly; }
 
     int                 object_idx() const   { return this->composite_id.object_id; }
     int                 volume_idx() const   { return this->composite_id.volume_id; }
@@ -469,7 +480,8 @@ public:
         const ModelObject* model_object,
         int                obj_idx,
         int                volume_idx,
-        int                instance_idx);
+        int                instance_idx,
+        bool               in_assemble_view = false);
 
 #if ENABLE_OPENGL_ES
     int load_wipe_tower_preview(

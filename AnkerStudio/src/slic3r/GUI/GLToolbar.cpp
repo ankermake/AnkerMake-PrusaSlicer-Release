@@ -32,6 +32,7 @@ wxDEFINE_EVENT(EVT_GLTOOLBAR_LAYERSEDITING, SimpleEvent);
 
 wxDEFINE_EVENT(EVT_GLVIEWTOOLBAR_3D, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLVIEWTOOLBAR_PREVIEW, SimpleEvent);
+wxDEFINE_EVENT(EVT_GLVIEWTOOLBAR_ASSEMBLE, SimpleEvent);
 
 const GLToolbarItem::ActionCallback GLToolbarItem::Default_Action_Callback = [](){};
 const GLToolbarItem::VisibilityCallback GLToolbarItem::Default_Visibility_Callback = []()->bool { return true; };
@@ -66,6 +67,7 @@ GLToolbarItem::GLToolbarItem(GLToolbarItem::EType type, const GLToolbarItem::Dat
     , m_last_action_type(Undefined)
     , m_highlight_state(NotHighlighted)
 {
+    render_left_pos = 0.0f;
 }
 
 bool GLToolbarItem::update_visibility()
@@ -289,6 +291,46 @@ bool GLToolbar::add_item(const GLToolbarItem::Data& data)
         return false;
 
     m_items.push_back(item);
+    m_layout.dirty = true;
+    return true;
+}
+
+bool GLToolbar::get_item_pos(size_t sprite_id, Vec2d& pos)
+{
+    bool res = false;
+    float size = 2.0f * m_layout.border;
+    for (auto item : m_items) {
+        if (item != nullptr) {
+            if (!item->is_visible())
+                continue;
+            if(item->is_separator())
+                size += m_layout.separator_size;
+            else
+                size += (float)m_layout.icons_size;
+
+            if (item->m_data.sprite_id == sprite_id) {
+                pos[0] = size;
+                pos[1] = m_layout.height + 20;
+                res = true;
+                break;
+            }
+        }
+    }
+    return res;
+}
+
+float GLToolbar::get_main_toolbar_size() const
+{
+    return get_main_size();
+}
+
+bool GLToolbar::del_all_item()
+{
+    for (int i = 0; i < m_items.size(); i++) {
+        delete m_items[i];
+        m_items[i] = nullptr;
+    }
+    m_items.clear();
     m_layout.dirty = true;
     return true;
 }
@@ -1336,6 +1378,7 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent)
         if (item->is_separator())
             left += separator_stride;
         else {
+            item->render_left_pos = left;
             item->render(parent, tex_id, left, left + icons_size_x, top - icons_size_y, top, (unsigned int)tex_width, (unsigned int)tex_height, (unsigned int)(m_layout.icons_size * m_layout.scale));
             left += icon_stride;
         }

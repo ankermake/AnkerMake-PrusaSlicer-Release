@@ -8,6 +8,8 @@
 #include "slic3r/GUI/FilamentMaterialConvertor.hpp"
 #include "slic3r/GUI/FilamentMaterialManager.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
+#include "slic3r/Utils/JsonHelp.hpp"
+#include "slic3r/GUI/format.hpp"
 #include "../../AnkerComFunction.hpp"
 #include "AnkerNetBase.h"
 #include <boost/bind.hpp>
@@ -22,6 +24,7 @@ wxDEFINE_EVENT(wxCUSTOMEVT_ACCOUNT_EXTRUSION, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_HTTP_CONNECT_ERROR, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_OTA_UPDATE, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_ACCOUNT_LOGOUT, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_GET_CONMENT_FLAGS, wxCommandEvent);
 
 #define ANKER_NET_TRACE BOOST_LOG_TRIVIAL(trace)	<< BASE_INFO + "[trace]"
 #define ANKER_NET_DEBUG BOOST_LOG_TRIVIAL(debug)	<< BASE_INFO + "[debug]"
@@ -31,6 +34,7 @@ wxDEFINE_EVENT(wxCUSTOMEVT_ACCOUNT_LOGOUT, wxCommandEvent);
 #define ANKER_NET_FATAL BOOST_LOG_TRIVIAL(fatal)	<< BASE_INFO + "[fatal]"
 
 #include "AnkerNetBase.h"
+#include <slic3r/Utils/GcodeInfo.hpp>
 
 using namespace AnkerNet;
 typedef AnkerNet::AnkerNetBase* (*AnkerNetInstance)();
@@ -68,6 +72,7 @@ void DatamangerUi::SetMainWindow(wxWindow* pWindow)
 		pAnkerNet->SetCallback_RecoverCurl(DatamangerUi::Callback_RecoverCurl);
 		pAnkerNet->SetCallback_OtaInfoRecv(DatamangerUi::Callback_OtaUpdate);
 		pAnkerNet->SetCallback_FilamentRecv(DatamangerUi::Callback_FilamentUpdate);
+		pAnkerNet->SetCallback_ConmentFlagsRecv(DatamangerUi::Callback_GetConmentFlags);
 
 		InitAllCallBacks();
 	}
@@ -167,7 +172,7 @@ void DatamangerUi::InitAllCallBacks()
 	ankerNet->SetsendSigToUpdateDeviceStatus(bind(&DatamangerUi::sendSigToUpdateDeviceStatus, this, ::_1, ::_2));
 	ankerNet->SetsendSigToTransferFileProgressValue(bind(&DatamangerUi::sendSigToTransferFileProgressValue, this, ::_1, ::_2, ::_3));
 	ankerNet->SetsendShowDeviceListDialog(bind(&DatamangerUi::sendShowDeviceListDialog, this));
-	ankerNet->SetGeneralExceptionMsgBox(bind(&DatamangerUi::GeneralExceptionMsgBox, this, ::_1, ::_2, ::_3));
+	ankerNet->SetGeneralExceptionMsgBox(bind(&DatamangerUi::GeneralExceptionMsgBox, this, ::_1));
 	ankerNet->SetSendSigAccountLogout(bind(&DatamangerUi::SendSigAccountLogout, this));
 
 	ankerNet->setWebLoginCallBack([this](const std::string& ab_code) {
@@ -342,21 +347,20 @@ void DatamangerUi::sendShowDeviceListDialog()
 	}
 }
 
-void DatamangerUi::GeneralExceptionMsgBox(GeneralException2Gui type, 
-	const std::string& stationName, const std::string& sn)
+void DatamangerUi::GeneralExceptionMsgBox(const AnkerNet::ExceptionInfo& infoin)
 {
 	NetworkMsg msg;
-	switch (type)
+	switch (infoin.type)
 	{
 	case GeneralException2Gui_No_Error: {
 		break;
 	}												
 	case GeneralException2Gui_One_Mos: {
-		msg = getGeneralException2Gui_One_Mos_Msg_Text(stationName);
+		msg = getGeneralException2Gui_One_Mos_Msg_Text(infoin.stationName);
 		break;
 	}
 	case GeneralException2Gui_Two_Mos: {
-		msg = getGeneralException2Gui_Two_Mos_Msg_Text(stationName);
+		msg = getGeneralException2Gui_Two_Mos_Msg_Text(infoin.stationName);
 		break;
 	}
 	case GeneralException2Gui_Nozzle_Temp_Too_High: {
@@ -377,6 +381,10 @@ void DatamangerUi::GeneralExceptionMsgBox(GeneralException2Gui type,
 	}
 	case GeneralException2Gui_Filament_Broken: {
 		msg = getGeneralException2Gui_Filament_Broken_Error_Msg_Text();
+
+		msg.filamentName = Slic3r::GcodeInfo::GetFilamentName(infoin.external);
+		msg.context = Slic3r::GUI::format(msg.context, msg.filamentName);
+		ANKER_LOG_INFO << "external: " << infoin.external << ", filamentName: " << msg.filamentName;
 		break;
 	}
 	case GeneralException2Gui_Type_C_Transmission_Error: {
@@ -425,8 +433,9 @@ void DatamangerUi::GeneralExceptionMsgBox(GeneralException2Gui type,
 	default:
 		return;
 	}
-	msg.sn = sn;
-	msg.type = type;
+
+	msg.sn = infoin.sn;
+	msg.type = infoin.type;
 	
 	ANKER_LOG_WARNING << "exception msg: " << msg.context << ", sn: " << msg.sn << ", " << msg.type;
 	InsertAndShowAlertMsg(msg);
@@ -466,11 +475,16 @@ void DatamangerUi::InsertAndShowAlertMsg(const NetworkMsg& msg)
 		}
 	}
 
-	// insert
-	if (insert) {
-		ANKER_LOG_INFO << "push alert msg: " << msg.sn << ", " << msg.type << ", size: " << m_alertMsgQueue.size();
-		m_alertMsgQueue.push(msg);
+	if (!insert) {
+		ANKER_LOG_INFO << "same alert msg come, ignore it. " << msg.sn << ", " << msg.type 
+			<< ", size: " << m_alertMsgQueue.size();
+		return;
 	}
+
+	// insert
+	ANKER_LOG_INFO << "push alert msg: " << msg.sn << ", " << msg.type << ", size: " << m_alertMsgQueue.size();
+	m_alertMsgQueue.push(msg);
+
 	if (m_alertMsgQueue.size() == 1) {
 		SendAlertMsgSig();
 	}
@@ -488,12 +502,17 @@ void DatamangerUi::SendAlertMsgSig()
 	if (pMainWindow != nullptr && !isPrintShow) {
 		wxVariant data;
 		data.ClearList();
-		data.Append(wxVariant(msg.title));
-		data.Append(wxVariant(msg.context));
-		data.Append(wxVariant(msg.sn));
 		data.Append(msg.haveCancel);
 		data.Append(msg.level);
 		data.Append(msg.clear);
+		data.Append(msg.type);
+		data.Append(wxVariant(msg.sn));
+		data.Append(wxVariant(msg.title));
+		data.Append(wxVariant(msg.context));								
+		data.Append(msg.btn1Text);
+		data.Append(msg.btn2Text);
+		data.Append(msg.imagePath);
+		data.Append(msg.filamentName);
 
 		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_SHOW_MSG_DIALOG);
 		evt.SetClientData(new wxVariant(data));
@@ -555,6 +574,33 @@ void DatamangerUi::Callback_OtaUpdate(OtaInfo info)
 		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_OTA_UPDATE);
 		auto pInfo = new OtaInfo(info);
 		evt.SetClientData(pInfo);
+		wxPostEvent(pMainWindow, evt);
+	}
+}
+
+void DatamangerUi::Callback_GetConmentFlags(std::vector<std::string> dataList)
+{
+	auto pMainWindow = DatamangerUi::GetInstance().pMainWindow;
+	if (pMainWindow != nullptr) 
+	{
+		bool flags = false;
+		wxVariant eventData;
+		eventData.ClearList();
+
+		if (dataList.size() > 0)
+			flags = true;
+
+		eventData.Append(wxVariant(flags));
+
+
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_CONMENT_FLAGS);
+
+		for (auto data: dataList) {
+			eventData.Append(wxVariant(wxString::FromUTF8(data)));
+		}
+
+		evt.SetClientData(new wxVariant(eventData));
+
 		wxPostEvent(pMainWindow, evt);
 	}
 }

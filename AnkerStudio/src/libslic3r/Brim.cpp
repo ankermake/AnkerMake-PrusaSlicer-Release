@@ -566,7 +566,7 @@ namespace Slic3r {
             brim_width_map.insert(std::make_pair(object->id(), max_brim_width));
             const bool         is_top_outer_brim = top_level_objects_idx.find(object->id().id) != top_level_objects_idx.end();
             if (!object->support_layers().empty() && has_outer_brim) {
-                double brim_width_support = scale_(0.0f);
+                double brim_width_support = scale_(EPSILON);
                 for (const Polygon& support_contour : to_polygons(object->support_layers().front()->support_islands)) {
                     if (brim_type == btAutoBrim && object->support_layers().size() > 3. && support_contour.area() < scale_(scaled_support_half_min_adh_length))
                         brim_width_support = scaled_additional_brim_width_support;

@@ -52,6 +52,8 @@ class Wipe {
 public:
     bool enable;
     Polyline path;
+    bool is_external_perimeter = false;
+    bool is_path_clockwise = false;
     
     Wipe() : enable(false) {}
     bool has_path() const { return ! this->path.empty(); }
@@ -353,6 +355,7 @@ private:
        methods. */
     Vec2d                               m_origin;
     FullPrintConfig                     m_config;
+    DynamicConfig                       m_calib_config;
     // scaled G-code resolution
     double                              m_scaled_resolution;
     GCodeWriter                         m_writer;

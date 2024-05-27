@@ -140,7 +140,8 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
         delete_button->Bind(wxEVT_BUTTON, [delete_button](wxEvent&) {
             delete_button->SetFocus();
             ANKER_LOG_INFO << "delete layer range :" << delete_button->range.first << "-" << delete_button->range.second;
-            wxGetApp().objectbar()->del_layer_range(delete_button->range);
+            //wxGetApp().objectbar()->del_layer_range(delete_button->range);
+            wxGetApp().obj_list()->del_layer_range(delete_button->range);
             });
         PlusMinusButton* add_button = nullptr;//new PlusMinusButton(theParent, m_bmp_add, range);
         //add_button->SetToolTip(_L("add layer range"));
@@ -183,7 +184,7 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
                     add_button->range = new_range;
                 update_focus_data(new_range, Ak_etMinZ, enter_pressed);
 
-                if (wxGetApp().objectbar()->edit_layer_range((*range), new_range, dont_update_ui))
+                if (wxGetApp().obj_list()->edit_layer_range((*range), new_range, dont_update_ui))
                 {
                     if (m_top_layer_range.second < new_range.second)
                         m_top_layer_range = new_range;
@@ -232,7 +233,7 @@ wxSizer* AnkerObjectLayers::create_layer(const t_layer_height_range& range, Plus
                     add_button->range = new_range;
                 update_focus_data(new_range, Ak_etMaxZ, enter_pressed);
 
-                if (wxGetApp().objectbar()->edit_layer_range((*range), new_range, dont_update_ui))
+                if (wxGetApp().obj_list()->edit_layer_range((*range), new_range, dont_update_ui))
                 {
                     if (m_top_layer_range.second < new_range.second)
                         m_top_layer_range = new_range;
@@ -319,7 +320,7 @@ void AnkerObjectLayers::update_layers_list()
 
     bool display_all_rangs = true;
     AnkerObjectItem::ItemType type = objviewItem->getType();
-    if (type == AnkerObjectItem::ITYPE_LAYER) 
+    if (type == AnkerObjectItem::ITYPE_LAYER)
     {
         m_selectable_range = objviewItem->getLayerHeightRange();
         m_selection_type = Ak_etUndef;
@@ -366,7 +367,7 @@ void AnkerObjectLayers::UpdateAndShow(const bool show)
     if (!m_Sizer)  m_Sizer = new wxBoxSizer(wxVERTICAL);
 
     if (!m_panel) {
-        AnkerTitledPanel* container = new AnkerTitledPanel(rightSidebar, 46, 12);
+        AnkerTitledPanel* container = new AnkerTitledPanel(rightSidebar, 32, 0, wxColour(PANEL_TITLE_BACK_DARK_RGB_INT));
         container->setTitle(_L("common_slice_toolpannel_heightranges"));    // "Height Range"
         container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
         int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
@@ -382,7 +383,7 @@ void AnkerObjectLayers::UpdateAndShow(const bool show)
         scrollWin->SetScrollbars(0, 30, 300 / 50, 500 / 50);
         m_contentPanel = scrollWin;
 
-        m_contentPanel->SetBackgroundColour(container->GetBackgroundColour());
+        m_contentPanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
         m_contentPanelSizer = new wxBoxSizer(wxVERTICAL);
         m_contentPanel->SetSizer(m_contentPanelSizer);
 
@@ -421,7 +422,8 @@ void AnkerObjectLayers::UpdateAndShow(const bool show)
 void AnkerObjectLayers::AddLayerRange()
 {
     ANKER_LOG_INFO << "add layer range after range:" << m_top_layer_range.first << "-" << m_top_layer_range.second;
-    wxGetApp().objectbar()->add_layer_range_after_current(m_top_layer_range);
+    //wxGetApp().objectbar()->add_layer_range_after_current(m_top_layer_range);
+    wxGetApp().obj_list()->add_layer_range_after_current(m_top_layer_range);
 }
 
 

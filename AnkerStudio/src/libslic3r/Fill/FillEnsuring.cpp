@@ -39,14 +39,14 @@ ThickPolylines FillEnsuring::fill_surface_arachne(const Surface *surface, const 
         Polygons polygons    = to_polygons(ex_poly);
 
         double min_nozzle_diameter = *std::min_element(print_config->nozzle_diameter.values.begin(), print_config->nozzle_diameter.values.end());
-        PrintObjectConfig print_object_config = *this->print_object_config;
-        print_object_config.min_bead_width.percent = false;
-        print_object_config.min_bead_width.value = 0.85 * min_nozzle_diameter;
-        print_object_config.min_feature_size.percent = false;
-        print_object_config.min_feature_size.value = 0.25 * min_nozzle_diameter;
+        PrintObjectConfig print_object_config           = *this->print_object_config;
+        print_object_config.min_bead_width.percent      = false;
+        print_object_config.min_bead_width.value        = 0.85 * min_nozzle_diameter;
+        print_object_config.min_feature_size.percent    = false;
+        print_object_config.min_feature_size.value      = 0.25 * min_nozzle_diameter;
         print_object_config.wall_transition_length.percent = false;
-        print_object_config.wall_transition_length.percent = 0.4;
-        print_object_config.wall_transition_angle.value = 10;
+        print_object_config.wall_transition_length.value    = 0.4;
+        print_object_config.wall_transition_angle.value     = 10;
         print_object_config.wall_transition_filter_deviation.percent = false;
         print_object_config.wall_transition_filter_deviation.value = 0.25 * min_nozzle_diameter;
         print_object_config.wall_distribution_count.value = 1;

@@ -8,6 +8,7 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
+#include <wx/tokenzr.h> 
 
 #include "libslic3r/PresetBundle.hpp"
 
@@ -193,13 +194,13 @@ void SavePresetDialog::Item::update()
 
     const Preset* existing = get_existing_preset();
     if (m_valid_type == ValidationType::Valid && existing && (existing->is_default || existing->is_system)) {
-        info_line = m_use_text_ctrl ? _L("The supplied name is used for a system profile.") :
+        info_line = m_use_text_ctrl ? _L("This name is used for a system profile name, use another.") :
                              _L("Cannot overwrite a system profile.");
         m_valid_type = ValidationType::NoValid;
     }
 
     if (m_valid_type == ValidationType::Valid && existing && (existing->is_external)) {
-        info_line = m_use_text_ctrl ? _L("The supplied name is used for a external profile.") :
+        info_line = m_use_text_ctrl ? _L("This name is used for an external profile name, use another.") :
                              _L("Cannot overwrite an external profile.");
         m_valid_type = ValidationType::NoValid;
     }
@@ -260,7 +261,7 @@ void SavePresetDialog::Item::update()
     m_valid_label->SetLabel(info_line);
     m_valid_label->Show(!info_line.IsEmpty());
     if(!info_line.IsEmpty()) {
-        m_parent->SetSize(AnkerSize(400, -1));
+        m_parent->SetSize(AnkerSize(500, -1));
         m_parent->Fit();
         m_parent->Layout();
     }
@@ -648,7 +649,7 @@ AnkerSavePresetDialog::Item::Item(Preset::Type type, const std::string& suffix, 
     if (label_top)
         sizer->Add(label_top, 0, wxEXPAND | wxTOP | wxBOTTOM, BORDER_W);
     sizer->Add(input_name_sizer, 0, wxEXPAND | (label_top ? 0 : wxTOP) | wxBOTTOM, BORDER_W);
-    sizer->Add(m_valid_label, 0, wxEXPAND | wxLEFT, 3 * BORDER_W);
+     sizer->Add(m_valid_label, 1, wxEXPAND | wxLEFT, 3 * BORDER_W);
 
     if (m_type == Preset::TYPE_PRINTER)
         parent->add_info_for_edit_ph_printer(sizer);
@@ -670,7 +671,7 @@ AnkerSavePresetDialog::Item::Item(wxWindow* parent, wxBoxSizer* sizer, const std
     init_input_name_ctrl(input_name_sizer, m_preset_name);
 
     sizer->Add(input_name_sizer, 0, wxEXPAND | wxBOTTOM, BORDER_W);
-    sizer->Add(m_valid_label, 0, wxEXPAND | wxLEFT, 3 * BORDER_W);
+    sizer->Add(m_valid_label, 1, wxEXPAND | wxLEFT, 3 * BORDER_W);
 
     update();
 }
@@ -786,9 +787,27 @@ void AnkerSavePresetDialog::Item::update()
     if ((dlg && !dlg->get_info_line_extention().IsEmpty()) && m_valid_type != ValidationType::NoValid)
         info_line += "\n\n" + dlg->get_info_line_extention();
 
-    m_valid_label->SetLabel(info_line);
+    wxString info_line_wrap;
+    wxArrayString arrayStr = wxStringTokenize(info_line, '\n');
+    for (size_t i = 0; i < arrayStr.GetCount(); ++i) {
+        wxString str = arrayStr.Item(i);
+        wxString str_wrap = Slic3r::GUI::WrapEveryCharacter(str, wxGetApp().bold_font(), m_parent->GetSize().GetWidth() - 6 * BORDER_W);
+        if (info_line_wrap.empty())
+            info_line_wrap = str_wrap;
+        else
+            info_line_wrap = info_line_wrap + "\n" + str_wrap;
+    }
+
+
+    m_valid_label->Wrap(m_parent->GetSize().GetWidth() - 5 * BORDER_W);
+    m_valid_label->SetLabel(info_line_wrap);
     m_valid_label->SetForegroundColour(wxColour("#FF0E00"));
     m_valid_label->Show(!info_line.IsEmpty());
+    if (!info_line.IsEmpty() &&  m_parent) {
+        m_parent->SetSize(AnkerSize(500, -1));
+        m_parent->Fit();
+        m_parent->Layout();
+    }
 
     update_valid_bmp();
 
@@ -825,7 +844,7 @@ void AnkerSavePresetDialog::Item::Enable(bool enable /*= true*/)
 
 AnkerSavePresetDialog::AnkerSavePresetDialog(wxWindow* parent, std::vector<Preset::Type> types, std::string suffix, bool template_filament/* =false*/, PresetBundle* preset_bundle/* = nullptr*/)
     : AnkerDPIDialog(parent, wxID_ANY, types.size() == 1 ? _L("Save preset") : _L("Save presets"),
-        wxDefaultPosition, wxSize(AnkerSize(400, -1)), wxBORDER_SIMPLE),
+        wxDefaultPosition, wxSize(AnkerSize(500, -1)), wxBORDER_SIMPLE),
     m_preset_bundle(preset_bundle)
 {
     m_strTitle = _L("Save preset");
@@ -834,7 +853,7 @@ AnkerSavePresetDialog::AnkerSavePresetDialog(wxWindow* parent, std::vector<Prese
 }
 
 AnkerSavePresetDialog::AnkerSavePresetDialog(wxWindow* parent, Preset::Type type, const wxString& info_line_extention)
-    : AnkerDPIDialog(parent, wxID_ANY, _L("common_popup_presetrename_title"), wxDefaultPosition, wxSize(AnkerSize(400, -1)), wxBORDER_SIMPLE),
+    : AnkerDPIDialog(parent, wxID_ANY, _L("common_popup_presetrename_title"), wxDefaultPosition, wxSize(AnkerSize(500, -1)), wxBORDER_SIMPLE),
     m_use_for_rename(true),
     m_info_line_extention(info_line_extention)
 {
@@ -853,8 +872,8 @@ AnkerSavePresetDialog::~AnkerSavePresetDialog()
 void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string suffix, bool template_filament)
 {
     this->SetFont(wxGetApp().normal_font());
-    this->SetMinSize(wxSize(400, -1));
-    this->SetMaxSize(wxSize(400, -1));
+    this->SetMinSize(wxSize(500, -1));
+    this->SetMaxSize(wxSize(500, -1));
 
     // add by allen for ankerCfgDlg AnkerSavePresetDialog
     SetBackgroundColour(ANKER_SAVEPRESET_DIALOG_BACKGROUD_COLOUR);
@@ -876,7 +895,7 @@ void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string s
     // titleHSizer
     {
         m_titlePanel = new wxPanel(this);
-        m_titlePanel->SetSize(AnkerSize(400, 40));
+        m_titlePanel->SetSize(AnkerSize(500, 40));
         topSizer->Add(m_titlePanel, 0, wxEXPAND | wxALL, 0);
 
         wxBoxSizer* titleHSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -890,10 +909,10 @@ void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string s
         
 
         int iCloseBtnWidth = 30;
-        int iSpaceLength = 400 - iCloseBtnWidth;
+        int iSpaceLength = 500 - iCloseBtnWidth;
         wxClientDC dc(titleText);
         wxSize textSize = dc.GetTextExtent(m_strTitle);
-        int iMaxTextWidth = 400 - 30 - 5;
+        int iMaxTextWidth = 500 - 30 - 5;
         int iTextWith = (textSize.GetWidth() > (iMaxTextWidth)) ? iMaxTextWidth : textSize.GetWidth();
         iSpaceLength = (iSpaceLength - iTextWith) / 2;
 
@@ -924,7 +943,7 @@ void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string s
         wxControl* splitLineCtrl = new wxControl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
         splitLineCtrl->SetBackgroundColour(wxColour("#545863"));
         splitLineCtrl->SetMaxSize(wxSize(1000, 1));
-        splitLineCtrl->SetMinSize(wxSize(400, 1));
+        splitLineCtrl->SetMinSize(wxSize(500, 1));
         topSizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
     }
 
@@ -934,7 +953,7 @@ void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string s
     for (const Preset::Type& type : types)
         AddItem(type, suffix, is_for_multiple_save);
 
-    topSizer->Add(m_presets_sizer, 0, wxEXPAND | wxALL, BORDER_W);
+    topSizer->Add(m_presets_sizer, 1, wxEXPAND | wxALL, BORDER_W);
 
     // Add checkbox for Template filament saving
     if (template_filament && types.size() == 1 && *types.begin() == Preset::Type::TYPE_FILAMENT) {

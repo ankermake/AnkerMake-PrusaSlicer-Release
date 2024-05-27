@@ -7,6 +7,7 @@
 #include "Common/AnkerBaseCtls.h"
 #include "ViewModel/AnkerMaterialMappingViewModel.h"
 #include "AnkerNetDefines.h"
+#include "DeviceObjectBase.h"
 using namespace AnkerNet;
 
 wxDECLARE_EVENT(wxCUSTOMEVT_FILEITEM_CLICKED, wxCommandEvent);
@@ -96,6 +97,7 @@ public:
 	void setFileInfoSpeed(std::string str);
 	void setFileInfoFilament(std::string str);
 	std::string setFileInfoTime(int seconds);
+	void SetFilamentChangeHint(DeviceObjectBasePtr currentDev, const wxString& filePath = "");
 	void setPreviewImage(int width, int height, unsigned char* data, unsigned char* alpha = nullptr, bool freeFlag = true);
 
 	void switch2FileSelect(Slic3r::GUI::FileSelectMode  mode);
@@ -172,6 +174,7 @@ private:
 	wxStaticText* m_pSpeedText;
 	wxStaticText* m_pFilamentText;
 	wxStaticText* m_pPrintTimeText;
+	wxStaticText* m_filamentText;
 	//wxPanel* m_pFSContentWindow;
 	wxScrolledWindow* m_pFSComputerWidget;
 	wxScrolledWindow* m_pFSEmptyWidget;

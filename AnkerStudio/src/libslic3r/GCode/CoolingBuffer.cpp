@@ -151,7 +151,7 @@ struct PerExtruderAdjustments
                 line.slowdown = true;
                 line.time     = line.time_max;
                 assert(line.time > 0);
-                line.feedrate = line.length / line.time;
+                line.feedrate = (line.type & CoolingLine::TYPE_WIPE) ? std::max(line.length / line.time, this->min_print_speed) : line.length / line.time;
             }
             time_total += line.time;
         }
@@ -167,7 +167,7 @@ struct PerExtruderAdjustments
                 line.slowdown = true;
                 line.time     = std::min(line.time_max, line.time * factor);
                 assert(line.time > 0);
-                line.feedrate = line.length / line.time;
+                line.feedrate = (line.type & CoolingLine::TYPE_WIPE) ? std::max(line.length / line.time, this->min_print_speed) : line.length / line.time;
             }
             time_total += line.time;
         }
@@ -358,6 +358,7 @@ std::vector<PerExtruderAdjustments> CoolingBuffer::parse_layer_gcode(const std::
     // for a sequence of extrusion moves.
     size_t            active_speed_modifier = size_t(-1);
 
+    bool is_after_external_perimeter = false;
     std::vector<float> new_pos;
     for (; *line_start != 0; line_start = line_end) 
     {
@@ -414,13 +415,20 @@ std::vector<PerExtruderAdjustments> CoolingBuffer::parse_layer_gcode(const std::
             }
             bool external_perimeter = boost::contains(sline, ";_EXTERNAL_PERIMETER");
             bool wipe               = boost::contains(sline, ";_WIPE");
+            bool wipe_slow_down = false;
             if (external_perimeter)
                 line.type |= CoolingLine::TYPE_EXTERNAL_PERIMETER;
-            if (wipe)
+            if (wipe) {
                 line.type |= CoolingLine::TYPE_WIPE;
+                if (m_config.role_based_wipe_speed && !(is_after_external_perimeter && !m_config.slowdown_external_perimeters)) {
+                    line.type |= CoolingLine::TYPE_ADJUSTABLE;
+                    wipe_slow_down = true;
+                }
+            }
             if (boost::contains(sline, ";_EXTRUDE_SET_SPEED") && ! wipe) {
                 line.type |= CoolingLine::TYPE_ADJUSTABLE;
                 active_speed_modifier = adjustment->lines.size();
+                is_after_external_perimeter = external_perimeter;
             }
             if ((line.type & CoolingLine::TYPE_G92) == 0) {
                 // G0 or G1. Calculate the duration.
@@ -454,16 +462,23 @@ std::vector<PerExtruderAdjustments> CoolingBuffer::parse_layer_gcode(const std::
                     line.length = std::abs(dif[3]);
                 }
                 line.feedrate = new_pos[4];
-                assert((line.type & CoolingLine::TYPE_ADJUSTABLE) == 0 || line.feedrate > 0.f);
-                if (line.length > 0) {
-                    assert(line.feedrate > 0);
-                    line.time = line.length / line.feedrate;
-                    assert(line.time > 0);
+                if (wipe_slow_down)
+                {
+                    line.time = 2.0 / line.feedrate;//wipe 2mm
+                    line.time_max = 2.0 / adjustment->min_print_speed;
                 }
-                line.time_max = line.time;
-                if ((line.type & CoolingLine::TYPE_ADJUSTABLE) || active_speed_modifier != size_t(-1)) {
-                    assert(adjustment->min_print_speed >= 0);
-                    line.time_max = (adjustment->min_print_speed == 0.f) ? FLT_MAX : std::max(line.time, line.length / adjustment->min_print_speed);
+                else {
+                    assert((line.type & CoolingLine::TYPE_ADJUSTABLE) == 0 || line.feedrate > 0.f);
+                    if (line.length > 0) {
+                        assert(line.feedrate > 0);
+                        line.time = line.length / line.feedrate;
+                        assert(line.time > 0);
+                    }
+                    line.time_max = line.time;
+                    if ((line.type & CoolingLine::TYPE_ADJUSTABLE) || active_speed_modifier != size_t(-1)) {
+                        assert(adjustment->min_print_speed >= 0);
+                        line.time_max = (adjustment->min_print_speed == 0.f) ? FLT_MAX : std::max(line.time, line.length / adjustment->min_print_speed);
+                    }
                 }
                 // BBS: add G2 and G3 support
                 if (active_speed_modifier < adjustment->lines.size() 

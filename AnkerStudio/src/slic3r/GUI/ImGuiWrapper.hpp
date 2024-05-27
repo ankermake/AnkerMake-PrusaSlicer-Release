@@ -12,6 +12,7 @@
 #include "libslic3r/Point.hpp"
 #include "libslic3r/Color.hpp"
 #include "libslic3r/Polygon.hpp"
+#include "libslic3r/GCode/ThumbnailData.hpp"
 
 namespace Slic3r {
 namespace Search {
@@ -27,6 +28,8 @@ struct IMGUI_API ImGuiWindow;
 
 namespace Slic3r {
 namespace GUI {
+
+bool get_data_from_svg(const std::string& filename, unsigned int max_size_px, ThumbnailData& thumbnail_data);
 
 class ImGuiWrapper
 {
@@ -49,6 +52,11 @@ public:
         bool edited  { false };
         bool clicked { false };
         bool deactivated_after_edit { false };
+        // flag to indicate possibility to take snapshot from the slider value
+        // It's used from Gizmos to take snapshots just from the very beginning of the editing
+        bool can_take_snapshot { false };
+        // When Undo/Redo snapshot is taken, then call this function
+        void invalidate_snapshot() { can_take_snapshot = false; }
     };
 
     ImGuiWrapper();
@@ -80,10 +88,17 @@ public:
     ImVec2 get_item_spacing() const;
     float  get_slider_float_height() const;
     const LastSliderStatus& get_last_slider_status() const { return m_last_slider_status; }
+    LastSliderStatus& get_last_slider_status() { return m_last_slider_status; }
 
     void set_next_window_pos(float x, float y, int flag, float pivot_x = 0.0f, float pivot_y = 0.0f);
     void set_next_window_bg_alpha(float alpha);
 	void set_next_window_size(float x, float y, ImGuiCond cond);
+
+    /* BBL style widgets */
+    bool bbl_combo_with_filter(const char* label, const std::string& preview_value, const std::vector<std::string>& all_items, std::vector<int>* filtered_items_idx, bool* is_filtered, float item_height = 0.0f);
+    bool bbl_input_double(const wxString& label, const double& value, const std::string& format = "%0.2f");
+    bool bbl_slider_float(const std::string& label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {});
+    bool bbl_slider_float_style(const std::string& label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {});
 
     bool begin(const std::string &name, int flags = 0);
     bool begin(const wxString &name, int flags = 0);
@@ -92,11 +107,15 @@ public:
     void end();
 
     bool button(const wxString &label, const wxString& tooltip = {});
+    bool bbl_button(const wxString& label, const wxString& tooltip = {});
 	bool button(const wxString& label, float width, float height);
     bool button(const wxString& label, const ImVec2 &size, bool enable); // default size = ImVec2(0.f, 0.f)
     bool radio_button(const wxString &label, bool active);
     bool draw_radio_button(const std::string& name, float size, bool active, std::function<void(ImGuiWindow& window, const ImVec2& pos, float size)> draw_callback);
     bool checkbox(const wxString &label, bool &value);
+    bool bbl_checkbox(const wxString& label, bool& value);
+    bool bbl_radio_button(const char* label, bool active);
+    bool bbl_sliderin(const char* label, int* v, int v_min, int v_max, const char* format = "%d", ImGuiSliderFlags flags = 0);
     static void text(const char *label);
     static void text(const std::string &label);
     static void text(const wxString &label);
@@ -112,14 +131,18 @@ public:
     // Float sliders: Manually inserted values aren't clamped by ImGui.Using this wrapper function does (when clamp==true).
     ImVec2 get_slider_icon_size() const;
     bool slider_float(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true);
+    bool slider_float_input(const char* label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true);
     bool slider_float(const std::string& label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true);
     bool slider_float(const wxString& label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true);
+    bool slider_float_style(const std::string& label, float* v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {});
 
     bool image_button(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0.0, 0.0), const ImVec2& uv1 = ImVec2(1.0, 1.0), int frame_padding = -1, const ImVec4& bg_col = ImVec4(0.0, 0.0, 0.0, 0.0), const ImVec4& tint_col = ImVec4(1.0, 1.0, 1.0, 1.0), ImGuiButtonFlags flags = 0);
     bool image_button(const wchar_t icon, const wxString& tooltip = L"");
 
     // Use selection = -1 to not mark any option as selected
-    bool combo(const wxString& label, const std::vector<std::string>& options, int& selection, ImGuiComboFlags flags = 0);
+    //bool combo(const wxString& label, const std::vector<std::string>& options, int& selection, ImGuiComboFlags flags = 0);
+    bool combo(const std::string& label, const std::vector<std::string>& options, int& selection, ImGuiComboFlags flags = 0, float label_width = 0.0f, float item_width = 0.0f);
+    bool combo(const wxString& label, const std::vector<std::string>& options, int& selection, ImGuiComboFlags flags = 0, float label_width = 0.0f, float item_width = 0.0f);
     bool undo_redo_list(const ImVec2& size, const bool is_undo, bool (*items_getter)(const bool, int, const char**), int& hovered, int& selected, int& mouse_wheel);
     void search_list(const ImVec2& size, bool (*items_getter)(int, const char** label, const char** tooltip), char* search_str,
                      Search::OptionViewParameters& view_params, int& selected, bool& edited, int& mouse_wheel, bool is_localized);
@@ -143,8 +166,18 @@ public:
     static bool drag_optional_float(const char* label, std::optional<float> &v, float v_speed, float v_min, float v_max, const char* format, float power, float def_val = .0f);
     // Extended function ImGuiWrapper::slider_float to work with std::optional<float> value near def_val cause release of optional
     bool slider_optional_float(const char* label, std::optional<float> &v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true, float def_val = .0f);
+    bool slider_optional_float_input(const char* label, std::optional<float>& v, float v_min, float v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true, float def_val = .0f);
     // Extended function ImGuiWrapper::slider_float to work with std::optional<int>, when value == def_val than optional release its value
     bool slider_optional_int(const char* label, std::optional<int> &v, int v_min, int v_max, const char* format = "%.3f", float power = 1.0f, bool clamp = true, const wxString& tooltip = {}, bool show_edit_btn = true, int def_val = 0);
+
+    /// <summary>
+    /// Change position of imgui window
+    /// </summary>
+    /// <param name="window_name">ImGui identifier of window</param>
+    /// <param name="output_window_offset">[output] optional </param>
+    /// <param name="try_to_fix">When True Only move to be full visible otherwise reset position</param>
+    /// <returns>New offset of window for function ImGui::SetNextWindowPos</returns>
+    static std::optional<ImVec2> change_window_position(const char *window_name, bool try_to_fix);
 
     /// <summary>
     /// Use ImGui internals to unactivate (lose focus) in input.
@@ -239,17 +272,38 @@ public:
 
     static const ImVec4 COL_GREY_DARK;
     static const ImVec4 COL_GREY_LIGHT;
+    static const ImVec4 COL_GREEN_LIGHT;
     static const ImVec4 COL_ORANGE_DARK;
     static const ImVec4 COL_ORANGE_LIGHT;
+    static const ImVec4 COL_GREEN_DARK;
     static const ImVec4 COL_WINDOW_BACKGROUND;
+    static const ImVec4 COL_WINDOW_TITLE_BACKGROUND;
     static const ImVec4 COL_BUTTON_BACKGROUND;
     static const ImVec4 COL_BUTTON_HOVERED;
     static const ImVec4 COL_BUTTON_ACTIVE;
+    static const ImVec4 COL_SEPARATOR;
+
+    static const ImVec4 COL_HOVER;
+    static const ImVec4 COL_ACTIVE;
+    static const ImVec4 COL_TITLE_BG;
+    static const ImVec4 COL_WINDOW_BG;
+    static const ImVec4 COL_WINDOW_BG_DARK;
+    static const ImVec4 COL_SEPARATOR_DARK;
+
+    static const ImVec4 COL_ANKER;
+
 
     static void push_confirm_button_style();
     static void pop_confirm_button_style();
     static void push_cancel_button_style();
     static void pop_cancel_button_style();
+    static void push_toolbar_style(const float scale);
+    static void pop_toolbar_style();
+    static void push_combo_style(const float scale);
+    static void pop_combo_style();
+    static void push_radio_style();
+    static void pop_radio_style();
+
 
 private:
     void init_font(bool compress);

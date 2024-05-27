@@ -32,7 +32,7 @@ wxDECLARE_EVENT(EVT_GLTOOLBAR_LAYERSEDITING, SimpleEvent);
 
 wxDECLARE_EVENT(EVT_GLVIEWTOOLBAR_3D, SimpleEvent);
 wxDECLARE_EVENT(EVT_GLVIEWTOOLBAR_PREVIEW, SimpleEvent);
-
+wxDECLARE_EVENT(EVT_GLVIEWTOOLBAR_ASSEMBLE, SimpleEvent);
 class GLToolbarItem
 {
 public:
@@ -120,6 +120,9 @@ private:
     EActionType m_last_action_type;
     EHighlightState m_highlight_state;
 public:
+    // remember left position for rendering menu
+    mutable float render_left_pos;
+
     GLToolbarItem(EType type, const Data& data);
 
     EState get_state() const { return m_state; }
@@ -306,7 +309,10 @@ public:
     void set_enabled(bool enable) { m_enabled = enable; }
 
     bool add_item(const GLToolbarItem::Data& data);
+    bool get_item_pos(size_t sprite_id, Vec2d& pos);
+    float get_main_toolbar_size() const;
     bool add_separator();
+    bool del_all_item();
 
     float get_width();
     float get_height();

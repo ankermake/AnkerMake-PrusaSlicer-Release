@@ -70,7 +70,7 @@ wxDEFINE_EVENT(EVT_SLICING_UPDATE, SlicingStatusEvent);
 
 // Print step IDs for keeping track of the print state.
 enum BackgroundSlicingProcessStep {
-    bspsGCodeFinalize, bspsCount,
+    bspsGCodeFinalize, bspsSliceComplete, bspsCount,
 };
 
 // Support for the GUI background processing (Slicing and G-code generation).
@@ -89,6 +89,8 @@ public:
 	void set_thumbnail_cb(ThumbnailsGeneratorCallback cb) { m_thumbnail_cb = cb; }
 	void set_gcode_result(GCodeProcessorResult* result) { m_gcode_result = result; }
 
+	// slice start
+	void set_slicing_began_event(int event_id) { m_event_slicing_began_id = event_id; }
 	// The following wxCommandEvent will be sent to the UI thread / Plater window, when the slicing is finished
 	// and the background processing will transition into G-code export.
 	// The wxCommandEvent is sent to the UI thread asynchronously without waiting for the event to be processed.
@@ -110,6 +112,7 @@ public:
 	// Get the current print. It is either m_fff_print or m_sla_print.
 	const PrintBase*    current_print() const { return m_print; }
 	const Print* 		fff_print() const { return m_fff_print; }
+    Print*              fff_print() { return m_fff_print; }
 	const SLAPrint* 	sla_print() const { return m_sla_print; }
     // Take the project path (if provided), extract the name of the project, run it through the macro processor and save it next to the project file.
     // If the project_path is empty, just run output_filepath().
@@ -274,6 +277,7 @@ private:
 	// To be called from inside m_mutex to cancel a planned UI task.
 	static void			cancel_ui_task(std::shared_ptr<BackgroundSlicingProcess::UITask> task);
 
+	int 						m_event_slicing_began_id		= 0;
 	// wxWidgets command ID to be sent to the plater to inform that the slicing is finished, and the G-code export will continue.
 	int 						m_event_slicing_completed_id 	= 0;
 	// wxWidgets command ID to be sent to the plater to inform that the task finished.

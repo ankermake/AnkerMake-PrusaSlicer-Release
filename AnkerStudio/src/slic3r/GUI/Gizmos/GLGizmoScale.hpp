@@ -64,7 +64,7 @@ public:
     /// <returns>Return True when use the information otherwise False.</returns>
     bool on_mouse(const wxMouseEvent &mouse_event) override;
 
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
     void enable_ununiversal_scale(bool enable);
 protected:
     virtual bool on_init() override;

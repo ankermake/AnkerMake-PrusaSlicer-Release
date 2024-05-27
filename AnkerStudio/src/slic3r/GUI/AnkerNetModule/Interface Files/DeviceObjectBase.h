@@ -114,6 +114,8 @@ public:
 
     virtual void setRequestGCodeInfo(const std::string& filepath) = 0;   
     virtual GCodeInfo GetGcodeInfo() const = 0;
+    virtual void SetLastFilament() = 0;
+    virtual std::string GetLastFilament() const = 0;
 
     virtual  PliesInfo GetLayerPtr() const = 0;
     
@@ -124,6 +126,9 @@ public:
     virtual bool GetCameraLimit() = 0;
 
     virtual bool GetTransfering() = 0;
+
+    virtual void SetDeviceFunctions() = 0;
+    virtual bool GetPreheatFunction() const = 0;
 };
 
 }

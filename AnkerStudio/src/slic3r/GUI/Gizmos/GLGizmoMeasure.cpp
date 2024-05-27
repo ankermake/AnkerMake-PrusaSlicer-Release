@@ -282,6 +282,7 @@ GLGizmoMeasure::GLGizmoMeasure(GLCanvas3D& parent, const std::string& icon_filen
 , m_secondResultType(nullptr)
 , m_firstResultValue(nullptr)
 , m_secondResultValue(nullptr)
+, restartButton(nullptr)
 
 {
     GLModel::Geometry sphere_geometry = smooth_sphere(16, 7.5f);
@@ -464,7 +465,7 @@ bool GLGizmoMeasure::on_mouse(const wxMouseEvent &mouse_event)
     return false;
 }
 
-void GLGizmoMeasure::data_changed()
+void GLGizmoMeasure::data_changed(bool is_serializing)
 {
     m_parent.toggle_sla_auxiliaries_visibility(false, nullptr, -1);
 
@@ -501,6 +502,7 @@ bool GLGizmoMeasure::gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_po
         m_selected_features.reset();
         m_selected_sphere_raycasters.clear();
         m_parent.request_extra_frame();
+        update_input_window();
     }
     else if (action == SLAGizmoEventType::Escape) {
         if (!m_selected_features.first.feature.has_value()) {
@@ -545,6 +547,12 @@ void GLGizmoMeasure::on_set_state()
         set_input_window_state(false);
     }
     else {
+        //reset measure result
+        m_selected_features.reset();
+        m_selected_sphere_raycasters.clear();
+        m_parent.request_extra_frame();
+        update_input_window();
+
         m_mode = EMode::FeatureSelection;
         // store current state of scene raycaster for later use
         m_scene_raycasters.clear();
@@ -590,6 +598,15 @@ void GLGizmoMeasure::on_render()
 //        return;
 
     update_if_needed();
+
+    if (restartButton) {
+        bool tmpEnable = m_selected_features.first.feature.has_value();
+        if (tmpEnable != m_restartBtnEnable) {
+            restartButton->Enable(tmpEnable);
+            restartButton->Refresh();
+            m_restartBtnEnable = tmpEnable;
+        }
+    }
 
     const Camera& camera = wxGetApp().plater()->get_camera();
     const float inv_zoom = (float)camera.get_inv_zoom();
@@ -1349,7 +1366,9 @@ void GLGizmoMeasure::render_dimensioning()
                 m_is_editing_distance_first_frame = true;
                 ImGui::CloseCurrentPopup();
             };
-            auto action_scale = [perform_scale, action_exit](double new_value, double old_value) {
+            auto action_scale = [perform_scale, action_exit](double& new_value, double old_value) {
+                if (edit_value > 300)
+                    edit_value = 300;
                 perform_scale(new_value, old_value);
                 action_exit();
             };
@@ -1374,8 +1393,10 @@ void GLGizmoMeasure::render_dimensioning()
 
             ImGui::SameLine();
             ImGuiWrapper::push_confirm_button_style();
-            if (m_imgui->button(_CTX(L_CONTEXT("Scale", "Verb"), "Verb")))
+            //if (m_imgui->button(_CTX(_L("Scale", "Verb"), "Verb")))
+            if (m_imgui->button(_L("Scale"))) {
                 action_scale(edit_value, curr_value);
+            }
             ImGuiWrapper::pop_confirm_button_style();
             ImGui::SameLine();
             ImGuiWrapper::push_cancel_button_style();
@@ -2010,7 +2031,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
                 radius = (on_circle - center).norm();
                 if (use_inches)
                     radius = ObjectManipulation::mm_to_in * radius;
-                text += " (" + _u8L("Diameter") + ": " + format_double(2.0 * radius) + units + ")";
+                text += " (" + _L("Diameter").ToStdString() + ": " + format_double(2.0 * radius) + units + ")";
             }
             else if (item.feature.has_value() && item.feature->get_type() == Measure::SurfaceFeatureType::Edge) {
                 auto [start, end] = item.feature->get_edge();
@@ -2137,7 +2158,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
         {
             m_pInputWindowSizer = new wxBoxSizer(wxVERTICAL);
 
-            AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 46, 12);
+            AnkerTitledPanel* container = new AnkerTitledPanel(&(wxGetApp().plater()->sidebarnew()), 32, 0, wxColour(PANEL_TITLE_BACK_DARK_RGB_INT));
             container->setTitle(wxString::FromUTF8(get_name(true, false))/*_("common_slice_toolpannelcut_button")*/);
             container->setTitleAlign(AnkerTitledPanel::TitleAlign::LEFT);
             int returnBtnID = container->addTitleButton(wxString::FromUTF8(Slic3r::var("return.png")), true);
@@ -2145,12 +2166,13 @@ void GLGizmoMeasure::set_input_window_state(bool on)
                 int btnID = event.GetInt();
                 if (btnID == returnBtnID)
                 {
-                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                    wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
                 }
                 });
             m_pInputWindowSizer->Add(container, 1, wxEXPAND, 0);
 
             wxPanel* measurePanel = new wxPanel(container);
+            measurePanel->SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
             wxBoxSizer* measureSizer = new wxBoxSizer(wxVERTICAL);
             measurePanel->SetSizer(measureSizer);
             container->setContentPanel(measurePanel);
@@ -2159,7 +2181,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
             {
                 // selection 1
                 wxBoxSizer* selectionSizer1 = new wxBoxSizer(wxHORIZONTAL);
-                measureSizer->Add(selectionSizer1, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                measureSizer->Add(selectionSizer1, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 12);
                 wxString text1 = _L("common_right_panel_measure_selection") + " 1 ";
                 wxStaticText* selectionText1 = new wxStaticText(measurePanel, wxID_ANY, text1);
                 selectionText1->SetFont(ANKER_FONT_NO_1);
@@ -2179,7 +2201,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
             {
                 // selection 2
                 wxBoxSizer* selectionSizer2 = new wxBoxSizer(wxHORIZONTAL);
-                measureSizer->Add(selectionSizer2, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                measureSizer->Add(selectionSizer2, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 12);
                 wxString text2 = _L("common_right_panel_measure_selection") + " 2 ";
                 wxStaticText* selectionText2 = new wxStaticText(measurePanel, wxID_ANY, text2);
                 selectionText2->SetFont(ANKER_FONT_NO_1);
@@ -2197,23 +2219,19 @@ void GLGizmoMeasure::set_input_window_state(bool on)
 
             {
                 // restart selection
-                bool hasSelected = m_selected_features.first.feature.has_value();
-                AnkerBtn* restartButton = new AnkerBtn(measurePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
+                restartButton = new AnkerBtn(measurePanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
                 restartButton->SetMinSize(AnkerSize(180, 34));
                 restartButton->SetMaxSize(AnkerSize(180, 34));
                 restartButton->SetText(_L("common_right_panel_measure_restart_button"));
-                restartButton->SetBackgroundColour(wxColor(PANEL_BACK_RGB_INT));
                 restartButton->SetRadius(4);
                 restartButton->SetTextColor(wxColor(ANKER_RGB_INT));
                 restartButton->SetFont(ANKER_BOLD_FONT_NO_1);
-                restartButton->Bind(wxEVT_ENTER_WINDOW, [restartButton, hasSelected](wxMouseEvent& event) {
-                    restartButton->SetBackgroundColour(hasSelected ? wxColour("#324435") : wxColor(58, 59, 63));
-                    restartButton->Refresh();
-                    });
-                restartButton->Bind(wxEVT_LEAVE_WINDOW, [restartButton,hasSelected](wxMouseEvent& event) {
-                    restartButton->SetBackgroundColour(hasSelected ? wxColour("#333438") : wxColor(PANEL_BACK_RGB_INT));
-                    restartButton->Refresh();
-                    });
+                restartButton->SetBgNorColor(wxColor(PANEL_BACK_LIGHT_RGB_INT));
+                restartButton->SetBgHoverColor(wxColor("#434E47"));
+                restartButton->SetBgPressedColor(wxColor("#262F29"));
+                restartButton->SetBgDisableColor(wxColor("#2E2F32"));
+                restartButton->Enable(m_selected_features.first.feature.has_value());
+
                 restartButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
                     m_selected_features.reset();
                     m_selected_sphere_raycasters.clear();
@@ -2232,16 +2250,16 @@ void GLGizmoMeasure::set_input_window_state(bool on)
             {
                 // Measure
                 wxBoxSizer* measureTextSizer = new wxBoxSizer(wxHORIZONTAL);
-                measureSizer->Add(measureTextSizer, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT,20);
+                measureSizer->Add(measureTextSizer, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT,12);
                 wxStaticText* measureText4 = new wxStaticText(measurePanel, wxID_ANY, _L("common_right_panel_measure_title"));
                 measureText4->SetFont(ANKER_FONT_NO_1);
-                measureText4->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
+                measureText4->SetForegroundColour(wxColour(TITLE_TEXT_DARK_RGB_INT));
                 measureTextSizer->Add(measureText4, 0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, 0);
                 measureSizer->AddSpacer(10);
 
                 // Measure result
                 wxBoxSizer* resultSizer1 = new wxBoxSizer(wxHORIZONTAL);
-                measureSizer->Add(resultSizer1, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                measureSizer->Add(resultSizer1, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 12);
                 m_firstResultType = new wxStaticText(measurePanel, wxID_ANY, L"");
                 m_firstResultType->SetFont(ANKER_FONT_NO_1);
                 m_firstResultType->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
@@ -2254,7 +2272,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
                 measureSizer->AddSpacer(10);
 
                 wxBoxSizer* resultSizer2 = new wxBoxSizer(wxHORIZONTAL);
-                measureSizer->Add(resultSizer2, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 20);
+                measureSizer->Add(resultSizer2, 0, wxEXPAND | wxALIGN_TOP | wxLEFT | wxRIGHT, 12);
                 m_secondResultType = new wxStaticText(measurePanel, wxID_ANY, L"");
                 m_secondResultType->SetFont(ANKER_FONT_NO_1);
                 m_secondResultType->SetForegroundColour(wxColour(TEXT_DARK_RGB_INT));
@@ -2278,7 +2296,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
                 {
                     m_panelVisibleFlag = false;
 
-                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                    wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
                 }
                 });
         }
@@ -2314,7 +2332,7 @@ void GLGizmoMeasure::update_input_window()
             radius = (on_circle - center).norm();
             if (use_inches)
                 radius = ObjectManipulation::mm_to_in * radius;
-            text += " (" + _u8L("Diameter") + ": " + format_double(2.0 * radius) + units + ")";
+            text += " (" + _L("Diameter").ToStdString() + ": " + format_double(2.0 * radius) + units + ")";
         }
         else if (item.feature.has_value() && item.feature->get_type() == Measure::SurfaceFeatureType::Edge) {
             auto [start, end] = item.feature->get_edge();
@@ -2350,19 +2368,19 @@ void GLGizmoMeasure::update_input_window()
                 double distance = measure.distance_infinite->dist;
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
-                measureData[ show_strict ? _u8L("common_right_panel_measure_type_perpendicular_distance") : _u8L("Distance")] = format_double(distance) + units ;
+                measureData[ show_strict ? _L("common_right_panel_measure_type_perpendicular_distance").ToStdString() : _L("common_measure_Distance").ToStdString()] = format_double(distance) + units;
             }
             if (show_strict) {
                 double distance = measure.distance_strict->dist;
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
-                measureData[_u8L("common_right_panel_measure_type_direct_distance")] = format_double(distance) + units;
+                measureData[_L("common_right_panel_measure_type_direct_distance").ToStdString()] = format_double(distance) + units;
             }
             if (measure.distance_xyz.has_value() && measure.distance_xyz->norm() > EPSILON) {
                 Vec3d distance = *measure.distance_xyz;
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
-                measureData[_u8L("common_right_panel_measure_type_distance_xyz")] = format_vec3(distance);
+                measureData[_L("common_right_panel_measure_type_distance_xyz").ToStdString()] = format_vec3(distance);
             }
             if (measureData.size() > 0)
             {
@@ -2414,6 +2432,8 @@ void GLGizmoMeasure::update_measurement_result()
         m_measurement_result = Measure::get_measurement(*m_selected_features.first.feature, *m_selected_features.second.feature, m_measuring.get());
     else if (!m_selected_features.second.feature.has_value() && m_selected_features.first.feature->get_type() == Measure::SurfaceFeatureType::Circle)
         m_measurement_result = Measure::get_measurement(*m_selected_features.first.feature, Measure::SurfaceFeature(std::get<0>(m_selected_features.first.feature->get_circle())), m_measuring.get());
+
+    update_input_window();
 }
 
 } // namespace GUI

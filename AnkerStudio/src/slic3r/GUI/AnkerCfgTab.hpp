@@ -299,7 +299,7 @@ protected:
 
 	bool				m_page_switch_running = false;
 	bool				m_page_switch_planned = false;
-
+	bool				m_page_valid = false;
 public:
 	PresetBundle*		m_preset_bundle;
 	bool				m_show_btn_incompatible_presets = false;
@@ -318,7 +318,7 @@ public:
 	wxTimer timer;
 public:
     AnkerTab(wxBookCtrlBase* parent, const wxString& title, Preset::Type type);
-    ~AnkerTab() {}
+	~AnkerTab() { m_page_valid = false; }
 
 	wxWindow*	parent() const { return m_parent; }
 	wxString	title()	 const { return m_title; }

@@ -4475,7 +4475,7 @@ msgid "Choose one file (3MF/AMF):"
 msgstr ""
 
 #: src/slic3r/GUI/GUI_App.cpp:1973
-msgid "Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO):"
+msgid "Choose one or more files (STL/3MF/STEP/OBJ/AMF/AKPRO/SVG):"
 msgstr ""
 
 #: src/slic3r/GUI/GUI_App.cpp:1984
@@ -6066,7 +6066,7 @@ msgid "(Re)slice"
 msgstr ""
 
 #: src/slic3r/GUI/KBShortcutsDialog.cpp:92
-msgid "Import STL/3MF/STEP/OBJ/AMF without config, keep plater"
+msgid "Import STL/3MF/STEP/OBJ/AMF/SVG without config, keep plater"
 msgstr ""
 
 #: src/slic3r/GUI/KBShortcutsDialog.cpp:93
@@ -24743,7 +24743,7 @@ msgid "common_menu_file_Importconfigbundle"
 msgstr "Import Config Bundle"
 
 msgid "common_menu_file_Importlist"
-msgstr "Import STL/3MF/STEP/OBJ/AMF"
+msgstr "Import STL/3MF/STEP/OBJ/AMF/SVG"
 
 msgid "common_menu_file_ejectsd"
 msgstr "Eject SD Card/Flash Drive"
@@ -27070,3 +27070,377 @@ msgstr "Wipe on loops"
 
 msgid "engin_option_wipe_speed"
 msgstr "Wipe speed"
+
+msgid "Color Scheme"
+msgstr "Color scheme"
+
+msgid "Line Type"
+msgstr "Line Type"
+
+msgid "Retract"
+msgstr "Retract"
+
+msgid "Unretract"
+msgstr "Unretract"
+
+msgid "Total Estimation"
+msgstr "Total estimation"
+
+msgid "Model printing time"
+msgstr "Model printing time"
+
+msgid "Filament change times"
+msgstr "Filament change times"
+
+msgid "Time Estimation"
+msgstr "Time Estimation"
+
+msgid "Layer Height"
+msgstr "Layer Height"
+
+msgid "Layer Time"
+msgstr "Layer Time"
+
+msgid "Line Width"
+msgstr "Line Width"
+
+msgid "Fan Speed"
+msgstr "Fan Speed"
+
+
+msgid "Assembly View"
+msgstr "Assembly View"
+
+msgid "engin_emboss_alignment"
+msgstr "Alignment"
+
+msgid "Assembly Return"
+msgstr "Assembly Return"
+
+msgid "return"
+msgstr "return"
+
+msgid "Explosion Ratio"
+msgstr "Explosion Ratio"
+
+msgid "Section View"
+msgstr "Section View"
+
+msgid "Assemble Control"
+msgstr "Assembly Control"
+
+msgid "Assembly Info"
+msgstr "Assembly Info"
+
+msgid "Volume:"
+msgstr "Volume:"
+
+msgid "Hide"
+msgstr "Hide"
+
+msgid "common_measure_Distance"
+msgstr "Distance"
+
+msgid "engin_cut_groove"
+msgstr "Groove"
+
+msgid "engin_cut_depth"
+msgstr "Depth"
+
+msgid "engin_cut_width"
+msgstr "Width"
+
+msgid "engin_cut_object"
+msgstr "Object"
+
+msgid "engin_cut_objects"
+msgstr "Objects"
+
+msgid "engin_cut_parts"
+msgstr "Parts"
+
+msgid "engin_cut_part"
+msgstr "Part"
+
+msgid "engin_cut_type"
+msgstr "Type"
+
+msgid "engin_cut_plug"
+msgstr "Plug"
+
+msgid "engin_cut_dowel"
+msgstr "Dowel"
+
+msgid "engin_cut_snap"
+msgstr "Snap"
+
+msgid "engin_cut_style"
+msgstr "Style"
+
+msgid "engin_cut_shape"
+msgstr "Shape"
+
+msgid "engin_cut_triangle"
+msgstr "Triangle"
+
+msgid "engin_cut_square"
+msgstr "Square"
+
+msgid "engin_cut_hexagon"
+msgstr "Hexagon"
+
+msgid "engin_cut_circle"
+msgstr "Circle"
+
+msgid "engin_cut_size"
+msgstr "Size"
+
+msgid "engin_cut_space"
+msgstr "Space"
+
+msgid "common_calib_calibration"
+msgstr "Calibration"
+
+msgid "common_calib_temperature"
+msgstr "Temperature"
+
+msgid "common_calib_temperature_calibration"
+msgstr "Temperature calibration"
+
+msgid "common_calib_filament_type"
+msgstr "Filament type"
+
+msgid "common_calib_custom"
+msgstr "Custom"
+
+msgid "common_calib_settings"
+msgstr "Settings"
+
+msgid "common_calib_start_temp"
+msgstr "Start temp: "
+
+msgid "common_calib_end_temp"
+msgstr "End temp: "
+
+msgid "common_calib_temp_step"
+msgstr "Temp step: "
+
+msgid "common_calib_flow_rate"
+msgstr "Flow rate"
+
+msgid "common_calib_pass_1"
+msgstr "Pass 1"
+
+msgid "common_calib_pass_2"
+msgstr "Pass 2"
+
+msgid "common_calib_pressure_advance"
+msgstr "Pressure Advance"
+
+msgid "common_calib_PA_calibration"
+msgstr "PA Calibration"
+
+msgid "common_calib_extruder_type"
+msgstr "Extruder type"
+
+msgid "common_calib_DDE"
+msgstr "DDE"
+
+msgid "common_calib_bowden"
+msgstr "Bowden"
+
+msgid "common_calib_method"
+msgstr "Method"
+
+msgid "common_calib_PA_tower"
+msgstr "PA Tower"
+
+msgid "common_calib_PA_line"
+msgstr "PA Line"
+
+msgid "common_calib_PA_pattern"
+msgstr "PA Pattern"
+
+msgid "common_calib_start_PA"
+msgstr "Start PA: "
+
+msgid "common_calib_end_PA"
+msgstr "End PA: "
+
+msgid "common_calib_PA_step"
+msgstr "PA step: "
+
+msgid "common_calib_print_numbers"
+msgstr "Print numbers"
+
+msgid "common_calib_retraction_test"
+msgstr "Retraction test"
+
+msgid "common_calib_start_retraction_length"
+msgstr "Start retraction length: "
+
+msgid "common_calib_end_retraction_length"
+msgstr "End retraction length: "
+
+msgid "common_calib_step"
+msgstr "Step: "
+
+msgid "common_calib_more"
+msgstr "More..."
+
+msgid "common_calib_max_flowrate"
+msgstr "Max flowrate"
+
+msgid "common_calib_max_volumetric_speed_test"
+msgstr "Max volumetric speed test"
+
+msgid "common_calib_start_volumetric_speed"
+msgstr "Start volumetric speed: "
+
+msgid "common_calib_end_volumetric_speed"
+msgstr "End volumetric speed: "
+
+msgid "common_calib_VFA"
+msgstr "VFA"
+
+msgid "common_calib_VFA_test"
+msgstr "VFA test"
+
+msgid "common_calib_start_speed"
+msgstr "Start speed"
+
+msgid "common_calib_end_speed"
+msgstr "End speed"
+
+msgid "common_print_popup_filamentbroken_new"
+msgstr "Filament transfer interrupted, please load a new %s filament."
+
+msgid "common_print_popup_filament_notequal"
+msgstr "The filament %s currently needed is different from the last print. Please ensure installation before start printing."
+
+msgid "Process"
+msgstr "Process"
+
+msgid "common_global_settings"
+msgstr "Global Print Settings"
+
+msgid "common_print_settings"
+msgstr "Print Settings"
+
+msgid "engin_option_wall_sequence_inner_outer"
+msgstr "Inner/Outer"
+
+msgid "engin_option_wall_sequence_outer_inner"
+msgstr "Outer/Inner"
+
+msgid "engin_option_wall_sequence_inner_outer_innner"
+msgstr "Inner/Outer/Inner"
+
+msgid "engin_option_wall_generator"
+msgstr "Wall generator"
+
+msgid "engin_option_seam_slope_type"
+msgstr "Scarf joint seam (beta)"
+
+msgid "engin_option_seam_slope_conditional"
+msgstr "Conditional scarf joint"
+
+msgid "engin_option_scarf_joint_speed"
+msgstr "Scarf joint speed"
+
+msgid "engin_option_seam_slope_start_height"
+msgstr "Scarf start height"
+
+msgid "engin_option_seam_slope_entire_loop"
+msgstr "Scarf around entire wall"
+
+msgid "engin_option_seam_slope_min_length"
+msgstr "Scarf length"
+
+msgid "engin_option_seam_slope_steps"
+msgstr "Scarf steps"
+
+msgid "engin_option_scarf_joint_flow_ratio"
+msgstr "Scarf joint flow ratio"
+
+msgid "engin_option_seam_slope_inner_walls"
+msgstr "Scarf joint for inner walls"
+
+msgid "engin_option_seam_slope_type_none"
+msgstr "None"
+
+msgid "engin_option_seam_slope_type_external"
+msgstr "Contour"
+
+msgid "engin_option_seam_slope_type_all"
+msgstr "Contour and hole"
+
+msgid "engin_optionTip_seam_slope_type"
+msgstr "Use scarf joint to minimize seam visibility and increase seam strength."
+
+msgid "engin_optionTip_seam_slope_conditional"
+msgstr "Apply scarf joints only to smooth perimeters where traditional seams do not conceal the seams at sharp corners effectively."
+
+msgid "engin_optionTip_scarf_joint_speed"
+msgstr ""
+    "This option sets the printing speed for scarf joints. It is recommended to print scarf joints at a slow speed (less than 100 mm/s). \n"
+    "It's also advisable to enable 'Extrusion rate smoothing' if the set speed varies significantly from the speed of the outer or inner walls. \n"
+    "If the speed specified here is higher than the speed of the outer or inner walls, the printer will default to the slower of the two speeds. \n"
+    "When specified as a percentage (e.g., 80%), the speed is calculated based on the respective outer or inner wall speed. The default value is set to 100%."
+
+msgid "engin_optionTip_seam_slope_start_height"
+msgstr "Start height of the scarf.\n This amount can be specified in millimeters or as a percentage of the current layer height. The default value for this parameter is 0."
+
+msgid "engin_optionTip_seam_slope_entire_loop"
+msgstr "The scarf extends to the entire length of the wall."
+
+msgid "engin_optionTip_seam_slope_min_length"
+msgstr "Length of the scarf. Setting this parameter to zero effectively disables the scarf."
+
+msgid "engin_optionTip_seam_slope_steps"
+msgstr "Minimum number of segments of each scarf."
+
+msgid "engin_optionTip_scarf_joint_flow_ratio"
+msgstr "This factor affects the amount of material for scarf joints."
+
+msgid "engin_optionTip_seam_slope_inner_walls"
+msgstr "Use scarf joint for inner walls as well."
+
+msgid "common_star_conment_cancel_btn"
+msgstr "Cancel"
+
+msgid "common_star_conment_content"
+msgstr "We'd love to hear your feedback! Rate your experience with AnkerMake Studio %s."
+
+msgid "common_star_conment_finish_tips"
+msgstr "You’ve submitted a rating for AnkerMake Studio %s."
+
+msgid "common_star_conment_ok_btn"
+msgstr "OK"
+
+msgid "common_star_conment_placed_text"
+msgstr "Tell us more about your experience. We will contact you directly if you have any complaints about the slicer. (Optional)"
+
+msgid "common_star_conment_refused_btn"
+msgstr "Don't Show Again"
+
+msgid "common_star_conment_submit_btn"
+msgstr "Submit"
+
+msgid "common_star_conment_thanks_tips"
+msgstr "Thanks for Your Feedback"
+
+msgid "common_star_conment_title"
+msgstr "Rate Your Experience"
+
+msgid "common_tab_documentation_entrance"
+msgstr "Documentation"
+
+msgid "common_tab_feed_back_entrance"
+msgstr "Give Feedback"
+
+msgid "common_tab_feed_back_hlep_tips"
+msgstr "Feedback and Help"
+
+msgid "common_tab_release_note_entrance"
+msgstr "Release Notes"

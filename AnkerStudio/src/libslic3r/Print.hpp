@@ -26,6 +26,7 @@
 #include <optional>
 #include <set>
 #include <tcbspan/span.hpp>
+#include "calib.hpp"
 
 namespace Slic3r {
 
@@ -707,7 +708,12 @@ public:
     // plate's origin related functions
     void set_plate_origin(Vec3d origin) { m_origin = origin; }
     const Vec3d get_plate_origin() const { return m_origin; }
-
+    //SoftFever
+    CalibMode& calib_mode() { return m_calib_params.mode; }
+    const CalibMode calib_mode() const { return m_calib_params.mode; }
+    void set_calib_params(const Calib_Params& params);
+    const Calib_Params& calib_params() const { return m_calib_params; }
+    void set_plates_custom_gcodes(const CustomGCode::Info & custom_gcodes);
 
     static bool sequential_print_horizontal_clearance_valid(const Print& print, Polygons* polygons = nullptr);
     void setCreatAiFile(bool val) { isCreatAiFile = val; }
@@ -768,6 +774,8 @@ private:
     // ConflictResultOpt m_conflict_result;
     // FakeWipeTower     m_fake_wipe_tower;
 
+        //SoftFever: calibration
+    Calib_Params m_calib_params;
 
     // friva change for acode export
     bool isCreatAiFile = false;

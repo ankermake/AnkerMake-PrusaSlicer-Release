@@ -702,7 +702,7 @@ AnkerOption AnkerConfigOptionsGroup::get_option(const std::string& opt_key, int 
 	//if (m_use_custom_ctrl) // fill group and category values just for options from Settings Tab
 	//    wxGetApp().sidebar().get_searcher().add_key(opt_id, static_cast<Preset::Type>(this->config_type()), title, this->config_category());    // old sidebar
 
-    if (m_use_custom_ctrl) // fill group and category values just for options from Settings Tab
+    if (m_use_custom_ctrl && this->config_type() != Preset::TYPE_PRINT) // fill group and category values just for options from Settings Tab
         wxGetApp().sidebarnew().get_searcher().add_key(opt_id, static_cast<Preset::Type>(this->config_type()), title, this->config_category());    // new sidebar
 
 	return AnkerOption(*m_config->def()->get(opt_key), opt_id);

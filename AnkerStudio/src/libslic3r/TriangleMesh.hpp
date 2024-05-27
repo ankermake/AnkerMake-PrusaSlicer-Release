@@ -151,11 +151,15 @@ public:
     void   restore_optional() {}
 
     const TriangleMeshStats& stats() const { return m_stats; }
+
+    void set_init_shift(const Vec3d& offset) { m_init_shift = offset; }
+    Vec3d get_init_shift() const { return m_init_shift; }
     
     indexed_triangle_set its;
 
 private:
     TriangleMeshStats m_stats;
+    Vec3d m_init_shift{ 0.0, 0.0, 0.0 };
 };
 
 // Index of face indices incident with a vertex index.
@@ -321,6 +325,7 @@ indexed_triangle_set    its_make_frustum(double r, double h, double fa=(2*PI/360
 indexed_triangle_set    its_make_frustum_dowel(double r, double h, int sectorCount);
 indexed_triangle_set    its_make_pyramid(float base, float height);
 indexed_triangle_set    its_make_sphere(double radius, double fa);
+indexed_triangle_set    its_make_snap(double r, double h, float space_proportion = 0.25f, float bulge_proportion = 0.125f);
 
 indexed_triangle_set        its_convex_hull(const std::vector<Vec3f> &pts);
 inline indexed_triangle_set its_convex_hull(const indexed_triangle_set &its) { return its_convex_hull(its.vertices); }

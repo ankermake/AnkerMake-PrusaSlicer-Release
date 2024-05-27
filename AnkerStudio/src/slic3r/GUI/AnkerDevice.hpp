@@ -218,7 +218,6 @@ public:
 
 	std::string getCurrentDeviceId() const;
 	void showMsgFrame(const NetworkMsg& msg);
-	void showMsgFrame(const std::string& content);
 
 	void activate(bool active);
 
@@ -303,7 +302,6 @@ protected:
 
 	void showMsgLV0Dialog(const NetworkMsg& msg);
 	void showMsgLV1Dialog(const NetworkMsg& msg);
-	void showMsgLV3Dialog(const NetworkMsg& msg);
 	void OnShow(wxShowEvent& event);
 
 private:

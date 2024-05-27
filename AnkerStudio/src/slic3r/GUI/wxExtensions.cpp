@@ -483,6 +483,45 @@ wxBitmapBundle* get_solid_bmp_bundle(int width, int height, const std::string& c
 #endif // __WXGTK2__
 }
 
+// win is used to get a correct em_unit value
+// It's important for bitmaps of dialogs.
+// if win == nullptr, em_unit value of MainFrame will be used
+wxBitmap create_scaled_bitmap(const std::string& bmp_name_in,
+    wxWindow* win/* = nullptr*/,
+    const int px_cnt/* = 16*/,
+    const bool grayscale/* = false*/,
+    const std::string& new_color/* = std::string()*/, // color witch will used instead of orange
+    const bool menu_bitmap/* = false*/,
+    const bool resize/* = false*/)
+{
+    static Slic3r::GUI::BitmapCache cache;
+
+    unsigned int width = 0;
+    unsigned int height = (unsigned int)(win->FromDIP(px_cnt) + 0.5f);
+
+    std::string bmp_name = bmp_name_in;
+    boost::replace_last(bmp_name, ".png", "");
+
+    bool dark_mode =
+#ifdef _WIN32
+        menu_bitmap ? Slic3r::GUI::check_dark_mode() :
+#endif
+        Slic3r::GUI::wxGetApp().dark_mode();
+
+    // Try loading an SVG first, then PNG if SVG is not found:
+    wxBitmap* bmp = cache.load_svg_(bmp_name, width, height, grayscale, dark_mode, new_color, resize ? em_unit(win) * 0.1f : 0.f);
+    if (bmp == nullptr) {
+        bmp = cache.load_png(bmp_name, width, height, grayscale, resize ? win->FromDIP(10) * 0.1f : 0.f);
+    }
+
+    if (bmp == nullptr) {
+        // Neither SVG nor PNG has been found, raise error
+        throw Slic3r::RuntimeError("Could not load bitmap: " + bmp_name);
+    }
+
+    return *bmp;
+}
+
 std::vector<wxBitmapBundle*> get_extruder_color_icons(bool thin_icon/* = false*/)
 {
     // Create the bitmap with color bars.
@@ -826,6 +865,12 @@ void ScalableBitmap::sys_color_changed()
     m_bmp = *get_bmp_bundle(m_icon_name, m_px_cnt);
 }
 
+void ScalableBitmap::msw_rescale()
+{
+    // support resize by fill border
+    m_bmp = create_scaled_bitmap(m_icon_name, m_parent, m_px_cnt, m_grayscale, std::string(), false, m_resize);
+}
+
 // ----------------------------------------------------------------------------
 // AnkerButton
 // ----------------------------------------------------------------------------
@@ -939,6 +984,31 @@ void ScalableButton::sys_color_changed()
         SetBitmapDisabled(*get_bmp_bundle(m_disabled_icon_name, m_px_cnt));
     if (!GetLabelText().IsEmpty())
         SetBitmapMargins(int(0.5 * em_unit(m_parent)), 0);
+}
+
+void ScalableButton::msw_rescale()
+{
+    Slic3r::GUI::wxGetApp().UpdateDarkUI(this, m_has_border);
+
+    if (!m_current_icon_name.empty()) {
+        wxBitmap bmp = create_scaled_bitmap(m_current_icon_name, m_parent, m_px_cnt);
+        SetBitmap(bmp);
+        // why disappear on hover? why current HBITMAP differ from other 
+        //SetBitmapCurrent(bmp);
+        //SetBitmapPressed(bmp);
+        //SetBitmapFocus(bmp);
+        if (!m_disabled_icon_name.empty())
+            SetBitmapDisabled(create_scaled_bitmap(m_disabled_icon_name, m_parent, m_px_cnt));
+        else if (m_use_default_disabled_bitmap)
+            SetBitmapDisabled(create_scaled_bitmap(m_current_icon_name, m_parent, m_px_cnt, true));
+    }
+
+    if (m_width > 0 || m_height > 0)
+    {
+        const int em = em_unit(m_parent);
+        wxSize size(m_width * em, m_height * em);
+        SetMinSize(size);
+    }
 }
 
 // ----------------------------------------------------------------------------

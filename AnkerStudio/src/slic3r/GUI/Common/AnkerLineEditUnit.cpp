@@ -540,19 +540,28 @@ void AnkerSpinEdit::initUi(wxColour bgColor, wxColour borderColor, int radio)
 
 	m_upBtn->SetBitmap(scaledUpBitmap);
 	m_downBtn->SetBitmap(scaledDownBitmap);
-#else
-	m_upBtn = new ScalableButton(this, wxID_ANY, "spinbox_up", "", wxSize(8, 8));
-	m_downBtn = new ScalableButton(this, wxID_ANY, "spinbox_down", "", wxSize(8, 8));
-#endif
-	
-	
-	m_upBtn->SetMaxSize(wxSize(8,8));
-	m_upBtn->SetMinSize(wxSize(8,8));
-	m_upBtn->SetSize(wxSize(8,8));
+
+	m_upBtn->SetMaxSize(wxSize(8, 8));
+	m_upBtn->SetMinSize(wxSize(8, 8));
+	m_upBtn->SetSize(wxSize(8, 8));
 
 	m_downBtn->SetMaxSize(wxSize(8, 8));
 	m_downBtn->SetMinSize(wxSize(8, 8));
 	m_downBtn->SetSize(wxSize(8, 8));
+
+#else
+	m_upBtn = new ScalableButton(this, wxID_ANY, "spinbox_up", "", wxSize(7, 7));
+	m_downBtn = new ScalableButton(this, wxID_ANY, "spinbox_down", "", wxSize(7, 7));
+
+	m_upBtn->SetMaxSize(wxSize(7, 7));
+	m_upBtn->SetMinSize(wxSize(7, 7));
+	m_upBtn->SetSize(wxSize(7, 7));
+
+	m_downBtn->SetMaxSize(wxSize(7, 7));
+	m_downBtn->SetMinSize(wxSize(7, 7));
+	m_downBtn->SetSize(wxSize(7, 7));
+
+#endif
 
 	m_upBtn->Bind(wxEVT_BUTTON, &AnkerSpinEdit::onUpBtnClicked, this);
 	m_downBtn->Bind(wxEVT_BUTTON, &AnkerSpinEdit::onDownBtnClicked, this);

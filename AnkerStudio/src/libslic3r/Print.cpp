@@ -186,6 +186,7 @@ bool Print::invalidate_state_by_config_options(
             // These steps have no influence on the G-code whatsoever. Just ignore them.
         } else if (
                opt_key == "skirts"
+            || opt_key == "skirt_speed"
             || opt_key == "skirt_height"
             || opt_key == "draft_shield"
             || opt_key == "skirt_distance"
@@ -284,6 +285,15 @@ bool Print::invalidate_state_by_config_options(
         for (PrintObject *object : m_objects)
             invalidated |= object->invalidate_step(ostep);
     return invalidated;
+}
+
+void Print::set_calib_params(const Calib_Params& params) {
+    m_calib_params = params;
+    m_calib_params.mode = params.mode;
+}
+
+void Print::set_plates_custom_gcodes(const CustomGCode::Info& custom_gcodes) {
+    m_model.plates_custom_gcodes[m_model.curr_plate_index] = custom_gcodes;
 }
 
 bool Print::invalidate_step(PrintStep step)
@@ -567,7 +577,8 @@ std::string Print::validate(std::string* warning) const
     // Custom layering is not allowed for tree supports as of now.
     for (size_t print_object_idx = 0; print_object_idx < m_objects.size(); ++ print_object_idx)
         if (const PrintObject &print_object = *m_objects[print_object_idx];
-            print_object.has_support_material() && print_object.config().support_material_style.value == smsOrganic &&
+            print_object.has_support_material() && 
+            (print_object.config().support_material_style.value == smsOrganic || print_object.config().support_material_style.value == smsTree) &&
             print_object.model_object()->has_custom_layering()) {
             if (const std::vector<coordf_t> &layers = layer_height_profile(print_object_idx); ! layers.empty())
                 if (! check_object_layers_fixed(print_object.slicing_parameters(), layers))

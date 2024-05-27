@@ -1,14 +1,129 @@
 #include "GcodeInfo.hpp"
+#include <cstdio>
+#include <codecvt>
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
-
-
+#include <slic3r/Utils/JsonHelp.hpp>
+#include <slic3r/GUI/Plater.hpp>
 
 
 namespace Slic3r {
 
 using namespace std;
+
+int GcodeInfo::ReverseReadFile(const std::string& file_name, LineProcess_T lineFunc, int offset, int max_line)
+{
+	FILE* file;
+	char buf[1024] = { 0 };
+	int  index;
+	int  c;
+	int  line_num = 0;
+
+	bool abort = false;
+
+#ifdef _WIN32
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	auto name = converter.from_bytes(file_name);
+	_wfopen_s(&file, name.c_str(), L"r");
+#else
+	file = fopen(file_name.c_str(), "r");
+	if (file == NULL) {
+		ANKER_LOG_ERROR << "open file " << file_name << " failed";
+		return 0;
+	}
+#endif
+
+	if (offset == 0) {
+		fseek(file, 0, SEEK_END);
+	}
+	else {
+		fseek(file, offset, SEEK_SET);
+	}
+
+	index = sizeof(buf) - 1;
+	buf[index] = '\0';
+	while (line_num < max_line && !abort) {
+		if (fseek(file, -1, SEEK_CUR) != 0)
+			break;
+		c = fgetc(file);
+		if (c == EOF)
+			break;
+		fseek(file, -1, SEEK_CUR);
+		if (c == '\n' || index == 0) {
+			if (lineFunc) {
+				lineFunc(std::string(&buf[index]), line_num, abort);
+			}
+			index = sizeof(buf) - 1;
+			buf[index] = '\0';
+
+			line_num++;
+		}
+		else {
+			buf[--index] = c;
+		}
+
+	}
+	fclose(file);
+	return line_num;
+}
+
+void GcodeInfo::ReverseReadFileExt(std::ifstream& file, LineProcess_T lineFunc, int readCount)
+{
+	if (!file.is_open()) {
+		return;
+	}
+
+	std::string line;
+	char ch;
+	file.seekg(0, std::ios::end);
+	long long pos = file.tellg(); 
+	bool stop = false;
+	int index = 0;
+
+	while (!stop && pos > 0) {
+		file.seekg(--pos);
+		file.get(ch); 
+
+		if (ch == '\n') {
+			index++;
+			ANKER_LOG_INFO << "index: " << index << ", count: " << readCount;
+			if (index >= readCount) {
+				break;
+			}
+
+			std::getline(file, line);
+
+			if (lineFunc)
+				lineFunc(line, index, stop);
+
+			file.seekg(pos);
+		}
+	}
+
+	if (!stop && index < readCount) {
+		file.seekg(0);
+		std::getline(file, line);
+		if (lineFunc)
+			lineFunc(line, 0, stop);
+	}
+}
+
+// xxx = yyyy => yyyy
+std::string GcodeInfo::GetStringAfterEqual(const std::string& input)
+{
+	size_t equalPos = input.find('=');
+	if (equalPos != std::string::npos) {
+		// Skip spaces after '=' and the last
+		size_t startPos = input.find_first_not_of(" \t", equalPos + 1);
+		size_t endPos = input.find_last_not_of(" \t");
+		if (startPos != std::string::npos) {
+			return input.substr(startPos + 1, endPos - startPos - 1);
+		}
+	}
+	return "";
+}
+
 bool GcodeInfo::GetIsAnkerFromGCode(const string& line)
 {
 	// new
@@ -72,7 +187,7 @@ void GcodeInfo::GetMachineInfoFromGCode(const string& utf8GcodeFilePath,
 	isAnkerBrand = false;
 	machineType = DEVICE_UNKNOWN_TYPE;
 
-	auto filePath = wxString::FromUTF8(utf8GcodeFilePath).ToStdString();	
+	auto filePath = wxString::FromUTF8(utf8GcodeFilePath).ToStdString();
 	ifstream file(filePath);
 	if (!file.is_open()) {
 		ANKER_LOG_ERROR << "open file failed: " << filePath << ", " << utf8GcodeFilePath;
@@ -163,8 +278,8 @@ void GcodeInfo::ParseGcodeInfoToViewModel(const std::string& strGcodeFilePath, G
 
 	// get the print info from gcode
 	// set the info to dialog
-	std::string strFilamentCost = out.filament_cost.empty() ? "--" : out.filament_cost;
-	pViewModel->m_filamentCost = strFilamentCost;
+	std::string strFilamentWeight = out.filament_used_weight_g.empty() ? "--" : out.filament_used_weight_g;
+	pViewModel->m_filamentCost = strFilamentWeight;
 
 	int hours = out.print_time / 60 / 60;
 	int minutes = ((int)out.print_time / 60) % 60;
@@ -198,6 +313,107 @@ void GcodeInfo::ParseGcodeInfoToViewModel(const std::string& strGcodeFilePath, G
 	pViewModel->m_previewImage = image;
 }
 
+std::vector<std::string> GcodeInfo::GetFilamentFromGCode(const wxString& utf8GcodeFilePath)
+{
+	std::vector<std::string> ret;
+	wxString gcodeFilePath = utf8GcodeFilePath;
+
+	if (utf8GcodeFilePath.EndsWith(".acode")) {
+		wxString aiGcodePath = Slic3r::GUI::Plater::extract_aiGcode_file_from_tar(utf8GcodeFilePath);
+		if (!aiGcodePath.empty()) {
+			gcodeFilePath = aiGcodePath;
+		}
+	}
+
+	const std::string findStr = "filament_type =";
+	string destLine;
+	string line;
+	int count = 0;
+	bool find = false;
+	
+	{	
+		// find first 100 lines
+		auto filePath = gcodeFilePath.ToStdString();
+		ifstream file(filePath);
+		if (!file.is_open()) {
+			ANKER_LOG_ERROR << "open file failed: " << filePath << ", " << utf8GcodeFilePath;
+			return ret;
+		}
+		while (getline(file, line) && ++count < 100) {
+			if (line.find(findStr) != string::npos) {
+				destLine = line;
+				find = true;
+				break;
+			}
+		}
+		file.close();
+	}
+
+	if (!find) {
+		// find last 1000 lines
+		auto LineProcess = [&destLine, &findStr](const std::string& linein, int index, bool& stop) {
+			ANKER_LOG_INFO << index << " : " << linein;
+			if (linein.find(findStr) != string::npos) {
+				destLine = linein;
+				stop = true;
+			}
+		};
+
+		ReverseReadFile(gcodeFilePath.ToStdString(wxConvUTF8), LineProcess);
+	}
+
+	if (!destLine.empty()) {
+		auto temp = GetStringAfterEqual(destLine);
+		ret = ExtractFilamentStrings(temp);
+
+		ANKER_LOG_INFO << "find filament line: " << destLine << ", " << temp << ", size: " << ret.size();
+	}
+	else {
+		ANKER_LOG_WARNING << "get filament line is empty";
+	}
+
+	return ret;
+}
+
+// "AnkerMake PLA+ Basic";"AnkerMake PLA+ Basic"; => vector<string>
+std::vector<std::string> GcodeInfo::ExtractFilamentStrings(const std::string& input)
+{
+	std::vector<std::string> result;
+	std::istringstream iss(input);
+	std::string token;
+	while (std::getline(iss, token, ';')) {
+		size_t start = token.find_first_of('"');
+		size_t end = token.find_last_of('"');
+		if (start != std::string::npos && end != std::string::npos && end > start) {
+			result.push_back(token.substr(start + 1, end - start - 1));
+		}
+	}
+	result.push_back(input);
+	return result;
+}
+
+std::string GcodeInfo::GetFilamentName(const std::string& filamentStr)
+{
+	std::string filamentName;
+	static std::vector<std::string> types = {
+		"PLA", //(PLA + )¡¢
+		"TPU",
+		"ABS",
+		"PETG",
+		"PA"
+	};
+
+	for (auto& e : types) {
+		if (filamentStr.find(e) != std::string::npos) {
+			filamentName = e;
+			break;
+		}
+	}
+
+	ANKER_LOG_INFO << "filamentName: " << filamentName << ", filamentStr: " << filamentStr;
+	return filamentName;
+}
+
 bool GcodeInfo::GetTemperatureFromGCode(const std::string& gcodeFilePath, int& temperature)
 {
 	bool find = false;
@@ -223,6 +439,7 @@ bool GcodeInfo::GetTemperatureFromGCode(const std::string& gcodeFilePath, int& t
 		parse = numStr.ToInt(&temperature);
 		break;
 	}
+	file.close();
 
 	ANKER_LOG_INFO << "find temperature: " << find <<", parse : " << "parse" << ", temperature: " << temperature;
 	return find && parse;

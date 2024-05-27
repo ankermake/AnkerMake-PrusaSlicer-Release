@@ -77,6 +77,13 @@ bool AnkerBtn::Create(wxWindow* parent, wxWindowID id,
 	return true;
 }
 
+void AnkerBtn::clearImg()
+{
+	m_norImg = nullptr;
+	m_pressedImg = nullptr;
+	m_enterImg = nullptr;
+	m_disableImg = nullptr;
+}
 void AnkerBtn::SetRadius(const double& radius)
 {
 	m_radius = radius;

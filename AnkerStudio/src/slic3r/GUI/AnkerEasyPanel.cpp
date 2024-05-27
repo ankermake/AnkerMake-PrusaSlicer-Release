@@ -129,13 +129,13 @@ void AnkerEasyItem::OnPaint(wxPaintEvent& event)
 
 	dc.SetFont(ANKER_BOLD_FONT_NO_1);
 	wxSize textSize = dc.GetTextExtent(m_title);
-#ifdef __APPLE__
-	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
-	if (wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type || wxLanguage::wxLANGUAGE_JAPANESE == type) {
-		// text real size is small than the value calculate by dc.GetTextExtent()
-		textSize.SetHeight(textSize.GetHeight() - 6);
-	}
-#endif // !__APPLE__
+//#ifdef __APPLE__
+//	int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+//	if (wxLanguage::wxLANGUAGE_JAPANESE_JAPAN == type || wxLanguage::wxLANGUAGE_JAPANESE == type) {
+//		// text real size is small than the value calculate by dc.GetTextExtent()
+//		textSize.SetHeight(textSize.GetHeight() - 6);
+//	}
+//#endif // !__APPLE__
 
 	logoPoint.x = 10;
 	logoPoint.y = (GetRect().GetHeight() - m_selectLogo.GetHeight()) / 2;
@@ -266,9 +266,9 @@ void AnkerEasyPanel::initUi()
 	pHSizer->Add(m_pTipsLabel, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
 
 	pMainVSizer->AddSpacer(10);
-	pMainVSizer->Add(m_pItemHBoderSizer, wxHORIZONTAL | wxEXPAND, wxALL | wxEXPAND, 0);
+	pMainVSizer->Add(m_pItemHBoderSizer, 0, wxALL | wxEXPAND, 0);
 	pMainVSizer->AddSpacer(8);
-	pMainVSizer->Add(pHSizer, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
+	pMainVSizer->Add(pHSizer, 0, wxALL | wxEXPAND, 0);
 	pMainVSizer->AddStretchSpacer(1);
 
 	SetSizer(pMainVSizer);
@@ -437,7 +437,6 @@ void AnkerEasyPanel::createrItem(wxString title,
 		evt.SetClientObject(new wxStringClientData(title));
 		evt.SetEventObject(this);
 		ProcessEvent(evt);
-
 		});
 
 	m_pItemVSizer->Add(pWidget, 0, wxALL | wxEXPAND, 0);

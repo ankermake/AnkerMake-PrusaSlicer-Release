@@ -81,7 +81,12 @@
 #include "../../AnkerComFunction.hpp"
 #include "Common/AnkerFont.hpp"
 #include "slic3r/GUI/Network/MsgText.hpp"
-
+#include "slic3r/GUI/Calibration/FlowCalibration.hpp"
+#include "slic3r/GUI/Calibration/CalibrationMaxFlowrateDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationPresAdvDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationTempDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationRetractionDialog.hpp"
+#include "slic3r/GUI/Calibration/CalibrationVfaDialog.hpp"
 #include "../AnkerComFunction.hpp"
 extern AnkerPlugin* pAnkerPlugin;
 
@@ -91,7 +96,7 @@ wxDEFINE_EVENT(wxCUSTOMEVT_ON_TAB_CHANGE, wxCommandEvent);
 
 extern "C" void ToggleFullScreen(wxWindow * window);
 using namespace AnkerNet;
-
+StarConmentData       g_sliceConmentData;
 namespace Slic3r {
 namespace GUI {
 
@@ -162,6 +167,7 @@ static wxIcon main_frame_icon(GUI_App::EAppMode app_mode)
 
 void MainFrame::ShowLoginedMenu()
 {
+    ANKER_LOG_INFO << "enter ShowLoginedMenu";
     auto ankerNet = AnkerNetInst();
     if (!ankerNet) {
         return;
@@ -222,6 +228,7 @@ void MainFrame::ShowLoginedMenu()
 		});
 
     SetWebviewTestItem();
+    ANKER_LOG_INFO << "Leave ShowLoginedMenu";
 }
 
 void MainFrame::LogOut()
@@ -237,6 +244,84 @@ void MainFrame::LogOut()
     onLogOut();
     ShowUnLoginDevice();
 }
+
+void MainFrame::loginFinishHandle()
+{
+    ANKER_LOG_INFO << "loginFinishHandle enter";
+    auto ankerNet = AnkerNetInst();
+    if (!ankerNet) {
+        return;
+    }
+
+    ANKER_LOG_INFO << "login back start";
+    std::string url = ankerNet->GetAvatar();
+    wxString filePath = wxString();
+
+    setUserInfoForSentry();
+
+    wxStandardPaths standarPaths = wxStandardPaths::Get();
+    filePath = standarPaths.GetUserDataDir();
+    filePath = filePath + "/cache/" + wxString::FromUTF8(ankerNet->GetUserId()) + ".png";
+
+#ifndef __APPLE__
+    filePath.Replace("\\", "/");
+#endif        
+    // AnkerMake Studio Profile/cache
+    m_avatarPath = filePath;
+
+    //if avatart not exists
+    if (!wxFileExists(m_avatarPath) && url.size() > 0) {
+        ankerNet->AsyDownLoad(
+            url,
+            filePath.ToStdString(wxConvUTF8),
+            this,
+            onDownLoadFinishedCallBack,
+            onDownLoadProgress, true);
+    }
+
+    {
+        wxLogNull logNo;
+        wxFile file(m_avatarPath);
+        wxFileOffset size = 0;
+        if (file.IsOpened()) {
+            size = file.Length();
+        }
+
+        if (size <= 0 && url.size() > 0)
+        {
+            ankerNet->AsyDownLoad(
+                url,
+                filePath.ToStdString(wxConvUTF8),
+                this,
+                onDownLoadFinishedCallBack,
+                onDownLoadProgress, true);
+        }
+
+        if (url.size() <= 0)
+        {
+            m_avatarPath = "nullptr";
+        }
+
+        ShowLoginedMenu();
+        ANKER_LOG_INFO << "login back finish0";
+    }
+    
+    updateBuryInfo();
+
+    //wxGetApp().filamentMaterialManager()->AsyncUpdate();
+    ANKER_LOG_INFO << "login back finish";
+
+    //loginWebview->Close();
+    
+#ifdef _WIN32  // for windows
+    ankerNet->ProcessWebLoginFinish();
+#endif
+    if (m_pDeviceWidget)
+        m_pDeviceWidget->loadDeviceList();
+
+    ANKER_LOG_INFO << "loginFinishHandle leave";
+}
+
 
 void MainFrame::ShowUnLoginDevice()
 {
@@ -268,8 +353,7 @@ void MainFrame::ShowUnLoginMenu()
 		_L("common_toptable_login"),
 		_L("Sign In AnkerMake"),
 		[=](wxCommandEvent&) {                     
-            ANKER_LOG_INFO<<"CALL ShowAnkerWebView() 02";
-            ShowAnkerWebView();
+            ShowAnkerWebView("login menu button clicked");
 		});
 
     SetWebviewTestItem();
@@ -295,9 +379,13 @@ void MainFrame::ClearLoingiMenu()
 
 void MainFrame::onLogOut()
 {
+    clearStarConmentData();
     RemovePrivacyChoices();
     if (m_loginWebview)
         m_loginWebview->onLogOut();
+
+    if (m_plater)
+        m_plater->setStarConmentFlagsTimes(-1);
 }
 
 
@@ -429,8 +517,9 @@ void MainFrame::InitDeviceWidget()
     }
 }
 
-void MainFrame::ShowAnkerWebView()
+void MainFrame::ShowAnkerWebView(const std::string& from)
 {    
+    ANKER_LOG_INFO << from;
     // download ankernet plugin
     if (!DatamangerUi::GetInstance().LoadNetLibrary()) {
         ANKER_LOG_ERROR << "load ankernet plugin failed";
@@ -438,12 +527,16 @@ void MainFrame::ShowAnkerWebView()
     }
     InitDeviceWidget();
 
+    ANKER_LOG_INFO << from << ", start call ShowAnkerWebView";
     {
-        std::unique_lock lock(m_ReadWriteMutex);
+        ANKER_LOG_INFO << "webview start to lock 01 ...";
+        //std::unique_lock lock(m_ReadWriteMutex);
         if(m_bIsOpenWebview)
         {
+            ANKER_LOG_INFO << "end  call ShowAnkerWebView for opened";
             return;
         }
+        ANKER_LOG_INFO << "set webview is open to true";
         m_bIsOpenWebview = true;
     }
 
@@ -453,17 +546,29 @@ void MainFrame::ShowAnkerWebView()
     auto loginwebview = CreateWebView(false);
 
     ANKER_LOG_INFO<<"before call loginWebview->ShowModal()";
+#ifdef _WIN32
+    loginwebview->Show();
+#else
     loginwebview->ShowModal();
+#endif    
     loginwebview->SetShowErrorEnable(false);
     ANKER_LOG_INFO<<"end call loginWebview->ShowModal()";
 
-    if (m_loginWebview)
+    if (m_loginWebview) {
+        ANKER_LOG_INFO << "before delete webview";
         delete m_loginWebview;
-    m_loginWebview = loginwebview;
+        m_loginWebview = nullptr;
+        ANKER_LOG_INFO << "end delete webview";
+    }
+    m_loginWebview = std::move(loginwebview);
     {
-        std::unique_lock lock(m_ReadWriteMutex);
+        ANKER_LOG_INFO << "webview start to lock 02 ...";
+        //std::unique_lock lock(m_ReadWriteMutex);
+        ANKER_LOG_INFO << "set webview is open to false";
         m_bIsOpenWebview = false;
     }
+
+    ANKER_LOG_INFO << from << ", end call ShowAnkerWebView";
 }
 
 MainFrame::MainFrame(const int font_point_size) :
@@ -576,12 +681,72 @@ void MainFrame::initTabPanel() {
         wxSize panelSize = GetSize();
         panelSize.SetHeight(36);
         m_pFunctionPanel = new AnkerFunctionPanel(this, wxID_ANY);
+        m_pFunctionPanel->Bind(wxCUSTOMEVT_FEEDBACK, [this](wxCommandEvent& event) {
+            auto ankerNet = AnkerNetInst();
+            if (!ankerNet || !ankerNet->IsLogined()) {
+                wxGetApp().mainframe->ShowAnkerWebView("feedback button clicked");
+            }
+            else {
+                wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+                wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+                wxSize dialogSize = AnkerSize(400, 404);
+                wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+                wxString title = _L("common_feedback_title");
+                AnkerFeedbackDialog dialog(nullptr, title.ToStdString(), center, dialogSize);
+                if (dialog.ShowModal() == wxID_OK) {
+                    auto feedback = dialog.GetFeedBack();
+                    ankerNet->AsyPostFeedBack(feedback);
+                }
+            }
+            });
+        m_pFunctionPanel->Bind(wxCUSTOMEVT_SHOW_DOC, [this](wxCommandEvent& event) {
+            //std::string realUrl = "";
+            //wxLaunchDefaultBrowser(realUrl.c_str());
+            });
+        m_pFunctionPanel->Bind(wxCUSTOMEVT_RELEASE_NOTE, [this](wxCommandEvent& event) {
+            std::string realUrl = "https://github.com/ankermake/AnkerMake-PrusaSlicer-Release/releases";
+            wxLaunchDefaultBrowser(realUrl.c_str());
+            });
+
         m_pFunctionPanel->SetMinSize(AnkerSize(0, 36));
         m_main_sizer->Add(m_pFunctionPanel, 0, wxEXPAND, 0);
         m_pFunctionPanel->Show();
         m_pFunctionPanel->SetPrintTab(m_printTabPanel);
+        m_pFunctionPanel->m_calib_menu = m_calibration_menu;
     }
-
+    m_sliceConmentDialog = new AnkerSliceConmentDialog(this, _L("Rate Your Experience"));
+    m_sliceConmentDialog->SetMaxSize(AnkerSize(400,420));
+    m_sliceConmentDialog->SetMinSize(AnkerSize(400, 420));
+    m_sliceConmentDialog->SetSize(AnkerSize(400, 420));
+    m_sliceConmentDialog->Hide();
+    m_sliceConmentDialog->Bind(wxCUSTOMEVT_ANKER_CONMENT_NOT_ASK, [this](wxCommandEvent& event) {
+        g_sliceConmentData.action = 3;        
+        auto ankerNet = AnkerNetInst();
+        if (ankerNet && ankerNet->IsLogined()) {
+            ankerNet->reportConmentData(g_sliceConmentData);
+        }
+        });
+    m_sliceConmentDialog->Bind(wxCUSTOMEVT_ANKER_CONMENT_SUBMIT, [this](wxCommandEvent& event) {
+        g_sliceConmentData.action = 1;      
+        wxVariant* pData = (wxVariant*)event.GetClientData();
+        if (pData) {
+            wxVariantList list = pData->GetList();
+            g_sliceConmentData.rating = list[0]->GetInteger();
+            g_sliceConmentData.reviewData = list[1]->GetString().utf8_str();
+        }
+        
+        auto ankerNet = AnkerNetInst();
+        if (ankerNet && ankerNet->IsLogined()) {
+            ankerNet->reportConmentData(g_sliceConmentData);
+        }
+        });
+    m_sliceConmentDialog->Bind(wxCUSTOMEVT_ANKER_CONMENT_CLOSE, [this](wxCommandEvent& event) {
+        g_sliceConmentData.action = 2;        
+        auto ankerNet = AnkerNetInst();
+        if (ankerNet && ankerNet->IsLogined()) {
+            ankerNet->reportConmentData(g_sliceConmentData);
+        }
+        });
     // initialize layout from config
     update_layout();
     sizer->SetSizeHints(this);
@@ -1325,6 +1490,7 @@ void MainFrame::shutdown(bool restart)
     wxGetApp().ankerTabsList.clear();
 
     wxGetApp().plater_ = nullptr;
+    m_plater           = nullptr;
 
     CloseVideoStream(VIDEO_CLOSE_BY_APP_QUIT);
     DatamangerUi::GetInstance().ResetMainObj();
@@ -1443,10 +1609,7 @@ void MainFrame::init_tabpanel()
     {
             CallAfter([this]()
                 {
-                    ANKER_LOG_INFO << "begin call ShowAnkerWebView";
-                    ANKER_LOG_INFO << "CALL ShowAnkerWebView() 04";
-                    ShowAnkerWebView();
-                    ANKER_LOG_INFO << "end  call ShowAnkerWebView";
+                    ShowAnkerWebView("timer execute for show webview");
                 });
     }, m_extrusionTimer->GetId());
 
@@ -1512,6 +1675,18 @@ void MainFrame::init_tabpanel()
     });
 
     m_plater = new Plater(this, this);
+    m_plater->Bind(wxCUSTOMEVT_ANKER_SLICE_FOR_CONMENT, [this] (wxCommandEvent & event){
+
+        if (!m_showConmentWebView)
+            return;
+        m_showConmentWebView = false;
+        wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+        wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+        wxSize dialogSize = m_sliceConmentDialog->GetBestSize();
+        wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+        m_sliceConmentDialog->Move(center);
+        m_sliceConmentDialog->ShowModal();        
+     });
     m_plater->SetBackgroundColour(wxColour("#18191B"));
     m_plater->Hide();
 
@@ -1544,17 +1719,18 @@ void MainFrame::init_tabpanel()
     }
 }
 
-void MainFrame::getwebLoginDataBack()
+void MainFrame::getwebLoginDataBack(const std::string& from)
 {
     if (!AnkerNetInst()) {
         return;
     }
 
-    if (!m_loginWebview)
-        m_loginWebview = CreateWebView(true);
-
+    ANKER_LOG_INFO << from;
+    if (!m_loginWebview) {
+        ANKER_LOG_INFO << "create background webview";
+        m_loginWebview = std::move(CreateWebView(true));
+    }
     m_loginWebview->Hide();
-
 }
 
 AnkerWebView* MainFrame::CreateWebView(bool background)
@@ -1568,8 +1744,25 @@ AnkerWebView* MainFrame::CreateWebView(bool background)
         DealPrivacyChoices(ev);
         });
 
+    //use old logic for mac 
     //login finish
     loginWebview->Bind(wxCUSTOMEVT_WEB_LOGIN_FINISH, [=](wxEvent& ev) {
+#ifdef _WIN32
+        wxObject* eventObject = ev.GetEventObject();
+        AnkerWebView* dialog = dynamic_cast<AnkerWebView*>(eventObject);
+        if (dialog) {
+            ANKER_LOG_INFO << "START CALL WEBVIEW Hide 222";
+            //dialog->SetForceClose(true);
+            dialog->Hide();
+            ANKER_LOG_INFO << "START CALL WEBVIEW Close";
+            dialog->Close();
+            ANKER_LOG_INFO << "END CALL WEBVIEW Close";
+        }
+        else {
+            ANKER_LOG_INFO << "webview dialog is null";
+        }
+#endif
+
         auto ankerNet = AnkerNetInst();
         if (!ankerNet) {
             return;
@@ -1583,13 +1776,13 @@ AnkerWebView* MainFrame::CreateWebView(bool background)
 
         wxStandardPaths standarPaths = wxStandardPaths::Get();
         filePath = standarPaths.GetUserDataDir();
-        filePath = filePath + "/cache/" + wxString::FromUTF8( ankerNet->GetUserId()) + ".png";
+        filePath = filePath + "/cache/" + wxString::FromUTF8(ankerNet->GetUserId()) + ".png";
 
 #ifndef __APPLE__
         filePath.Replace("\\", "/");
 #endif        
         // AnkerMake Studio Profile/cache
-		m_avatarPath = filePath;
+        m_avatarPath = filePath;
 
         //if avatart not exists
         if (!wxFileExists(m_avatarPath) && url.size() > 0) {
@@ -1625,7 +1818,7 @@ AnkerWebView* MainFrame::CreateWebView(bool background)
             }
 
             ShowLoginedMenu();
-            ANKER_LOG_INFO << "login back finish";
+            ANKER_LOG_INFO << "login back finish0";
         }
 
         updateBuryInfo();
@@ -1634,7 +1827,7 @@ AnkerWebView* MainFrame::CreateWebView(bool background)
             m_pDeviceWidget->loadDeviceList();
 
         //wxGetApp().filamentMaterialManager()->AsyncUpdate();
-
+        ANKER_LOG_INFO << "login back finish";
         },
         loginWebview->GetId());
 
@@ -1727,6 +1920,7 @@ void MainFrame::InitAnkerDevice()
     Bind(wxCUSTOMEVT_DEVICE_LIST_UPDATE, [this](wxCommandEvent& event) {
         m_pDeviceWidget->loadDeviceList(true);
         });
+
     Bind(wxCUSTOMEVT_UPDATE_MACHINE, [this](wxCommandEvent& event) {
         wxVariant* pData = (wxVariant*)(event.GetClientData());
         if (pData)
@@ -1750,20 +1944,31 @@ void MainFrame::InitAnkerDevice()
         if (pData)
         {
             wxVariantList list = pData->GetList();
-            auto msgBoxTitle = list[0]->GetString().ToStdString(wxConvUTF8);
-            auto msgBoxContent = list[1]->GetString().ToStdString(wxConvUTF8);
-            auto sn = list[2]->GetString().ToStdString();
-            int haveCancel = list[3]->GetInteger();
-            int level = list[4]->GetInteger();
-            int clear = list[5]->GetInteger();
-
+            int i = 0;
+            int haveCancel = list[i++]->GetInteger();
+            int level = list[i++]->GetInteger();
+            int clear = list[i++]->GetInteger();
+            int type = list[i++]->GetInteger();
+            auto sn = list[i++]->GetString().ToStdString();
+            auto msgBoxTitle = list[i++]->GetString().ToStdString(wxConvUTF8);
+            auto msgBoxContent = list[i++]->GetString().ToStdString(wxConvUTF8);
+            auto btn1Text = list[i++]->GetString().ToStdString(wxConvUTF8);
+            auto btn2Text = list[i++]->GetString().ToStdString(wxConvUTF8);
+            auto imagePath = list[i++]->GetString().ToStdString(wxConvUTF8);
+            auto filamentName = list[i++]->GetString().ToStdString(wxConvUTF8);
+            
             NetworkMsg msg;
             msg.sn = sn;
             msg.title = msgBoxTitle;
             msg.context = msgBoxContent;
             msg.clear = clear == 0 ? false : true;
+            msg.type = (GeneralException2Gui)type;
             msg.haveCancel = haveCancel == 1 ? true : false;
             msg.level = (NetworkMsgLevel)level;
+            msg.btn1Text = btn1Text;
+            msg.btn2Text = btn2Text;
+            msg.imagePath = imagePath;
+            msg.filamentName = filamentName;
 
             m_pDeviceWidget->showMsgLevelDialog(msg);
         }
@@ -1785,9 +1990,8 @@ void MainFrame::InitAnkerDevice()
 
     if (m_pDeviceWidget) {
         m_pDeviceWidget->Bind(wxCUSTOMEVT_LOGIN_CLCIKED, [this](wxCommandEvent& event) {
-            ANKER_LOG_INFO << "CALL ShowAnkerWebView() 03";
-            ShowAnkerWebView();
-            });
+            ShowAnkerWebView("device login button clicked");
+        });
     }
 
     if (m_pDeviceWidget) {
@@ -1822,6 +2026,28 @@ void MainFrame::create_preset_tabs()
         wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF ? "printer" : "sla_printer");
         
     InitAnkerDevice();
+
+    Bind(wxCUSTOMEVT_GET_CONMENT_FLAGS, [this](wxCommandEvent& event) {
+        wxVariant* pData = (wxVariant*)event.GetClientData();
+        if (pData) {
+            wxVariantList list = pData->GetList();
+
+            m_showConmentWebView = list[0]->GetBool();
+            if (m_showConmentWebView)
+            {
+                g_sliceConmentData.reviewNameID = list[1]->GetString().ToStdString();
+                g_sliceConmentData.reviewName = list[2]->GetString().ToStdString(wxConvUTF8);
+                g_sliceConmentData.appVersion = list[3]->GetString().ToStdString();
+                g_sliceConmentData.country = list[4]->GetString().ToStdString();
+                g_sliceConmentData.sliceCount = list[5]->GetString().ToStdString();
+            
+                int sliceTimes = std::stoi(g_sliceConmentData.sliceCount);
+                if(m_plater)
+                    m_plater->setStarConmentFlagsTimes(sliceTimes);
+            }
+            ANKER_LOG_INFO << "get conment flags success";
+        }
+    });
 
     Bind(wxCUSTOMEVT_ACCOUNT_LOGOUT, [this](wxCommandEvent& event) {
         LogOut();
@@ -2352,6 +2578,11 @@ static wxMenu* generate_help_menu()
             }
             
             });
+    append_menu_item(helpMenu, wxID_ANY, _L("common_tab_documentation_entrance"), _L("common_tab_documentation_entrance"),
+        [](wxCommandEvent&) {
+            std::string realUrl = "https://support.ankermake.com/s/article/Ankermake-Studio-Guide-for-printer#content6";
+            wxLaunchDefaultBrowser(realUrl.c_str());
+        });
     append_menu_item(helpMenu, wxID_ANY, _L("common_menu_help_copyright"), _L("Show copyright information"),
         [](wxCommandEvent&) {
             wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
@@ -2361,24 +2592,6 @@ static wxMenu* generate_help_menu()
             wxString title = _AnkerL("common_popup_copyright_title");                            
             AnkerCopyrightDialog dialog(nullptr, wxID_ANY, title, "", center, dialogSize);
             dialog.ShowAnkerModal();
-        });
-    append_menu_item(helpMenu, wxID_ANY, _L("common_feedback_title"), _L("Send message for us"),
-        [](wxCommandEvent&) {
-            auto ankerNet = AnkerNetInst();
-            if (!ankerNet || !ankerNet->IsLogined()) {
-                wxGetApp().mainframe->ShowAnkerWebView();
-            } else {
-                wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
-                wxSize mfSize = wxGetApp().mainframe->GetClientSize();
-                wxSize dialogSize = AnkerSize(400, 404);
-                wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
-                wxString title = _L("common_feedback_title");
-                AnkerFeedbackDialog dialog(nullptr, title.ToStdString(), center, dialogSize);
-                if (dialog.ShowModal() == wxID_OK) {
-                    auto feedback = dialog.GetFeedBack();
-                    ankerNet->AsyPostFeedBack(feedback);
-            }
-        }
         });
 
     return helpMenu;
@@ -2600,15 +2813,14 @@ void MainFrame::init_menubar_as_editor()
     #else
         wxString hotkey_delete = "Del";
     #endif
-
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_selectall") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "A",
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_selectall") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "&A",
             _L("Selects all objects"), [this](wxCommandEvent&) { m_plater->select_all(); },
             "", nullptr, [this](){return can_select(); }, this);
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_deselectall") + sep + "Esc",
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_deselectall") + sep + "&Esc",
             _L("Deselects all objects"), [this](wxCommandEvent&) { m_plater->deselect_all(); },
             "", nullptr, [this](){return can_deselect(); }, this);
        // editMenu->AppendSeparator();
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_delect") + sep + hotkey_delete,
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_delect") + sep + "&" + hotkey_delete,
             _L("Deletes the current selection"),[this](wxCommandEvent&) { m_plater->remove_selected(); },
             ""/*"remove_menu",*/, nullptr, [this]() {return can_delete(); }, this);
         append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_delectall") + sep + GUI::shortkey_ctrl_prefix() + sep_space + hotkey_delete,
@@ -2616,18 +2828,18 @@ void MainFrame::init_menubar_as_editor()
            ""/* "delete_all_menu"*/, nullptr, [this]() {return can_delete_all(); }, this);
 
         editMenu->AppendSeparator();
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_undo") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "Z",
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_undo") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "&Z",
             _L("Undo"), [this](wxCommandEvent&) { m_plater->undo(); },
             ""/*"undo_menu"*/, nullptr, [this]() {return m_plater->can_undo(); }, this);
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_redo") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "Y",
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_redo") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "&Y",
             _L("Redo"), [this](wxCommandEvent&) { m_plater->redo(); },
             ""/*"redo_menu"*/, nullptr, [this]() {return m_plater->can_redo(); }, this);
 
         editMenu->AppendSeparator();
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_copy") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "C",
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_copy")+ sep + GUI::shortkey_ctrl_prefix() + sep_space + "&C",
             _L("Copy selection to clipboard"), [this](wxCommandEvent&) { m_plater->copy_selection_to_clipboard(); },
             ""/*"copy_menu"*/, nullptr, [this]() {return m_plater->can_copy_to_clipboard(); }, this);
-        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_paste") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "V",
+        append_menu_item(editMenu, wxID_ANY, _L("common_menu_edit_paste") + sep + GUI::shortkey_ctrl_prefix() + sep_space + "&V" ,
             _L("Paste clipboard"), [this](wxCommandEvent&) { m_plater->paste_from_clipboard(); },
             ""/*"paste_menu"*/, nullptr, [this]() {return m_plater->can_paste_from_clipboard(); }, this);
         
@@ -2799,6 +3011,68 @@ void MainFrame::init_menubar_as_editor()
             });
     }
 
+    // Calibration menu
+    m_calibration_menu = nullptr;
+    if (m_plater) {
+        // SoftFever calibrations
+        m_calibration_menu = new wxMenu();
+
+        // Temperature
+        append_menu_item(m_calibration_menu, wxID_ANY, _L("common_calib_temperature"), _L("Temperature"),
+            [this](wxCommandEvent&) { wxGetApp().calib_filament_temperature_dialog((wxWindow*)this, m_plater); });
+
+        // Flowrate
+        auto flowrate_menu = new wxMenu();
+        append_menu_item(flowrate_menu, wxID_ANY, _L("common_calib_pass_1"), _L("Flow rate test - Pass 1"),
+            [this](wxCommandEvent&) { if (m_plater) m_plater->calib_flowrate(1); });
+        append_menu_item(flowrate_menu, wxID_ANY, _L("common_calib_pass_2"), _L("Flow rate test - Pass 2"),
+            [this](wxCommandEvent&) { if (m_plater) m_plater->calib_flowrate(2); });
+        append_submenu(m_calibration_menu, flowrate_menu, wxID_ANY, _L("common_calib_flow_rate"), _L("Flow rate"));
+
+        // PA
+        append_menu_item(m_calibration_menu, wxID_ANY, _L("common_calib_pressure_advance"), _L("Pressure advance"),
+            [this](wxCommandEvent&) {
+                wxGetApp().calib_pressure_advance_dialog((wxWindow*)this, m_plater);
+            });
+
+        // Retraction
+        append_menu_item(m_calibration_menu, wxID_ANY, _L("common_calib_retraction_test"), _L("Retraction test"),
+            [this](wxCommandEvent&) {
+                wxGetApp().calib_retraction_dialog((wxWindow*)this, m_plater);
+            });
+
+        // Advance calibrations
+        auto advance_menu = new wxMenu();
+        append_menu_item(
+            advance_menu, wxID_ANY, _L("common_calib_max_flowrate"), _L("Max flowrate"),
+            [this](wxCommandEvent&) {
+                wxGetApp().calib_max_flowrate_dialog((wxWindow*)this, m_plater);
+            });
+        append_menu_item(
+            advance_menu, wxID_ANY, _L("common_calib_VFA"), _L("VFA"),
+            [this](wxCommandEvent&) {
+                wxGetApp().calib_vfa_dialog((wxWindow*)this, m_plater);
+            });
+
+        append_submenu(m_calibration_menu, advance_menu, wxID_ANY, _L("common_calib_more"), _L("More calibrations"));
+        
+        // Tolerance Test
+        //append_menu_item(calib_menu, wxID_ANY, _L("Orca Tolerance Test"), _L("Orca Tolerance Test"),
+        //    [this](wxCommandEvent&) {
+        //        m_plater->new_project();
+        //        m_plater->add_model(false, Slic3r::resources_dir() + "/calib/tolerance_test/OrcaToleranceTest.stl");
+        //    }, "", nullptr,
+        //    [this]() {return m_plater->is_view3D_shown();; }, this);
+
+        //append_menu_item(m_calibration_menu, wxID_ANY, _(L("Ironing pattern calibration")), _(L("Create a test print to help you to set your over-bridge flow ratio and ironing pattern.")),
+        //    [this](wxCommandEvent&) { wxGetApp().over_bridge_dialog(); });
+        //// help
+        //append_menu_item(m_calibration_menu, wxID_ANY, _L("Tutorial"), _L("Calibration help"),
+        //    [this](wxCommandEvent&) { wxLaunchDefaultBrowser("https://github.com/SoftFever/OrcaSlicer/wiki/Calibration", wxBROWSER_NEW_WINDOW); }, "", nullptr,
+        //    [this]() {return m_plater->is_view3D_shown();; }, this);
+
+    }
+
     // Help menu
     auto helpMenu = generate_help_menu();
 
@@ -2812,6 +3086,8 @@ void MainFrame::init_menubar_as_editor()
    // m_menubar->Append(windowMenu, _L("&Window"));
     if (viewMenu) m_menubar->Append(viewMenu, _L("common_menu_title_view"));
     if(settingsMenu) m_menubar->Append(settingsMenu, _L("common_menu_title_settings"));
+    
+    if (settingsMenu) m_menubar->Append(m_calibration_menu, _L("common_calib_calibration"));
     // Add additional menus from C++
     //wxGetApp().add_config_menu(m_menubar);
     m_menubar->Append(helpMenu, _L("common_menu_title_help"));
@@ -3775,7 +4051,22 @@ void MainFrame::add_to_recent_projects(const wxString& filename)
         wxGetApp().app_config->set_recent_projects(recent_projects);
     }
 }
+void MainFrame::clearStarConmentData()
+{
+    m_showConmentWebView = false;
+    
+    g_sliceConmentData.reviewNameID = "";
+    g_sliceConmentData.reviewName = "";
+    g_sliceConmentData.appVersion = "";
+    g_sliceConmentData.country = "";
 
+    g_sliceConmentData.sliceCount = "";
+
+    g_sliceConmentData.action = 2;
+    g_sliceConmentData.rating = 0;
+    g_sliceConmentData.reviewData = "";
+    g_sliceConmentData.clientId = "";
+}
 void MainFrame::technology_changed()
 {
     // update menu titles

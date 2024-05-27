@@ -164,7 +164,7 @@ void AnkerPopupWidget::initUi()
 	m_pScrolledVSizer = new wxBoxSizer(wxVERTICAL);
 
 	m_scrolledWindow->SetSizer(m_pScrolledVSizer);		
-	m_scrolledWindow->SetBackgroundColour(wxColour("#292d2a"));
+	m_scrolledWindow->SetBackgroundColour(wxColour("#3a3b3f"));
 	m_scrolledWindow->SetScrollbars(0, 20, 276, 368, 0, 0);	
 	
 	pMainVSizer->Add(m_scrolledWindow, wxEXPAND | wxALL, wxEXPAND | wxALL, 0);
