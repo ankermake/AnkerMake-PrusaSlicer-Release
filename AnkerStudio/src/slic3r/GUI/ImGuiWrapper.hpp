@@ -314,6 +314,11 @@ public:
 
     static int TOOLBAR_WINDOW_FLAGS;
 
+    static void push_confirm_button_style();
+    static void pop_confirm_button_style();
+    static void push_cancel_button_style();
+    static void pop_cancel_button_style();
+
 private:
     void init_font(bool compress);
     void init_input();
