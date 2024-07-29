@@ -10,15 +10,29 @@ bool DeviceVersionUtil::IsTargetLessCurrent(const std::string& tarVec, const std
 {    
     std::vector<int> tarVecArr = GainArrFromVersion(tarVec);
     std::vector<int> curVecArr = GainArrFromVersion(currentVec);
-    size_t minCount = std::min(tarVecArr.size(), curVecArr.size());
+
+    size_t minCount = (std::min)(tarVecArr.size(), curVecArr.size());
     for (size_t i = 0; i < minCount; ++i) {
         if (curVecArr[i] > tarVecArr[i]) {
+            ANKER_LOG_INFO << "currentVersion is higher than targetVersion";
             ANKER_LOG_INFO << "tarVec: " << tarVec << " < currentVec: " << currentVec;
             return true;
         }
+        else if (curVecArr[i] == tarVecArr[i])
+        {
+            ANKER_LOG_INFO << curVecArr[i] <<"equal" << tarVecArr[i];
+            continue;
+        }
+        else
+        {
+            ANKER_LOG_INFO << "currentVersion is lower than targetVersion";
+            ANKER_LOG_INFO << "tarVec: " << tarVec << " < currentVec: " << currentVec;
+            return false;
+        }
+
     }
     ANKER_LOG_INFO << "tarVec: " << tarVec << " >= currentVec: " << currentVec;
-    return false;
+    return true;
 }
 
 bool DeviceVersionUtil::Equal(const std::string& tarVec, const std::string& currentVec)

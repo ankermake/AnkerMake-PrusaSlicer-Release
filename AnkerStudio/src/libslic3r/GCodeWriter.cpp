@@ -166,7 +166,7 @@ std::string GCodeWriter::set_bed_temperature(unsigned int temperature, bool wait
     return gcode.str();
 }
 
-std::string GCodeWriter::set_pressure_advance(double pa) const
+std::string GCodeWriter::set_pressure_advance(double pa, unsigned int extruder_id) const
 {
     std::ostringstream gcode;
     if (pa < 0)
@@ -177,7 +177,7 @@ std::string GCodeWriter::set_pressure_advance(double pa) const
     else if (FLAVOR_IS(gcfRepRapFirmware))
         gcode << ("M572 D0 S") << std::setprecision(4) << pa << "; Override pressure advance value\n";
     else
-        gcode << "M900 K" << std::setprecision(4) << pa << "; Override pressure advance value\n";
+        gcode << "M900 T" << extruder_id << " K" << std::setprecision(4) << pa << "; Override pressure advance value\n";
 
     return gcode.str();
 }

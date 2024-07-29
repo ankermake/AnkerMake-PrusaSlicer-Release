@@ -3,17 +3,14 @@
 #include <fstream>
 #ifdef _WIN32
 #include <Windows.h>
-#else
-#include <unistd.h>
-#endif
-
-#include "wx/wx.h"
-
-#ifdef _WIN32
 #include <codecvt>
 #include <xlocbuf>
 #include <xstring>
+#else
+#include <unistd.h>
 #endif
+#include "wx/wx.h"
+#include "libslic3r/Utils.hpp"
 
 
 namespace AnkerConfig
@@ -21,26 +18,7 @@ namespace AnkerConfig
 
 std::string get_current_dir()
 {
-
 #ifdef _WIN32
-//	WCHAR buffer[FILENAME_MAX];
-//	GetModuleFileName(NULL, buffer, FILENAME_MAX);
-//
-//	int strLength = WideCharToMultiByte(CP_ACP, 0, buffer, -1, NULL, 0, NULL, NULL);
-//
-//	char* chPath = new char[strLength * sizeof(char)];
-//
-//	WideCharToMultiByte(CP_ACP, 0, buffer, -1, chPath, strLength, NULL, NULL);
-//
-//	std::string processAbsolPath = chPath;
-//
-//	std::string::size_type pos = processAbsolPath.find_last_of("\\/");
-//	processAbsolPath = processAbsolPath.substr(0, pos);
-//
-//	wxString processDir = processAbsolPath;
-//	processDir.Replace("\\", "/");
-//
-//	return processDir.ToStdString();
 	auto paths = wxStandardPaths::Get();
 	auto execPath = paths.GetExecutablePath();
 	auto filename = wxFileName(execPath);
@@ -103,21 +81,17 @@ std::map<std::string, std::string> GetAnkerConfigIni()
 		return ini;
 	}
 
-	std::string current_dir = AnkerConfig::get_current_dir();
-	if (current_dir.empty()) {
-		std::cout << "Failed to get current directory." << std::endl;
+	std::string dir;
+#ifdef _WIN32
+	dir = AnkerConfig::get_current_dir();
+#else	
+	dir = Slic3r::data_dir();
+#endif
+	
+	if (dir.empty()) {
 		return ini;
 	}
-	std::string filename = std::string();
-
-#ifdef _WIN32
-	filename = current_dir + "/AnkerConfig.ini";
-#else
-	filename = "/tmp/AnkerConfig.ini";
-#endif
-	std::cout << filename << std::endl;
-
-	ini = AnkerConfig::read_ini_file(filename);
+	ini = AnkerConfig::read_ini_file(dir + "/AnkerConfig.ini");
 	return ini;
 }
 

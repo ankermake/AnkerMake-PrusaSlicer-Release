@@ -1505,17 +1505,39 @@ wxString Control::get_tooltip(int tick/*=-1*/)
          * Show this information in tooltip
          * */
 
+//        // Show list of actions with new tick
+//        tooltip += ( m_mode == MultiAsSingle                                ?
+//                  _L("Add extruder change - Left click")                    :
+//                     m_mode == SingleExtruder                               ?
+//                  _L("Add color change - Left click for predefined color or "
+//                     "Shift + Left click for custom color selection")       :
+//                  _L("Add color change - Left click")  ) + " " +
+//                  _L("or press \"+\" key") + "\n" + (
+//                     is_osx ?
+//                  _L("Add another code - Ctrl + Left click") :
+//                  _L("Add another code - Right click") );
+        
         // Show list of actions with new tick
-        tooltip += ( m_mode == MultiAsSingle                                ?
-                  _L("Add extruder change - Left click")                    :
-                     m_mode == SingleExtruder                               ?
-                  _L("Add color change - Left click for predefined color or "
-                     "Shift + Left click for custom color selection")       :
-                  _L("Add color change - Left click")  ) + " " +
-                  _L("or press \"+\" key") + "\n" + (
-                     is_osx ? 
-                  _L("Add another code - Ctrl + Left click") :
-                  _L("Add another code - Right click") );
+        if (m_mode == MultiAsSingle) {
+            tooltip += _L("Add extruder change - Left click") + " " +
+                _L("or press \"+\" key") + "\n" + (
+                    is_osx ?
+                    _L("Add another code - Ctrl + Left click") :
+                    _L("Add another code - Right click"));
+        }
+        if (m_mode == SingleExtruder) {
+            //tooltip += _L("Add color change - Left click for predefined color or "
+            //    "Shift + Left click for custom color selection");
+            tooltip += _L("Add pause print - Left click or press \"-\" key") + "\n" +
+                _L("Edit tick mark - Ctrl + Left click");
+            tooltip += "\n" + _L("Add another code - Right click");
+        } else {
+            tooltip += _L("Add color change - Left click") + " " +
+                _L("or press \"+\" key") + "\n" + (
+                    is_osx ?
+                    _L("Add another code - Ctrl + Left click") :
+                    _L("Add another code - Right click"));
+        }
     }
 
     if (tick_code_it != m_ticks.ticks.end())                                    // tick exists

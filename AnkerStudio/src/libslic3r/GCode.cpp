@@ -4116,6 +4116,10 @@ namespace Slic3r {
 			this->placeholder_parser().set("current_extruder", extruder_id);
 
 			std::string gcode;
+			if (this->config().enable_pressure_advance.values[extruder_id])
+			{
+				gcode += m_writer.set_pressure_advance(this->config().pressure_advance.values[extruder_id], extruder_id);
+			}
 			// Append the filament start G-code.
 			const std::string& start_filament_gcode = m_config.start_filament_gcode.get_at(extruder_id);
 			if (!start_filament_gcode.empty()) {
@@ -4134,6 +4138,10 @@ namespace Slic3r {
 
 		// prepend retraction on the current extruder
 		std::string gcode = this->retract(true);
+		if (this->config().enable_pressure_advance.values[extruder_id])
+		{
+			gcode += m_writer.set_pressure_advance(this->config().pressure_advance.values[extruder_id], extruder_id);
+		}
 
 		// Always reset the extrusion path, even if the tool change retract is set to zero.
 		m_wipe.reset_path();

@@ -3338,6 +3338,34 @@ void ImGui::MemFree(void* ptr)
     return (*GImAllocatorFreeFunc)(ptr, GImAllocatorUserData);
 }
 
+//void ImGui::ClearInputTextInitialData(const char* label, double new_value)
+void ImGui::ClearInputTextInitialData(const char* label, double new_value)
+{
+    ImGuiContext& g = *GImGui;
+    ImGuiWindow* window = GetCurrentWindow();
+    const ImGuiID id = window->GetID(label);
+    if (id == g.InputTextState.ID)
+    {
+        char buf[64];
+        DataTypeFormatString(buf, IM_ARRAYSIZE(buf), ImGuiDataType_Double, &new_value, "%.2f");
+
+        const int buf_len = (int)strlen(buf);
+        g.InputTextState.InitialTextA.resize(buf_len + 1);    // UTF-8. we use +1 to make sure that .Data is always pointing to at least an empty string.
+        memcpy(g.InputTextState.InitialTextA.Data, buf, buf_len + 1);
+
+        // Start edition
+        int buf_size = sizeof(new_value);
+        const char* buf_end = NULL;
+        g.InputTextState.TextW.resize(buf_size + 1);          // wchar count <= UTF-8 count. we use +1 to make sure that .Data is always pointing to at least an empty string.
+        g.InputTextState.TextA.resize(0);
+        g.InputTextState.TextAIsValid = false;                // TextA is not valid yet (we will display buf until then)
+        g.InputTextState.CurLenW = ImTextStrFromUtf8(g.InputTextState.TextW.Data, buf_size, buf, NULL, &buf_end);
+        g.InputTextState.CurLenA = (int)(buf_end - buf);      // We can't get the result from ImStrncpy() above because it is not UTF-8 aware. Here we'll cut off malformed UTF-8.
+        //*/
+        //g.InputTextState.ClearText();
+    }
+}
+
 const char* ImGui::GetClipboardText()
 {
     ImGuiContext& g = *GImGui;
@@ -6753,6 +6781,12 @@ ImVec2 ImGui::GetWindowSize()
 {
     ImGuiWindow* window = GetCurrentWindowRead();
     return window->Size;
+}
+
+ImVec2 ImGui::GetWindowSizeByName(const char* name)
+{
+    ImGuiWindow* window = FindWindowByName(name);
+    return window ? window->Size : ImVec2(0.0, 0.0);
 }
 
 void ImGui::SetWindowSize(ImGuiWindow* window, const ImVec2& size, ImGuiCond cond)

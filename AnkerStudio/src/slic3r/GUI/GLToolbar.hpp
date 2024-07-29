@@ -121,7 +121,7 @@ private:
     EHighlightState m_highlight_state;
 public:
     // remember left position for rendering menu
-    mutable float render_left_pos;
+    mutable Vec2d render_left_pos;
 
     GLToolbarItem(EType type, const Data& data);
 
@@ -304,6 +304,8 @@ public:
     void set_gap_size(float size);
     void set_icons_size(float size);
     void set_scale(float scale);
+
+    float get_left() { return m_layout.left; }
 
     bool is_enabled() const { return m_enabled; }
     void set_enabled(bool enable) { m_enabled = enable; }

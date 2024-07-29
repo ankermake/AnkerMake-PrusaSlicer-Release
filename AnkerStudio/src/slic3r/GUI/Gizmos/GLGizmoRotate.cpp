@@ -212,10 +212,13 @@ void GLGizmoRotate::init_data_from_selection(const Selection& selection)
 
 void GLGizmoRotate3D::on_render_input_window(float x, float y, float bottom_limit)
 {
-    if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA)
-        return;
+    //if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() != ptSLA)
+    //    return;
 
-    RotoptimzeWindow popup{m_imgui, m_rotoptimizewin_state, {x, y, bottom_limit}};
+    if (m_object_manipulation)
+        m_object_manipulation->do_render_rotate_window(m_imgui, "Rotate", x, y, bottom_limit);
+
+    //RotoptimzeWindow popup{m_imgui, m_rotoptimizewin_state, {x, y, bottom_limit}};
 }
 
 void GLGizmoRotate3D::set_input_window_state(bool on)
@@ -561,7 +564,7 @@ Vec3d GLGizmoRotate::mouse_position_in_local_plane(const Linef3& mouse_ray) cons
         return local_mouse_ray.intersect_plane(0.0);
 }
 
-GLGizmoRotate3D::GLGizmoRotate3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id)
+GLGizmoRotate3D::GLGizmoRotate3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id, GizmoObjectManipulation* obj_manipulation)
     : GLGizmoBase(parent, icon_filename, sprite_id)
     , m_gizmos({ 
         GLGizmoRotate(parent, GLGizmoRotate::X), 
@@ -569,6 +572,7 @@ GLGizmoRotate3D::GLGizmoRotate3D(GLCanvas3D& parent, const std::string& icon_fil
         GLGizmoRotate(parent, GLGizmoRotate::Z) })
     , m_panelVisibleFlag(false)
     , m_pInputWindowSizer(nullptr)
+    , m_object_manipulation(obj_manipulation)
 {
     load_rotoptimize_state();
 }

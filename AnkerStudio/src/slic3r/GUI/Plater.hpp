@@ -1,6 +1,7 @@
 #ifndef slic3r_Plater_hpp_
 #define slic3r_Plater_hpp_
 
+#include <slic3r/GUI/AnkerHint.h>
 #include <memory>
 #include <vector>
 #include <boost/filesystem/path.hpp>
@@ -34,7 +35,7 @@ class wxString;
 class AnkerChooseDeviceDialog;
 
 wxDECLARE_EVENT(wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP, wxCommandEvent);
-wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SLICE_FOR_CONMENT, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SLICE_FOR_COMMENT, wxCommandEvent);
 
 namespace Slic3r {
     // use sidebar new
@@ -112,6 +113,11 @@ namespace Slic3r {
             PLATER_TAB_HIDE,
             DELETE_ALL_OBJECT,
             CONFIG_CHANGE,
+        };
+
+        enum {
+            MatchHintType,
+            PrinterHintType
         };
 
         class Sidebar : public wxPanel
@@ -197,7 +203,7 @@ namespace Slic3r {
             Plater& operator=(Plater&&) = delete;
             Plater& operator=(const Plater&) = delete;
             ~Plater();
-
+            bool is_plater_dirty() const;
             bool is_project_dirty() const;
             bool is_presets_dirty() const;
             void update_project_dirty_from_presets();
@@ -242,7 +248,7 @@ namespace Slic3r {
             void load_gcode(const wxString& filename);
             void reload_gcode_from_disk();
             void refresh_print();
-            void setStarConmentFlagsTimes(const int& sliceTimes);
+            void setStarCommentFlagsTimes(const int& sliceTimes);
 
             static std::string get_acode_extract_path();
             void clear_acode_extract_path();
@@ -256,6 +262,12 @@ namespace Slic3r {
             bool load_files(const wxArrayString& filenames, bool delete_after_load = false);
             bool isImportGCode() const;
             bool ImportIsACode() const;
+
+            //when acode or gcode import, hide sidebarnew and show printbtn 
+            inline bool IsShowACodeOrGcodePrint()  const { return m_isShowPrint.load(); }
+            inline void SetShowACodeOrGcodePrint(bool show) { m_isShowPrint.store(show); }
+            bool HideSideBarNewForAcodeOrGcode(const wxString& filename);
+
             void check_selected_presets_visibility(PrinterTechnology loaded_printer_technology);
 
             bool preview_zip_archive(const boost::filesystem::path& input_file);
@@ -422,7 +434,24 @@ namespace Slic3r {
             void on_maximize(wxMaximizeEvent& event);
             void on_idle(wxIdleEvent& evt);
             void onSliceNow();
+            inline bool isExistMatchHint()  const { return m_isExistMatchHint.load(); }
+            inline void SetExistMatchHint(bool b) { m_isExistMatchHint.store(b); }
             void updateMatchHint();
+
+            //update hint dialog for 0.2mm nozzle(move,max,..)
+            void update02mmPrinter();
+            inline bool isExist02mmPrinterHint()  const { return m_isExist02mmPrinterHint.load(); }
+            inline void SetExist02mmPrinterHint(bool b) { m_isExist02mmPrinterHint.store(b); }
+            //show hint dialog for 0.2mm nozzle
+            void HintFor02mmPrinter(const std::string& printerName);
+            //when choose ok or show false, delete the current hintdialog
+            void DelSpecifyHintDialog(int hintTypeId);
+            //when show true, replace the old hintdialog
+            void ReplaceOldHintDialog(int hintTypeId, AnkerHint* hint);
+            //when maxminize or move ..., show the proper hintdialog
+            void ShowHintDialogs(bool flag);
+            inline bool isDragGcode()  const { return m_isDragGcode.load(); }
+            inline void SetDragGcodeFlag(bool b) { m_isDragGcode.store(b); }
 
             std::vector<std::string> get_extruder_colors_from_plater_config(const GCodeProcessorResult* const result = nullptr) const;
             std::vector<std::string> get_filament_colors_from_plater_config(const GCodeProcessorResult* const result = nullptr) const;
@@ -613,7 +642,7 @@ namespace Slic3r {
             static bool has_illegal_filename_characters(const std::string& name);
             static void show_illegal_characters_warning(wxWindow* parent);
 
-            void setAKeyPrintSlicerTempGcodePath(const std::string& gcodePath);
+            void setAKeyPrintSlicerTempGcodePath(std::string gcodePath);
             // return utf8 file name
             std::string getAKeyPrintSlicerTempGcodePath() {
                 return m_currentPrintGcodeFile;
@@ -663,6 +692,8 @@ namespace Slic3r {
             struct priv;
             std::unique_ptr<priv> p;
 
+            bool mIs02mmPrinterFlag{ false };
+
             // Set true during PopupMenu() tracking to suppress immediate error message boxes.
             // The error messages are collected to m_tracking_popup_menu_error_message instead and these error messages
             // are shown after the pop-up dialog closes.
@@ -687,6 +718,12 @@ namespace Slic3r {
             bool m_input_model_from_calibration = false;
             CalibMode m_calibModel{ CalibMode::Calib_None };
             friend class SuppressBackgroundProcessingUpdate;
+        public:
+            std::atomic<bool> m_isShowPrint{ false };
+            std::atomic<bool> m_isExistMatchHint{ false };
+            std::atomic<bool> m_isExist02mmPrinterHint{ false };
+            std::atomic<bool> m_isDragGcode{ false };
+            std::vector<std::pair<int,AnkerHint*> > m_HintDialogs;
         };
 
         class SuppressBackgroundProcessingUpdate

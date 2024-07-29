@@ -290,6 +290,9 @@ private:
 		// Examples in basic_notifications.
         std::function<bool(wxEvtHandler*)> callback;
 		const std::string        text2;
+		int                      sub_msg_id {-1};
+		std::string        ori_text;
+        bool                use_warn_color { false };
 	};
 
 	// Cache of IDs to identify and reuse ImGUI windows.
@@ -326,6 +329,7 @@ private:
 
 		PopNotification(const NotificationData &n, NotificationIDProvider &id_provider, wxEvtHandler* evt_handler);
 		virtual ~PopNotification() { if (m_id) m_id_provider.release_id(m_id); }
+		virtual void on_change_color_mode(bool is_dark) { m_is_dark = is_dark; };
 		virtual void           render(GLCanvas3D& canvas, float initial_y, bool move_from_overlay, float overlay_width);
 		// close will dissapear notification on next render
 		virtual void           close() { m_state = EState::ClosePending; wxGetApp().plater()->get_current_canvas3D()->schedule_extra_frame(0);}
@@ -383,10 +387,40 @@ private:
 		// used this function instead of reading directly m_data.duration. Some notifications might need to return changing value.
 		virtual int  get_duration() { return m_data.duration; }
 
+		bool m_is_dark = true;
+
 		const NotificationData m_data;
 		// For reusing ImGUI windows.
 		NotificationIDProvider &m_id_provider;
 		int              m_id{ 0 };
+
+		// Custom Theme
+		struct ImGUITheme
+		{
+			ImVec2 mWindowPadding;
+			ImVec4 mWindowBkg;
+			ImVec4 mBorderColor;
+			ImVec4 mTextColor;
+			float  mWindowRound;
+		};
+
+		ImGUITheme m_DefaultTheme;
+
+		ImVec4     m_WindowBkgColor;
+		ImVec4     m_TextColor;
+
+		ImVec4     m_HyperTextColor;
+
+		ImVec4     m_ErrorColor;
+		ImVec4     m_WarnColor;
+		ImVec4     m_NormalColor;
+		ImVec4     m_CurrentColor;
+
+		float      m_WindowRadius { 4.0f };
+
+		void set_theme();
+		void restore_default_theme();
+
 
 		// State for rendering
 		EState           m_state                { EState::Unknown };
@@ -648,6 +682,7 @@ private:
 		bool				m_complete_on_100 { true };
 	};
 
+#if 0
 	class SlicingProgressNotification : public ProgressBarNotification
 	{
 	public:
@@ -716,6 +751,7 @@ private:
 		// if true, it is possible show export hyperlink in state SP_PROGRESS
 		bool                    m_export_possible { false };
 	};
+#endif
 
 	class ProgressIndicatorNotification : public ProgressBarNotification
 	{
@@ -815,6 +851,9 @@ private:
 		//void render_left_sign(ImGuiWrapper& imgui) override;
 		std::vector<std::pair<InfoItemType, size_t>> m_types_and_counts;
 	};
+
+	// in SlicingProgressNotification.hpp
+	class SlicingProgressNotification;
 
 	// in HintNotification.hpp
 	class HintNotification;

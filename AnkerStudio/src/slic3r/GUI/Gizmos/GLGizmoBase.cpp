@@ -312,11 +312,19 @@ void GLGizmoBase::set_dirty() {
     m_dirty = true;
 }
 
-
-
 void GLGizmoBase::render_input_window(float x, float y, float bottom_limit)
 {
-    on_render_input_window(x, y, bottom_limit);
+    on_render_input_window(x - m_dialogOffsetX, y, bottom_limit);
+
+    // calculate the dialog offset along x
+    double canvasWidth = m_parent.get_canvas_size().get_width();
+    ImVec2 winSize = ImGui::GetWindowSizeByName(get_name().c_str());
+    double posOffset = x + winSize.x + m_parent.get_layer_height_bar_width() + m_parent.get_layer_height_bar_margin() - canvasWidth;
+    if (posOffset > 0)
+        m_dialogOffsetX = posOffset;
+    else
+        m_dialogOffsetX = 0.0;
+
     if (m_first_input_window_render) {
         // imgui windows that don't have an initial size needs to be processed once to get one
         // and are not rendered in the first frame

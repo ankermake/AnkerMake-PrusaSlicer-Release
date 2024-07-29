@@ -1427,6 +1427,35 @@ bool ImGui::BBLRadioButton(const char* label, bool active)
     return pressed;
 }
 
+void ImGui::TextCentered(const char* text, ...)
+{
+    va_list vaList;
+    va_start(vaList, &text);
+
+    float font_size = ImGui::GetFontSize() * strlen(text) / 2;
+    ImGui::SameLine(ImGui::GetCursorPos().x / 2 - font_size + (font_size / 2));
+
+    ImGui::TextV(text, vaList);
+
+    va_end(vaList);
+}
+
+void ImGui::TextAlignCenter(const char* label)
+{
+    float item_width = ImGui::CalcItemWidth();
+    float font_size = ImGui::GetFontSize() * strlen(label) / 2;
+    ImGui::SameLine(ImGui::GetCursorPos().x + (item_width - font_size) / 2);
+
+    if ('X' == *label)
+        ImGui::TextColored(ImVec4(1.0, 0.0, 0.0, 1.0), label);
+    else if ('Y' == *label)
+        ImGui::TextColored(ImVec4(0.0, 0.6, 0.2, 1.0), label);
+    else if ('Z' == *label)
+        ImGui::TextColored(ImVec4(0.0, 0.0, 1.0, 1.0), label);
+    else
+        ImGui::Text(label);
+}
+
 bool ImGui::RadioButton(const char* label, bool active)
 {
     ImGuiWindow* window = GetCurrentWindow();
@@ -3963,6 +3992,100 @@ bool ImGui::TempInputScalar(const ImRect& bb, ImGuiID id, const char* label, ImG
         if (value_changed)
             MarkItemEdited(id);
     }
+    return value_changed;
+}
+
+
+bool ImGui::BBLInputDouble(const char* label, double* v, double step, double step_fast, const char* format, ImGuiInputTextFlags flags)
+{
+    ImGui::PushStyleColor(ImGuiCol_BorderActive, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));
+    flags |= ImGuiInputTextFlags_CharsScientific;
+    bool bbl_input_scalar = BBLInputScalar(label, ImGuiDataType_Double, (void*)v, (void*)(step > 0.0 ? &step : NULL), (void*)(step_fast > 0.0 ? &step_fast : NULL), format, flags);
+    ImGui::PopStyleColor(1);
+    return bbl_input_scalar;
+}
+
+// Note: p_data, p_step, p_step_fast are _pointers_ to a memory address holding the data. For an Input widget, p_step and p_step_fast are optional.
+// Read code of e.g. InputFloat(), InputInt() etc. or examples in 'Demo->Widgets->Data Types' to understand how to use this function directly.
+bool ImGui::BBLInputScalar(const char* label, ImGuiDataType data_type, void* p_data, const void* p_step, const void* p_step_fast, const char* format, ImGuiInputTextFlags flags)
+{
+    ImGuiWindow* window = GetCurrentWindow();
+    if (window->SkipItems) return false;
+
+    ImGuiContext& g = *GImGui;
+    ImGuiStyle& style = g.Style;
+
+    /* get hover status */
+    const ImGuiID id = window->GetID(label);
+    const float   w = CalcItemWidth();
+
+    const ImVec2 label_size = CalcTextSize(label, NULL, true);
+    const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0f));
+    // Tabbing or CTRL-clicking on Drag turns it into an InputText
+    const bool hovered = ItemHoverable(frame_bb, id);
+    // We are only allowed to access the state if we are already the active widget.
+    ImGuiInputTextState* state = GetInputTextState(id);
+
+    bool push_color_count = 0;
+    if (hovered || g.ActiveId == id) {
+        ImGui::PushStyleColor(ImGuiCol_Border, GetColorU32(ImGuiCol_BorderActive));
+        push_color_count = 1;
+    }
+
+    if (format == NULL) format = DataTypeGetInfo(data_type)->PrintFmt;
+
+    char buf[64];
+    DataTypeFormatString(buf, IM_ARRAYSIZE(buf), data_type, p_data, format);
+
+    bool value_changed = false;
+    if ((flags & (ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsScientific)) == 0) flags |= ImGuiInputTextFlags_CharsDecimal;
+    flags |= ImGuiInputTextFlags_AutoSelectAll;
+    flags |= ImGuiInputTextFlags_NoMarkEdited; // We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
+
+    if (p_step != NULL) {
+        const float button_size = GetFrameHeight();
+
+        BeginGroup(); // The only purpose of the group here is to allow the caller to query item data e.g. IsItemActive()
+        PushID(label);
+        SetNextItemWidth(ImMax(1.0f, CalcItemWidth() - (button_size + style.ItemInnerSpacing.x) * 2));
+        if (InputText("", buf, IM_ARRAYSIZE(buf), flags)) // PushId(label) + "" gives us the expected ID from outside point of view
+            value_changed = DataTypeApplyOpFromText(buf, g.InputTextState.InitialTextA.Data, data_type, p_data, format);
+
+        // Step buttons
+        const ImVec2 backup_frame_padding = style.FramePadding;
+        style.FramePadding.x = style.FramePadding.y;
+        ImGuiButtonFlags button_flags = ImGuiButtonFlags_Repeat | ImGuiButtonFlags_DontClosePopups;
+        if (flags & ImGuiInputTextFlags_ReadOnly) button_flags |= ImGuiButtonFlags_Disabled;
+        SameLine(0, style.ItemInnerSpacing.x);
+        if (ButtonEx("-", ImVec2(button_size, button_size), button_flags)) {
+            DataTypeApplyOp(data_type, '-', p_data, p_data, g.IO.KeyCtrl && p_step_fast ? p_step_fast : p_step);
+            value_changed = true;
+        }
+        SameLine(0, style.ItemInnerSpacing.x);
+        if (ButtonEx("+", ImVec2(button_size, button_size), button_flags)) {
+            DataTypeApplyOp(data_type, '+', p_data, p_data, g.IO.KeyCtrl && p_step_fast ? p_step_fast : p_step);
+            value_changed = true;
+        }
+
+        const char* label_end = FindRenderedTextEnd(label);
+        if (label != label_end) {
+            SameLine(0, style.ItemInnerSpacing.x);
+            TextEx(label, label_end);
+        }
+        style.FramePadding = backup_frame_padding;
+
+        PopID();
+        EndGroup();
+    }
+    else {
+        if (InputText(label, buf, IM_ARRAYSIZE(buf), flags)) value_changed = DataTypeApplyOpFromText(buf, g.InputTextState.InitialTextA.Data, data_type, p_data, format);
+    }
+    if (value_changed) MarkItemEdited(window->DC.LastItemId);
+
+    if (push_color_count > 0) {
+        ImGui::PopStyleColor(push_color_count);
+    }
+
     return value_changed;
 }
 

@@ -13,8 +13,9 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <map>
 
-#define MappingVersion 1
+#define MappingVersion 1052306
 
 #define DEF_PTR(className) class className; typedef std::shared_ptr<className> className##Ptr;
 
@@ -28,6 +29,7 @@
             const std::string strFuncName, const unsigned int lineNumber)>
 
 #define NormalCallBack std::function<void ()>
+#define CommentFlagsCallBack std::function<void (std::vector<std::string> dataList)>
 
 //webview
 #define PrivayChoiceCb std::function<void(const std::string&)>
@@ -35,6 +37,13 @@
 
 
 #define CallBack_OtaInfoRecv std::function<void (OtaInfo info)>
+#define CallBack_MsgCenterCfg std::function<void (std::map<std::string, MsgCenterConfig> dataMap)>
+#define CallBack_MsgCenterErrCodeInfo std::function<void (std::vector<MsgErrCodeInfo> dataList)>
+#define CallBack_MsgCenterStatus std::function<void (int officicalNews, int printNews)>
+#define CallBack_MsgCenterRecords std::function<void (std::vector<MsgCenterItem>)>
+
+
+typedef size_t(*CallBackFunction)(char* dest, size_t size, size_t nmemb, void* userp);
 
 #define CURL_CODE_OK 0
 
@@ -159,6 +168,119 @@ struct OtaInfo
     bool noUpdate = false;//add by tab,means data is null
 };
 
+//msg center config
+
+struct MsgCenterConfig 
+{
+    int id = 0;
+    std::string error_code = "";
+    std::string error_level = "";
+    int code_source = 0;
+    std::string originMsg = "";
+    struct ArticleInfo {
+        std::string language = "";
+        std::string article_url = "";
+        std::string article_title = "";
+    };
+
+    std::vector<ArticleInfo> article_info;
+};
+
+struct MsgErrCodeInfo
+{
+    std::string language = "";
+    std::string version = "";
+    std::string release_version = "";
+    std::string originMsg = "";
+    std::map<std::string, std::string> errorCodeUrlMap;
+};
+
+
+struct MsgCenterItem
+{
+    int msgID = 0;
+    std::string msgTitle = "";
+    std::string msgContent = "";
+    std::string msgUrl = "";
+    std::string msgCreateTime = "";
+    std::string msgErrorCode = "";    
+    std::string msgLevel = "";
+    int alarm_type = 0;
+    int ai_alarm_type = 0;
+    bool msgIsNew = true;    
+};
+
+struct StarCommentData {
+    std::string       reviewNameID = "";
+    std::string       reviewName = "";
+    std::string       appVersion = "";
+    std::string       country = "";
+
+    std::string       sliceCount = "";
+
+    int               action = 2;
+    int               rating = 0;
+    std::string       reviewData = "";
+    std::string       clientId = "";
+};
+
+struct PrintStopReasonInfo
+{
+    std::string reason_title = "";
+    std::string reason_value = "-1";
+    bool support_japan = true;
+    std::string language = "en";
+    int weight = 0;
+    std::string help_desc = "";
+    std::string help_desc_light = "";
+    std::string help_link = "";
+
+    void reset() {
+        reason_title = "";
+        reason_value = "-1";
+        support_japan = true;
+        language = "en";
+        weight = 0;
+        help_desc = "";
+        help_desc_light = "";
+        help_link = "";
+    }
+    bool isValid() { 
+        return !reason_title.empty() && reason_value != "-1"; 
+    }
+};
+using PrintStopReasons = std::vector<PrintStopReasonInfo>;
+
+struct SliceTip
+{
+    std::string tip_title = "";
+    std::string tip_value = "-1";
+    bool support_japan = true;
+    std::string language = "en";
+    int weight = 0;
+    std::string image_url = "";
+    std::string help_desc = "";
+    std::string help_desc_light = "";
+    std::string help_link = "";
+
+    void reset() {
+        tip_title = "";
+        tip_value = "-1";
+        support_japan = true;
+        language = "en";
+        weight = 0;
+        image_url = "";
+        help_desc = "";
+        help_desc_light = "";
+        help_link = "";
+    }
+    bool isValid() {
+        return !tip_title.empty() && tip_value != "-1";
+    }
+};
+using SliceTips = std::vector<SliceTip>;
+
+
 // http request result.
 // Mainly to solve the problem of http status code return and the problem of http content being returned multiple times.
 // add by tab wang
@@ -185,16 +307,6 @@ enum HttpRequestType
     HttpRequest_Delete = 3,
 };
 
-struct NetworkMsg {
-    std::string title = "";
-    std::string context = "";
-    int btnNum;
-    int id;
-    std::string btn1Text = "";
-    std::string btn2Text = "";
-    int level;
-};
-
 typedef enum {
     P2P_IDLE = 0,
     P2P_TRANSFER_LOCAL_FILE = 1,
@@ -208,7 +320,7 @@ enum HttpError
     NoError = 0,
     UserNotIdentified = -2,//HTTP_USER_AUTHENTICATION_FAILED
     ResolveHostError = -3,//curl could not resolve host
-    ContentInvalid = -4,//content is not json
+    ContentInvalid = -4,//content is not json    
 };
 typedef struct _FeedBackInfo {
     std::string content = "";
@@ -242,7 +354,7 @@ typedef struct _LOGIN_DATA
     int privilege = 0;
     std::string phone = std::string();
     std::string phone_code = std::string();
-
+    int test_flag = 1;
     void clearData()
     {
         captcha_id = std::string();
@@ -263,6 +375,7 @@ typedef struct _LOGIN_DATA
         privilege = 0;
         phone = std::string();
         phone_code = std::string();
+        test_flag = 1;
     }
 }LOGIN_DATA, * pLOGIN_DATA;
 
@@ -275,7 +388,7 @@ typedef struct _COUNTRY_INFO
 }COUNTRY_INFO, * pCOUNTRY_INFO;
 
 
-//https://make-app-us-qa.eufylife.com/v1/passport/profile
+
 typedef struct _USER_INFO
 {
     std::string user_id = std::string();
@@ -328,6 +441,15 @@ enum GeneralException2Gui {
     GeneralException2Gui_LowTemperature, // Low Temperature. For best results, we recommend printing in a location with an ambient temperature between 15 - 35.
     GeneralException2Gui_Calibration_Abnomal,
     GeneralException2Gui_Calibration_Failed,
+};
+
+class ExceptionInfo
+{
+public:
+    GeneralException2Gui type = GeneralException2Gui_No_Error;
+    std::string stationName;
+    std::string sn;
+    std::string external;
 };
 
 enum CustomDeviceStatus {
@@ -457,6 +579,7 @@ public:
     int leftTime = 0;
     int filamentUsed = 0;
     std::string filamentUnit = "mm";
+    std::string filamentType;
     std::vector<GFileNozzle> m_gFileNozzles;
 };
 
@@ -478,7 +601,10 @@ enum class FileTransferResult {
     OpenFileFailed = -34,
 
     DevicBusy = -55,
-    NeedLevel = -56
+    NeedLevel = -56,
+
+    // inner error code
+    ClientP2pBusy = -71,
 };
 
 using sendSigHttpError_T = std::function <void(HttpError error)>;
@@ -486,9 +612,8 @@ using sendSigToSwitchPrintPage_T = std::function <void(const std::string& sn)>;
 using sendSigToUpdateDevice_T = std::function <void()>;
 using sendSigToUpdateDeviceStatus_T = std::function <void(const std::string& sn, aknmt_command_type_e type)>;
 using sendSigToTransferFileProgressValue_T = std::function <void(const std::string& sn, int progess, FileTransferResult result)>;
-using sendSigToMessageBox_T = std::function <void(const NetworkMsg& msg, const std::string& sn)>;
 using sendShowDeviceListDialog_T = std::function <void()>;
-using GeneralExceptionMsgBox_T = std::function<void(GeneralException2Gui, const std::string&, const std::string&)>;
+using GeneralExceptionMsgBox_T = std::function<void(const ExceptionInfo&)>;
 using SendSigAccountLogout_T = std::function <void()>;
 
 // Print event
@@ -521,7 +646,7 @@ enum anker_device_type
 {
     DEVICE_V8110_TYPE = 0x01,
     DEVICE_V8111_TYPE = 0x02,   // M5
-    DEVICE_V7111_TYPE = 0x03,   // V6
+    DEVICE_V7111_TYPE = 0x03,   // 
 
     DEVICE_UNKNOWN_TYPE = 0x99
 };

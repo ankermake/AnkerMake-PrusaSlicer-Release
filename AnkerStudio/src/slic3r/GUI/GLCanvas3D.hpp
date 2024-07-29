@@ -186,6 +186,7 @@ wxDECLARE_EVENT(EVT_GLCANVAS_TOOLBAR_HIGHLIGHTER_TIMER, wxTimerEvent);
 wxDECLARE_EVENT(EVT_GLCANVAS_GIZMO_HIGHLIGHTER_TIMER, wxTimerEvent);
 wxDECLARE_EVENT(EVT_GLCANVAS_INITIALIZED, SimpleEvent);
 wxDECLARE_EVENT(EVT_EXPLOSION_VALUE_CHANGE, SimpleEvent);
+wxDECLARE_EVENT(EVT_AGCODE_PRINT_EVENT, SimpleEvent);
 
 class GLCanvas3D
 {
@@ -203,10 +204,12 @@ class GLCanvas3D
         };
 
         static const float THICKNESS_BAR_WIDTH;
+        static const float THICKNESS_BAR_MARGIN;
 
     private:
         bool                        m_enabled{ false };
         unsigned int                m_z_texture_id{ 0 };
+        float                            m_dialogOffsetX{ 0 };
         // Not owned by LayersEditing.
         const DynamicPrintConfig   *m_config{ nullptr };
         // ModelObject for the currently selected object (Model::objects[last_object_id]).
@@ -778,6 +781,8 @@ public:
     void reset_layer_height_profile();
     void adaptive_layer_height_profile(float quality_factor);
     void smooth_layer_height_profile(const HeightProfileSmoothingParams& smoothing_params);
+    double get_layer_height_bar_width();
+    double get_layer_height_bar_margin();
 
     bool is_reload_delayed() const;
 
@@ -951,6 +956,9 @@ public:
     bool has_toolpaths_to_export() const;
     void export_toolpaths_to_obj(const char* filename) const;
 
+    float get_collapse_toolbar_width();
+    float get_collapse_toolbar_height();
+
     void mouse_up_cleanup();
 
     bool are_labels_shown() const { return m_labels.is_shown(); }
@@ -1044,6 +1052,7 @@ private:
     void _render_objects(GLVolumeCollection::ERenderType type);
     void _render_gcode();
     void _render_gcode_cog();
+    void _render_gcode_print_button();
     void _render_selection();
     void _render_sequential_clearance();
 #if ENABLE_RENDER_SELECTION_CENTER

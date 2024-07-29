@@ -2866,6 +2866,7 @@ void ConfigWizard::priv::on_3rdparty_install(const VendorProfile *vendor, bool i
     load_pages();
 }
 
+std::atomic_bool gIsClickWizardFinish;
 bool ConfigWizard::priv::on_bnt_finish()
 {
     wxBusyCursor wait;
@@ -2892,7 +2893,7 @@ bool ConfigWizard::priv::on_bnt_finish()
         AnkerMessageBox(nullptr, _u8L("common_wizard_empty_printer_notice"), _u8L("common_popup_titlenotice"),false);
         return false;
     }
-
+    gIsClickWizardFinish.store(true);
     if (any_sla_selected)
         page_sla_materials->reload_presets();
 

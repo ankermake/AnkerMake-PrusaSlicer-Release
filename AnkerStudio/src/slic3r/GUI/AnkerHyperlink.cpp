@@ -1,5 +1,4 @@
 #include "AnkerHyperlink.hpp"
-#include "Common/AnkerGUIConfig.hpp"
 #include "GUI_App.hpp"
 
 BEGIN_EVENT_TABLE(AnkerHyperlink, wxControl)
@@ -37,6 +36,11 @@ AnkerHyperlink::AnkerHyperlink()
 void AnkerHyperlink::SetCustumAction(CustomActionFun f)
 {
 	CustomAction = f;
+}
+
+void AnkerHyperlink::SetCustomFont(const wxFont& font)
+{
+	m_font = font;
 }
 
 void AnkerHyperlink::SetWrapWidth(int w)
@@ -143,6 +147,34 @@ void AnkerHyperlink::drawWrapText(wxPaintDC &dc, wxString& text, int wrapWidth)
 	}
 }
 
+void AnkerHyperlink::drawPrintFailWrapText(wxPaintDC &dc, wxString& text, int wrapWidth)
+{
+    wxFont font = dc.GetFont();
+    wxCoord lineHeight = dc.GetMultiLineTextExtent("Test").GetHeight();
+    wxPoint textPoint = wxPoint(0, 0);
+    if(m_alignType == ALIGN_CENTER){
+        wxSize textSize = dc.GetTextExtent(m_text);
+        textPoint.x = (GetSize().GetWidth() - textSize.GetWidth()) / 2;
+    }
+
+
+    wxString remainingText = text;
+    int y = 0;
+    while (!remainingText.empty()) {
+        wxString line;
+
+        int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+        if ( wxLanguage::wxLANGUAGE_ENGLISH == type || wxLanguage::wxLANGUAGE_ENGLISH_US == type) {
+            line = GetNextLineEnglishStr(remainingText, dc, wrapWidth);
+        }
+        else{
+            line = GetNextLineNonEnglishStr(remainingText, dc, wrapWidth);
+        }
+
+        dc.DrawText(line, textPoint.x, y);
+        y += lineHeight;
+    }
+}
 
 void AnkerHyperlink::OnPaint(wxPaintEvent& event)
 {
@@ -154,11 +186,15 @@ void AnkerHyperlink::OnPaint(wxPaintEvent& event)
 		wxPen pen(wxColour("#62D361"));
 		dc.SetBrush(brush);
 		dc.SetPen(pen);
-		dc.SetFont(ANKER_FONT_NO_1);
+		dc.SetFont(m_font);
 		dc.SetTextForeground(wxColour("#62D361"));
 
 		if (m_wrapWidth > 0) {
-			drawWrapText(dc, m_text, m_wrapWidth);
+            if(m_printflag){
+                drawPrintFailWrapText(dc, m_text, m_wrapWidth);
+            }else{
+                drawWrapText(dc, m_text, m_wrapWidth);
+            }
 		}
 		else {
 			wxPoint textPoint = wxPoint(0, 0);

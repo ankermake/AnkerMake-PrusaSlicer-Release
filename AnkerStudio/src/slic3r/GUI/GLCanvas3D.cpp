@@ -113,6 +113,7 @@ GLCanvas3D::LayersEditing::~LayersEditing()
 }
 
 const float GLCanvas3D::LayersEditing::THICKNESS_BAR_WIDTH = 70.0f;
+const float GLCanvas3D::LayersEditing::THICKNESS_BAR_MARGIN = 10.0f;
 
 void GLCanvas3D::LayersEditing::init()
 {
@@ -134,6 +135,8 @@ void GLCanvas3D::LayersEditing::set_config(const DynamicPrintConfig* config)
     delete m_slicing_parameters;
     m_slicing_parameters = nullptr;
     m_layers_texture.valid = false;
+    m_layer_height_profile.clear();
+    m_layer_height_profile_modified = false;
 }
 
 void GLCanvas3D::LayersEditing::select_object(const Model &model, int object_id)
@@ -213,10 +216,9 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
     ImGuiWrapper& imgui = *wxGetApp().imgui();
     const Size& cnv_size = canvas.get_canvas_size();
     float zoom = (float)wxGetApp().plater()->get_camera().get_zoom();
-    float left_pos = canvas.m_main_toolbar.get_item("layersediting")->render_left_pos;
-    const float x = 0.5 * cnv_size.get_width() + left_pos * zoom;
+    Vec2d left_pos = canvas.m_main_toolbar.get_item("layersediting")->render_left_pos;
 
-    imgui.set_next_window_pos(x + 150, canvas.m_main_toolbar.get_height() + 12, ImGuiCond_Always, 0.0f, 0.0f);
+    imgui.set_next_window_pos(left_pos.x() - m_dialogOffsetX, left_pos.y(), ImGuiCond_Always, 0.0f, 0.0f);
 
     imgui.push_toolbar_style(canvas.get_scale());
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * canvas.get_scale(), 4.0f * canvas.get_scale()));
@@ -310,9 +312,25 @@ void GLCanvas3D::LayersEditing::render_variable_layer_height_dialog(const GLCanv
         wxPostEvent((wxEvtHandler*)canvas.get_wxglcanvas(), SimpleEvent(EVT_GLCANVAS_RESET_LAYER_HEIGHT_PROFILE));
 
     GLCanvas3D::LayersEditing::s_overlay_window_width = /*ImGui::GetWindowSize().x*/0;
+
+    // must before imgui.end()
+    ImVec2 winSize = ImGui::GetWindowSize();
+
     imgui.end();
     ImGui::PopStyleVar(2);
     imgui.pop_toolbar_style();
+
+    // calculate the dialog offset along x
+    double canvasWidth = cnv_size.get_width();
+    double posOffsetX = left_pos.x() + winSize.x + THICKNESS_BAR_WIDTH + THICKNESS_BAR_MARGIN - canvasWidth;
+    double oldOffsetX = m_dialogOffsetX;
+    if (posOffsetX > 0)
+        m_dialogOffsetX = posOffsetX;
+    else
+        m_dialogOffsetX = 0.0;
+
+    if (oldOffsetX != m_dialogOffsetX)
+        imgui.requires_extra_frame();
 }
 
 void GLCanvas3D::LayersEditing::render_overlay(const GLCanvas3D& canvas)
@@ -1062,6 +1080,7 @@ wxDEFINE_EVENT(EVT_GLCANVAS_GIZMO_HIGHLIGHTER_TIMER, wxTimerEvent);
 wxDEFINE_EVENT(EVT_GLCANVAS_INITIALIZED, SimpleEvent);
 
 wxDEFINE_EVENT(EVT_EXPLOSION_VALUE_CHANGE, SimpleEvent);
+wxDEFINE_EVENT(EVT_AGCODE_PRINT_EVENT, SimpleEvent);
 
 const double GLCanvas3D::DefaultCameraZoomToBoxMarginFactor = 1.25;
 
@@ -1496,6 +1515,16 @@ void GLCanvas3D::smooth_layer_height_profile(const HeightProfileSmoothingParams&
     m_dirty = true;
 }
 
+double GLCanvas3D::get_layer_height_bar_width()
+{
+    return Slic3r::GUI::GLCanvas3D::LayersEditing::THICKNESS_BAR_WIDTH;
+}
+
+double GLCanvas3D::get_layer_height_bar_margin()
+{
+    return Slic3r::GUI::GLCanvas3D::LayersEditing::THICKNESS_BAR_MARGIN;
+}
+
 bool GLCanvas3D::is_reload_delayed() const
 {
     return m_reload_delayed;
@@ -1720,6 +1749,7 @@ void GLCanvas3D::render(bool only_init)
         render_element();
         _render_gcode();
         _render_gcode_cog();
+        _render_gcode_print_button();
     }
     else if (m_canvas_type == ECanvasType::CanvasAssembleView) {
         _render_objects(GLVolumeCollection::ERenderType::Opaque);
@@ -3347,6 +3377,14 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
         if (evt.LeftUp() || evt.MiddleUp() || evt.RightUp())
             mouse_up_cleanup();
         m_mouse.set_start_position_3D_as_invalid();
+
+        // Update selection from object list to check selection of the cut objects
+        // It's not allowed to scale separate ct parts
+        if (evt.LeftUp() &&  m_gizmos.get_current_type() == GLGizmosManager::EType::Scale &&
+            m_gizmos.get_current()->get_state() == GLGizmoBase::EState::On) {
+            wxGetApp().obj_list()->selection_changed();
+        }
+
         return;
     }
 
@@ -3411,11 +3449,11 @@ void GLCanvas3D::on_mouse(wxMouseEvent& evt)
                     show_sinking_contours();
             }
         }
-        else if (evt.LeftUp() &&
-            m_gizmos.get_current_type() == GLGizmosManager::EType::Scale &&
-            m_gizmos.get_current()->get_state() == GLGizmoBase::EState::On) {
-            wxGetApp().obj_list()->selection_changed();
-        }
+        //else if (evt.LeftUp() &&
+        //    m_gizmos.get_current_type() == GLGizmosManager::EType::Scale &&
+        //    m_gizmos.get_current()->get_state() == GLGizmoBase::EState::On) {
+        //    wxGetApp().obj_list()->selection_changed();
+        //}
 
         return;
     }
@@ -4357,6 +4395,20 @@ bool GLCanvas3D::has_toolpaths_to_export() const
 void GLCanvas3D::export_toolpaths_to_obj(const char* filename) const
 {
     m_gcode_viewer.export_toolpaths_to_obj(filename);
+}
+
+float GLCanvas3D::get_collapse_toolbar_width()
+{
+    GLToolbar& collapse_toolbar = wxGetApp().plater()->get_collapse_toolbar();
+
+    return collapse_toolbar.is_enabled() ? collapse_toolbar.get_width() : 0;
+}
+
+float GLCanvas3D::get_collapse_toolbar_height()
+{
+    GLToolbar& collapse_toolbar = wxGetApp().plater()->get_collapse_toolbar();
+
+    return collapse_toolbar.is_enabled() ? collapse_toolbar.get_height() : 0;
 }
 
 void GLCanvas3D::mouse_up_cleanup()
@@ -5820,7 +5872,7 @@ void GLCanvas3D::_resize(unsigned int w, unsigned int h)
 
     auto *imgui = wxGetApp().imgui();
     imgui->set_display_size(static_cast<float>(w), static_cast<float>(h));
-    const float font_size = 1.5f * wxGetApp().em_unit();
+    const float font_size = /*1.5f*/1.7f * wxGetApp().em_unit();
 #if ENABLE_RETINA_GL
     imgui->set_scaling(font_size, 1.0f, m_retina_helper->get_scale_factor());
 #else
@@ -6571,9 +6623,6 @@ void GLCanvas3D::_render_overlays()
     // to correctly place them
     _check_and_update_toolbar_icon_scale();
 
-    _render_gizmos_overlay();
-    m_gizmos.render_anker_data();
-
     _render_main_toolbar();
     _render_undoredo_toolbar();
     _render_collapse_toolbar();
@@ -6585,9 +6634,12 @@ void GLCanvas3D::_render_overlays()
     _render_assemble_info();
     _render_paint_toolbar();
 
+    _render_gizmos_overlay();
+    m_gizmos.render_anker_data();
+
     int model_idx = m_selection.get_object_idx();
     if (model_idx > -1 && m_layers_editing.last_object_id >= 0 && m_layers_editing.object_max_z() > 0.0f) {
-        m_layers_editing.render_layer_height_change(*this);
+        //m_layers_editing.render_layer_height_change(*this);
         m_layers_editing.render_overlay(*this);
     }
 
@@ -6641,6 +6693,7 @@ void GLCanvas3D::_render_current_gizmo() const
     m_gizmos.render_current_gizmo();
 }
 
+#if 0
 void GLCanvas3D::_render_gizmos_overlay()
 {
     // Anker: do not render gizmos UI
@@ -6663,6 +6716,16 @@ void GLCanvas3D::_render_gizmos_overlay()
     //if (m_gizmo_highlighter.m_render_arrow)
     //    m_gizmos.render_arrow(*this, m_gizmo_highlighter.m_gizmo_type);
 }
+
+#else
+void GLCanvas3D::_render_gizmos_overlay()
+{
+    m_gizmos.render_overlay();
+    if (m_gizmo_highlighter.m_render_arrow) {
+        m_gizmos.render_arrow(*this, m_gizmo_highlighter.m_gizmo_type);
+    }
+}
+#endif
 
 void GLCanvas3D::_render_main_toolbar()
 {
@@ -6735,6 +6798,58 @@ void GLCanvas3D::_render_view_toolbar() const
     const float left = -0.5f * (float)cnv_size.get_width();
     view_toolbar.set_position(top, left);
     view_toolbar.render(*this);
+}
+
+void GLCanvas3D::_render_gcode_print_button()
+{
+    auto plater = wxGetApp().plater();
+    if (!plater) return;
+
+    if (!plater->IsShowACodeOrGcodePrint()) 
+        return;
+
+    ImGuiWrapper& imgui = *wxGetApp().imgui();
+    auto canvas_w = float(get_canvas_size().get_width());
+    auto canvas_h = float(get_canvas_size().get_height());
+
+#ifdef  __APPLE__
+    float margin_x = 0;
+#else
+    float margin_x = 3;
+#endif //  __APPLE__
+
+    int bottom = 180;
+    bottom = plater->get_notification_manager()->get_notification_top(bottom);
+    imgui.set_next_window_pos(canvas_w - margin_x, canvas_h - bottom, ImGuiCond_Always, 1.0f, 1.0f);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(98 / 255.f, 211 / 255.f, 97 / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(129 / 255.f, 220 / 255.f, 129 / 255.f, 1.f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(78 / 255.f, 169 / 255.f, 78 / 255.f, 1.f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(41 / 255.f, 42 / 255.f, 45 / 255.f, 1.f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+
+    imgui.begin(_L("Gcode Print"), ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground
+        | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse);
+
+#ifdef __APPLE__
+    const float button_width = 280;
+    const float button_height = 56;
+#else
+    const float button_width = 195;
+    const float button_height = 32;
+#endif
+
+    imgui.push_bold_font();
+    if (imgui.button(_L("common_preview_button_1print"), button_width, button_height)) {
+            if (dynamic_cast<Preview*>(m_canvas->GetParent()) != nullptr)
+                post_event(SimpleEvent(EVT_AGCODE_PRINT_EVENT));
+    }
+
+    imgui.pop_bold_font();
+    ImGui::PopStyleColor(5);
+    ImGui::PopStyleVar(1);
+    imgui.end();
 }
 
 void GLCanvas3D::_render_return_toolbar() const

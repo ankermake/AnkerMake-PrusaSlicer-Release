@@ -33,6 +33,7 @@
 #define c_retry_count "retry_count"
 #define c_login_status "login_status"
 #define c_status_info "status_info"
+#define c_browser_version "browser_version"
 #define c_load_url "load_url"
 
 #define e_print_start "print_start"
@@ -76,6 +77,7 @@
 #define c_sm_status "status"
 #define c_sm_error_code "error_code"
 #define c_sm_error_msg "error_msg"
+#define c_sm_unique_id "unique_id"
 
 #define e_ag_handle "ag_handle"
 #define c_ag_file_name "file_name"

@@ -145,7 +145,7 @@ extern AnkerPlugin* pAnkerPlugin;
 static const std::pair<unsigned int, unsigned int> THUMBNAIL_SIZE_3MF = { 256, 256 };
 
 wxDEFINE_EVENT(wxCUSTOMEVT_EXPORT_FINISHED_SAFE_QUIT_APP, wxCommandEvent);
-wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_SLICE_FOR_CONMENT, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_SLICE_FOR_COMMENT, wxCommandEvent);
 
 namespace Slic3r {
     namespace GUI {
@@ -1712,43 +1712,90 @@ namespace Slic3r {
             }
 
             virtual bool OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& filenames);
+            //if firstlimit gcode/acode file fail,return false; if other file, return true;  
+            bool FirstLimitLoadSuccess(const wxArrayString& filenames);
+            //if slicepanel can drag file,  device panel forbid drag file.
+            bool IsDragPanel(const wxArrayString& filenames);
+            bool IsAcodeOrGcodeFiles(const wxArrayString& filenames);
 
         private:
             MainFrame& m_mainframe;
             Plater& m_plater;
         };
 
-        bool PlaterDropTarget::OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& filenames)
-        {
-            //report: start to drop to load model
-            std::string fileName = std::string();
-            std::string fileSize = std::string("0");
-            std::string handleType = std::string("import");            
-            std::string startTime = wxDateTime::Now().GetValue().ToString().ToStdString();
-            std::string errorCode = std::string("0");
-            std::string errorMsg = std::string("start drop file to load model");
+        bool PlaterDropTarget::FirstLimitLoadSuccess(const wxArrayString& filenames){
+            //if the file is gcode/acode file, yes to hide sidebarnew, cancel to forbid load 
+            if (IsAcodeOrGcodeFiles(filenames)) {
+                wxGetApp().mainframe->Raise();
+                 //If the current plater doesn't existed Model,hide sidebarnew.
+                if (!wxGetApp().plater()->is_plater_dirty()) {
+                    //Quickly hide and layout the rightParamPanel
+                    wxGetApp().plater()->sidebarnew().Hide();
+                    wxGetApp().plater()->Layout();
+                    wxGetApp().plater()->SetShowACodeOrGcodePrint(true);
+                    return true;
+                }
 
-            wxString files = "";
-            for (auto fileInfo : filenames)
-            {
-                files += fileInfo.ToStdString() + " ";
+                //If the current plater existed Model,popup a dialog to hint the customer; 
+                if (wxGetApp().plater()->new_project() == false) {
+                    return false;
+                } else {
+                    //Quickly hide and layout the rightParamPanel
+                    wxGetApp().plater()->sidebarnew().Hide();
+                    wxGetApp().plater()->Layout();
+                    wxGetApp().plater()->SetShowACodeOrGcodePrint(true);
+                    return true;
+                }
             }
-            fileName = files.ToUTF8().data();
+
+            //if the file is other, return true indicate firstlimit success.
+            return true;
+        }
+
+        bool PlaterDropTarget::IsDragPanel(const wxArrayString& filenames) {       
             //drag file to device panel is not allow
-            if (!wxGetApp().plater()->IsShown())
-            {          
-                errorCode = -1;
-                errorMsg = "drag file to device panel is not allow";
+            if (!wxGetApp().plater()->IsShown()){
                 std::map<std::string, std::string> buryMap;
+
+                std::string handleType = std::string("import");
                 buryMap.insert(std::make_pair(c_hm_type, handleType));
-                buryMap.insert(std::make_pair(c_hm_file_name, fileName));                
+
+                wxString files = "";
+                for (auto fileInfo : filenames) {
+                    files += fileInfo.ToStdString() + " ";
+                }
+                std::string fileName = files.ToUTF8().data();
+                buryMap.insert(std::make_pair(c_hm_file_name, fileName));
+
+                std::string errorCode = std::string("0"); errorCode = -1;
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
+
+                std::string errorMsg = "drag file to device panel is not allow";
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
 
                 reportBuryEvent(e_hanlde_model, buryMap);
-
                 return false;
+            } else { //drag file to slice panel is allow
+                return true;
             }
+        }
+
+        bool PlaterDropTarget::IsAcodeOrGcodeFiles(const wxArrayString& filenames) {
+            for (const auto& filename : filenames) {
+                if (is_gcode_file(into_u8(filename)) || is_acode_file(into_u8(filename))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool PlaterDropTarget::OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& filenames){
+            //only slice panel can drag file.
+            if (!IsDragPanel(filenames)) { return false; }
+
+            bool firstLimitSuccessFlag = FirstLimitLoadSuccess(filenames);
+            if (!firstLimitSuccessFlag) { return false; }
+
 #ifdef WIN32
             // hides the system icon
             this->MSWUpdateDragImageOnLeave();
@@ -1761,6 +1808,8 @@ namespace Slic3r {
             bool res = m_plater.load_files(filenames);
             m_mainframe.update_title();
             m_plater.set_view_drop_file(true);
+            m_plater.SetDragGcodeFlag(true);
+            m_plater.ShowHintDialogs(false);
             return res;
         }
 
@@ -1842,6 +1891,7 @@ namespace Slic3r {
             AnkerObjectLayers* object_layers{ nullptr };
 
             AnkerHint* m_machineTypeMatchHint{ nullptr };
+            AnkerHint* m_02mmPrinterHint{ nullptr };
             bool m_isPrint = false;
             int m_sliceTimes = -1;
             Bed3D bed;
@@ -1902,7 +1952,7 @@ namespace Slic3r {
 
             priv(Plater* q, MainFrame* main_frame);
             ~priv();
-
+            bool is_plater_dirty() const { return dirty_state.is_plater_dirty(); }
             bool is_project_dirty() const { return dirty_state.is_dirty(); }
             bool is_presets_dirty() const { return dirty_state.is_presets_dirty(); }
             void update_project_dirty_from_presets() { dirty_state.update_from_presets(); }
@@ -2135,6 +2185,8 @@ namespace Slic3r {
             void on_layer_editing_toggled(bool enable);
             void on_slicing_began();
 
+            void report_slicing_buryevt(const std::string& status, const std::string& errorCode, const std::string& errorMsg);
+
             void clear_warnings();
             void add_warning(const Slic3r::PrintStateBase::Warning& warning, size_t oid);
             // Update notification manager with the current state of warnings produced by the background process (slicing).
@@ -2308,28 +2360,8 @@ namespace Slic3r {
                             return;
 
                         const bool export_gcode_after_slicing = wxGetKeyState(WXK_SHIFT);
-						//report: start to slice model
-                        std::string fileName = std::string();
-                        std::string fileSize = std::string("0");
-                        auto startTime = wxDateTime::Now().GetValue().ToString().ToStdString();
-                        std::string status = std::string("start");
-                        std::string errorCode = std::string("0");
-                        std::string errorMsg = std::string("start slice model");                                                
 
-                        for (auto object :model.objects)
-                        {
-                            fileName += object->name + " ";
-                        }
-
-                        std::map<std::string, std::string> buryMap;
-                        buryMap.insert(std::make_pair(c_sm_file_name, fileName));
-                        buryMap.insert(std::make_pair(c_sm_file_size, fileSize));
-                        buryMap.insert(std::make_pair(c_sm_time, startTime));
-                        buryMap.insert(std::make_pair(c_sm_status, status));
-                        buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
-                        buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-                        
-                        reportBuryEvent(e_slice_model, buryMap);
+                        report_slicing_buryevt("start", "0","start slice model");
 
                         if (export_gcode_after_slicing)
                             q->export_gcode(true);
@@ -2374,8 +2406,10 @@ namespace Slic3r {
                                 object_list->update_item_model_config(config, last_print_config);
                             }
                         }
-                        
+
                         wxGetApp().mainframe->on_config_changed(&config);
+
+                        sidebarnew->GetGlobalParameterPanel()->checkUIData(&config);
                     });
 
             }
@@ -2536,6 +2570,8 @@ namespace Slic3r {
                 preview->move_sliders(evt);
 #endif
                 });
+
+            preview->get_wxglcanvas()->Bind(EVT_AGCODE_PRINT_EVENT, [q](SimpleEvent& evt) { q->a_key_print_clicked(); });
             preview->get_wxglcanvas()->Bind(EVT_GLCANVAS_EDIT_COLOR_CHANGE, [this](wxKeyEvent& evt) { preview->edit_layers_slider(evt); });
             if (wxGetApp().is_gcode_viewer())
                 preview->Bind(EVT_GLCANVAS_RELOAD_FROM_DISK, [this](SimpleEvent&) { this->q->reload_gcode_from_disk(); });
@@ -2557,7 +2593,28 @@ namespace Slic3r {
                 q->Bind(EVT_SLICING_COMPLETED, &priv::on_slicing_completed, this);
                 q->Bind(EVT_PROCESS_COMPLETED, &priv::on_process_completed, this);
                 q->Bind(EVT_EXPORT_BEGAN, &priv::on_export_began, this);
-                q->Bind(EVT_GLVIEWTOOLBAR_3D, [q](SimpleEvent&) { q->select_view_3D(VIEW_MODE_3D); });
+                q->Bind(EVT_GLVIEWTOOLBAR_3D, [=](SimpleEvent&) {
+                    if (preview->is_GcodeImported()) { //If the current project is made from the gcode file, popup a dialog to hint the customer. 
+                        MessageDialog dialog(nullptr, _L("The current file will be closed before creating a new model.\nDo you want proceed with the action?"), \
+                            _L("Warning"), wxICON_WARNING | wxYES_NO | wxCENTER | wxNO_DEFAULT);
+                        if (dialog.ShowModal() == wxID_YES) {
+                            //Importing the gcode file results in the sidebarnew hided ,so we must manually show. 
+                            //Refer to PlaterDropTarget::OnDropFiles=>wxGetApp().plater()->sidebarnew().Hide();
+                            wxGetApp().plater()->sidebarnew().Show();
+                            wxGetApp().plater()->SetShowACodeOrGcodePrint(false);
+                            q->select_view_3D(VIEW_MODE_3D);
+                            q->SetDragGcodeFlag(false);
+                            q->ShowHintDialogs(true); 
+                            wxGetApp().plater()->Layout();
+                        }
+                        else {
+                            q->select_view_3D(VIEW_MODE_PREVIEW);
+                        }
+                    }
+                    else { //Don't exist gcode file
+                        q->select_view_3D(VIEW_MODE_3D);
+                    }
+                    });
                 q->Bind(EVT_GLVIEWTOOLBAR_PREVIEW, [q](SimpleEvent&) { q->select_view_3D(VIEW_MODE_PREVIEW); });
                 if (m_downLoad_controller) {
                     m_downLoad_controller->Bind(EVT_DOWNLOAD_FILE_COMPLETE, &priv::on_download_complete, this);
@@ -2779,7 +2836,9 @@ namespace Slic3r {
         {
             bool showGcodeLayerToolbar = false;
             current_view_mode = mode;
-            q->updateMatchHint();
+            if (q != nullptr && !q->isDragGcode()) {
+                q->ShowHintDialogs(true);
+            }
             if (mode == VIEW_MODE_3D) {
                 set_view_drop_file(false);
                 set_current_panel(view3D);
@@ -2926,9 +2985,17 @@ namespace Slic3r {
 
             if (m_machineTypeMatchHint == nullptr) {
                 m_machineTypeMatchHint = new AnkerHint(_L("common_popup_guide_printerchoose"), q);
-                m_machineTypeMatchHint->SetCallBack([this, appConfig](bool isChecked) {
+                m_machineTypeMatchHint->SetCallBack([=](bool isChecked) {             
+                    q->DelSpecifyHintDialog(MatchHintType);
+                    q->SetExistMatchHint(false);
+
+                    if (!q->isDragGcode()) {
+                        // Find the other ankerhint and move it up  
+                        q->ShowHintDialogs(true);  q->Layout(); /*q->Refresh(); */
+                    }
+
                     m_machineTypeMatchHint = nullptr;
-                    if (appConfig) {
+                    if (appConfig) {    
                         appConfig->set("Print Check", "machine_type_nohint", isChecked ? "1" : "0");
                     }
                 });
@@ -3644,10 +3711,7 @@ namespace Slic3r {
             m_worker.cancel_all();
 
             if (obj->is_cut())
-            {
-                //objectbar->getObjectList()->invalidate_cut_info_for_object(obj_idx);
-                //sidebarnew->object_list()->invalidate_cut_info_for_object(obj_idx);
-            }
+                sidebarnew->object_list()->invalidate_cut_info_for_object(obj_idx);
 
             model.delete_object(obj_idx);
             update();
@@ -3709,6 +3773,7 @@ namespace Slic3r {
             // Stop and reset the Print content.
             this->background_process.reset();
             model.clear_objects();
+            sidebarnew->GetModelParameterPanel()->resetModelConfig();
             //asseble 
             assemble_view->get_canvas3d()->reset_explosion_ratio();
             update();
@@ -3882,6 +3947,7 @@ namespace Slic3r {
                 if (sidebarnew) {
                     std::string tmpGcodePaht = "";
                     wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(tmpGcodePaht);
+
                     //updatePreViewRightSideBar(false, GCODE_INVALID);
                     sidebarnew->updatePreviewBtn(false, GCODE_INVALID);
                     wxGetApp().plater()->set_gcode_valid(false);
@@ -5162,25 +5228,44 @@ namespace Slic3r {
             else {
                 if (this->printer_technology == ptFFF)
                 {
+                    report_slicing_buryevt("finish","0","finish slice model");
+
                     this->update_fff_scene();
-                    static int sliceTimes = 1;
+                    
+                    { //if slice times over than 3, popup a star comment dialog(only one).
+                        if (m_sliceTimes <= 0)
+                            return;
+                        if (m_isPrint)
+                            return;
 
-                    if (m_sliceTimes <= 0)
-                        return;
+                        auto appConfig = Slic3r::GUI::wxGetApp().app_config;
+                        if (nullptr == appConfig) {
+                            ANKER_LOG_INFO << "02mmPrinter  nohint for user set.";
+                            return;
+                        }
 
-                    if (m_isPrint)
-                        return;
-
-                    if (sliceTimes >= m_sliceTimes)
-                    {                        
-                        wxCommandEvent event(wxCUSTOMEVT_ANKER_SLICE_FOR_CONMENT);
-                        GUI::wxGetApp().plater()->GetEventHandler()->ProcessEvent(event);
-                        sliceTimes = 1;
-                    }
-                    else
-                    {
+                        std::string userId = appConfig->get("user_id");
+                        std::string appVersion = appConfig->get("version");
                         
-                        sliceTimes++;
+                       
+                        int sliceTimes = 0;
+                        //static int sliceTimes = 1;
+                        std::string slice_key = userId + "_" + appVersion;
+                        appConfig->get_slice_times("SliceTimesCheck", slice_key, sliceTimes);
+                        
+                   
+                        if (sliceTimes >= m_sliceTimes - 1) {
+                            wxCommandEvent event(wxCUSTOMEVT_ANKER_SLICE_FOR_COMMENT);
+                            GUI::wxGetApp().plater()->GetEventHandler()->ProcessEvent(event);
+                            if (appConfig) {
+                                appConfig->set_slice_times("SliceTimesCheck", slice_key, userId, appVersion, 0);
+                            }
+                        } else {
+                            sliceTimes++;
+                            if (appConfig) {
+                                appConfig->set_slice_times("SliceTimesCheck", slice_key, userId, appVersion, sliceTimes);                              
+                            }
+                        }
                     }
                 }
                 else
@@ -5200,6 +5285,56 @@ namespace Slic3r {
             notification_manager->close_notification_of_type(NotificationType::ExportFinished);
             notification_manager->set_slicing_progress_began();
         }
+
+        bool g_flag = true; int g_RandNumber = 0;
+        void Plater::priv::report_slicing_buryevt(const std::string& status, const std::string& errorCode, const std::string& errorMsg)
+        {
+            auto GenRandNum = [=]()->int {
+                std::srand(static_cast<unsigned int>(std::time(0)));
+                return std::rand();
+            };
+
+            do {
+                if (status == "start" && errorCode == "-1") {
+                    g_flag = true;
+                    break;
+                }
+
+                if (status == "start") {
+                    if (g_flag) {
+                        g_RandNumber = GenRandNum();
+                        g_flag = false; 
+                    }
+                    break;
+                }
+
+                if (status == "cancel" || status == "finish") {
+                    g_flag = true;
+                    break;
+                }
+
+            } while (false);
+
+
+            // report: slice_model event
+            std::string modelName = std::string();
+            for (auto object : model.objects) {
+                modelName += object->name + " ";
+            }
+            std::string modelSize = std::string();
+            auto workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+
+            std::map<std::string, std::string> buryMap;
+            buryMap.insert(std::make_pair(c_sm_file_name, modelName));
+            buryMap.insert(std::make_pair(c_sm_file_size, modelSize));
+            buryMap.insert(std::make_pair(c_sm_time, workTime));
+            buryMap.insert(std::make_pair(c_sm_status, status));
+            buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+            buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+            buryMap.insert(std::make_pair(c_sm_unique_id, std::to_string(g_RandNumber)));
+            reportBuryEvent(e_slice_model, buryMap);       
+        }
+
         void Plater::priv::add_warning(const Slic3r::PrintStateBase::Warning& warning, size_t oid)
         {
             for (auto const& it : current_warnings) {
@@ -5306,6 +5441,7 @@ namespace Slic3r {
                 has_error = true;
             }
             if (evt.cancelled()) {
+                report_slicing_buryevt("cancel","1","cancel slice model");
                 //        this->statusbar()->set_status_text(_L("Cancelled"));
                 this->notification_manager->set_slicing_progress_canceled(_u8L("common_slicepopup_slicingcancel"));
             }
@@ -5417,7 +5553,7 @@ namespace Slic3r {
                 if (fileName.EndsWith(".3mf")) {
                     open_3mf(fileName);
                 }
-                else if (fileName.EndsWith(".stl") || fileName.EndsWith(".obj")) {
+                else if (fileName.EndsWith(".stl") || fileName.EndsWith(".STL") || fileName.EndsWith(".OBJ") || fileName.EndsWith(".obj")) {
                     open_stl(fileName);
                 }
             }
@@ -6494,7 +6630,7 @@ namespace Slic3r {
                     hideList = res == 0 ? false : true;
                 }
                 ANKER_LOG_INFO << "hideList: " << hideList << ", res: " << res;
-                wxGetApp().plater_->UpdateDeviceList(hideList);
+                UpdateDeviceList(hideList);
             });
 
             Bind(wxEVT_SHOW, &Plater::on_show, this);
@@ -6506,7 +6642,7 @@ namespace Slic3r {
             Unbind(wxEVT_SHOW, &Plater::on_show, this);
             clear_acode_extract_path();
         }
-
+        bool Plater::is_plater_dirty() const { return p->is_plater_dirty(); }
         bool Plater::is_project_dirty() const { return p->is_project_dirty(); }
         bool Plater::is_presets_dirty() const { return p->is_presets_dirty(); }
         void Plater::update_project_dirty_from_presets() { p->update_project_dirty_from_presets(); }
@@ -6946,7 +7082,7 @@ namespace Slic3r {
             load_gcode(filename);
         }
 
-        void Plater::setStarConmentFlagsTimes(const int& sliceTimes)
+        void Plater::setStarCommentFlagsTimes(const int& sliceTimes)
         {
             p->m_sliceTimes = sliceTimes;
         }
@@ -7625,6 +7761,29 @@ namespace Slic3r {
             return "";
         }
 
+        bool Plater::HideSideBarNewForAcodeOrGcode(const wxString& filename) {
+            //If the current plater doesn't existed Model,hide sidebarnew.
+            if (!wxGetApp().plater()->is_plater_dirty()) {
+                //Quickly hide and layout the rightParamPanel
+                wxGetApp().plater()->sidebarnew().Hide();
+                wxGetApp().plater()->Layout();
+                m_isShowPrint.store(true);
+                return true;
+            }
+
+            //If the current plater existed Model,popup a dialog to hint the customer; 
+            if (wxGetApp().plater()->new_project() == false) {
+                return false;
+            } else {
+                //Quickly hide and layout the rightParamPanel
+                wxGetApp().plater()->sidebarnew().Hide();
+                wxGetApp().plater()->Layout();
+                m_isShowPrint.store(true);
+                return true;
+            }
+        }
+
+
         bool Plater::load_files(const wxArrayString& filenames, bool delete_after_load/*=false*/)
         {
             const std::regex pattern_drop(".*[.](stl|obj|amf|3mf|akpro|step|stp|zip|svg)", std::regex::icase);
@@ -7696,6 +7855,10 @@ namespace Slic3r {
                         gcodePath = strPath;
                         this->p->preview->setImportIsACode(false);
                     }
+
+                    bool flag = HideSideBarNewForAcodeOrGcode(gcodePath);
+                    if (!flag) { return false; }
+                    else { select_view_3D(VIEW_MODE_PREVIEW); }
 
                     load_gcode(gcodePath);
                     m_last_loaded_gcode = strPath;
@@ -7773,8 +7936,16 @@ namespace Slic3r {
 
                         setAKeyPrintSlicerTempGcodePath(gcodePath.ToStdString(wxConvUTF8));
 
-                        select_view_3D(VIEW_MODE_PREVIEW);
+                        //select_view_3D(VIEW_MODE_PREVIEW);
                         wxGetApp().set_app_mode(GUI_App::EAppMode::GCodeViewer);
+
+                        //// When rightclick to open gcode,we also should hide the rightParamPanel
+                        //wxGetApp().plater()->sidebarnew().Hide();
+                        //wxGetApp().plater()->Layout();
+
+                        bool flag = HideSideBarNewForAcodeOrGcode(filename);
+                        if (!flag) { return false; }
+                        else { select_view_3D(VIEW_MODE_PREVIEW); }
 
                         load_gcode(gcodePath);
                         m_last_loaded_gcode = strPath;
@@ -7995,7 +8166,7 @@ namespace Slic3r {
             get_ui_job_worker().cancel_all();
             //p->view3D->delete_selected();
             p->get_current_canvas3D()->delete_selected();
-
+            p->sidebarnew->GetModelParameterPanel()->resetModelConfig();
             if (wxGetApp().plater()->model().objects.empty())
             {
                 //p->sidebarnew->enableSliceBtn(true, false);
@@ -9217,29 +9388,7 @@ namespace Slic3r {
 
         void Plater::reslice()
         {
-            //report: start slice
-            std::string fileName = std::string();
-            std::string fileSize = std::string("0");
-            std::string workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
-            std::string status = std::string("start");
-            std::string errorCode = std::string("0");
-            std::string errorMsg = std::string("start slice model");
-
-            for (auto object : p->model.objects)
-            {
-                fileName += object->name + " ";
-            }
-            
-            std::map<std::string, std::string> buryMap;
-            buryMap.insert(std::make_pair(c_sm_file_name, fileName));
-            buryMap.insert(std::make_pair(c_sm_file_size, fileSize));
-            buryMap.insert(std::make_pair(c_sm_time, workTime));
-            buryMap.insert(std::make_pair(c_sm_status, status));
-  
-            buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
-            buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-
-            reportBuryEvent(e_slice_model, buryMap);
+            p->report_slicing_buryevt("start", "0", "start reslice model");
 
             ANKER_LOG_INFO << "reslice";
             // First, after importing the stl file without slicing, and then importing gcode, reslice will be called.
@@ -9255,14 +9404,7 @@ namespace Slic3r {
             // There is "invalid data" button instead "slice now"
             if (p->process_completed_with_error)
             {
-                errorCode = -1;
-                errorMsg = "There is invalid data button instead slice now";
-                workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
-                buryMap.insert(std::make_pair(c_sm_time, workTime));
-                buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
-                buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-
-                reportBuryEvent(e_slice_model, buryMap);
+                p->report_slicing_buryevt("start", "-1", "There is invalid data button instead slice now");
                 return;
             }
 
@@ -9278,14 +9420,8 @@ namespace Slic3r {
                 BOOST_LOG_TRIVIAL(error) << "Could not stop UI job within "
                     << timeout_ms << " milliseconds timeout!";
 
-                errorCode = -1;
-                errorMsg = "milliseconds timeout!";
-                workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
-                buryMap.insert(std::make_pair(c_sm_time, workTime));
-                buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
-                buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+                p->report_slicing_buryevt("start", "-1", "milliseconds timeout!");
 
-                reportBuryEvent(e_slice_model, buryMap);
                 return;
             }
 
@@ -9744,7 +9880,10 @@ namespace Slic3r {
             if (p && p->sidebarnew)
                 p->sidebarnew->onMove(event);
 
-            updateMatchHint();
+            if (!isDragGcode()) {
+                ShowHintDialogs(true);
+            }
+
         }
 
         void Plater::on_show(wxShowEvent& event)
@@ -9785,7 +9924,9 @@ namespace Slic3r {
                     p->sidebarnew->closeFilamentEditDlg();
                 }
             }
-            updateMatchHint();
+            if (!isDragGcode()) {
+                ShowHintDialogs(true);
+            }
         }
 
         void Plater::on_idle(wxIdleEvent& evt)
@@ -9812,13 +9953,173 @@ namespace Slic3r {
                     wxRect sidebarnewRect = p->sidebarnew->GetScreenRect();
 
                     wxSize machineSize = p->m_machineTypeMatchHint->GetSize();
-                    wxPoint machinePos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - machineSize.GetWidth() - AnkerLength(26),
-                        sidebarnewPos.y + AnkerLength(72));
-                    p->m_machineTypeMatchHint->SetPosition(machinePos);
+                    //if exist matchHint, add later the 0.2mm nozzle's printer hintdialog
+                    if (isExist02mmPrinterHint()) {
+                        wxSize printerSize = p->m_02mmPrinterHint->GetSize();
+                        wxPoint machineHintPos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - machineSize.GetWidth() - AnkerLength(26),
+                            sidebarnewPos.y + printerSize.GetHeight() + AnkerLength(79));
+                        p->m_machineTypeMatchHint->SetPosition(machineHintPos);
+                    } else {
+                        wxPoint printerHintPos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - machineSize.GetWidth() - AnkerLength(26),
+                            sidebarnewPos.y + AnkerLength(72));
+                        p->m_machineTypeMatchHint->SetPosition(printerHintPos);
+                    }
 
                     bool objectbarVisible = IsShown() && wxGetApp().is_editor() && p->current_view_mode == VIEW_MODE_3D;
+                    SetExistMatchHint(objectbarVisible);
                     p->m_machineTypeMatchHint->Show(objectbarVisible);
-                }               
+                    if (objectbarVisible) {
+                        ReplaceOldHintDialog(MatchHintType, p->m_machineTypeMatchHint);
+                    } else {
+                        DelSpecifyHintDialog(MatchHintType);
+                    }
+                }
+            }
+        }
+
+        void Plater::update02mmPrinter()
+        {
+            if (p && p->m_02mmPrinterHint) {
+                if (wxGetApp().mainframe->get_current_tab_mode() != TabMode::TAB_SLICE) {
+                    p->m_02mmPrinterHint->Show(false); 
+                    DelSpecifyHintDialog(PrinterHintType);
+                } else {
+                    wxPoint mfPoint = wxGetApp().mainframe->GetScreenPosition();
+                    wxRect mfRect = wxGetApp().mainframe->GetScreenRect();
+                    wxPoint sidebarnewPos = p->sidebarnew->GetScreenPosition();
+                    wxRect sidebarnewRect = p->sidebarnew->GetScreenRect();
+
+                    wxSize printerHintSize = p->m_02mmPrinterHint->GetSize();
+
+                    //if exist matchHint, add later the 0.2mm nozzle's printer hintdialog
+                    if (isExistMatchHint()) {
+                        wxSize machineSize = p->m_machineTypeMatchHint->GetSize();
+                        wxPoint printerHintPos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - printerHintSize.GetWidth() - AnkerLength(26),
+                            sidebarnewPos.y + machineSize.GetHeight() + AnkerLength(77));
+                        p->m_02mmPrinterHint->SetPosition(printerHintPos);
+                    } else {
+                        wxPoint printerHintPos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - printerHintSize.GetWidth() - AnkerLength(26),
+                            sidebarnewPos.y + AnkerLength(72));
+                        p->m_02mmPrinterHint->SetPosition(printerHintPos);
+                    }
+                    
+                    if (mIs02mmPrinterFlag) {
+                        ReplaceOldHintDialog(PrinterHintType, p->m_02mmPrinterHint);
+                        ShowHintDialogs(true); wxGetApp().plater()->Layout();
+                        SetExist02mmPrinterHint(true);
+                    } else {
+                        p->m_02mmPrinterHint->Show(false);
+                        DelSpecifyHintDialog(PrinterHintType);
+                        SetExist02mmPrinterHint(false);
+                    }
+                    
+                }
+            }
+        }
+
+        void Plater::HintFor02mmPrinter(const std::string& printerName) 
+        {
+            auto appConfig = Slic3r::GUI::wxGetApp().app_config;
+            if (appConfig && appConfig->get_bool("Print Check", "machine_nozzle_limit_nohint")) {
+                ANKER_LOG_INFO << "02mmPrinter  nohint for user set.";
+                return;
+            }
+            
+            auto show_hints = [&]() {
+                if (auto config = &wxGetApp().preset_bundle->printers.get_selected_preset().config) {
+                    if (auto options = static_cast<const ConfigOptionFloats*>(config->option("nozzle_diameter"))) {
+                        if (!options->values.empty()) {
+                            auto nozzle_value = options->values.front();
+                            if (fabs(nozzle_value - 0.2 ) < EPSILON) {
+                                return true;
+                            }
+                        }
+                    }
+               }
+                            
+                return false;
+            };
+            
+            mIs02mmPrinterFlag = show_hints();
+            if (!mIs02mmPrinterFlag) {
+                ANKER_LOG_INFO << "it is not 02mm Printer.";
+                if(p->m_02mmPrinterHint == nullptr){
+                    ANKER_LOG_INFO << "p->m_02mmPrinterHint == nullptr."; 
+                } else {
+                    p->m_02mmPrinterHint->Show(false);
+                    DelSpecifyHintDialog(PrinterHintType);
+                }
+                
+                return;
+            }
+
+            if (p->m_02mmPrinterHint == nullptr) {
+                p->m_02mmPrinterHint = new AnkerHint(_L("common_nozzle_hint_text"), p->q);
+
+                p->m_02mmPrinterHint->SetCallBack([=](bool isChecked) {
+                    DelSpecifyHintDialog(PrinterHintType);
+                    SetExist02mmPrinterHint(false);
+
+                    if (!isDragGcode()) {
+                        // Find the other ankerhint and move it up   
+                        ShowHintDialogs(true);  p->m_02mmPrinterHint->Layout(); /*p->m_02mmPrinterHint->Refresh();*/
+                    }
+                    p->m_02mmPrinterHint = nullptr;
+                    if (appConfig) {
+                        appConfig->set("Print Check", "machine_nozzle_limit_nohint", isChecked ? "1" : "0");
+                    }
+                });
+                wxSize uiSize(268, 189);
+                p->m_02mmPrinterHint->InitUI(uiSize.GetWidth(), uiSize.GetHeight());
+                p->q->update02mmPrinter();
+            } else {
+                p->q->update02mmPrinter();
+            }
+        }
+
+        void Plater::DelSpecifyHintDialog(int hintTypeId) 
+        {
+            auto it = std::find_if(m_HintDialogs.begin(), m_HintDialogs.end(),
+                [=](const std::pair<int, AnkerHint*>& p) { return p.first == hintTypeId; });
+            if (it != m_HintDialogs.end()) {
+                it = m_HintDialogs.erase(it);
+            }
+
+            ShowHintDialogs(true);
+        }
+
+        void Plater::ReplaceOldHintDialog(int hintTypeId, AnkerHint* hint)
+        {
+            auto it = std::find_if(m_HintDialogs.begin(), m_HintDialogs.end(),
+                [=](const std::pair<int, AnkerHint*>& p) { return p.first == hintTypeId; });
+            if (it != m_HintDialogs.end()) {
+                it = m_HintDialogs.erase(it);
+            }
+            m_HintDialogs.push_back(std::make_pair(hintTypeId, hint));
+
+            ShowHintDialogs(true);
+        }
+
+        void Plater::ShowHintDialogs(bool flag) 
+        {
+            int i = 0, offLen = 0;
+            for (const auto [id, hint] : m_HintDialogs) {
+                if (p && hint) {
+                    if (wxGetApp().mainframe->get_current_tab_mode() != TabMode::TAB_SLICE) {
+                        hint->Show(false);
+                    } else {
+                        wxPoint mfPoint = wxGetApp().mainframe->GetScreenPosition();
+                        wxRect mfRect = wxGetApp().mainframe->GetScreenRect();
+                        wxPoint sidebarnewPos = p->sidebarnew->GetScreenPosition();
+                        wxRect sidebarnewRect = p->sidebarnew->GetScreenRect();
+                        wxSize hintSize = hint->GetSize();
+                        offLen = i * (hintSize.GetHeight()+ AnkerLength(17)); ++i;
+                        wxPoint hintPos(mfPoint.x + mfRect.GetWidth() - sidebarnewRect.GetWidth() - hintSize.GetWidth() - AnkerLength(26),
+                            sidebarnewPos.y + offLen + AnkerLength(72));
+                        hint->SetPosition(hintPos);
+                        hint->Show(flag);
+                    }
+                }
             }
         }
 
@@ -9841,8 +10142,9 @@ namespace Slic3r {
 
             if (p && p->sidebarnew)
                 p->sidebarnew->onSize(event);
-
-            updateMatchHint();
+            if (!isDragGcode()) {
+                ShowHintDialogs(true);
+            }
         }
 
         void Plater::on_minimize(wxIconizeEvent& event)
@@ -9855,10 +10157,16 @@ namespace Slic3r {
                     p->current_view_mode == VIEW_MODE_3D && wxGetApp().mainframe->get_current_tab_mode() == TabMode::TAB_SLICE;
                 //this->p->objectbar->getObjectBarView()->Show(objectbarVisible);
                 
-                if (p->m_machineTypeMatchHint) {
-                    p->m_machineTypeMatchHint->Show(objectbarVisible);
-                }
+                if (!isDragGcode()) {
+                    if (p->m_machineTypeMatchHint) {
+                        p->m_machineTypeMatchHint->Show(objectbarVisible);
+                    }
 
+                    if (p->m_02mmPrinterHint) {
+                        p->m_02mmPrinterHint->Show(objectbarVisible);
+                    }
+                }
+                
                 int newMaxHeight = GetSize().GetHeight();
                 //this->p->objectbar->setListMaxHeight(newMaxHeight / 2.0);
             }
@@ -9887,7 +10195,9 @@ namespace Slic3r {
         void Plater::on_maximize(wxMaximizeEvent& event) {
             if (p && p->sidebarnew)
                 p->sidebarnew->onMaximize(event);
-            updateMatchHint();
+            if (!isDragGcode()) {
+                ShowHintDialogs(true);
+            }
         }
 
         void Plater::shutdown()
@@ -10363,10 +10673,11 @@ namespace Slic3r {
             p->collapse_toolbar.set_enabled(enable);
         }
 
-        void Plater::setAKeyPrintSlicerTempGcodePath(const std::string& gcodePath)
+        void Plater::setAKeyPrintSlicerTempGcodePath(std::string gcodePath)
         {
-            ANKER_LOG_INFO << "set currentPrintGcodeFile: " << gcodePath;
-            m_currentPrintGcodeFile = gcodePath;
+            std::string current_gcode_file = gcodePath;
+            ANKER_LOG_INFO << "set currentPrintGcodeFile: " << current_gcode_file;
+            m_currentPrintGcodeFile = current_gcode_file;
         }
 
         std::string Plater::get_temp_gcode_output_path()

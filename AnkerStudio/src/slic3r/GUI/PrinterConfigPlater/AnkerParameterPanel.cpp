@@ -45,6 +45,8 @@ AnkerParameterPanel::AnkerParameterPanel(wxWindow* parent,
 										const wxSize& size /*= wxDefaultSize*/)
 										: wxControl(parent, wxID_ANY, wxDefaultPosition, AnkerSize(-1, -1), wxBORDER_NONE),m_PrintParamMode(printParamMode)
 {	
+	init_configManipulation();
+
 	initUi();	
 	showCurrentWidget(ParamTabTextVec[0]);
 	showEasyModel();
@@ -79,8 +81,8 @@ void AnkerParameterPanel::setParamTooltips()
 			for (const auto& groupIter : groupInfos)
 			{
 				auto optionKey = groupIter.first.ToStdString();
-				ControlType controlType = groupIter.second.m_type;
-				wxWindow* pCurrentWidget = groupIter.second.m_pWindow;
+				ControlType controlType = groupIter.second->m_type;
+				wxWindow* pCurrentWidget = groupIter.second->m_pWindow;
 				if (pCurrentWidget)
 				{
 					auto optiontip = PrintParaItem->GetOptionTip(optionKey);
@@ -355,17 +357,37 @@ void AnkerParameterPanel::updatePresetEx(Slic3r::DynamicPrintConfig* printConfig
 	}
 }
 
+void AnkerParameterPanel::checkUIData(Slic3r::DynamicPrintConfig* printConfig)
+{
+	if (printConfig == nullptr || m_isModelParameterPanel)
+	{
+		if (m_modelParameterCfg == nullptr)
+			return;
+
+		Slic3r::DynamicPrintConfig& pcObject = m_modelParameterCfg->getPrintCfg();
+		printConfig = &pcObject;
+	}
+
+	this->Freeze();
+
+   m_config_manipulation.update_print_fff_config(printConfig, !m_isModelParameterPanel);
+   m_config_manipulation.toggle_print_fff_options(printConfig);
+   Layout();
+
+   this->Thaw();
+}
+
 void AnkerParameterPanel::setCurrentModelConfig(Slic3r::ModelConfig* config, const Slic3r::DynamicPrintConfig& current_config,
 	Slic3r::GUI::ObjectDataViewModelNode* node, bool bUpdate)
 {
 	if (!config || !node) {
-		m_rightParameterCfg = nullptr;
-		m_isRightParameterPanel = false;
+		m_modelParameterCfg = nullptr;
+		m_isModelParameterPanel = false;
 		return;
 	}
 
-	m_rightParameterCfg = config;
-	m_isRightParameterPanel = true;
+	m_modelParameterCfg = config;
+	m_isModelParameterPanel = true;
 	this->Freeze();
 	{
 		setParamVisible(node->GetType(), node->GetVolumeType(), bUpdate);
@@ -374,7 +396,7 @@ void AnkerParameterPanel::setCurrentModelConfig(Slic3r::ModelConfig* config, con
 			updateItemParamPanel(mp);
 		}
 
-		showRightParameterpanel();
+		showModelParamPanel();
 	}
 	this->Thaw();
 	m_current_type = node->GetType();
@@ -442,7 +464,7 @@ wxString AnkerParameterPanel::GetTabNameByKey(const std::string& key)
 
 bool AnkerParameterPanel::refreshParamPanel(const Slic3r::DynamicPrintConfig& current_config, std::map<std::string, Slic3r::ConfigOption*>& mp)
 {
-	const auto& config = m_rightParameterCfg->get();
+	const auto& config = m_modelParameterCfg->get();
 
 	auto make_dirty_options = [&](const Slic3r::DynamicPrintConfig& compare_config) {
 		for (auto opt_key : config.diff(compare_config)) {
@@ -491,13 +513,15 @@ void AnkerParameterPanel::updateItemParamPanel(const std::map<std::string, Slic3
 			}
 		}
 	}
+
+	wxGetApp().sidebarnew().update_current_item_config();
 }
 
 void AnkerParameterPanel::setItemDataValue(const wxString& tabName, const std::string& optionKey, ItemDataType type)
 {
 	const auto& default_config = Slic3r::GUI::wxGetApp().preset_bundle->prints.default_preset().config;
 	const auto& global_config = wxGetApp().preset_bundle->prints.get_edited_preset().config;
-	const auto& printConfig = m_rightParameterCfg->getPrintCfg();
+	const auto& printConfig = m_modelParameterCfg->getPrintCfg();
 	auto print_keys = printConfig.keys();
 	if (std::find(print_keys.begin(), print_keys.end(), optionKey) == print_keys.end())
 		return;
@@ -757,10 +781,10 @@ void AnkerParameterPanel::setItemDataValue(const wxString& tabName, const std::s
 		std::abs(option_value.GetDouble() - global_option_value.GetDouble()) > EPSILON
 		: option_value != global_option_value;
 	setItemValueWithToolTips(_L(tabName), optionKey, option_value, option_value_default, &has_dirty);
-	wxGetApp().sidebarnew().update_current_item_config();
+	//wxGetApp().sidebarnew().update_current_item_config();
 }
 
-void AnkerParameterPanel::showRightParameterpanel(bool show)
+void AnkerParameterPanel::showModelParamPanel(bool show)
 {
 	if (m_isFold)
 		return;
@@ -770,7 +794,7 @@ void AnkerParameterPanel::showRightParameterpanel(bool show)
 		ANKER_LOG_INFO << "current parameter panel is not model local parameter panel";
 		return;
 	}
-	ANKER_LOG_INFO << "show right menue parameter panel ? show=" << show;
+	ANKER_LOG_INFO << "show model parameter panel ? show=" << show;
 
 	if (show) {
 		m_contentWidget->Show();
@@ -805,10 +829,10 @@ void AnkerParameterPanel::showRightParameterpanel(bool show)
 
 bool AnkerParameterPanel::getObjConfig(Slic3r::ModelConfig*& config)
 {
-	if (m_isRightParameterPanel)
+	if (m_isModelParameterPanel)
 	{
 		ANKER_LOG_INFO << "valid print cfg";
-		config = m_rightParameterCfg;
+		config = m_modelParameterCfg;
 		return true;
 	}
 	return false;
@@ -894,7 +918,7 @@ void AnkerParameterPanel::initUi()
 			ProcessEvent(deleteEvt);
 
 			m_currentObjName->SetLabelText("");
-			m_isRightParameterPanel = false;
+			m_isModelParameterPanel = false;
 			});
 		m_pExitBtn->Hide();
 
@@ -925,7 +949,7 @@ void AnkerParameterPanel::initUi()
 			ProcessEvent(deleteEvt);
 
 			m_currentObjName->SetLabelText("");
-			m_isRightParameterPanel = false;
+			m_isModelParameterPanel = false;
 			});
 		m_deleteBtn->Hide();
 
@@ -1224,7 +1248,7 @@ void AnkerParameterPanel::initUi()
 			ANKER_LOG_INFO << "reset all parameter data";
 			wxWindowUpdateLocker updateLocker(this);
 			onResetBtnStatusChanged(false);
-			int iRestType = m_isRightParameterPanel ? 1 : 0;
+			int iRestType = m_isModelParameterPanel ? 1 : 0;
 			resetAllUi(iRestType);
 			hideAllResetBtn();
 			onDatachanged(event);
@@ -1899,6 +1923,7 @@ void AnkerParameterPanel::showEasyModel()
 {
 	this->Freeze();
 	ANKER_LOG_INFO << "show easy model";
+	m_easyFlag = true;
 	m_pExpertModeBtn->SetState(false);
 	updateEasyWidget();
 	m_pEasyWidget->Show();
@@ -1943,6 +1968,7 @@ void AnkerParameterPanel::showExpertModel()
 	//this->Freeze();
 	wxWindowUpdateLocker updateLocker(this);
 	ANKER_LOG_INFO << "show expert model";
+	m_easyFlag = false;
 	m_pExpertModeBtn->SetState(true);
 	m_pEasyWidget->Hide();
 		
@@ -2089,8 +2115,8 @@ void AnkerParameterPanel::initAllTabData(int iInitType /*= 0*/)
 	else if (m_PrintParamMode == PrintParamMode::mode_model) {
 		printConfig = local_config();
 	}
-	//if (m_isRightParameterPanel && iInitType == 0)
-	//	printConfig = m_rightParameterCfg->getPrintCfg();
+	//if (m_isModelParameterPanel && iInitType == 0)
+	//	printConfig = m_modelParameterCfg->getPrintCfg();
 
 	for (const auto& tabIter : m_windowTabMap) {
 		auto tabName = tabIter.first;			 // tab
@@ -2115,7 +2141,7 @@ void AnkerParameterPanel::initAllTabData(int iInitType /*= 0*/)
 				{
 					//update dependency info when change  print presets
 					PARAMETER_GROUP& goupInfo = PrintParaItem->GetParamDepenencyRef(optionKey);
-					PrintParaItem->SetParamDepedency(goupInfo,1);
+					PrintParaItem->SetParamDependency(goupInfo,1);
 				}
 				catch (const std::runtime_error& e)
 				{
@@ -2379,8 +2405,8 @@ void AnkerParameterPanel::saveUiData()
 				auto dataType = PrintParaItem->GetItemDataType(optionKey);
 				auto unit = PrintParaItem->GetItemUnit(optionKey);
 				auto label = PrintParaItem->GetIOptionLabel(optionKey);
-				if (m_isRightParameterPanel)
-					printConfig = m_rightParameterCfg->getPrintCfg();    // todo : check this logic used for 
+				if (m_isModelParameterPanel)
+					printConfig = m_modelParameterCfg->getPrintCfg();    // todo : check this logic used for 
 
 
 				auto allKeys = printConfig.keys();
@@ -2428,16 +2454,16 @@ void AnkerParameterPanel::hideAllResetBtn()
 	Refresh();
 }
 
-void AnkerParameterPanel::setItemValue(const wxString& optionKey, wxVariant data)
+void AnkerParameterPanel::setItemValue(const wxString& optionKey, wxVariant data, bool updateFlag)
 {
 	auto tabName = GetTabNameByKey(optionKey.ToStdString());
 	if (tabName.empty())
 		return;
 
-	setItemValue(tabName, optionKey, data);
+	setItemValue(tabName, optionKey, data, updateFlag);
 }
 
-void AnkerParameterPanel::setItemValue(const wxString tabName, const wxString& optionKey, wxVariant data)
+void AnkerParameterPanel::setItemValue(const wxString tabName, const wxString& optionKey, wxVariant data, bool updateFlag)
 {	
 	auto item = m_windowTabMap.find(tabName);
 
@@ -2451,7 +2477,7 @@ void AnkerParameterPanel::setItemValue(const wxString tabName, const wxString& o
 	{
 		if ((*itemListIter)->isExistOption(optionKey))
 		{
-			(*itemListIter)->updateUi(optionKey, data);
+			(*itemListIter)->setItemValue((*itemListIter)->GetParamDepenencyRef(optionKey), data, updateFlag);
 			return;
 		}
 		++itemListIter;
@@ -2508,6 +2534,7 @@ void AnkerParameterPanel::setItemValueEx(const wxString tabName, const wxString&
 void AnkerParameterPanel::openSupportMaterialPage(wxString itemName, wxString text)
 {
 	wxMouseEvent event;
+	m_easyFlag = false;
 	m_pExpertModeBtn->SetState(true);
 	showExpertModel();
 	m_pResetBtn->Show(hasDirtyData());
@@ -2613,6 +2640,9 @@ void AnkerParameterPanel::onDatachanged(wxCommandEvent& event)
 
 void AnkerParameterPanel::onUpdateResetBtn(wxCommandEvent& event)
 {
+	if (m_easyFlag)
+		return;
+
 	onResetBtnStatusChanged(hasDirtyData());
 	if (hasDirtyData())
 		UpdatePreviewModeButtons(false, PRINT_PRESET_DATA_DIRTY);
@@ -2988,7 +3018,7 @@ void AnkerParameterPanel::onResetBtnStatusChanged(bool isAble)
 
 AnkerPrintParaItem* AnkerParameterPanel::createGroupItem(groupItem& pGroupItem, bool local, bool layer_height, bool part, bool modifer)
 {
-		AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, pGroupItem.strIconName, pGroupItem.strGroupName, pGroupItem.strTabName, m_PrintParamMode, wxID_ANY, local, layer_height, part, modifer);
+		AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, pGroupItem.strIconName, pGroupItem.strGroupName, pGroupItem.strTabName, m_PrintParamMode, this, wxID_ANY, local, layer_height, part, modifer);
 		pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 
 		for (int i= 0; i< pGroupItem.paramVec.size();i++)
@@ -3626,7 +3656,7 @@ void AnkerAcodeExportProgressDialog::onProgressChange(float percentage)
 	}
 }
 
-std::map<wxString, PARAMETER_GROUP> AnkerParameterPanel::getAllPrintParamInfos()
+std::map<wxString, PARAMETER_GROUP*> AnkerParameterPanel::getAllPrintParamInfos()
 {
 	return m_AllPrintParamInfo;
 }
@@ -3643,6 +3673,59 @@ bool AnkerParameterPanel::isSelectSystemPreset()
 }
 
 
+void AnkerParameterPanel::init_configManipulation()
+{
+	auto load_config = [this]()
+	{
+		//update_dirty();
+		//// Initialize UI components with the config values.
+		//reload_config();
+		//update();
+	};
+
+	auto cb_toggle_field = [this](const t_config_option_key& opt_key, bool toggle, int opt_index) {
+		//if (m_easyFlag)
+		//	return;
+
+		auto itr = m_AllPrintParamInfo.find(opt_key);
+		if (itr != m_AllPrintParamInfo.end())
+		{
+			itr->second->m_bEnable = toggle;
+			itr->second->m_pWindow->Enable(toggle);
+		}
+	};
+
+	auto cb_show_field = [this](const t_config_option_key& opt_key, bool visible, int opt_index) {
+		//if (m_easyFlag)
+		//	return;
+
+		auto itr = m_AllPrintParamInfo.find(opt_key);
+		if (itr != m_AllPrintParamInfo.end())
+		{
+			itr->second->m_bShown = visible;
+			itr->second->m_pLineSizer->Show(visible);
+			itr->second->m_pBtn->Show(false);
+		}
+	};
+
+	auto cb_value_change = [this](const std::string& opt_key, const boost::any& value) {
+		if (value.type() == typeid(int))
+			setItemValue(opt_key, wxVariant(boost::any_cast<int>(value)), false);
+		else if (value.type() == typeid(bool))
+			setItemValue(opt_key, wxVariant(boost::any_cast<bool>(value)), false);
+		else if (value.type() == typeid(double))
+			setItemValue(opt_key, wxVariant(boost::any_cast<double>(value)), false);
+		else if (value.type() == typeid(float))
+			setItemValue(opt_key, wxVariant(boost::any_cast<float>(value)), false);
+		else if (value.type() == typeid(std::string))
+			setItemValue(opt_key, wxVariant(boost::any_cast<std::string>(value)), false);
+		else if (value.type() == typeid(char*))
+			setItemValue(opt_key, wxVariant(boost::any_cast<char*>(value)), false);
+	};
+
+	m_config_manipulation = ConfigManipulation(load_config, cb_toggle_field, cb_show_field, cb_value_change, nullptr, this);
+}
+
 void AnkerParameterPanel::CreateGlobalParamPanel()
 {
 	wxStringList dataList = {};
@@ -3654,7 +3737,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Layer height 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Layer_height", _L("Layer height"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Layer_height", _L("Layer height"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.clear();
 			unitList.Add(_L("mm"));
@@ -3669,7 +3752,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Width 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Width", _L("Line width"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Width", _L("Line width"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.clear();
 			unitList.Add(_L("mm or %"));
@@ -3689,7 +3772,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Seam 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Seam", _L("Seam"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Seam", _L("Seam"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Seam_Position);
 			pItemGroup->createItem(("seam_position"), ItemComBox, Item_enum_SeamPosition, dataList);	// option:seam_position		//todo:dataList not load
@@ -3708,7 +3791,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Precision  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Precision", _L("Precision"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Precision", _L("Precision"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm"));
@@ -3726,7 +3809,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Ironing 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Ironing", _L("Ironing"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Ironing", _L("Ironing"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Ironing_Type);
 			pItemGroup->createItem(("ironing_type"), ItemComBox, Item_enum_IroningType, dataList);  // ironing_type
@@ -3751,7 +3834,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Perimeter generator 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Perimeter_generator", _L("engin_option_wall_generator"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Perimeter_generator", _L("engin_option_wall_generator"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Perimeter_generator);
 			pItemGroup->createItem(("perimeter_generator"), ItemComBox, Item_enum_PerimeterGeneratorType, dataList); // perimeter_generator
@@ -3777,7 +3860,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Walls and surfaces 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Walls_and_surfaces", _L("Walls and Surfaces"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Walls_and_surfaces", _L("Walls and Surfaces"), strTab, m_PrintParamMode, this, wxID_ANY);
 			m_parameterData.getItemList(dataList, List_print_order);
 			pItemGroup->createItem(("wall_sequence"), ItemComBox, Item_enum_print_order, dataList);  // ironing_pattern
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
@@ -3797,7 +3880,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Bridge
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Bridge", _L("common_Parameter_optionGroup_Bridging"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Bridge", _L("common_Parameter_optionGroup_Bridging"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("bridge_flow_ratio"), ItemEditUinit, Item_float); //bridge_flow_ratio
 			pItemGroup->createItem(("bridge_infill_density"), ItemEditUinit, Item_Percent); //bridge_infill_density
@@ -3815,7 +3898,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Overhangs
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhangs", _L("common_Parameter_optionGroup_Overhang"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhangs", _L("common_Parameter_optionGroup_Overhang"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			//pItemGroup->createItem(("make_overhang_printable"), ItemCheckBox, Item_bool); // make_overhang_printable   // feature open later
 			pItemGroup->createItem(("extra_perimeters_on_overhangs"), ItemCheckBox, Item_bool); // extra_perimeters_on_overhangs
@@ -3830,7 +3913,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -3847,7 +3930,8 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 				"OG_Perimeters",
 				_L("common_Parameter_optionGroup_WallsAndSurfaces"),
 				strTab,
-				m_PrintParamMode,
+				m_PrintParamMode, 
+				this,
 				wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("perimeters"), ItemSpinBox, Item_int);	// perimeters // todo repeate lable
@@ -3863,7 +3947,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Top/Bottom  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Top_Bottom", _L("common_Parameter_optionGroup_TopBottom"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Top_Bottom", _L("common_Parameter_optionGroup_TopBottom"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Top_fill_pattern);
 			pItemGroup->createItem(("top_fill_pattern"), ItemComBox, Item_enum_InfillPattern, dataList);				//  top_fill_pattern
@@ -3885,7 +3969,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Fill
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Fill", _L("Fill"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Fill", _L("Fill"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 
 			m_parameterData.getItemList(dataList, List_Fill_density);
@@ -3909,7 +3993,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Advance
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Advance", _L("Advance"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Advance", _L("Title_Advanced"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.clear();
 			unitList.Add(_L("mm or %"));
@@ -3933,7 +4017,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -3946,7 +4030,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:First layer speed  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_First_layer_speed", _L("First layer speed"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_First_layer_speed", _L("First layer speed"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm/s or %"));
@@ -3963,7 +4047,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Other layer speed  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Other_layer_speed", _L("common_Parameter_optionGroup_OtherLayerSpeed"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Other_layer_speed", _L("common_Parameter_optionGroup_OtherLayerSpeed"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm/s or %"));
@@ -4000,7 +4084,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Overhang speed 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhang_speed", _L("Overhang speed"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhang_speed", _L("Overhang speed"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(wxT("mm or %"));
@@ -4024,7 +4108,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Travel speed 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Travel_speed", _L("Travel speed"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Travel_speed", _L("Travel speed"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm/s"));
@@ -4038,7 +4122,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Acceleration 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Acceleration", _L("Acceleration"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Acceleration", _L("Acceleration"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm/s²"));
@@ -4061,7 +4145,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Jerk(XY) 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Jerk_XY", _L("common_Parameter_optionGroup_Jerk"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Jerk_XY", _L("common_Parameter_optionGroup_Jerk"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm/s"));
@@ -4081,7 +4165,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group: Max volumetric slope 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Reducing_printing_time", _L("common_Parameter_optionGroup_PressureEqualizer"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Reducing_printing_time", _L("common_Parameter_optionGroup_PressureEqualizer"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			//pItemGroup->createItem(("external_perimeters_first"), ItemCheckBox, Item_bool);	// external_perimeters_first
 			unitList.Clear();
@@ -4098,7 +4182,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4112,7 +4196,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Support
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Support", _L("Support material"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Support", _L("Support material"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem("support_material", ItemCheckBox, Item_bool);
 			pItemGroup->createItem(("support_material_auto"), ItemCheckBox, Item_bool);	//support_material_auto
@@ -4136,7 +4220,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// group:Raft 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Raft", _L("Raft"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Raft", _L("Raft"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("raft_layers"), ItemSpinBox, Item_int); // raft_layers
 			unitList.Clear();
@@ -4151,7 +4235,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		//Options for support material and raft
 		{
-			AnkerPrintParaItem* pOfsmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Options_for_support_material_and_raft", _L("Options for support material and raft"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pOfsmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Options_for_support_material_and_raft", _L("Options for support material and raft"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pOfsmarItem->SetMaxSize(PARAMETER_ITEM_SIZE);
 			getItemList(dataList, List_Style);
 			pOfsmarItem->createItem("support_material_style", ItemComBox, Item_enum_SupportMaterialStyle, dataList);
@@ -4191,7 +4275,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 
 		// Organic supports 
 		{
-			AnkerPrintParaItem* pOssmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Organic_supports", _L("Organic supports"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pOssmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Organic_supports", _L("Organic supports"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pOssmarItem->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("°"));
@@ -4219,7 +4303,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4282,7 +4366,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 		{
 			groupItem groupItemVal;
 			groupItemVal.strTabName = strTab;
-			groupItemVal.strGroupName = _L("Advance");
+			groupItemVal.strGroupName = _L("Title_Advanced");
 			groupItemVal.strIconName = "OG_Advance";
 			std::vector<paramItem> paramVec = {
 				{"mmu_segmented_region_max_width",ItemEditUinit, Item_float,{_L("%")}},
@@ -4340,7 +4424,7 @@ void AnkerParameterPanel::CreateGlobalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4358,7 +4442,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Layer height 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Layer_height", _L("Layer height"), strTab, m_PrintParamMode, wxID_ANY);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Layer_height", _L("Layer height"), strTab, m_PrintParamMode, this, wxID_ANY);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.clear();
 			unitList.Add(_L("mm"));
@@ -4371,7 +4455,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Width 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Width", _L("Line width"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Width", _L("Line width"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.clear();
 			unitList.Add(_L("mm or %"));
@@ -4390,7 +4474,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Seam 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Seam", _L("Seam"), strTab, m_PrintParamMode, wxID_ANY, true, false, false, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Seam", _L("Seam"), strTab, m_PrintParamMode, this, wxID_ANY, true, false, false, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Seam_Position);
 			pItemGroup->createItem(("seam_position"), ItemComBox, Item_enum_SeamPosition, dataList, true, false, false, false);	// option:seam_position		//todo:dataList not load
@@ -4406,7 +4490,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Precision  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Precision", _L("Precision"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Precision", _L("Precision"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm"));
@@ -4422,7 +4506,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Ironing 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Ironing", _L("Ironing"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Ironing", _L("Ironing"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Ironing_Type);
 			pItemGroup->createItem(("ironing_type"), ItemComBox, Item_enum_IroningType, dataList, true, true, true, true);  // ironing_type
@@ -4447,7 +4531,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Perimeter generator 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Perimeter_generator", _L("engin_option_wall_generator"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Perimeter_generator", _L("engin_option_wall_generator"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Perimeter_generator);
 			pItemGroup->createItem(("perimeter_generator"), ItemComBox, Item_enum_PerimeterGeneratorType, dataList, true, false, false, false); // perimeter_generator
@@ -4473,7 +4557,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group: Walls and surfaces 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Walls_and_surfaces", _L("Walls and Surfaces"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Walls_and_surfaces", _L("Walls and Surfaces"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_print_order);
 			pItemGroup->createItem(("wall_sequence"), ItemComBox, Item_enum_print_order, dataList, true, false, false, false);  // ironing_pattern
@@ -4488,7 +4572,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Bridge
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Bridge", _L("common_Parameter_optionGroup_Bridging"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Bridge", _L("common_Parameter_optionGroup_Bridging"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("bridge_flow_ratio"), ItemEditUinit, Item_float, wxStringList{}, true, true, true, true); //bridge_flow_ratio
 			pItemGroup->createItem(("bridge_infill_density"), ItemEditUinit, Item_Percent, wxStringList{}, true, false, false, false); //bridge_infill_density
@@ -4502,7 +4586,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Overhangs
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhangs", _L("common_Parameter_optionGroup_Overhang"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhangs", _L("common_Parameter_optionGroup_Overhang"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("extra_perimeters_on_overhangs"), ItemCheckBox, Item_bool, wxStringList{}, true, false, false, false); // extra_perimeters_on_overhangs
 			pItemGroup->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, &AnkerParameterPanel::onDatachanged, this);
@@ -4515,7 +4599,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4532,7 +4616,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 				"OG_Perimeters",
 				_L("common_Parameter_optionGroup_WallsAndSurfaces"),
 				strTab,
-				m_PrintParamMode,
+				m_PrintParamMode, this,
 				wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("perimeters"), ItemSpinBox, Item_int, wxStringList{}, true, true, true, true);	// perimeters // todo repeate lable
@@ -4548,7 +4632,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Top/Bottom  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Top_Bottom", _L("common_Parameter_optionGroup_TopBottom"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Top_Bottom", _L("common_Parameter_optionGroup_TopBottom"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			m_parameterData.getItemList(dataList, List_Top_fill_pattern);
 			pItemGroup->createItem(("top_fill_pattern"), ItemComBox, Item_enum_InfillPattern, dataList, true, true, true, true);				//  top_fill_pattern
@@ -4570,7 +4654,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Fill
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Fill", _L("Fill"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Fill", _L("Fill"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 
 			m_parameterData.getItemList(dataList, List_Fill_density);
@@ -4594,7 +4678,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Advance
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Advance", _L("Advance"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Advance", _L("Title_Advanced"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.clear();
 			unitList.Add(_L("mm or %"));
@@ -4618,7 +4702,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4631,7 +4715,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Other layer speed  
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Other_layer_speed", _L("common_Parameter_optionGroup_OtherLayerSpeed"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Other_layer_speed", _L("common_Parameter_optionGroup_OtherLayerSpeed"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("mm/s or %"));
@@ -4668,7 +4752,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Overhang speed 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhang_speed", _L("Overhang speed"), strTab, m_PrintParamMode, wxID_ANY, true, true, true, true);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Overhang_speed", _L("Overhang speed"), strTab, m_PrintParamMode, this, wxID_ANY, true, true, true, true);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(wxT("mm or %"));
@@ -4693,7 +4777,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4707,7 +4791,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Support
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Support", _L("Support material"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Support", _L("Support material"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem("support_material", ItemCheckBox, Item_bool, wxStringList{}, true, false, false, false);
 			pItemGroup->createItem(("support_material_auto"), ItemCheckBox, Item_bool, wxStringList{}, true, false, false, false);	//support_material_auto
@@ -4731,7 +4815,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// group:Raft 
 		{
-			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Raft", _L("Raft"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pItemGroup = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Raft", _L("Raft"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pItemGroup->SetMaxSize(PARAMETER_ITEM_SIZE);
 			pItemGroup->createItem(("raft_layers"), ItemSpinBox, Item_int, wxStringList{}, true, false, false, false); // raft_layers
 			unitList.Clear();
@@ -4746,7 +4830,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		//Options for support material and raft
 		{
-			AnkerPrintParaItem* pOfsmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Options_for_support_material_and_raft", _L("Options for support material and raft"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pOfsmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Options_for_support_material_and_raft", _L("Options for support material and raft"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pOfsmarItem->SetMaxSize(PARAMETER_ITEM_SIZE);
 			getItemList(dataList, List_Style);
 			pOfsmarItem->createItem("support_material_style", ItemComBox, Item_enum_SupportMaterialStyle, dataList, true, false, false, false);
@@ -4786,7 +4870,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 
 		// Organic supports 
 		{
-			AnkerPrintParaItem* pOssmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Organic_supports", _L("Organic supports"), strTab, m_PrintParamMode, wxID_ANY, true, false);
+			AnkerPrintParaItem* pOssmarItem = new AnkerPrintParaItem(m_pTabItemScrolledWindow, "OG_Organic_supports", _L("Organic supports"), strTab, m_PrintParamMode, this, wxID_ANY, true, false);
 			pOssmarItem->SetMaxSize(PARAMETER_ITEM_SIZE);
 			unitList.Clear();
 			unitList.Add(_L("°"));
@@ -4814,7 +4898,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			AnkerParameterPanel::m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}
@@ -4855,7 +4939,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 		//group => Advance
 		{
 			groupItem groupItemVal;
-			groupItemVal.strGroupName = _L("Advance");
+			groupItemVal.strGroupName = _L("Title_Advanced");
 			groupItemVal.strIconName = "OG_Advance";
 			std::vector<paramItem> paramVec = {
 				{"mmu_segmented_region_max_width",ItemEditUinit, Item_float,{_L("%")}, true, false, false, false},
@@ -4868,7 +4952,7 @@ void AnkerParameterPanel::CreateLocalParamPanel()
 		std::list<AnkerPrintParaItem*>::iterator iter = itemList.begin();
 		for (; iter != itemList.end(); iter++)
 		{
-			std::map<wxString, PARAMETER_GROUP> groupInfoMap = (*iter)->GetGroupparamInfos();
+			std::map<wxString, PARAMETER_GROUP*> groupInfoMap = (*iter)->GetGroupparamInfos();
 			m_AllPrintParamInfo.insert(groupInfoMap.begin(), groupInfoMap.end());
 		}
 	}

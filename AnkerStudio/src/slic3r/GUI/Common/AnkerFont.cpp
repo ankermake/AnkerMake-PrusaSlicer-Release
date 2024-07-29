@@ -16,6 +16,7 @@
 #endif
 
      Font_Body_14 = sysFont(14, 400);
+     Font_Body_13 = sysFont(13, 400);
      Font_Body_12 = sysFont(12, 400);
      Font_Body_10 = sysFont(10, 400);
 

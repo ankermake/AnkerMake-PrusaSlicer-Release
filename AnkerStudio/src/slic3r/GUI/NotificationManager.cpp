@@ -1,4 +1,5 @@
 #include "NotificationManager.hpp"
+#include "SlicingProgressNotification.hpp"
 
 #include "HintNotification.hpp"
 #include "GUI.hpp"
@@ -140,6 +141,61 @@ NotificationManager::PopNotification::PopNotification(const NotificationData &n,
 	, m_notification_start  (GLCanvas3D::timestamp_now())
 {}
 
+
+void NotificationManager::PopNotification::set_theme()
+{
+	ImGuiStyle& OldStyle = ImGui::GetStyle();
+
+	m_DefaultTheme.mWindowPadding = OldStyle.WindowPadding;
+	m_DefaultTheme.mWindowBkg = OldStyle.Colors[ImGuiCol_WindowBg];
+	m_DefaultTheme.mBorderColor = OldStyle.Colors[ImGuiCol_Border];
+	m_DefaultTheme.mTextColor = OldStyle.Colors[ImGuiCol_Text];
+	m_DefaultTheme.mWindowRound = OldStyle.WindowRounding;
+
+	OldStyle.WindowPadding = ImVec2(0, 0);
+	OldStyle.WindowRounding = m_WindowRadius;
+
+	if (m_data.level == NotificationLevel::ErrorNotificationLevel)
+		m_CurrentColor = m_ErrorColor;
+	else if (m_data.level == NotificationLevel::WarningNotificationLevel)
+		m_CurrentColor = m_WarnColor;
+	else {
+		if (m_data.use_warn_color)
+			m_CurrentColor = m_WarnColor;
+		else
+			m_CurrentColor = m_NormalColor;
+	}
+
+	//OldStyle.Colors[ImGuiCol_Border] = m_CurrentColor;
+
+ //   OldStyle.Colors[ImGuiCol_WindowBg] = m_WindowBkgColor;
+ //   OldStyle.Colors[ImGuiCol_Text]     = m_TextColor;
+
+	m_WindowBkgColor = m_is_dark ? ImVec4(41 / 255.f, 42 / 255.f, 45 / 255.f, 1.f) : ImVec4(0.4, 0.3, 0.4, 1);
+	m_TextColor = m_is_dark ? ImVec4(224 / 255.f, 224 / 255.f, 224 / 255.f, 1.f) : ImVec4(.2f, .2f, .2f, 1.0f);
+	m_HyperTextColor = m_is_dark ? ImVec4(0.03, 0.6, 0.18, 1) : ImVec4(0.03, 0.6, 0.18, 1);
+	m_is_dark ? push_style_color(ImGuiCol_Border, { 62 / 255.f, 62 / 255.f, 69 / 255.f, 1.f }, true, m_current_fade_opacity) : push_style_color(ImGuiCol_Border, m_CurrentColor, true, m_current_fade_opacity);
+	push_style_color(ImGuiCol_WindowBg, m_WindowBkgColor, true, m_current_fade_opacity);
+	push_style_color(ImGuiCol_Text, m_TextColor, true, m_current_fade_opacity);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, m_WindowRadius / 4);
+}
+
+
+void NotificationManager::PopNotification::restore_default_theme()
+{
+	ImGuiStyle& OldStyle = ImGui::GetStyle();
+
+	OldStyle.WindowPadding = m_DefaultTheme.mWindowPadding;
+	OldStyle.WindowRounding = m_DefaultTheme.mWindowRound;
+
+	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar();
+	//OldStyle.Colors[ImGuiCol_WindowBg] = m_DefaultTheme.mWindowBkg;
+ //   OldStyle.Colors[ImGuiCol_Text]     = m_DefaultTheme.mTextColor;
+ //   OldStyle.Colors[ImGuiCol_Border]   = m_DefaultTheme.mBorderColor;
+}
+
+
 void NotificationManager::PopNotification::render(GLCanvas3D& canvas, float initial_y, bool move_from_overlay, float overlay_width)
 {
 
@@ -253,7 +309,11 @@ bool NotificationManager::PopNotification::push_background_color()
 void NotificationManager::PopNotification::count_spaces()
 {
 	//determine line width 
-	m_line_height = ImGui::CalcTextSize("A").y;
+#ifdef __APPLE__
+    m_line_height = 30;
+#else
+    m_line_height = ImGui::CalcTextSize("A").y;
+#endif
 
 	m_left_indentation = m_line_height;
 	if (m_data.level == NotificationLevel::ErrorNotificationLevel 
@@ -266,7 +326,9 @@ void NotificationManager::PopNotification::count_spaces()
 		m_left_indentation = picture_width + m_line_height / 2;
 	}
 	m_window_width_offset = m_left_indentation + m_line_height * 3.f;
-	m_window_width = m_line_height * 25;
+    // adaptive macos hints windows display to modify
+    //m_window_width = m_line_height * 25;
+	m_window_width = m_line_height * 23;
 }
  
 void NotificationManager::PopNotification::count_lines()
@@ -568,7 +630,11 @@ void NotificationManager::PopNotification::render_close_button(ImGuiWrapper& img
 	}
 	ImVec2 button_pic_size = ImGui::CalcTextSize(button_text.c_str());
 	ImVec2 button_size(button_pic_size.x * 1.25f, button_pic_size.y * 1.25f);
+#ifdef __APPLE__
+	ImGui::SetCursorPosX(win_size.x - m_line_height * 2.95f);
+#else
 	ImGui::SetCursorPosX(win_size.x - m_line_height * 2.75f);
+#endif // __APPLE__
 	ImGui::SetCursorPosY(win_size.y / 2 - button_size.y);
 	if (imgui.button(button_text.c_str(), button_size.x, button_size.y))
 	{
@@ -1679,6 +1745,7 @@ void NotificationManager::UpdatedItemsInfoNotification::render_left_sign(ImGuiWr
 }
 */
 //------SlicingProgressNotification
+#if 0
 void NotificationManager::SlicingProgressNotification::init()
 {
 	if (m_sp_state == SlicingProgressState::SP_PROGRESS) {
@@ -1962,6 +2029,10 @@ void NotificationManager::SlicingProgressNotification::render_close_button(ImGui
 		ProgressBarNotification::render_close_button(imgui, win_size_x,  win_size_y, win_pos_x, win_pos_y);
 	}
 }
+#endif
+
+
+
 //------ProgressIndicatorNotification-------
 void NotificationManager::ProgressIndicatorNotification::set_status_text(const char* text)
 {
@@ -2744,7 +2815,7 @@ bool NotificationManager::is_hint_notification_open()
 }
 void NotificationManager::deactivate_loaded_hints()
 {
-	HintDatabase::get_instance().uninit();
+	//HintDatabase::get_instance().uninit();
 }
 void NotificationManager::push_updated_item_info_notification(InfoItemType type)
 {

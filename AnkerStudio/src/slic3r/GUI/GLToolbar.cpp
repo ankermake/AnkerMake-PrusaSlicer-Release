@@ -67,7 +67,7 @@ GLToolbarItem::GLToolbarItem(GLToolbarItem::EType type, const GLToolbarItem::Dat
     , m_last_action_type(Undefined)
     , m_highlight_state(NotHighlighted)
 {
-    render_left_pos = 0.0f;
+    render_left_pos = Vec2d(0.0f, 0.0f);
 }
 
 bool GLToolbarItem::update_visibility()
@@ -297,26 +297,15 @@ bool GLToolbar::add_item(const GLToolbarItem::Data& data)
 
 bool GLToolbar::get_item_pos(size_t sprite_id, Vec2d& pos)
 {
-    bool res = false;
-    float size = 2.0f * m_layout.border;
     for (auto item : m_items) {
-        if (item != nullptr) {
-            if (!item->is_visible())
-                continue;
-            if(item->is_separator())
-                size += m_layout.separator_size;
-            else
-                size += (float)m_layout.icons_size;
-
-            if (item->m_data.sprite_id == sprite_id) {
-                pos[0] = size;
-                pos[1] = m_layout.height + 20;
-                res = true;
-                break;
-            }
-        }
+		if (item->m_data.sprite_id == sprite_id) 
+        {
+            pos = item->render_left_pos;
+            return true;
+		}
     }
-    return res;
+
+    return false;
 }
 
 float GLToolbar::get_main_toolbar_size() const
@@ -377,6 +366,7 @@ void GLToolbar::select_item(const std::string& name)
         }
     }
 }
+
 
 bool GLToolbar::is_item_pressed(const std::string& name) const
 {
@@ -1371,16 +1361,24 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent)
     top  -= border_h;
 
     // renders icons
+    float itemX = (cnv_w - fabs(m_layout.left) * 2.0f) / 2.0f  + m_layout.border * m_layout.scale;
+    float itemY = m_layout.height + m_layout.border_outer;
     for (const GLToolbarItem* item : m_items) {
         if (!item->is_visible())
             continue;
 
         if (item->is_separator())
+        {
             left += separator_stride;
-        else {
-            item->render_left_pos = left;
+            itemX += m_layout.separator_size * m_layout.scale;
+        }
+        else 
+        {
+            item->render_left_pos = Vec2d(itemX, itemY);
             item->render(parent, tex_id, left, left + icons_size_x, top - icons_size_y, top, (unsigned int)tex_width, (unsigned int)tex_height, (unsigned int)(m_layout.icons_size * m_layout.scale));
             left += icon_stride;
+            itemX += m_layout.icons_size * m_layout.scale;
+
         }
     }
 }

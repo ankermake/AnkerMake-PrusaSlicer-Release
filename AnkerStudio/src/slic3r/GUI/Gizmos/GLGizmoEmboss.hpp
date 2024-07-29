@@ -39,7 +39,7 @@ namespace Slic3r::GUI {
 class GLGizmoEmboss : public GLGizmoBase
 {
 public:
-    explicit GLGizmoEmboss(GLCanvas3D& parent);
+    explicit GLGizmoEmboss(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
 
     /// <summary>
     /// Create new embossed text volume by type on position of mouse

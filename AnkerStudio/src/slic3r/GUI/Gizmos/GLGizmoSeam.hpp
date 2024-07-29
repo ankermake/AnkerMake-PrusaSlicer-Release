@@ -4,7 +4,7 @@
 #include "GLGizmoPainterBase.hpp"
 
 #include "slic3r/GUI/I18N.hpp"
-
+#include "imgui/imconfig.h"
 namespace Slic3r::GUI {
 
 class GLGizmoSeam : public GLGizmoPainterBase
@@ -16,6 +16,7 @@ public:
         , m_panelVisibleFlag(false)
         , m_currentType(EnforcerBlockerType::ENFORCER)
         , m_pInputWindowSizer(nullptr)
+        , m_current_tool(ImGui::CircleButtonIcon)
     {}
 
     void render_painter_gizmo() override;
@@ -28,9 +29,9 @@ protected:
     PainterGizmoType get_painter_type() const override;
 
     EnforcerBlockerType get_left_button_state_type() const override { return m_currentType; }
-    EnforcerBlockerType get_right_button_state_type() const override { return EnforcerBlockerType::NONE; }
+    EnforcerBlockerType get_right_button_state_type() const override { return EnforcerBlockerType::BLOCKER; }
 
-    bool get_right_button_enable() const override { return false; }
+    bool get_right_button_enable() const override { return true; }
 
     wxString handle_snapshot_action_name(bool shift_down, Button button_down) const override;
 
@@ -49,6 +50,7 @@ private:
 
     // Anker
     void set_input_window_state(bool on);
+    void update_enforcerblocker_type(bool new_value);
 
     // This map holds all translated description texts, so they can be easily referenced during layout calculations
     // etc. When language changes, GUI is recreated and this class constructed again, so the change takes effect.
@@ -58,6 +60,8 @@ private:
     bool m_panelVisibleFlag;
     EnforcerBlockerType m_currentType;
     wxBoxSizer* m_pInputWindowSizer;
+    wchar_t  m_current_tool = 0;
+    bool m_enable_seam { false };
 };
 
 

@@ -456,6 +456,7 @@ bool reset_button(const IconManager::Icons &icons)
 
 void GLGizmoSVG::on_render_input_window(float x, float y, float bottom_limit)
 {
+
     set_volume_by_selection();
 
     // Configuration creation
@@ -515,8 +516,10 @@ void GLGizmoSVG::on_render_input_window(float x, float y, float bottom_limit)
         if (last_y != y)
             last_y = y;
     }
-
-    m_imgui->set_next_window_pos(10, y, ImGuiCond_Always, 0, 0);
+    
+    Vec2d pos { 0,0 };
+    m_parent.get_main_toolbar_item_pos(0, pos);
+    m_imgui->set_next_window_pos(10, pos[1], ImGuiCond_Always, 0, 0);
     bool is_opened = true;
     if (ImGui::Begin(get_name().c_str(), &is_opened, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar))
         draw_window();

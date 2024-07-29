@@ -64,6 +64,7 @@ public:
 	void setOfflineStatus();
 private:
 	void initUI();
+	void initTimer();
 	void initTitlePanel(wxWindow* parent);
 	void initInfoEmptyPanel(wxWindow* parent);
 	void initInfoPanel(wxWindow* parent);

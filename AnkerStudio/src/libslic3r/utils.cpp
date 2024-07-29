@@ -896,6 +896,12 @@ bool is_gcode_file(const std::string &path)
 		   boost::iends_with(path, ".g")     || boost::iends_with(path, ".ngc");
 }
 
+bool is_acode_file(const std::string& path)
+{
+	return boost::iends_with(path, ".acode") || boost::iends_with(path, ".aco") ||
+		boost::iends_with(path, ".a") || boost::iends_with(path, ".nac");
+}
+
 bool is_img_file(const std::string &path)
 {
 	return boost::iends_with(path, ".png") || boost::iends_with(path, ".svg");

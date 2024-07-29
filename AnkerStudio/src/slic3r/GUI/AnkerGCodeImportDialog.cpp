@@ -386,7 +386,7 @@ void AnkerGCodeImportDialog::SetFilamentChangeHint(AnkerNet::DeviceObjectBasePtr
 	wxString contentMain = _L("common_print_popup_filament_notequal");
 	wxString content = Slic3r::GUI::format_wxstr(contentMain, currentFilament);
 
-	int filamentTextWidth = this->GetSize().GetWidth() - AnkerLength(60);
+	int filamentTextWidth = this->GetSize().GetWidth() - AnkerLength(81);
 #ifdef _WIN32
 	if (type == wxLanguage::wxLANGUAGE_CHINESE_CHINA ||
 		type == wxLanguage::wxLANGUAGE_JAPANESE_JAPAN ||

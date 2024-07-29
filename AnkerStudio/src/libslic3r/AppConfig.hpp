@@ -12,6 +12,15 @@
 
 namespace Slic3r {
 
+struct SliceConfig {
+    std::string slice_key;  // user_id + version_id
+    std::string user_id;
+    std::string version_id;
+    int slice_times;
+    SliceConfig():slice_key(""),user_id(""),version_id("0"),slice_times(0) {}
+    //SliceConfig(const SliceConfig& sl) { slice_key = sl.slice_key; user_id = sl.user_id; version_id = sl.version_id; slice_times = sl.slice_times; }
+};
+
 class AppConfig
 {
 public:
@@ -67,6 +76,65 @@ public:
 		{ std::string value; this->get("", key, value); return value; }
 	bool  				get_bool(const std::string &key) const
 		{ return this->get(key) == "1"; }
+    
+    bool get_slice_times(const const std::string& section, const std::string& sliceKey, int& sliceTimes) {
+        auto it = m_slice_config.find(section);
+        if (it == m_slice_config.end())
+            return false;
+
+        auto it2 = it->second.find(sliceKey);
+        if (it2 == it->second.end())
+            return false;
+        if (it2->second != nullptr) {
+            sliceTimes = it2->second->slice_times;
+            return true;
+        }
+        return false;
+    }
+    bool set_slice_times(const const std::string& section, const std::string& sliceKey, const std::string& userId, const std::string& versionId, int sliceTimes) {
+#ifndef NDEBUG
+        {
+            std::string key_trimmed = sliceKey;
+            boost::trim_all(key_trimmed);
+            assert(key_trimmed == sliceKey);
+            assert(!key_trimmed.empty());
+        }
+#endif // NDEBUG
+        if (auto it = m_slice_config.find(section); it != m_slice_config.end()) {
+
+            auto it2 = it->second.find(sliceKey);
+            if (it2 == it->second.end()) {
+                SliceConfig sliceConfig;
+                sliceConfig.slice_key = sliceKey;
+                sliceConfig.user_id = userId;
+                sliceConfig.version_id = versionId;
+                sliceConfig.slice_times = sliceTimes;
+                m_slice_config[section].emplace(sliceKey, std::make_shared<SliceConfig>(sliceConfig));
+                m_dirty = true;
+                return true;
+            } else {
+                std::shared_ptr<SliceConfig>& old = m_slice_config[section][sliceKey]; // rightvalue refer
+                if (old == nullptr) {
+                    return false;
+                }
+                m_dirty = true;
+                old->slice_times = sliceTimes;
+                old->user_id = userId;
+                old->version_id = versionId;
+                return true;
+            }
+        }else {
+            SliceConfig sliceConfig;
+            sliceConfig.slice_key = sliceKey;
+            sliceConfig.user_id = userId;
+            sliceConfig.version_id = versionId;
+            sliceConfig.slice_times = sliceTimes;
+            m_slice_config[section].emplace(sliceKey, std::make_shared<SliceConfig>(sliceConfig));
+            m_dirty = true;
+            return true;
+        }
+    }
+    
 	bool			    set(const std::string &section, const std::string &key, const std::string &value)
 	{
 #ifndef NDEBUG
@@ -203,8 +271,149 @@ private:
 	Semver                                                      m_orig_version;
 	// Whether the existing version is before system profiles & configuration updating
 	bool                                                        m_legacy_datadir;
+    // Map of section, key -> value
+    std::map<std::string, std::map<std::string, std::shared_ptr<SliceConfig>>>   m_slice_config;
 };
+// "a=AAA,b=BBB,c=CCC,.." => {("a","AAA"),("b","BBB"),("c", "CCC"),...}
+inline  std::pair<std::string, std::string>  extract_keyval(const std::string& str, const char& sep) {
+    auto trim_space = [=](std::string& str)->std::string {
+        const char* spaces = " \n\r\t";
+        str.erase(str.find_last_not_of(spaces) + 1);
+        str.erase(0, str.find_first_not_of(spaces));
+        return str;
+    };
 
+    auto n = str.find(sep);
+    std::string k, v;
+    if (n == std::string::npos) {
+        v = str;
+    }
+    else {
+        k = str.substr(0, n);
+        v = str.substr(n + 1);
+    }
+    return std::make_pair(trim_space(k), trim_space(v));
+}
+
+inline std::map<std::string, std::shared_ptr<SliceConfig>> load_slice_config(const std::string& str){
+    std::map<std::string, std::shared_ptr<SliceConfig>> sliceInfo;
+    std::string sliceKey{};
+
+    std::string token;  std::istringstream token_stream(str);
+    std::unordered_map<std::string, std::string> rv{};
+    while (std::getline(token_stream, token, ',')) {
+        if (token.empty()) {
+            continue;
+        }
+        auto keyVal = extract_keyval(token, '=');
+
+        if (keyVal.first == "slice_key") {
+            sliceKey = keyVal.second;
+            sliceInfo.emplace(sliceKey, std::make_shared<SliceConfig>());
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->slice_key = sliceKey;
+            }
+        }
+        if (keyVal.first == "user_id") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->user_id = keyVal.second;
+            }
+        }
+        if (keyVal.first == "version_id") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->version_id = keyVal.second;
+            }
+            
+        }
+
+        if (keyVal.first == "slice_times") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->slice_times = stoi(keyVal.second);
+            }
+        }
+    }
+    return sliceInfo;
+}
+
+inline std::map<std::string, std::shared_ptr<SliceConfig>> load_slice_config(const std::string& str, const std::string & strKey) {
+    std::map<std::string, std::shared_ptr<SliceConfig>> sliceInfo;
+    std::string sliceKey{};
+
+    std::string token;  std::istringstream token_stream(str);
+    std::unordered_map<std::string, std::string> rv{};
+    while (std::getline(token_stream, token, ',')) {
+        if (token.empty()) {
+            continue;
+        }
+        auto keyVal = extract_keyval(token, '=');
+
+        if (keyVal.first == strKey) {
+            sliceKey = keyVal.second;
+            sliceInfo.emplace(sliceKey, std::make_shared<SliceConfig>());
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->slice_key = sliceKey;
+            }
+        }
+        if (keyVal.first == "user_id") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->user_id = keyVal.second;
+            }
+        }
+        if (keyVal.first == "version_id") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->version_id = keyVal.second;
+            }
+
+        }
+
+        if (keyVal.first == "slice_times") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->slice_times = stoi(keyVal.second);
+            }
+        }
+    }
+    return sliceInfo;
+}
+
+inline std::shared_ptr<SliceConfig> load_slice_config_final(const std::string& str, const std::string& strKey, std::string &sliceKey) {
+    std::map<std::string, std::shared_ptr<SliceConfig>> sliceInfo;
+
+
+    std::string token;  std::istringstream token_stream(str);
+    std::unordered_map<std::string, std::string> rv{};
+    while (std::getline(token_stream, token, ',')) {
+        if (token.empty()) {
+            continue;
+        }
+        auto keyVal = extract_keyval(token, '=');
+
+        if (keyVal.first == strKey) {
+            sliceKey = keyVal.second;
+            sliceInfo.emplace(sliceKey, std::make_shared<SliceConfig>());
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->slice_key = sliceKey;
+            }
+        }
+        if (keyVal.first == "user_id") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->user_id = keyVal.second;
+            }
+        }
+        if (keyVal.first == "version_id") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->version_id = keyVal.second;
+            }
+
+        }
+
+        if (keyVal.first == "slice_times") {
+            if (sliceInfo[sliceKey] != nullptr) {
+                sliceInfo[sliceKey]->slice_times = stoi(keyVal.second);
+            }
+        }
+    }
+    return sliceInfo[sliceKey];
+}
 } // namespace Slic3r
 
 #endif /* slic3r_AppConfig_hpp_ */

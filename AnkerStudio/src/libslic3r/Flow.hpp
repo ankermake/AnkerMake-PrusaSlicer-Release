@@ -105,7 +105,7 @@ public:
     // Spacing of round thread extrusions.
     static float bridge_extrusion_spacing(float dmr);
 
-    // Sane extrusion width defautl based on nozzle diameter.
+    // Sane extrusion width default based on nozzle diameter.
     // The defaults were derived from manual Anker MK3 profiles.
     static float auto_extrusion_width(FlowRole role, float nozzle_diameter);
 

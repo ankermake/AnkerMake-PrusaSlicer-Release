@@ -114,6 +114,7 @@ protected:
     int m_group_id; // TODO: remove only for rotate
     EState m_state;
     int m_shortcut_key;
+    double m_dialogOffsetX{ 0.0 };
     std::string m_icon_filename;
     unsigned int m_sprite_id;
     int m_hover_id{ -1 };

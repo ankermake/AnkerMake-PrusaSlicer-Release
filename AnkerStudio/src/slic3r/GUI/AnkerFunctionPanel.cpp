@@ -5,10 +5,14 @@
 #include "GUI_App.hpp"
 #include "Plater.hpp"
 #include "Notebook.hpp"
+#include "AnkerMsgCentreDialog.hpp"
+
+wxDEFINE_EVENT(wxCUSTOMEVT_SHOW_FEEDBACK, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_SHOW_MSG_CENTRE, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_RELEASE_NOTE, wxCommandEvent);
 
 wxDEFINE_EVENT(wxCUSTOMEVT_FEEDBACK, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_SHOW_DOC, wxCommandEvent);
-wxDEFINE_EVENT(wxCUSTOMEVT_RELEASE_NOTE, wxCommandEvent);
 
 namespace Slic3r {
 	namespace GUI {
@@ -166,7 +170,7 @@ namespace Slic3r {
 			m_pSliceButton = new AnkerCombinButton(this, bitmap, _L("Slice")); 
 			m_pSliceButton->SetMinSize(AnkerSize(160, 35));
 			m_pSliceButton->SetActieBitMap(bitmap_actice);
-			m_pSizer->Add(m_pSliceButton, 0, wxALL, 1);
+			m_pSizer->Add(m_pSliceButton, 0, wxALL, 1);			
 
 			m_pPrintButton = new AnkerCombinButton(this, devcieBitmap, _L("Device"));
 			m_pPrintButton->SetMinSize(AnkerSize(160, 35));
@@ -180,7 +184,40 @@ namespace Slic3r {
 			//set Slice button default selected
 			m_pSliceButton->SetSelected(true);
 
+			wxImage noMsgImg = wxImage(wxString::FromUTF8(Slic3r::var("noNewsMsg.png")), wxBITMAP_TYPE_PNG);
 			wxImage feedBackImg = wxImage(wxString::FromUTF8(Slic3r::var("feedback.png")), wxBITMAP_TYPE_PNG);
+			m_msgCentreBtn = new AnkerTabBarBtn(this, wxID_ANY, noMsgImg);
+			m_msgCentreBtn->SetToolTip(_L("msg_center_entrance_tips"));
+			m_msgCentreBtn->Bind(wxCUSTOMEVT_ANKER_TABBAR_BTN_CLICKED, [this](wxCommandEvent& event) {
+				bool isShowOfficical = true;
+
+				if (m_officicalNews > 0)				
+					isShowOfficical = true;
+				else
+				{
+					if(m_printerNews > 0)
+						isShowOfficical = false;
+				}
+
+				wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_SHOW_MSG_CENTRE);
+				wxVariant eventData;
+				eventData.ClearList();	
+				eventData.Append(wxVariant(isShowOfficical));
+				evt.SetClientData(new wxVariant(eventData));
+				wxPostEvent(this, evt);
+				});
+
+			wxCursor handCursor(wxCURSOR_HAND);
+			m_msgCentreBtn->SetBackgroundColour(wxColor("#62D361"));
+			m_msgCentreBtn->SetMinSize(AnkerSize(40, 35));
+			m_msgCentreBtn->SetMaxSize(AnkerSize(40, 35));
+			m_msgCentreBtn->SetSize(AnkerSize(40, 35));
+			m_msgCentreBtn->SetCursor(handCursor);
+
+			m_pSizer->Add(m_msgCentreBtn, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
+			m_pSizer->AddSpacer((10));
+
+			//wxImage feedBackImg = wxImage(wxString::FromUTF8(Slic3r::var("feedback.png")), wxBITMAP_TYPE_PNG);
 			m_FeedBackHelpBtn = new AnkerTabBarBtn(this, wxID_ANY, feedBackImg);
 			m_FeedBackHelpBtn->SetToolTip(_L("common_tab_feed_back_hlep_tips"));
 
@@ -220,8 +257,7 @@ namespace Slic3r {
 			m_FeedBackHelpBtn->Bind(wxCUSTOMEVT_ANKER_TABBAR_BTN_CLICKED, [this](wxCommandEvent& event) {				
 				PopupMenu(m_pFeedbackHelpMenu);
 				});			
-			
-			wxCursor handCursor(wxCURSOR_HAND);
+						
 			m_FeedBackHelpBtn->SetBackgroundColour(wxColor("#62D361"));
 			m_FeedBackHelpBtn->SetMinSize(AnkerSize(40, 35));
 			m_FeedBackHelpBtn->SetMaxSize(AnkerSize(40, 35));
@@ -289,6 +325,38 @@ namespace Slic3r {
 			});
 		}
 
+		void AnkerFunctionPanel::setMsgEntrenceRedPointStatus(bool hasUnread)
+		{
+			if (hasUnread)
+			{
+				wxImage noMsgImg = wxImage(wxString::FromUTF8(Slic3r::var("newMsg.png")), wxBITMAP_TYPE_PNG);
+				m_msgCentreBtn->setImg(noMsgImg);
+			}
+			else
+			{
+				wxImage noMsgImg = wxImage(wxString::FromUTF8(Slic3r::var("noNewsMsg.png")), wxBITMAP_TYPE_PNG);
+				m_msgCentreBtn->setImg(noMsgImg);
+			}
+		}
+
+		void AnkerFunctionPanel::setMsgItemRedPointStatus(int officicalNews, int printerNews)
+		{
+			bool res = false;
+			if (officicalNews + printerNews)
+				res = true;
+			m_officicalNews = officicalNews;
+			m_printerNews = printerNews;
+			if(res)
+			{
+				wxImage noMsgImg = wxImage(wxString::FromUTF8(Slic3r::var("newMsg.png")), wxBITMAP_TYPE_PNG);
+				m_msgCentreBtn->setImg(noMsgImg);
+			}
+			else
+			{
+				wxImage noMsgImg = wxImage(wxString::FromUTF8(Slic3r::var("noNewsMsg.png")), wxBITMAP_TYPE_PNG);
+				m_msgCentreBtn->setImg(noMsgImg);
+			}
+		}
 		void AnkerFunctionPanel::OnPaint(wxPaintEvent& event)
 		{
 			wxPaintDC dc(this);

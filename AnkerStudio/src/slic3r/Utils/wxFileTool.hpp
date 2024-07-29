@@ -14,6 +14,7 @@ public:
 	//return true if write successfully
 	//return false if error.error include open file error ,write file error
 	static bool WriteFileContent(wxString filename, wxString& content);
+	static std::string CalcStrMD5(const std::string& str);
 	//return true if calc successfully
 	//return false if error.error include ReadFileContent error
 	static bool CalcFileMD5(wxString filename, wxString& md5Str);

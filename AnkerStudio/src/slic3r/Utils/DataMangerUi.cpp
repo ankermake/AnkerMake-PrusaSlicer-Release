@@ -13,6 +13,7 @@
 #include "../../AnkerComFunction.hpp"
 #include "AnkerNetBase.h"
 #include <boost/bind.hpp>
+#include "DeviceVersionUtil.hpp"
 
 wxDEFINE_EVENT(wxCUSTOMEVT_DEVICE_LIST_UPDATE, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_UPDATE_MACHINE, wxCommandEvent);
@@ -24,7 +25,11 @@ wxDEFINE_EVENT(wxCUSTOMEVT_ACCOUNT_EXTRUSION, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_HTTP_CONNECT_ERROR, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_OTA_UPDATE, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_ACCOUNT_LOGOUT, wxCommandEvent);
-wxDEFINE_EVENT(wxCUSTOMEVT_GET_CONMENT_FLAGS, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_GET_MSG_CENTER_CFG, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_GET_MSG_CENTER_ERR_CODE_INFO, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_GET_MSG_CENTER_STATUS, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_GET_MSG_CENTER_RECORDS, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_GET_COMMENT_FLAGS, wxCommandEvent);
 
 #define ANKER_NET_TRACE BOOST_LOG_TRIVIAL(trace)	<< BASE_INFO + "[trace]"
 #define ANKER_NET_DEBUG BOOST_LOG_TRIVIAL(debug)	<< BASE_INFO + "[debug]"
@@ -32,6 +37,10 @@ wxDEFINE_EVENT(wxCUSTOMEVT_GET_CONMENT_FLAGS, wxCommandEvent);
 #define ANKER_NET_WARN	BOOST_LOG_TRIVIAL(warning)	<< BASE_INFO + "[warn]"
 #define ANKER_NET_ERROR BOOST_LOG_TRIVIAL(error)	<< BASE_INFO + "[error]"
 #define ANKER_NET_FATAL BOOST_LOG_TRIVIAL(fatal)	<< BASE_INFO + "[fatal]"
+
+static const std::string MSG_CENTER_V8110_BASE_LINE = "V3.1.43";
+static const std::string MSG_CENTER_V8111_BASE_LINE = "V3.2.10";
+
 
 #include "AnkerNetBase.h"
 #include <slic3r/Utils/GcodeInfo.hpp>
@@ -72,7 +81,11 @@ void DatamangerUi::SetMainWindow(wxWindow* pWindow)
 		pAnkerNet->SetCallback_RecoverCurl(DatamangerUi::Callback_RecoverCurl);
 		pAnkerNet->SetCallback_OtaInfoRecv(DatamangerUi::Callback_OtaUpdate);
 		pAnkerNet->SetCallback_FilamentRecv(DatamangerUi::Callback_FilamentUpdate);
-		pAnkerNet->SetCallback_ConmentFlagsRecv(DatamangerUi::Callback_GetConmentFlags);
+		pAnkerNet->SetCallback_GetMsgCenterConfig(DatamangerUi::Callback_GetMsgCenterConfig);
+		pAnkerNet->SetCallback_GetMsgCenterErrorCodeInfo(DatamangerUi::Callback_GetMsgCenterErrCodeInfo);
+		pAnkerNet->SetCallback_GetMsgCenterStatus(DatamangerUi::Callback_GetMsgCenterStatus);
+		pAnkerNet->SetCallback_GetMsgCenterRecords(DatamangerUi::Callback_GetMsgCenterRecords);
+		pAnkerNet->SetCallback_CommentFlagsRecv(DatamangerUi::Callback_GetCommentFlags);
 
 		InitAllCallBacks();
 	}
@@ -349,6 +362,29 @@ void DatamangerUi::sendShowDeviceListDialog()
 
 void DatamangerUi::GeneralExceptionMsgBox(const AnkerNet::ExceptionInfo& infoin)
 {
+	auto ankerNet = AnkerNetInst();
+	if (!ankerNet) {
+		return;
+	}
+	DeviceObjectBasePtr devceiObj = ankerNet->getDeviceObjectFromSn(infoin.sn);
+	if (!devceiObj)
+		return;
+
+	bool isBlockErrMsgBos = false;
+	std::string currentVersionInfo = devceiObj->GetDeviceVersion();
+	if (devceiObj->GetDeviceType() == DEVICE_V8110_TYPE)
+	{
+		isBlockErrMsgBos = DeviceVersionUtil::IsTargetLessCurrent(MSG_CENTER_V8110_BASE_LINE, currentVersionInfo);
+	} 
+	else if (devceiObj->GetDeviceType() == DEVICE_V8111_TYPE)
+	{
+		isBlockErrMsgBos = DeviceVersionUtil::IsTargetLessCurrent(MSG_CENTER_V8111_BASE_LINE, currentVersionInfo);
+	}
+	if (isBlockErrMsgBos)
+	{
+		ANKER_LOG_INFO << "deviceType: " << devceiObj->GetDeviceType() << "current device version: " << currentVersionInfo;
+		return;
+	}
 	NetworkMsg msg;
 	switch (infoin.type)
 	{
@@ -578,7 +614,7 @@ void DatamangerUi::Callback_OtaUpdate(OtaInfo info)
 	}
 }
 
-void DatamangerUi::Callback_GetConmentFlags(std::vector<std::string> dataList)
+void DatamangerUi::Callback_GetCommentFlags(std::vector<std::string> dataList)
 {
 	auto pMainWindow = DatamangerUi::GetInstance().pMainWindow;
 	if (pMainWindow != nullptr) 
@@ -587,13 +623,17 @@ void DatamangerUi::Callback_GetConmentFlags(std::vector<std::string> dataList)
 		wxVariant eventData;
 		eventData.ClearList();
 
-		if (dataList.size() > 0)
+		if (dataList.size() > 0 && dataList[4] != "0") {
 			flags = true;
+		} else {
+			flags = false;
+		}
+			
 
 		eventData.Append(wxVariant(flags));
 
 
-		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_CONMENT_FLAGS);
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_COMMENT_FLAGS);
 
 		for (auto data: dataList) {
 			eventData.Append(wxVariant(wxString::FromUTF8(data)));
@@ -609,6 +649,59 @@ void DatamangerUi::Callback_FilamentUpdate()
 {
 	Slic3r::GUI::wxGetApp().filamentMaterialManager()->Load();
 	Slic3r::GUI::FilamentMaterialConvertor::ResetCache();
+}
+
+void DatamangerUi::Callback_GetMsgCenterErrCodeInfo(std::vector<MsgErrCodeInfo> dataList)
+{
+	auto pMainWindow = DatamangerUi::GetInstance().pMainWindow;
+	if (pMainWindow != nullptr) {
+
+		std::vector<MsgErrCodeInfo>* pData = new std::vector<MsgErrCodeInfo> (dataList);
+
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_MSG_CENTER_ERR_CODE_INFO);
+		evt.SetClientData(pData);
+		wxPostEvent(pMainWindow, evt);
+	}
+}
+void DatamangerUi::Callback_GetMsgCenterConfig(std::map<std::string, MsgCenterConfig> dataMap)
+{
+	auto pMainWindow = DatamangerUi::GetInstance().pMainWindow;
+	if (pMainWindow != nullptr) {	
+
+		std::map<std::string, MsgCenterConfig>* pData = new std::map<std::string, MsgCenterConfig>(dataMap);
+
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_MSG_CENTER_CFG);	
+		evt.SetClientData(pData);
+		wxPostEvent(pMainWindow, evt);
+	}	
+}
+
+void DatamangerUi::Callback_GetMsgCenterRecords(std::vector<MsgCenterItem> dataList)
+{
+	auto pMainWindow = DatamangerUi::GetInstance().pMainWindow;
+	if (pMainWindow != nullptr) 
+	{
+
+		std::vector<MsgCenterItem>* pData = new std::vector<MsgCenterItem>(dataList);
+
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_MSG_CENTER_RECORDS);				
+		evt.SetClientData(pData);
+		wxPostEvent(pMainWindow, evt);
+	}
+}
+void DatamangerUi::Callback_GetMsgCenterStatus(int officicalNews, int printNews)
+{
+	auto pMainWindow = DatamangerUi::GetInstance().pMainWindow;
+	if (pMainWindow != nullptr) {
+		
+		wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_GET_MSG_CENTER_STATUS);
+		wxVariant eventData;
+		eventData.ClearList();
+		eventData.Append(wxVariant(officicalNews));
+		eventData.Append(wxVariant(printNews));
+		evt.SetClientData(new wxVariant(eventData));		
+		wxPostEvent(pMainWindow, evt);
+	}
 }
 
 AnkerNetBase* AnkerNetInst()

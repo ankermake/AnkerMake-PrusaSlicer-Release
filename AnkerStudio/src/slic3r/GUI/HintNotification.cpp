@@ -13,6 +13,7 @@
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include <slic3r/Utils/DataMangerUi.hpp>
 
 #include <map>
 
@@ -26,7 +27,10 @@
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 
+
 #define HINTS_CEREAL_VERSION 1
+#define ENABLE_CACHE_SERVER_HINTS 1
+
 // structure for writing used hints into binary file with version
 struct HintsCerealData
 {
@@ -100,6 +104,30 @@ void read_used_binary(std::vector<std::string>& ids)
 	}
 	ids = cd.my_data;
 }
+
+std::string generate_uuid_v4() {
+	std::random_device rd;
+	std::mt19937_64 gen(rd());
+	std::uniform_int_distribution<uint64_t> dis;
+
+	uint64_t data[2];
+	data[0] = dis(gen);
+	data[1] = dis(gen);
+
+	std::ostringstream ss;
+	ss << std::hex << (data[0] >> 32);
+	ss << "-";
+	ss << std::hex << ((data[0] >> 16) & 0x0000FFFF);
+	ss << "-";
+	ss << std::hex << ((data[0] & 0x0000FFFF) | 0x4000); // UUID version 4
+	ss << "-";
+	ss << std::hex << ((data[1] >> 48) & 0x0FFF | 0x8000); // UUID variant 1
+	ss << "-";
+	ss << std::hex << (data[1] & 0xFFFFFFFFFFFF);
+
+	return ss.str();
+}
+
 enum TagCheckResult
 {
 	TagCheckAffirmative,
@@ -299,38 +327,272 @@ void launch_browser_if_allowed(const std::string& url)
 	wxGetApp().open_browser_with_warning_dialog(url);
 }
 } //namespace
+
 HintDatabase::~HintDatabase()
 {
 	if (m_initialized) {
 		write_used_binary(m_used_ids);
 	}
+
+	if (m_thread.joinable()) {
+		m_abort_download = true;
+		m_thread.join();
+	}
 }
+
 void HintDatabase::uninit()
 {
+	if (m_thread.joinable()) {
+		m_abort_download = true;
+		m_thread.join();
+	}
+
 	if (m_initialized) {
 		write_used_binary(m_used_ids);
 	}
+
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_abort_download = true;
 	m_initialized = false;
 	m_loaded_hints.clear();
 	m_sorted_hints = false;
 	m_used_ids.clear();
-	 m_used_ids_loaded = false;
+	m_used_ids_loaded = false;
 }
+
+void HintDatabase::reinit()
+{
+	uninit();
+	init();
+}
+
 void HintDatabase::init()
 {
-	load_hints_from_file(std::move(boost::filesystem::path(resources_dir()) / "data" / "hints.ini"));
-    m_initialized = true;
+	m_abort_download = false;
+	m_thread = std::thread([&]() { downLoading(); });
 }
-void HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
+
+void HintDatabase::downLoading()
+{
+	do {
+		if (!download_hints()) {
+			break;
+		}
+
+	} while (false);
+
+	download_hints_finish();
+}
+
+bool HintDatabase::download_hints()
+{
+	AnkerNetBase* pAnkerNetBase = AnkerNetInst();
+	if (pAnkerNetBase == nullptr) {
+		ANKER_LOG_ERROR << "pAnkerNetBase null";
+		return false;
+	}
+
+	std::lock_guard<std::mutex> lock(m_mutex);
+	m_loaded_hints.clear();
+	SliceTips sliceTips;
+	bool req_suss = pAnkerNetBase->PostGetSliceTips(sliceTips);
+	if (req_suss) {
+		for (size_t i = 0; i < sliceTips.size(); i++) {
+			if (m_abort_download)
+				break;
+
+			HintData hint;
+			hint.title = sliceTips[i].tip_title;
+			hint.image_url = sliceTips[i].image_url;
+			hint.text = sliceTips[i].help_desc;
+			hint.documentation_link_text = sliceTips[i].help_desc_light;
+			hint.documentation_link = sliceTips[i].help_link;
+			hint.language = sliceTips[i].language;
+
+			if (!hint.image_url.empty()) {
+				download_hints_image(hint.image_url, hint.image);
+			}
+
+			m_loaded_hints.emplace_back(hint);
+		}
+	}
+	else {
+		ANKER_LOG_ERROR << "PostGetSliceTips fail";
+	}
+
+	return req_suss;
+}
+
+void HintDatabase::download_hints_image(const std::string& img_url, std::string& img)
+{
+	auto save_file = [](const std::string& data, const std::string& path) {
+		std::ofstream outFile(path, std::ios::binary);
+		if (!outFile)  return false;
+		outFile.write(data.data(), data.size());
+		outFile.close();
+		if (!outFile) return false;
+		return boost::filesystem::exists(path);
+	};
+
+	auto get_image_path = [](const std::string& url) {
+		auto get_image_name = [](const std::string& url) {
+			std::size_t lastSlashPos = url.find_last_of('/');
+			return url.substr(lastSlashPos + 1);
+		};
+
+		std::string image_name = get_image_name(url);
+		return "images/" + image_name;
+	};
+
+	auto director_exist = [](const std::string& path) {
+		bool dir_exist = false;
+		boost::filesystem::path file_path = path;
+		boost::filesystem::path directory = file_path.parent_path();
+		if (!boost::filesystem::exists(directory)) {
+			if (boost::filesystem::create_directories(directory)) {
+				dir_exist = true;
+				ANKER_LOG_ERROR << "Directory created: " << directory;
+			}
+			else {
+				ANKER_LOG_ERROR << "Failed to create directory: " << directory;
+			}
+		}
+		else
+		{
+			dir_exist = true;
+		}
+
+		return dir_exist;
+	};
+
+	auto http = Http::get(img_url);
+	http.on_error([&](std::string body, std::string error, unsigned http_status) {
+		   ANKER_LOG_ERROR << " down_error_img_url:" << img_url;
+		})
+		.on_complete([&](std::string data, unsigned  http_status) {
+				std::string image_path = get_image_path(img_url);
+				std::string full_path = resources_dir() + "/" + image_path;
+				if (!director_exist(full_path))
+					return ;
+
+				if (!save_file(data, full_path))
+					return ;
+
+				img = std::move(image_path);
+
+			}).perform_sync();
+}
+
+void HintDatabase::download_hints_finish()
+{
+	auto init = [&]() {
+		auto srv_hints_config = boost::filesystem::path(resources_dir()) / "data" / "srv_hints.ini";
+		if (get_valid_hint_count()) {
+			save_server_hints(std::move(srv_hints_config));
+			return true;
+		}
+		else {
+			return load_hints_from_file(std::move(srv_hints_config));
+		}
+		return false;
+	};
+
+	if (init()) {
+		m_initialized = true;
+		init_random_hint_id();
+	}
+
+	ANKER_LOG_INFO << "hint init result, inited:" << m_initialized << ",  hints num:" << m_loaded_hints.size();
+	check_hint_imgage();
+}
+
+void HintDatabase::init_random_hint_id()
+{
+	if (m_loaded_hints.size()) {
+		srand(time(NULL));
+		m_hint_id = rand() % m_loaded_hints.size();
+	}
+}
+
+void HintDatabase::check_hint_imgage()
+{
+	m_loaded_hints.erase(
+		std::remove_if(m_loaded_hints.begin(), m_loaded_hints.end(), [](const HintData& hint) {
+			bool remove_item = false;
+			if (hint.image.empty() || !boost::filesystem::exists(resources_dir() + "/" + hint.image)) {
+				ANKER_LOG_INFO << "hint item have not image, remove. title=" << hint.title ;
+				remove_item = true;
+			}
+			return remove_item;
+		}),
+
+		m_loaded_hints.end()
+	);
+}
+
+void HintDatabase::save_server_hints(const boost::filesystem::path& path)
 {
 	namespace pt = boost::property_tree;
 	pt::ptree tree;
- 	boost::nowide::ifstream ifs(path.string());
+
+	auto sz = m_loaded_hints.size();
+	for (const auto& hint_item : m_loaded_hints) {	
+		if (!hint_item.title.empty() && !hint_item.text.empty()) {
+			//auto hint = std::string("hint:") + hint_item.title;
+			auto hint = std::string("hint:") + generate_uuid_v4();
+			tree.put(hint + "." + "text", escape_string_cstyle(hint_item.title +"\n"+ hint_item.text));
+			if (!hint_item.documentation_link_text.empty())
+				tree.put(hint + "." + "documentation_link_text", hint_item.documentation_link_text);
+			if (!hint_item.documentation_link.empty())
+				tree.put(hint + "." + "documentation_link", hint_item.documentation_link);
+			if (!hint_item.image.empty())
+				tree.put(hint + "." + "image", hint_item.image);
+			//if (!hint_item.image_url.empty())
+			//	tree.put(hint + "." + "image_url", hint_item.image_url);
+			if (!hint_item.language.empty())
+				tree.put(hint + "." + "language", hint_item.language);
+
+			//tree.put(hint + "." + "weight", hint_item.weight);
+		}
+	}
+
+	try {
+		if (tree.size()) {
+			boost::nowide::ofstream ofs(path.string());
+			if (!ofs) {
+				throw std::runtime_error("Failed to open file for writing: " + path.string());
+			}
+			pt::write_ini(ofs, tree);
+		}
+	}
+	catch (const std::exception& e) {
+		ANKER_LOG_ERROR << "Error writing hint ini file: " << e.what() << "  file:"<< path.string() << std::endl;
+	}
+}
+
+std::string HintDatabase::get_curr_language()
+{
+	wxString languageCode = wxGetApp().current_language_code_safe();
+	int index = languageCode.find('_');
+	std::string Language = languageCode.substr(0, index).ToStdString();
+	//std::string Country = languageCode.substr(index + 1, languageCode.Length() - index).ToStdString();
+	return Language;
+}
+
+bool HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
+{
+	if(!boost::filesystem::exists(path))
+		return false;
+
+	namespace pt = boost::property_tree;
+	pt::ptree tree;
+	boost::nowide::ifstream ifs(path.string());
 	try {
 		pt::read_ini(ifs, tree);
 	}
 	catch (const boost::property_tree::ini_parser::ini_parser_error& err) {
-		throw Slic3r::RuntimeError(format("Failed loading hints file \"%1%\"\nError: \"%2%\" at line %3%", path, err.message(), err.line()).c_str());
+		ANKER_LOG_ERROR<<format("Failed loading hints file \"%1%\"\nError: \"%2%\" at line %3%", path, err.message(), err.line()).c_str();
+		return false;
 	}
 
  	for (const auto& section : tree) {
@@ -341,6 +603,7 @@ void HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
 				dict.emplace(data.first, data.second.data());
 			}
 			// unique id string [hint:id] (trim "hint:")
+			std::string sectrion_name = section.first;
 			std::string id_string = section.first.substr(5);
 			id_string = std::to_string(std::hash<std::string>{}(id_string));
 			// unescaping and translating all texts and saving all data common for all hint types 
@@ -353,8 +616,11 @@ void HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
 			std::string enabled_tags;
 			// optional link to documentation (accessed from button)
 			std::string documentation_link;
+			std::string documentation_link_text;
+			std::string img;
+			std::string img_url ="";
 			// randomized weighted order variables
-			size_t      weight = 1;
+			int      weight = 1;
 			bool		was_displayed = is_used(id_string);
 			//unescape text1
 			unescape_string_cstyle(dict["text"], fulltext);
@@ -384,98 +650,139 @@ void HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
 				fulltext.erase(hypertext_start, HYPERTEXT_MARKER_START.size());
 				if (fulltext.find(HYPERTEXT_MARKER_START) != std::string::npos) {
 					// This must not happen - only 1 hypertext allowed
-					BOOST_LOG_TRIVIAL(error) << "Hint notification with multiple hypertexts: " << dict["text"];
+					BOOST_LOG_TRIVIAL(error) << "Hint notification with multiple hypertexts: " << into_u8(dict["text"]);
 					continue;
 				}
 				size_t hypertext_end = fulltext.find(HYPERTEXT_MARKER_END);
 				if (hypertext_end == std::string::npos) {
 					// hypertext was not correctly ended
-					BOOST_LOG_TRIVIAL(error) << "Hint notification without hypertext end marker: " << dict["text"];
+					BOOST_LOG_TRIVIAL(error) << "Hint notification without hypertext end marker: " << into_u8(dict["text"]);
 					continue;
 				}
 				fulltext.erase(hypertext_end, HYPERTEXT_MARKER_END.size());
 				if (fulltext.find(HYPERTEXT_MARKER_END) != std::string::npos) {
 					// This must not happen - only 1 hypertext end allowed
-					BOOST_LOG_TRIVIAL(error) << "Hint notification with multiple hypertext end markers: " << dict["text"];
+					BOOST_LOG_TRIVIAL(error) << "Hint notification with multiple hypertext end markers: " << into_u8(dict["text"]);
 					continue;
 				}
 				
 				text1          = fulltext.substr(0, hypertext_start);
 				hypertext_text = fulltext.substr(hypertext_start, hypertext_end - hypertext_start);
-				follow_text    = fulltext.substr(hypertext_end);
-			} else {
+				follow_text = fulltext.substr(hypertext_end);
+			}
+			else {
 				text1 = fulltext;
 			}
-			
+
+			std::string title;
+			std::string text = text1;
+			if (!text1.empty()){
+				size_t end_pos = text1.find_first_of('\n');
+				if (end_pos != std::string::npos) {
+					title = text1.substr(0, end_pos);
+					text = text1.substr(end_pos + 1);
+				}
+			}
+
 			if (dict.find("disabled_tags") != dict.end()) {
 				disabled_tags = dict["disabled_tags"];
 			}
 			if (dict.find("enabled_tags") != dict.end()) {
 				enabled_tags = dict["enabled_tags"];
 			}
+
+			if (dict.find("documentation_link_text") != dict.end()) {
+				documentation_link_text = dict["documentation_link_text"];
+			}
+
 			if (dict.find("documentation_link") != dict.end()) {
 				documentation_link = dict["documentation_link"];
+			}
+
+			if (documentation_link_text.empty() && !documentation_link.empty())
+				documentation_link_text = _u8L("More");
+
+			if (dict.find("image") != dict.end()) {
+				img = dict["image"];
+				auto img_full_path = resources_dir() + "/" + img;
+				if (!boost::filesystem::exists(img_full_path))
+					img = "";
 			}
 
 			if (dict.find("weight") != dict.end()) {
 				weight = (size_t)std::max(1, std::atoi(dict["weight"].c_str()));
 			}
 
+			std::string language = "en";
+			if (dict.find("language") != dict.end()) {
+				language = dict["language"];
+				if (get_curr_language() != language)
+					continue;
+			}
+
 			// create HintData
 			if (dict.find("hypertext_type") != dict.end()) {
 				//link to internet
-				if(dict["hypertext_type"] == "link") {
+				if (dict["hypertext_type"] == "link") {
 					std::string	hypertext_link = dict["hypertext_link"];
-					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link, [hypertext_link]() { launch_browser_if_allowed(hypertext_link); }  };
+					HintData	hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link_text, documentation_link, img, img_url,language,[hypertext_link]() { launch_browser_if_allowed(hypertext_link); }};
 					m_loaded_hints.emplace_back(hint_data);
-				// highlight settings
-				} else if (dict["hypertext_type"] == "settings") {
+					// highlight settings
+				}
+				else if (dict["hypertext_type"] == "settings") {
 					std::string		opt = dict["hypertext_settings_opt"];
 					Preset::Type	type = static_cast<Preset::Type>(std::atoi(dict["hypertext_settings_type"].c_str()));
 					std::wstring	category = boost::nowide::widen(dict["hypertext_settings_category"]);
-					HintData		hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true, documentation_link, [opt, type, category]() { GUI::wxGetApp().sidebar().jump_to_option(opt, type, category); } };
+					HintData		hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true,documentation_link_text, documentation_link, img, img_url,language,[opt, type, category]() { GUI::wxGetApp().sidebar().jump_to_option(opt, type, category); } };
 					m_loaded_hints.emplace_back(hint_data);
-				// open preferences
-				} else if(dict["hypertext_type"] == "preferences") {
+					// open preferences
+				}
+				else if (dict["hypertext_type"] == "preferences") {
 					std::string	page = dict["hypertext_preferences_page"];
 					std::string	item = dict["hypertext_preferences_item"];
-					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link, [page, item]() { wxGetApp().open_preferences(item, page); } };
+					HintData	hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false,documentation_link_text, documentation_link, img,img_url, language,[page, item]() { wxGetApp().open_preferences(item, page); } };// 1 is to modify
 					m_loaded_hints.emplace_back(hint_data);
-				} else if (dict["hypertext_type"] == "plater") {
+				}
+				else if (dict["hypertext_type"] == "plater") {
 					std::string	item = dict["hypertext_plater_item"];
-					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true, documentation_link, [item]() { wxGetApp().plater()->canvas3D()->highlight_toolbar_item(item); } };
+					HintData	hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true,documentation_link_text, documentation_link, img, img_url,language,[item]() { wxGetApp().plater()->canvas3D()->highlight_toolbar_item(item); } };
 					m_loaded_hints.emplace_back(hint_data);
-				} else if (dict["hypertext_type"] == "gizmo") {
+				}
+				else if (dict["hypertext_type"] == "gizmo") {
 					std::string	item = dict["hypertext_gizmo_item"];
-					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true, documentation_link, [item]() { wxGetApp().plater()->canvas3D()->highlight_gizmo(item); } };
+					HintData	hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true,documentation_link_text, documentation_link, img, img_url,language,[item]() { wxGetApp().plater()->canvas3D()->highlight_gizmo(item); } };
 					m_loaded_hints.emplace_back(hint_data);
 				}
 				else if (dict["hypertext_type"] == "gallery") {
-					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link, []() {
+					HintData	hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link_text,documentation_link, img,img_url, language,[]() {
 						// Deselect all objects, otherwise gallery wont show.
 						wxGetApp().plater()->canvas3D()->deselect_all();
-						//wxGetApp().obj_list()->load_shape_object_from_gallery(); 
-					} 
-					};
-					m_loaded_hints.emplace_back(hint_data);
-				} else if (dict["hypertext_type"] == "menubar") {
-					wxString menu(_(dict["hypertext_menubar_menu_name"]));
-					wxString item(_(dict["hypertext_menubar_item_name"]));
-					HintData	hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true, documentation_link, [menu, item]() { wxGetApp().mainframe->open_menubar_item(menu, item); } };
+						//wxGetApp().obj_list()->load_shape_object_from_gallery(); }
+					} };
 					m_loaded_hints.emplace_back(hint_data);
 				}
-			} else {
+				else if (dict["hypertext_type"] == "menubar") {
+					wxString menu(_("&" + dict["hypertext_menubar_menu_name"]));
+					wxString item(_(dict["hypertext_menubar_item_name"]));
+					HintData	hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, true, documentation_link_text,documentation_link, img, img_url,language,[menu, item]() { wxGetApp().mainframe->open_menubar_item(menu, item); } };
+					m_loaded_hints.emplace_back(hint_data);
+				}
+			}
+			else {
 				// plain text without hypertext
-				HintData hint_data{ id_string, text1, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false, documentation_link };
+				HintData hint_data{ id_string, title, text, weight, was_displayed, hypertext_text, follow_text, disabled_tags, enabled_tags, false,documentation_link_text, documentation_link, img };
 				m_loaded_hints.emplace_back(hint_data);
 			}
 		}
 	}
+
+	ANKER_LOG_INFO << "load hint from file " << path.string() << ", hint num: " << m_loaded_hints.size();
+	return m_loaded_hints.size() > 0;
 }
 HintData* HintDatabase::get_hint(bool new_hint/* = true*/)
 {
     if (! m_initialized) {
-        init();
+        //init();
 		new_hint = true;
     }
 	if (m_loaded_hints.empty())
@@ -494,16 +801,66 @@ HintData* HintDatabase::get_hint(bool new_hint/* = true*/)
 		return nullptr;
 	}
 	
-
-
     return &m_loaded_hints[m_hint_id];
+}
+
+
+size_t HintDatabase::get_valid_hint_count() {
+	int cnt = 0;
+	for (int i = 0; i < m_loaded_hints.size(); ++i)
+		if (!m_loaded_hints[i].image.empty())
+			cnt++;
+	return cnt;
+}
+
+HintData* HintDatabase::get_hint(HintDataNavigation nav)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	if (m_loaded_hints.empty())
+	{
+		BOOST_LOG_TRIVIAL(error) << "There were no hints loaded from hints.ini file.";
+		return nullptr;
+	}
+
+	try
+	{
+		if (nav == HintDataNavigation::Next)
+			m_hint_id = get_next_hint_id();
+		if (nav == HintDataNavigation::Prev)
+			m_hint_id = get_prev_hint_id();
+		if (nav == HintDataNavigation::Curr)
+			;
+		if (nav == HintDataNavigation::Random)
+			init_random_hint_id();
+	}
+	catch (const std::exception&)
+	{
+		return nullptr;
+	}
+
+	return &m_loaded_hints[m_hint_id];
+}
+
+size_t HintDatabase::get_next_hint_id()
+{
+	return m_hint_id < m_loaded_hints.size() - 1 ? m_hint_id + 1 : 0;
+}
+
+size_t HintDatabase::get_prev_hint_id()
+{
+	return m_hint_id > 0 ? m_hint_id - 1 : m_loaded_hints.size() - 1;
 }
 
 size_t HintDatabase::get_next()
 {
+	return get_random_next();
+}
+
+size_t HintDatabase::get_random_next()
+{
 	if (!m_sorted_hints)
 	{
-		auto compare_wieght = [](const HintData& a, const HintData& b){ return a.weight < b.weight; };
+		auto compare_wieght = [](const HintData& a, const HintData& b) { return a.weight < b.weight; };
 		std::sort(m_loaded_hints.begin(), m_loaded_hints.end(), compare_wieght);
 		m_sorted_hints = true;
 		srand(time(NULL));

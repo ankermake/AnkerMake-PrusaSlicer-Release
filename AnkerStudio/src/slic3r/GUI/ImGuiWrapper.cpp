@@ -68,6 +68,17 @@ static const std::map<const wchar_t, std::string> font_icons = {
     {ImGui::PlugMarker            , "plug"                          },
     {ImGui::DowelMarker           , "dowel"                         },
     {ImGui::SnapMarker            , "snap"                          },
+    {ImGui::CircleButtonDarkIcon    , "circle_paint_dark"               },
+    {ImGui::SphereButtonDarkIcon    , "toolbar_modifier_sphere_dark"    },
+    {ImGui::GapFillDarkIcon            , "gap_fill_dark"                      },
+    {ImGui::FillButtonDarkIcon         , "fill_paint_dark"                    },
+    {ImGui::CollapseArrowIcon,            "notification_collapse"             },
+    {ImGui::ExpandArrowIcon,              "notification_expand"               },
+    {ImGui::OpenArrowIcon,                "notification_arrow_open"           },
+    {ImGui::CircleButtonIcon       , "circle_paint"                  },
+    {ImGui::GapFillIcon            , "gap_fill"                      },
+    {ImGui::SphereButtonIcon       , "toolbar_modifier_sphere"       },
+    {ImGui::FillButtonIcon         , "fill_paint"                    },
 };
 
 static const std::map<const wchar_t, std::string> font_icons_large = {
@@ -107,6 +118,11 @@ static const std::map<const wchar_t, std::string> font_icons_large = {
     {ImGui::OpenHoverButton         , "notification_open_hover"         },
     {ImGui::SlaViewOriginal         , "sla_view_original"               },
     {ImGui::SlaViewProcessed        , "sla_view_processed"              },
+    {ImGui::CloseNotifDarkButton        , "notification_close_dark"              },
+    {ImGui::CloseNotifHoverDarkButton   , "notification_close_hover_dark"        },
+    {ImGui::PrevArrowBtnIcon,             "notification_arrow_left"              },
+    {ImGui::NextArrowBtnIcon,             "notification_arrow_right"             },
+    {ImGui::CompleteIcon,                 "notification_slicing_complete"        },
 };
 
 static const std::map<const wchar_t, std::string> font_icons_extra_large = {
@@ -137,6 +153,13 @@ const ImVec4 ImGuiWrapper::COL_TITLE_BG = { 0.161f, 0.165f, 0.176f, 1.0f };
 const ImVec4 ImGuiWrapper::COL_WINDOW_BG = { 0.161f, 0.165f, 0.176f, 1.0f };
 
 const ImVec4 ImGuiWrapper::COL_ANKER = to_ImVec4(ColorRGBA::ANKER());
+
+
+int ImGuiWrapper::TOOLBAR_WINDOW_FLAGS = ImGuiWindowFlags_AlwaysAutoResize
+        | ImGuiWindowFlags_NoMove
+        | ImGuiWindowFlags_NoResize
+        | ImGuiWindowFlags_NoCollapse
+        | ImGuiWindowFlags_NoTitleBar;
 
 bool get_data_from_svg(const std::string& filename, unsigned int max_size_px, ThumbnailData& thumbnail_data)
 {
@@ -1556,6 +1579,26 @@ void ImGuiWrapper::search_list(const ImVec2& size_, bool (*items_getter)(int, co
         check_box(_L("Search in English"), view_params.english);
 }
 
+
+bool ImGuiWrapper::push_bold_font() {
+    if (bold_font) {
+        ImGui::PushFont(bold_font);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+bool ImGuiWrapper::pop_bold_font() {
+    if (bold_font) {
+        ImGui::PopFont();
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 void ImGuiWrapper::title(const std::string& str)
 {
     text(str);
@@ -2166,6 +2209,93 @@ std::vector<unsigned char> ImGuiWrapper::load_svg(const std::string& bitmap_name
     return data;
 }
 
+static bool m_is_dark_mode = true;
+
+void ImGuiWrapper::on_change_color_mode(bool is_dark)
+{
+    m_is_dark_mode = is_dark;
+}
+
+
+void ImGuiWrapper::push_menu_style(const float scale)
+{
+    if (m_is_dark_mode) {
+        ImGuiWrapper::push_toolbar_style(scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f) * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImGuiWrapper::COL_WINDOW_BG_DARK);
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.00f, 0.68f, 0.26f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.00f, 0.68f, 0.26f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.00f, 0.68f, 0.26f, 1.0f));
+    }
+    else {
+        ImGuiWrapper::push_toolbar_style(scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f) * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_PopupBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, ImGuiWrapper::COL_WINDOW_BG);
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.00f, 0.68f, 0.26f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.00f, 0.68f, 0.26f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.00f, 0.68f, 0.26f, 1.0f));
+    }
+}
+void ImGuiWrapper::pop_menu_style()
+{
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar(3);
+    ImGuiWrapper::pop_toolbar_style();
+}
+
+void ImGuiWrapper::push_common_window_style(const float scale) {
+    if (m_is_dark_mode) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 10.0f) * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowTitleAlign, ImVec2(0.05f, 0.50f) * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 3.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 0.88f));                                   // 1
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGuiWrapper::COL_WINDOW_BG_DARK);                              // 2
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(54 / 255.0f, 54 / 255.0f, 60 / 255.0f, 1.00f));           // 3
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(54 / 255.0f, 54 / 255.0f, 60 / 255.0f, 1.00f));     // 4
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiWrapper::COL_SEPARATOR_DARK);                             // 5
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));                              // 6
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));                       // 7
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));                        // 8
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(84 / 255.0f, 84 / 255.0f, 90 / 255.0f, 1.00f));    // 9
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(62 / 255.0f, 62 / 255.0f, 69 / 255.0f, 1.00f));     // 10
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(238 / 255.0f, 238 / 255.0f, 238 / 255.0f, 0.00f));        // 11
+        ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));                           // 12
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, ImVec4(43 / 255.0f, 64 / 255.0f, 54 / 255.0f, 1.00f));    // 13
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));                       // 14
+    }
+    else {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 10.0f) * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowTitleAlign, ImVec2(0.05f, 0.50f) * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 3.0f * scale);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(38 / 255.0f, 46 / 255.0f, 48 / 255.0f, 1.00f));              // 1
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));                            // 2
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.00f));        // 3
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(245 / 255.0f, 245 / 255.0f, 245 / 255.0f, 1.00f));  // 4
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImGuiWrapper::COL_SEPARATOR);                                  // 5
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));                              // 6
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));                       // 7
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));                        // 8
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(238 / 255.0f, 238 / 255.0f, 238 / 255.0f, 1.00f)); // 9
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(238 / 255.0f, 238 / 255.0f, 238 / 255.0f, 1.00f));  // 10
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(238 / 255.0f, 238 / 255.0f, 238 / 255.0f, 0.00f));        // 11
+        ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));                           // 12
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, ImGuiWrapper::COL_GREEN_LIGHT);                           // 13
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));                       // 14
+    }
+}
+
+void ImGuiWrapper::pop_common_window_style() {
+    ImGui::PopStyleColor(14);
+    ImGui::PopStyleVar(5);
+}
 void ImGuiWrapper::push_confirm_button_style() {
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f / 255.f, 150.f / 255.f, 136.f / 255.f, 1.f));
@@ -2236,6 +2366,20 @@ void ImGuiWrapper::init_font(bool compress)
             throw Slic3r::RuntimeError("ImGui: Could not load deafult font");
         }
     }
+
+#ifdef _WIN32
+    bold_font = io.Fonts->AddFontFromFileTTF((Slic3r::resources_dir() + "/fonts/" + "HarmonyOS_Sans_SC_Bold.ttf").c_str(), m_font_size, nullptr, ranges.Data);
+    if (bold_font == nullptr) {
+        bold_font = io.Fonts->AddFontDefault();
+        if (bold_font == nullptr) { throw Slic3r::RuntimeError("ImGui: Could not load deafult font"); }
+    }
+
+    // Render the text a bit larger (see GLCanvas3D::_resize() and issue #3401), but only if the scale factor
+    // for the Display is greater than 300%.
+    if (wxGetApp().em_unit() > 30) {
+        bold_font->Scale    = 1.5f;
+    }
+#endif
 
 #ifdef __APPLE__
     ImFontConfig config;
@@ -2677,6 +2821,55 @@ void ImGuiWrapper::clipboard_set(void* /* user_data */, const char* text)
         wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(text)));   // object owned by the clipboard
         wxTheClipboard->Close();
     }
+}
+
+bool IMTexture::load_from_svg_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id)
+{
+    NSVGimage* image = nsvgParseFromFile(filename.c_str(), "px", 96.0f);
+    if (image == nullptr) {
+        return false;
+    }
+
+    float scale = (float)width / std::max(image->width, image->height);
+
+    int n_pixels = width * height;
+
+    if (n_pixels <= 0) {
+        nsvgDelete(image);
+        return false;
+    }
+
+    NSVGrasterizer* rast = nsvgCreateRasterizer();
+    if (rast == nullptr) {
+        nsvgDelete(image);
+        return false;
+    }
+    std::vector<unsigned char> data(n_pixels * 4, 0);
+    nsvgRasterize(rast, image, 0, 0, scale, data.data(), width, height, width * 4);
+
+    bool compress = false;
+    GLint last_texture;
+    unsigned m_image_texture{ 0 };
+    unsigned char* pixels = (unsigned char*)(&data[0]);
+
+    glsafe(::glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture));
+    glsafe(::glGenTextures(1, &m_image_texture));
+    glsafe(::glBindTexture(GL_TEXTURE_2D, m_image_texture));
+    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    glsafe(::glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    glsafe(::glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
+    glsafe(::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels));
+
+    // Store our identifier
+    texture_id = (ImTextureID)(intptr_t)m_image_texture;
+
+    // Restore state
+    glsafe(::glBindTexture(GL_TEXTURE_2D, last_texture));
+
+    nsvgDeleteRasterizer(rast);
+    nsvgDelete(image);
+
+    return true;
 }
 
 

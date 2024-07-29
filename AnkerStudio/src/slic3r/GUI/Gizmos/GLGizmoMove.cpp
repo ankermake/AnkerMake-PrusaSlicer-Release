@@ -16,14 +16,29 @@ namespace GUI {
 
 const double GLGizmoMove3D::Offset = 10.0;
 
-GLGizmoMove3D::GLGizmoMove3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id)
+GLGizmoMove3D::GLGizmoMove3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id, GizmoObjectManipulation* obj_manipulation)
     : GLGizmoBase(parent, icon_filename, sprite_id)
     , m_pInputWindowSizer(nullptr)
     , m_panelVisibleFlag(false)
+    , m_object_manipulation(obj_manipulation)
 {}
 
 std::string GLGizmoMove3D::get_tooltip() const
 {
+#if USE_OCRA
+    const Selection& selection = m_parent.get_selection();
+    bool show_position = selection.is_single_full_instance();
+    const Vec3d& position = selection.get_bounding_box().center();
+
+    if (m_hover_id == 0 || m_grabbers[0].dragging)
+        return "X: " + format(show_position ? position(0) : m_displacement(0), 2);
+    else if (m_hover_id == 1 || m_grabbers[1].dragging)
+        return "Y: " + format(show_position ? position(1) : m_displacement(1), 2);
+    else if (m_hover_id == 2 || m_grabbers[2].dragging)
+        return "Z: " + format(show_position ? position(2) : m_displacement(2), 2);
+    else
+        return "";
+#else
   if (m_hover_id == 0)
         return "X: " + format(m_displacement.x(), 2);
     else if (m_hover_id == 1)
@@ -32,6 +47,7 @@ std::string GLGizmoMove3D::get_tooltip() const
         return "Z: " + format(m_displacement.z(), 2);
     else
         return "";
+#endif
 }
 
 bool GLGizmoMove3D::on_mouse(const wxMouseEvent &mouse_event) {
@@ -57,6 +73,12 @@ bool GLGizmoMove3D::on_init()
     return true;
 }
 
+void GLGizmoMove3D::on_render_input_window(float x, float y, float bottom_limit)
+{
+    if (m_object_manipulation)
+        m_object_manipulation->do_render_move_window(m_imgui, "Move", x, y, bottom_limit);
+}
+
 std::string GLGizmoMove3D::on_get_name(bool i18n) const
 {
     return i18n ? _u8L("Move") : "Move";
@@ -70,16 +92,15 @@ bool GLGizmoMove3D::on_is_activable() const
 
 void GLGizmoMove3D::on_set_state()
 {
-    if (m_state == On)
-        set_input_window_state(true);
-    else
-        set_input_window_state(false);
+    //if (m_state == On)
+    //    set_input_window_state(true);
+    //else
+    //    set_input_window_state(false);
 }
 
 void GLGizmoMove3D::on_start_dragging()
 {
     assert(m_hover_id != -1);
-
     m_displacement = Vec3d::Zero();
     const Selection& selection = m_parent.get_selection();
     const ECoordinatesType coordinates_type = wxGetApp()./*obj_manipul()*/aobj_manipul()->get_coordinates_type();

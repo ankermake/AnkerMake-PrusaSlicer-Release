@@ -27,6 +27,7 @@ class ConfigManipulation
     // function to loading of changed configuration 
     std::function<void()>                                       load_config = nullptr;
     std::function<void (const std::string&, bool toggle, int opt_index)>   cb_toggle_field = nullptr;
+    std::function<void(const std::string&, bool toggle, int opt_index)>   cb_show_field = nullptr;
     // callback to propagation of changed value, if needed 
     std::function<void(const std::string&, const boost::any&)>  cb_value_change = nullptr;
     ModelConfig* local_config = nullptr;
@@ -35,11 +36,13 @@ class ConfigManipulation
 public:
     ConfigManipulation(std::function<void()> load_config,
         std::function<void(const std::string&, bool toggle, int opt_index)> cb_toggle_field,
+        std::function<void(const std::string&, bool toggle, int opt_index)> cb_show_field,
         std::function<void(const std::string&, const boost::any&)>  cb_value_change,
         ModelConfig* local_config = nullptr,
         wxWindow* msg_dlg_parent  = nullptr) :
         load_config(load_config),
         cb_toggle_field(cb_toggle_field),
+        cb_show_field(cb_show_field),
         cb_value_change(cb_value_change),
         m_msg_dlg_parent(msg_dlg_parent),
         local_config(local_config) {}
@@ -53,6 +56,7 @@ public:
 
     void    apply(DynamicPrintConfig* config, DynamicPrintConfig* new_config);
     void    toggle_field(const std::string& field_key, const bool toggle, int opt_index = -1);
+    void    show_field(const std::string& field_key, const bool toggle, int opt_index = -1);
 
     // FFF print
     void    update_print_fff_config(DynamicPrintConfig* config, const bool is_global_config = false);

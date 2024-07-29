@@ -84,6 +84,174 @@ void GLGizmoSeam::clearSeam()
     m_parent.set_as_dirty();
 }
 
+#if USE_OCRA
+void GLGizmoSeam::on_render_input_window(float x, float y, float bottom_limit)
+{
+    if (!m_c->selection_info()->model_object())
+        return;
+
+    //auto pos = get_gizmo_render_position(9);
+    //x = pos[0]; y = pos[1];
+
+    //const float approx_height = m_imgui->scaled(12.5f);
+    //y = std::min(y, bottom_limit - approx_height);
+
+    // GUI refactor: move gizmo to the right
+#if TOOLBAR_ON_TOP
+    m_imgui->set_next_window_pos(x, y, ImGuiCond_Always, 0.f, 0.f);
+#else
+    m_imgui->set_next_window_pos(x, y, ImGuiCond_Always, 1.0f, 0.f);
+#endif
+
+    wchar_t old_tool = m_current_tool;
+    ImGuiWrapper::push_toolbar_style(m_parent.get_scale());
+    m_imgui->begin(get_name(), ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
+
+    // First calculate width of all the texts that are could possibly be shown. We will decide set the dialog width based on that:
+    const float space_size = m_imgui->get_style_scaling() * 8;
+    const float clipping_slider_left = std::max(m_imgui->calc_text_size(m_desc.at("clipping_of_view")).x,
+        m_imgui->calc_text_size(m_desc.at("reset_direction")).x + ImGui::GetStyle().FramePadding.x * 2)
+        + m_imgui->scaled(1.5f);
+    const float cursor_size_slider_left = m_imgui->calc_text_size(m_desc.at("cursor_size")).x + m_imgui->scaled(1.f);
+    const float empty_button_width = m_imgui->calc_button_size("").x;
+
+    float caption_max = 0.f;
+    float total_text_max = 0.f;
+    for (const auto& t : std::array<std::string, 6>{"enforce", "block", "remove", "cursor_size", "clipping_of_view"}) {
+        caption_max = std::max(caption_max, m_imgui->calc_text_size(m_desc[t + "_caption"]).x);
+        total_text_max = std::max(total_text_max, m_imgui->calc_text_size(m_desc[t]).x);
+    }
+
+    const float sliders_left_width = std::max(cursor_size_slider_left, clipping_slider_left);
+    const float slider_icon_width = m_imgui->get_slider_icon_size().x;
+
+    const float sliders_width = m_imgui->scaled(7.0f);
+    const float drag_left_width = ImGui::GetStyle().WindowPadding.x + sliders_left_width + sliders_width - space_size;
+
+    const float max_tooltip_width = ImGui::GetFontSize() * 20.0f;
+
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text(m_desc.at("cursor_type"));
+    std::array<wchar_t, 2> tool_ids = { ImGui::CircleButtonIcon, ImGui::SphereButtonIcon };
+    std::array<wchar_t, 2> icons =  { ImGui::CircleButtonDarkIcon, ImGui::SphereButtonDarkIcon };
+
+    std::array<wxString, 2> tool_tips = { _L("Circle"), _L("Sphere") };
+    for (int i = 0; i < tool_ids.size(); i++) {
+        std::string  str_label = std::string("##");
+        std::wstring btn_name = icons[i] + boost::nowide::widen(str_label);
+
+        if (i != 0) ImGui::SameLine((empty_button_width + m_imgui->scaled(1.75f)) * i + m_imgui->scaled(1.3f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0);
+        if (m_current_tool == tool_ids[i]) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(43 / 255.0f, 64 / 255.0f, 54 / 255.0f, 1.00f) ); // r, g, b, a
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(43 / 255.0f, 64 / 255.0f, 54 / 255.0f, 1.00f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(43 / 255.0f, 64 / 255.0f, 54 / 255.0f, 1.00f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.00f, 0.68f, 0.26f, 1.00f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0);
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 1.0);
+        }
+
+        bool btn_clicked = ImGui::Button(into_u8(btn_name).c_str());
+        if (m_current_tool == tool_ids[i])
+        {
+            ImGui::PopStyleColor(4);
+            ImGui::PopStyleVar(2);
+        }
+        ImGui::PopStyleVar(1);
+        if (btn_clicked && m_current_tool != tool_ids[i]) {
+            m_current_tool = tool_ids[i];
+            for (auto& triangle_selector : m_triangle_selectors) {
+                triangle_selector->seed_fill_unselect_all_triangles();
+                triangle_selector->request_update_render_data();
+            }
+        }
+
+        if (ImGui::IsItemHovered()) {
+            m_imgui->tooltip(tool_tips[i], max_tooltip_width);
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0.0f, ImGui::GetFontSize() * 0.1));
+
+    if (m_current_tool == ImGui::CircleButtonIcon) {
+        m_cursor_type = TriangleSelector::CursorType::CIRCLE;
+        m_tool_type = ToolType::BRUSH;
+    }
+    else if (m_current_tool == ImGui::SphereButtonIcon) {
+        m_cursor_type = TriangleSelector::CursorType::SPHERE;
+        m_tool_type = ToolType::BRUSH;
+    }
+
+    ImGui::AlignTextToFramePadding();
+    m_imgui->text(m_desc.at("cursor_size"));
+    ImGui::SameLine(sliders_left_width);
+
+    ImGui::PushItemWidth(sliders_width);
+    m_imgui->bbl_slider_float_style("##cursor_radius", &m_cursor_radius, CursorRadiusMin, CursorRadiusMax, "%.2f", 1.0f, true);
+    ImGui::SameLine(drag_left_width);
+    ImGui::PushItemWidth(1.5 * slider_icon_width);
+    ImGui::BBLDragFloat("##cursor_radius_input", &m_cursor_radius, 0.05f, 0.0f, 0.0f, "%.2f");
+
+    ImGui::Separator();
+    if (m_c->object_clipper()->get_position() == 0.f) {
+        ImGui::AlignTextToFramePadding();
+        m_imgui->text(m_desc.at("clipping_of_view"));
+    }
+    else {
+        if (m_imgui->button(m_desc.at("reset_direction"))) {
+            wxGetApp().CallAfter([this]() {
+                m_c->object_clipper()->set_position_by_ratio(-1., false);
+                });
+}
+    }
+
+    auto clp_dist = float(m_c->object_clipper()->get_position());
+    ImGui::SameLine(sliders_left_width);
+
+    ImGui::PushItemWidth(sliders_width);
+    bool slider_clp_dist = m_imgui->bbl_slider_float_style("##clp_dist", &clp_dist, 0.f, 1.f, "%.2f", 1.0f, true);
+
+    ImGui::SameLine(drag_left_width);
+    ImGui::PushItemWidth(1.5 * slider_icon_width);
+    bool b_clp_dist_input = ImGui::BBLDragFloat("##clp_dist_input", &clp_dist, 0.05f, 0.0f, 0.0f, "%.2f");
+    if (slider_clp_dist || b_clp_dist_input) { m_c->object_clipper()->set_position_by_ratio(clp_dist, true); }
+
+    ImGui::Separator();
+
+    bool enable = m_enable_seam;
+    m_imgui->bbl_checkbox(_L("Block seam"), enable);
+    if (enable != m_enable_seam) { this->update_enforcerblocker_type(enable); }
+
+    ImGui::Separator();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 10.0f));
+    float get_cur_y = ImGui::GetContentRegionMax().y + ImGui::GetFrameHeight() + y;
+    //show_tooltip_information(caption_max, x, get_cur_y);
+
+    float f_scale = 1.0f /*m_parent.get_gizmos_manager().get_layout_scale()*/;
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f * f_scale));
+
+    //ImGui::SameLine();
+    if (m_imgui->button(m_desc.at("remove_all"))) {
+        Plater::TakeSnapshot snapshot(wxGetApp().plater(), _L("Reset selection"), UndoRedo::SnapshotType::GizmoAction);
+        ModelObject* mo = m_c->selection_info()->model_object();
+        int                  idx = -1;
+        for (ModelVolume* mv : mo->volumes)
+            if (mv->is_model_part()) {
+                ++idx;
+                m_triangle_selectors[idx]->reset();
+                m_triangle_selectors[idx]->request_update_render_data();
+            }
+
+        update_model_object();
+        m_parent.set_as_dirty();
+    }
+    ImGui::PopStyleVar(2);
+    m_imgui->end();
+
+    ImGuiWrapper::pop_toolbar_style();
+}
+#else
 void GLGizmoSeam::on_render_input_window(float x, float y, float bottom_limit)
 {
     if (! m_c->selection_info()->model_object())
@@ -199,8 +367,7 @@ void GLGizmoSeam::on_render_input_window(float x, float y, float bottom_limit)
 
     m_imgui->end();
 }
-
-
+#endif
 
 void GLGizmoSeam::update_model_object() const
 {
@@ -270,14 +437,26 @@ wxString GLGizmoSeam::handle_snapshot_action_name(bool shift_down, GLGizmoPainte
 
 void GLGizmoSeam::on_opening()
 {
-    set_input_window_state(true);
+   // set_input_window_state(true);
 }
 
 void GLGizmoSeam::on_shutdown()
 {
     m_parent.toggle_model_objects_visibility(true);
 
-    set_input_window_state(false);
+   // set_input_window_state(false);
+}
+
+void GLGizmoSeam::update_enforcerblocker_type(bool new_value)
+{
+    if (new_value) {
+        m_currentType = EnforcerBlockerType::BLOCKER;
+    }
+    else {
+        m_currentType = EnforcerBlockerType::ENFORCER;
+    }
+
+    m_enable_seam = new_value;
 }
 
 void GLGizmoSeam::set_input_window_state(bool on)

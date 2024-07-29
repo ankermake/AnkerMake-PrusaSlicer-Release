@@ -56,9 +56,9 @@ AnkerWebView::AnkerWebView(wxWindow* parent,
 	m_loadTimer = new wxTimer(this, wxID_ANY);
 	Bind(wxEVT_TIMER, &AnkerWebView::OnLoadTimer, this);
 	ANKER_LOG_INFO << "webview create. start load timer: " << m_loadTimeMs << ", background: " << m_background;
-	m_loadTimer->StartOnce(m_loadTimeMs);
-	BuryEvent(LoginStatus::LoginStart, "start");
+	m_loadTimer->StartOnce(m_loadTimeMs);	
 	initUi();
+	BuryEvent(LoginStatus::LoginStart, "start");
 }
 
 
@@ -352,7 +352,9 @@ void AnkerWebView::initUi()
 	m_webView = std::move(CreateWebView(this, m_url));
 
 	if (m_webView)
-	{		
+	{
+		//m_webView->EnableContextMenu(true);
+		//m_webView->EnableAccessToDevTools();
 		m_webView->SetBackgroundColour(wxColour("#111111"));
 		m_webView->AlwaysShowScrollbars(false, false);
 		m_pMainVSizer->Remove(0);
@@ -379,7 +381,21 @@ void AnkerWebView::initUi()
 
 	SetSizer(m_pMainVSizer);
 	SetSizerAndFit(m_pMainVSizer);
+}
 
+std::string AnkerWebView::getWebviewVersion()const
+{
+	std::string version = "";
+	if (!m_webView)
+		return version;
+	
+	auto backenVersioninfo = m_webView->GetBackendVersionInfo();
+	version = std::to_string(backenVersioninfo.GetMajor())+"."+
+		std::to_string(backenVersioninfo.GetMinor()) + "." +
+		std::to_string(backenVersioninfo.GetMicro()) + "." +
+		std::to_string(backenVersioninfo.GetRevision()) ;
+
+	return version;
 }
 
 
@@ -479,6 +495,9 @@ void AnkerWebView::BuryEvent(AnkerWebView::LoginStatus status, const std::string
 	map.insert(std::make_pair(c_login_status, std::to_string((int)status)));
 	map.insert(std::make_pair(c_load_url, m_url.ToUTF8()));
 	map.insert(std::make_pair(c_status_info, statusInfo));
+	std::string version = getWebviewVersion();
+	if(!version.empty())
+		map.insert(std::make_pair(c_browser_version, version));
 	BuryAddEvent(e_webview_event, map);
 }
 

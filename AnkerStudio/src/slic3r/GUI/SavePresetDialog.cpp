@@ -872,8 +872,6 @@ AnkerSavePresetDialog::~AnkerSavePresetDialog()
 void AnkerSavePresetDialog::build(std::vector<Preset::Type> types, std::string suffix, bool template_filament)
 {
     this->SetFont(wxGetApp().normal_font());
-    this->SetMinSize(wxSize(500, -1));
-    this->SetMaxSize(wxSize(500, -1));
 
     // add by allen for ankerCfgDlg AnkerSavePresetDialog
     SetBackgroundColour(ANKER_SAVEPRESET_DIALOG_BACKGROUD_COLOUR);

@@ -106,6 +106,9 @@ extern wxString file_wildcards(FileType file_type, const std::string &custom_ext
 #endif // ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
 
 extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& lineLength);
+extern wxString WrapFixWidth(const wxString& str, wxFont font, const int& lineLength);
+extern wxString WrapFixWidthAdvance(const wxString& str, wxFont font, const int& lineLength, std::string language);
+extern wxString WrapFixWidthAdvance(const wxString& str, wxFont font, const int& lineLength);
 
 enum ConfigMenuIDs {
     ConfigMenuWizard,
@@ -127,14 +130,17 @@ enum ConfigMenuIDs {
 enum ENVIR_ID {
 	EU_ID = wxID_ANY +10086,
     US_ID = wxID_ANY +10087,
-	QA_ID = wxID_ANY +10088
+	QA_ID = wxID_ANY +10088,
+    CI_ID = wxID_ANY + 10089
 };
 
 enum ANKER_ENVIR
 {
-    EN_ENVIR = 0,
-    US_ENVIR = 1,
-    QA_ENVIR = 2
+    EN_UNKNOWN = -1,    
+    US_ENVIR = 0,
+    EU_ENVIR = 1,
+    QA_ENVIR = 2,
+    CI_ENVIR = 3
 };
 
 // add by allen for ankerCfgDlg

@@ -8,7 +8,7 @@ namespace Slic3r {
 namespace GUI {
 
 class Selection;
-
+class GizmoObjectManipulation;
 class GLGizmoMove3D : public GLGizmoBase
 {
     static const double Offset;
@@ -31,8 +31,11 @@ class GLGizmoMove3D : public GLGizmoBase
     bool m_panelVisibleFlag;
     wxBoxSizer* m_pInputWindowSizer;
 
+    //add size adjust related
+    GizmoObjectManipulation* m_object_manipulation;
+
 public:
-    GLGizmoMove3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
+    GLGizmoMove3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id, GizmoObjectManipulation* obj_manipulation);
     virtual ~GLGizmoMove3D() = default;
 
     double get_snap_step(double step) const { return m_snap_step; }
@@ -62,6 +65,7 @@ protected:
     void on_render() override;
     virtual void on_register_raycasters_for_picking() override;
     virtual void on_unregister_raycasters_for_picking() override;
+    void on_render_input_window(float x, float y, float bottom_limit) override;
 
 private:
     double calc_projection(const UpdateData& data) const;

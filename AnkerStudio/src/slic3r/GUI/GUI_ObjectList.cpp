@@ -805,7 +805,8 @@ void ObjectList::update_extruder_in_config(const wxDataViewItem& item)
 
 static wxString get_item_name(const std::string& name, const bool is_text_volume)
 {
-    return (is_text_volume ? _L("Text") + " - " : "") + from_u8(name);
+    return from_u8(name);
+    //return (is_text_volume ? _L("Text") + " - " : "") + from_u8(name);
 }
 
 void ObjectList::update_name_in_model(const wxDataViewItem& item) const 
@@ -2583,9 +2584,14 @@ void ObjectList::layers_editing()
 wxDataViewItem ObjectList::add_layer_root_item(const wxDataViewItem obj_item)
 {
     const int obj_idx = m_objects_model->GetIdByItem(obj_item);
-    if (obj_idx < 0 || 
-        object(obj_idx)->layer_config_ranges.empty() ||
-        printer_technology() == ptSLA)
+    if (obj_idx < 0 || printer_technology() == ptSLA)
+        return wxDataViewItem(nullptr);
+
+    auto obj_model = object(obj_idx);
+    if (!obj_model)  
+        return wxDataViewItem(nullptr);
+
+    if(obj_model->layer_config_ranges.empty())
         return wxDataViewItem(nullptr);
 
     // create LayerRoot item
@@ -3155,7 +3161,6 @@ void ObjectList::update_info_items(size_t obj_idx, wxDataViewItemArray* selectio
         if (! shows && should_show) {
             auto child = m_objects_model->AddInfoChild(item_obj, type);
             Expand(item_obj);
-            select_item(child); // add by louis for support
 
             // comment by Samuel 20231106, Discarded  unused notification text
             //if (added_object)
@@ -5259,7 +5264,7 @@ void ObjectList::toggle_printable_state()
 
 ModelObject* ObjectList::object(const int obj_idx) const
 {
-    if (obj_idx < 0)
+    if (obj_idx < 0 || obj_idx >= (*m_objects).size())
         return nullptr;
 
     return (*m_objects)[obj_idx];

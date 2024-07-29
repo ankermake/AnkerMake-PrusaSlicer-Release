@@ -148,6 +148,9 @@ public:
                      Search::OptionViewParameters& view_params, int& selected, bool& edited, int& mouse_wheel, bool is_localized);
     void title(const std::string& str);
 
+    bool push_bold_font();
+    bool pop_bold_font();
+
     void disabled_begin(bool disabled);
     void disabled_end();
 
@@ -293,6 +296,11 @@ public:
     static const ImVec4 COL_ANKER;
 
 
+    static void on_change_color_mode(bool is_dark);
+    static void push_menu_style(const float scale);
+    static void pop_menu_style();
+    static void push_common_window_style(const float scale);
+    static void pop_common_window_style();
     static void push_confirm_button_style();
     static void pop_confirm_button_style();
     static void push_cancel_button_style();
@@ -304,6 +312,7 @@ public:
     static void push_radio_style();
     static void pop_radio_style();
 
+    static int TOOLBAR_WINDOW_FLAGS;
 
 private:
     void init_font(bool compress);
@@ -318,8 +327,16 @@ private:
     static void clipboard_set(void* user_data, const char* text);
 
     LastSliderStatus m_last_slider_status;
+    ImFont* bold_font = nullptr;
 };
 
+class IMTexture
+{
+public:
+    // load svg file to thumbnail data, specific width, height is thumbnailData width, height
+    static bool load_from_svg_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id);
+
+};
 
 } // namespace GUI
 } // namespace Slic3r
