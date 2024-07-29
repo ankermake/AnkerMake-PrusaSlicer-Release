@@ -115,14 +115,48 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
         }
         });
 
+    initTimer();
+
+    m_pLocalCounter = new wxTimer();
+    m_pLocalCounter->Bind(wxEVT_TIMER, &AnkerTaskPanel::OnCountdownTimer, this);
+}
+
+AnkerTaskPanel::~AnkerTaskPanel()
+{
+    m_pLoadingMask = nullptr;
+
+    if (m_pToPrintingTimer)
+    {
+        delete m_pToPrintingTimer;
+        m_pToPrintingTimer = nullptr;
+    }
+
+    if (m_pLocalCounter)
+    {
+        delete m_pLocalCounter;
+        m_pLocalCounter = nullptr;
+    }
+}
+
+void AnkerTaskPanel::initTimer()
+{
     m_pModalingTimer = new wxTimer();
+
 #if USE_OLD_PRINT_FINISH_UI
-    m_pModalingTimer->Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
+    m_pModalingTimer->Bind(wxEVT_TIMER, [&](wxTimerEvent& event) {
         ANKER_LOG_INFO << "m_pModalingTimer Enter";
-        auto ankerNet = AnkerNetInst();
-        if (!ankerNet) {
-            return;
-        }
+
+        auto finish_dialog = [&](bool bSuccess, AnkerPrintFinishDialog::PrintFinishInfo& result) {
+            int screenH = wxSystemSettings::GetMetric(wxSYS_SCREEN_Y, nullptr);
+            int screenW = wxSystemSettings::GetMetric(wxSYS_SCREEN_X, nullptr);
+            m_pPrintFinishDialog->SetPosition(wxPoint((screenW - m_pPrintFinishDialog->GetSize().x) / 2, (screenH - m_pPrintFinishDialog->GetSize().y) / 2));
+            m_pPrintFinishDialog->setCurrentDeviceSn(m_currentDeviceSn);
+
+            AnkerGCodeImportDialog::GCodeImportResult importResult = m_pGCodeImportDialog->getImportResult();
+            result.m_previewImage = importResult.m_previewImage;
+            m_pPrintFinishDialog->ShowPrintFinishDialog(bSuccess, result);
+        };
+
         DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
         if (!currentDev) {
             return;
@@ -133,12 +167,7 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
             ANKER_LOG_INFO << "showModal for print failed";
             m_printCompleteCheckFlag = true;
 
-            int screenH = wxSystemSettings::GetMetric(wxSYS_SCREEN_Y, nullptr);
-            int screenW = wxSystemSettings::GetMetric(wxSYS_SCREEN_X, nullptr);
-            m_pGCodeImportDialog->SetPosition(wxPoint((screenW - m_pGCodeImportDialog->GetSize().x) / 2, (screenH - m_pGCodeImportDialog->GetSize().y) / 2));
-
-            AnkerGCodeImportDialog::GCodeImportResult result = m_pGCodeImportDialog->getImportResult();
-
+            AnkerPrintFinishDialog::PrintFinishInfo result;
             auto layerPtr = currentDev->GetLayerPtr();
             auto dataInfo = currentDev->GetPrintFailedInfo();
             if (!dataInfo.isNull)
@@ -149,6 +178,8 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
                     std::stringstream ss;
                     ss << std::fixed << std::setprecision(1) << filamentUsed;
                     filamentUsedStr = ss.str();
+                    result.m_currentLayer = layerPtr.real_print_layer;
+                    result.m_totleLayer = layerPtr.total_layer;
                 }
 
                 if (!dataInfo.name.empty() && result.m_fileName != dataInfo.name)
@@ -158,20 +189,16 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
                     result.m_timeSecond = dataInfo.totalTime;
             }
 
-            m_pGCodeImportDialog->switch2PrintFinished(false, result);
-
+            finish_dialog(false, result);
             DatamangerUi::GetInstance().SetIsPrintFinishFailedDialogShow(true);
-            auto dialogRet = m_pGCodeImportDialog->ShowModal();
+            auto dialogRet = m_pPrintFinishDialog->ShowModal();
             DatamangerUi::GetInstance().SetIsPrintFinishFailedDialogShow(false);
 
-            if (dialogRet == wxOK)
-            {
+            if (dialogRet == wxOK) {
                 currentDev->setDevicePrintAgain();
             }
-            else
-            {
+            else {
                 currentDev->resetDeviceIdel();
-
                 m_gcodeImportResult.m_filamentStr = "--";
                 m_gcodeImportResult.m_speedStr = "--";
                 m_gcodeImportResult.m_fileName = "--";
@@ -185,11 +212,7 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
             ANKER_LOG_INFO << "showModal for print finished";
             m_printCompleteCheckFlag = true;
 
-            int screenH = wxSystemSettings::GetMetric(wxSYS_SCREEN_Y, nullptr);
-            int screenW = wxSystemSettings::GetMetric(wxSYS_SCREEN_X, nullptr);
-            m_pGCodeImportDialog->SetPosition(wxPoint((screenW - m_pGCodeImportDialog->GetSize().x) / 2, (screenH - m_pGCodeImportDialog->GetSize().y) / 2));
-            AnkerGCodeImportDialog::GCodeImportResult result = m_pGCodeImportDialog->getImportResult();
-
+            AnkerPrintFinishDialog::PrintFinishInfo result;
             auto dataPtr = currentDev->GetPrintNoticeInfo();
             if (!dataPtr.isNull) {
                 if (!dataPtr.name.empty())
@@ -198,20 +221,16 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
                 result.m_timeSecond = dataPtr.totalTime;
             }
 
-            m_pGCodeImportDialog->switch2PrintFinished(true, result);
-
+            finish_dialog(true, result);
             DatamangerUi::GetInstance().SetIsPrintFinishFailedDialogShow(true);
-            auto dialogRet = m_pGCodeImportDialog->ShowModal();
+            auto dialogRet = m_pPrintFinishDialog->ShowModal();
             DatamangerUi::GetInstance().SetIsPrintFinishFailedDialogShow(false);
 
-            if (dialogRet == wxOK)
-            {
+            if (dialogRet == wxOK) {
                 currentDev->setDevicePrintAgain();
             }
-            else
-            {
+            else {
                 currentDev->resetDeviceIdel();
-
                 m_gcodeImportResult.m_filamentStr = "--";
                 m_gcodeImportResult.m_speedStr = "--";
                 m_gcodeImportResult.m_fileName = "--";
@@ -220,7 +239,7 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
         }
 
         m_modaling = false;
-    });
+        });
 #else
     m_pModalingTimer->Bind(wxEVT_TIMER, [this](wxTimerEvent& event) {
         if (m_modalingDeviceStatus == GUI_DEVICE_STATUS_TYPE_PRINT_FAILED || m_modalingDeviceStatus == GUI_DEVICE_STATUS_TYPE_PRINT_FINISHED)
@@ -282,28 +301,8 @@ AnkerTaskPanel::AnkerTaskPanel(std::string currentSn, wxWindow* parent)
         }
 
         m_modaling = false;
-    });
+        });
 #endif
-
-    m_pLocalCounter = new wxTimer();
-    m_pLocalCounter->Bind(wxEVT_TIMER, &AnkerTaskPanel::OnCountdownTimer, this);
-}
-
-AnkerTaskPanel::~AnkerTaskPanel()
-{
-    m_pLoadingMask = nullptr;
-
-    if (m_pToPrintingTimer)
-    {
-        delete m_pToPrintingTimer;
-        m_pToPrintingTimer = nullptr;
-    }
-
-    if (m_pLocalCounter)
-    {
-        delete m_pLocalCounter;
-        m_pLocalCounter = nullptr;
-    }
 }
 
 void AnkerTaskPanel::switchMode(TaskMode mode, bool force)

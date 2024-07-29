@@ -294,14 +294,14 @@ bool AnkerObjectSettings::update_settings_list(bool enable)
     if (!wxGetApp().plater())  
         return false;
 
-    if (!enable) {                //exit paramel
+    if (!enable) {  
         Slic3r::GUI::wxGetApp().plater()->sidebarnew().HideLocalParamPanel();
         return true;
     }
 
     wxDataViewItemArray sels;
     wxGetApp().obj_list()->GetSelections(sels);
-    if (sels.IsEmpty() || sels.size() > 1) { //exit paramel
+    if (sels.IsEmpty() || sels.size() > 1) { 
         Slic3r::GUI::wxGetApp().plater()->sidebarnew().HideLocalParamPanel();
         return true;
     }

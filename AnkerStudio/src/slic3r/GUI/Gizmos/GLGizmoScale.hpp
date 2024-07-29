@@ -2,6 +2,7 @@
 #define slic3r_GLGizmoScale_hpp_
 
 #include "GLGizmoBase.hpp"
+#include "GizmoObjectManipulation.hpp"
 
 namespace Slic3r {
 namespace GUI {
@@ -46,8 +47,11 @@ class GLGizmoScale3D : public GLGizmoBase
 
     bool m_panelVisibleFlag;
     wxBoxSizer* m_pInputWindowSizer;
+
+    // add size adjust related
+    GizmoObjectManipulation* m_object_manipulation;
 public:
-    GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id);
+    GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id, GizmoObjectManipulation* obj_manipulation);
 
     double get_snap_step(double step) const { return m_snap_step; }
     void set_snap_step(double step) { m_snap_step = step; }
@@ -77,6 +81,8 @@ protected:
     virtual void on_render() override;
     virtual void on_register_raycasters_for_picking() override;
     virtual void on_unregister_raycasters_for_picking() override;
+
+    virtual void on_render_input_window(float x, float y, float bottom_limit) override;
 
 private:
     void render_grabbers_connection(unsigned int id_1, unsigned int id_2, const ColorRGBA& color);

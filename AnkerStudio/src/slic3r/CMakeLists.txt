@@ -84,6 +84,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoMeasure.hpp
     GUI/Gizmos/GLGizmoSVG.cpp
     GUI/Gizmos/GLGizmoSVG.hpp
+    GUI/Gizmos/GizmoObjectManipulation.cpp
+    GUI/Gizmos/GizmoObjectManipulation.hpp
     GUI/GLSelectionRectangle.cpp
     GUI/GLSelectionRectangle.hpp
     GUI/GLModel.hpp
@@ -100,8 +102,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/Preferences.hpp
     GUI/PresetHints.cpp
     GUI/PresetHints.hpp
-    GUI/AnkerSliceConmentDialog.cpp
-    GUI/AnkerSliceConmentDialog.hpp
+    GUI/AnkerSliceCommentDialog.cpp
+    GUI/AnkerSliceCommentDialog.hpp
     GUI/GUI.cpp
     GUI/GUI.hpp
     GUI/GUI_Init.cpp
@@ -265,6 +267,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ProgressStatusBar.cpp
     GUI/Mouse3DController.cpp
     GUI/Mouse3DController.hpp
+    GUI/AnkerMsgCentreDialog.cpp
+    GUI/AnkerMsgCentreDialog.hpp
     GUI/DoubleSlider.cpp
     GUI/DoubleSlider.hpp
     GUI/Notebook.cpp
@@ -275,6 +279,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/InstanceCheck.hpp
     GUI/Search.cpp
     GUI/Search.hpp
+    GUI/DailyTips.cpp
+    GUI/DailyTips.hpp
+    GUI/SlicingProgressNotification.cpp
+    GUI/SlicingProgressNotification.hpp
     GUI/NotificationManager.cpp
     GUI/NotificationManager.hpp
     GUI/UnsavedChangesDialog.cpp
@@ -534,6 +542,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/FilamentMaterialConvertor.cpp
 	Utils/wxFileTool.hpp
 	Utils/wxFileTool.cpp
+    GUI/NozzlePriorPresent/NozzlePriorityQueue.hpp
+    GUI/NozzlePriorPresent/NozzlePriorityQueue.cpp
 )
 
 

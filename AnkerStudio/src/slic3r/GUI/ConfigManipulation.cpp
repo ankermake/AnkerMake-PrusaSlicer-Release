@@ -34,6 +34,18 @@ void ConfigManipulation::toggle_field(const std::string& opt_key, const bool tog
     cb_toggle_field(opt_key, toggle, opt_index);
 }
 
+void ConfigManipulation::show_field(const std::string& opt_key, const bool toggle, int opt_index/* = -1*/)
+{
+    if (cb_show_field)
+    {
+        if (local_config) {
+            if (local_config->option(opt_key) == nullptr)
+                return;
+        }
+        cb_show_field(opt_key, toggle, opt_index);
+    }
+}
+
 void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, const bool is_global_config)
 {
     // #ys_FIXME_to_delete
@@ -45,7 +57,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         return;
 
     // layer_height shouldn't be equal to zero
-    if (config->opt_float("layer_height") < EPSILON)
+    if (config->has("layer_height") && config->opt_float("layer_height") < EPSILON)
     {
         const wxString msg_text = _(L("Layer height is not valid.\n\nThe layer height will be reset to 0.01."));
         MessageDialog dialog(m_msg_dlg_parent, msg_text, _(L("Layer height")), wxICON_WARNING | wxOK);
@@ -57,7 +69,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         is_msg_dlg_already_exist = false;
     }
 
-    if (config->option<ConfigOptionFloatOrPercent>("first_layer_height")->value < EPSILON)
+    if (config->has("first_layer_height") && config->option<ConfigOptionFloatOrPercent>("first_layer_height")->value < EPSILON)
     {
         const wxString msg_text = _(L("First layer height is not valid.\n\nThe first layer height will be reset to 0.01."));
         MessageDialog dialog(m_msg_dlg_parent, msg_text, _(L("First layer height")), wxICON_WARNING | wxOK);
@@ -69,9 +81,24 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         is_msg_dlg_already_exist = false;
     }
 
-    double fill_density = config->option<ConfigOptionPercent>("fill_density")->value;
+    //BBS: ironing_spacing shouldn't be too small or equal to zero
+    if (config->has("ironing_spacing") && config->opt_float("ironing_spacing") < 0.05)
+    {
+        const wxString msg_text = _(L("Too small ironing spacing.\nReset to 0.1"));
+        MessageDialog dialog(nullptr, msg_text, "", wxICON_WARNING | wxOK);
+        DynamicPrintConfig new_conf = *config;
+        is_msg_dlg_already_exist = true;
+        dialog.ShowModal();
+        new_conf.set_key_value("ironing_spacing", new ConfigOptionFloat(0.1));
+        apply(config, &new_conf);
+        is_msg_dlg_already_exist = false;
+    }
 
-    if (config->opt_bool("spiral_vase") &&
+    Slic3r::ConfigOptionPercent* fill_density_option = config->has("layer_height") ? config->option<ConfigOptionPercent>("fill_density") : nullptr;
+    double fill_density = fill_density_option ? fill_density_option->value : 0.0;
+
+    static bool spiral_vase_check_msg = false;
+    if (!spiral_vase_check_msg && config->has("spiral_vase") && config->opt_bool("spiral_vase") &&
         ! (config->opt_int("perimeters") == 1 && 
            config->opt_int("top_solid_layers") == 0 &&
            fill_density == 0 &&
@@ -79,11 +106,14 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
            config->opt_int("support_material_enforce_layers") == 0 &&
            ! config->opt_bool("thin_walls")))
     {
+        spiral_vase_check_msg = true;
+
         wxString msg_text = _(L("The Spiral Vase mode requires:\n"
                                 "- one perimeter\n"
                                 "- no top solid layers\n"
                                 "- 0% fill density\n"
                                 "- no support material\n"
+                                "- Ensure vertical shell thickness enabled\n"
                					"- Detect thin walls disabled"));
         if (is_global_config)
             msg_text += "\n\n" + _(L("Shall I adjust those settings in order to enable Spiral Vase?"));
@@ -101,19 +131,32 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
             new_conf.set_key_value("thin_walls", new ConfigOptionBool(false));            
             fill_density = 0;
             support = false;
+
+            if (cb_value_change) {
+                cb_value_change("perimeters", std::string("1"));
+                cb_value_change("top_solid_layers", std::string("0"));
+                cb_value_change("fill_density", std::string("0"));
+                cb_value_change("support_material", false);
+                cb_value_change("support_material_enforce_layers", std::string("0"));
+                cb_value_change("thin_walls", false);
+            }
         }
         else {
             new_conf.set_key_value("spiral_vase", new ConfigOptionBool(false));
+            if (cb_value_change) 
+                cb_value_change("spiral_vase", false);
         }
         apply(config, &new_conf);
-        if (cb_value_change) {
-            cb_value_change("fill_density", fill_density);
-            if (!support)
-                cb_value_change("support_material", false);
-        }
+        //if (cb_value_change) {
+        //    cb_value_change("fill_density", fill_density);
+        //    if (!support)
+        //        cb_value_change("support_material", false);
+        //}
+
+        spiral_vase_check_msg = false;
     }
 
-    if (config->opt_bool("wipe_tower") && config->opt_bool("support_material") && 
+    if (config->has("wipe_tower") && config->opt_bool("wipe_tower") && config->opt_bool("support_material") &&
         // Organic supports are always synchronized with object layers as of now.
         config->opt_enum<SupportMaterialStyle>("support_material_style") != smsOrganic) {
         if (config->opt_float("support_material_contact_distance") == 0) {
@@ -156,7 +199,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
     }
 
     // Check "support_material" and "overhangs" relations only on global settings level
-    if (is_global_config && config->opt_bool("support_material")) {
+    if (is_global_config && config->has("support_material") && config->opt_bool("support_material")) {
         // Ask only once.
         if (!m_support_material_overhangs_queried) {
             m_support_material_overhangs_queried = true;
@@ -181,7 +224,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
         m_support_material_overhangs_queried = false;
     }
 
-    if (config->option<ConfigOptionPercent>("fill_density")->value == 100) {
+    if (fill_density_option && fill_density_option->value == 100) {
         const int fill_pattern = config->option<ConfigOptionEnum<InfillPattern>>("fill_pattern")->value;
         if (bool correct_100p_fill = config->option_def("top_fill_pattern")->enum_def->enum_to_index(fill_pattern).has_value(); 
             ! correct_100p_fill) {
@@ -205,7 +248,7 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
                 new_conf.set_key_value("fill_density", new ConfigOptionPercent(fill_density));
                 apply(config, &new_conf);
                 if (cb_value_change)
-                    cb_value_change("fill_density", fill_density);
+                    cb_value_change("fill_density", std::to_string((int)fill_density));
             }
         }
     }
@@ -213,145 +256,194 @@ void ConfigManipulation::update_print_fff_config(DynamicPrintConfig* config, con
 
 void ConfigManipulation::toggle_print_fff_options(DynamicPrintConfig* config)
 {
-    bool have_perimeters = config->opt_int("perimeters") > 0;
-    for (auto el : { "extra_perimeters","extra_perimeters_on_overhangs", "thin_walls", "overhangs",
-                    "seam_position","staggered_inner_seams", "external_perimeters_first", "external_perimeter_extrusion_width",
-                    "perimeter_speed", "small_perimeter_speed", "external_perimeter_speed", "enable_dynamic_overhang_speeds"})
-        toggle_field(el, have_perimeters);
-
-    for (size_t i = 0; i < 4; i++) {
-        toggle_field("overhang_speed_" + std::to_string(i), config->opt_bool("enable_dynamic_overhang_speeds"));
+    bool have_perimeters = false;
+    if (config->has("perimeters"))
+    {
+        have_perimeters = config->opt_int("perimeters") > 0;
+        for (auto el : { "extra_perimeters","extra_perimeters_on_overhangs", "thin_walls", "overhangs",
+                        "seam_position","staggered_inner_seams", "external_perimeters_first", "external_perimeter_extrusion_width",
+                        "perimeter_speed", "small_perimeter_speed", "external_perimeter_speed", "enable_dynamic_overhang_speeds" })
+            toggle_field(el, have_perimeters);
     }
 
-    bool have_infill = config->option<ConfigOptionPercent>("fill_density")->value > 0;
-    // infill_extruder uses the same logic as in Print::extruders()
-    for (auto el : { "fill_pattern", "infill_every_layers", "infill_only_where_needed",
-                    "solid_infill_every_layers", "solid_infill_below_area", "infill_extruder", "infill_anchor_max" })
-        toggle_field(el, have_infill);
-    // Only allow configuration of open anchors if the anchoring is enabled.
-    bool has_infill_anchors = have_infill && config->option<ConfigOptionFloatOrPercent>("infill_anchor_max")->value > 0;
-    toggle_field("infill_anchor", has_infill_anchors);
+    if (config->has("enable_dynamic_overhang_speeds"))
+    {
+        for (size_t i = 0; i < 4; i++) {
+            toggle_field("overhang_speed_" + std::to_string(i), config->opt_bool("enable_dynamic_overhang_speeds"));
+        }
+    }
 
-    bool has_spiral_vase         = config->opt_bool("spiral_vase");
-    bool has_top_solid_infill 	 = config->opt_int("top_solid_layers") > 0;
-    bool has_bottom_solid_infill = config->opt_int("bottom_solid_layers") > 0;
-    bool has_solid_infill 		 = has_top_solid_infill || has_bottom_solid_infill;
-    // solid_infill_extruder uses the same logic as in Print::extruders()
-    for (auto el : { "top_fill_pattern", "bottom_fill_pattern", "infill_first", "solid_infill_extruder",
-                    "solid_infill_extrusion_width", "solid_infill_speed" })
-        toggle_field(el, has_solid_infill);
+    bool have_infill = false;
+    if (config->has("fill_density") && config->has("infill_anchor_max"))
+    {
+        have_infill = config->option<ConfigOptionPercent>("fill_density")->value > 0;
+        // infill_extruder uses the same logic as in Print::extruders()
+        for (auto el : { "fill_pattern", "infill_every_layers", "infill_only_where_needed",
+                        "solid_infill_every_layers", "solid_infill_below_area", "infill_extruder", "infill_anchor_max" })
+            toggle_field(el, have_infill);
 
-    for (auto el : { "fill_angle", "bridge_angle", "infill_extrusion_width",
-                    "infill_speed", "bridge_speed" })
-        toggle_field(el, have_infill || has_solid_infill);
+        // Only allow configuration of open anchors if the anchoring is enabled.
+        bool has_infill_anchors = have_infill && config->option<ConfigOptionFloatOrPercent>("infill_anchor_max")->value > 0;
+        toggle_field("infill_anchor", has_infill_anchors);
+    }
 
-    toggle_field("top_solid_min_thickness", ! has_spiral_vase && has_top_solid_infill);
-    toggle_field("bottom_solid_min_thickness", ! has_spiral_vase && has_bottom_solid_infill);
+    if (config->has("spiral_vase"))
+    {
+        bool has_spiral_vase = config->opt_bool("spiral_vase");
+        bool has_top_solid_infill = config->opt_int("top_solid_layers") > 0;
+        bool has_bottom_solid_infill = config->opt_int("bottom_solid_layers") > 0;
+        bool has_solid_infill = has_top_solid_infill || has_bottom_solid_infill;
+        // solid_infill_extruder uses the same logic as in Print::extruders()
+        for (auto el : { "top_fill_pattern", "bottom_fill_pattern", "infill_first", "solid_infill_extruder",
+                        "solid_infill_extrusion_width", "solid_infill_speed" })
+            toggle_field(el, has_solid_infill);
 
-    // Gap fill is newly allowed in between perimeter lines even for empty infill (see GH #1476).
-    toggle_field("gap_fill_speed", have_perimeters);
+        for (auto el : { "fill_angle", "bridge_angle", "infill_extrusion_width",
+                        "infill_speed", "bridge_speed" })
+            toggle_field(el, have_infill || has_solid_infill);
 
-    for (auto el : { "top_infill_extrusion_width", "top_solid_infill_speed" })
-        toggle_field(el, has_top_solid_infill || (has_spiral_vase && has_bottom_solid_infill));
+        toggle_field("top_solid_min_thickness", !has_spiral_vase && has_top_solid_infill);
+        toggle_field("bottom_solid_min_thickness", !has_spiral_vase && has_bottom_solid_infill);
 
-    bool have_default_acceleration = config->opt_float("default_acceleration") > 0;
-    for (auto el : { "perimeter_acceleration", "infill_acceleration", "top_solid_infill_acceleration",
-                    "solid_infill_acceleration", "external_perimeter_acceleration",
-                    "bridge_acceleration", "first_layer_acceleration" })
-        toggle_field(el, have_default_acceleration);
+        // Gap fill is newly allowed in between perimeter lines even for empty infill (see GH #1476).
+        toggle_field("gap_fill_speed", have_perimeters);
 
-    bool have_skirt = config->opt_int("skirts") > 0;
-    toggle_field("skirt_height", have_skirt && config->opt_enum<DraftShield>("draft_shield") != dsEnabled);
-    for (auto el : { "skirt_distance", "draft_shield", "min_skirt_length" })
-        toggle_field(el, have_skirt);
+        for (auto el : { "top_infill_extrusion_width", "top_solid_infill_speed" })
+            toggle_field(el, has_top_solid_infill || (has_spiral_vase && has_bottom_solid_infill));
+    }
 
-    bool have_brim = config->opt_enum<BrimType>("brim_type") != btNoBrim;
-    //for (auto el : { "brim_width", "brim_separation" })
-    //    toggle_field(el, have_brim);
-    toggle_field("brim_seperation", have_brim);
-    toggle_field("brim_smart_ordering", have_brim);
-    bool have_brim_width = config->opt_enum<BrimType>("brim_type") != btNoBrim && config->opt_enum<BrimType>("brim_type") != btAutoBrim;
-    toggle_field("brim_width", have_brim_width);
-    // perimeter_extruder uses the same logic as in Print::extruders()
-    toggle_field("perimeter_extruder", have_perimeters || have_brim);
+    if (config->has("default_acceleration"))
+    {
+        bool have_default_acceleration = config->opt_float("default_acceleration") > 0;
+        for (auto el : { "perimeter_acceleration", "infill_acceleration", "top_solid_infill_acceleration",
+                        "solid_infill_acceleration", "external_perimeter_acceleration",
+                        "bridge_acceleration", "first_layer_acceleration" })
+            toggle_field(el, have_default_acceleration);
+    }
 
-    // hide brim_ears_max_angle and brim_ears_detection_length if brim_ear is not enabled
-    bool have_brim_ear = config->opt_enum<BrimType>("brim_type") == btEar;
-    toggle_field("brim_ears_max_angle", have_brim_ear);
-    toggle_field("brim_ears_detection_length", have_brim_ear);
-    const auto brim_width = config->opt_float("brim_width");
-	//disable brim_ears_max_angle and brim_ears_detection_length if brim_width is 0
-    toggle_field("brim_ears_max_angle", brim_width > 0.f && have_brim_ear);
-	toggle_field("brim_ears_detection_length", brim_width > 0.f && have_brim_ear);
+    bool have_skirt = false;
+    if (config->has("skirts"))
+    {
+        have_skirt = config->opt_int("skirts") > 0;
+        toggle_field("skirt_height", have_skirt && config->opt_enum<DraftShield>("draft_shield") != dsEnabled);
+        for (auto el : { "skirt_distance", "draft_shield", "min_skirt_length" })
+            toggle_field(el, have_skirt);
+    }
 
+    bool have_brim = false;
+    if (config->has("brim_type"))
+    {
+        have_brim = config->opt_enum<BrimType>("brim_type") != btNoBrim;
+        //for (auto el : { "brim_width", "brim_separation" })
+        //    toggle_field(el, have_brim);
+        toggle_field("brim_seperation", have_brim);
+        toggle_field("brim_smart_ordering", have_brim);
+        bool have_brim_width = config->opt_enum<BrimType>("brim_type") != btNoBrim && config->opt_enum<BrimType>("brim_type") != btAutoBrim;
+        toggle_field("brim_width", have_brim_width);
+        // perimeter_extruder uses the same logic as in Print::extruders()
+        toggle_field("perimeter_extruder", have_perimeters || have_brim);
+
+        // hide brim_ears_max_angle and brim_ears_detection_length if brim_ear is not enabled
+        bool have_brim_ear = config->opt_enum<BrimType>("brim_type") == btEar;
+        toggle_field("brim_ears_max_angle", have_brim_ear);
+        toggle_field("brim_ears_detection_length", have_brim_ear);
+        const auto brim_width = config->opt_float("brim_width");
+        //disable brim_ears_max_angle and brim_ears_detection_length if brim_width is 0
+        toggle_field("brim_ears_max_angle", brim_width > 0.f && have_brim_ear);
+        toggle_field("brim_ears_detection_length", brim_width > 0.f && have_brim_ear);
+    }
     
+    if (config->has("raft_layers") && config->has("support_material"))
+    {
+        bool have_raft = config->opt_int("raft_layers") > 0;
+        bool have_support_material = config->opt_bool("support_material") || have_raft;
+        bool have_support_material_auto = have_support_material && config->opt_bool("support_material_auto");
+        bool have_support_interface = config->opt_int("support_material_interface_layers") > 0;
+        bool have_support_soluble = have_support_material && config->opt_float("support_material_contact_distance") == 0;
+        auto support_material_style = config->opt_enum<SupportMaterialStyle>("support_material_style");
+        for (auto el : { "support_material_style", "support_material_pattern", "support_material_with_sheath",
+                        "support_material_spacing", "support_material_angle",
+                        "support_material_interface_pattern", "support_material_interface_layers", "support_material_buildplate_only",
+                        "dont_support_bridges", "support_material_extrusion_width", "support_material_contact_distance",
+                        "support_material_xy_spacing" })
+            toggle_field(el, have_support_material);
+        toggle_field("support_material_threshold", have_support_material_auto);
+        toggle_field("support_material_bottom_contact_distance", have_support_material && !have_support_soluble);
+        toggle_field("support_material_closing_radius", have_support_material && support_material_style == smsSnug);
 
-    bool have_raft = config->opt_int("raft_layers") > 0;
-    bool have_support_material = config->opt_bool("support_material") || have_raft;
-    bool have_support_material_auto = have_support_material && config->opt_bool("support_material_auto");
-    bool have_support_interface = config->opt_int("support_material_interface_layers") > 0;
-    bool have_support_soluble = have_support_material && config->opt_float("support_material_contact_distance") == 0;
-    auto support_material_style = config->opt_enum<SupportMaterialStyle>("support_material_style");
-    for (auto el : { "support_material_style", "support_material_pattern", "support_material_with_sheath",
-                    "support_material_spacing", "support_material_angle", 
-                    "support_material_interface_pattern", "support_material_interface_layers",
-                    "dont_support_bridges", "support_material_extrusion_width", "support_material_contact_distance",
-                    "support_material_xy_spacing" })
-        toggle_field(el, have_support_material);
-    toggle_field("support_material_threshold", have_support_material_auto);
-    toggle_field("support_material_bottom_contact_distance", have_support_material && ! have_support_soluble);
-    toggle_field("support_material_closing_radius", have_support_material && support_material_style == smsSnug);
+        const bool has_organic_supports = support_material_style == smsOrganic &&
+            (config->opt_bool("support_material") ||
+                config->opt_int("support_material_enforce_layers") > 0);
+        for (const std::string& key : { "support_tree_angle", "support_tree_angle_slow", "support_tree_branch_diameter",
+                                        "support_tree_branch_diameter_angle", "support_tree_tip_diameter", "support_tree_branch_distance", "support_tree_top_rate" })
+            toggle_field(key, has_organic_supports);
 
-    const bool has_organic_supports = support_material_style == smsOrganic && 
-                                     (config->opt_bool("support_material") || 
-                                      config->opt_int("support_material_enforce_layers") > 0);
-    for (const std::string& key : { "support_tree_angle", "support_tree_angle_slow", "support_tree_branch_diameter",
-                                    "support_tree_branch_diameter_angle", "support_tree_tip_diameter", "support_tree_branch_distance", "support_tree_top_rate" })
-        toggle_field(key, has_organic_supports);
+        for (auto el : { "support_material_bottom_interface_layers", "support_material_interface_spacing", "support_material_interface_extruder",
+                        "support_material_interface_speed", "support_material_interface_contact_loops" })
+            toggle_field(el, have_support_material && have_support_interface);
+        toggle_field("support_material_synchronize_layers", have_support_soluble);
 
-    for (auto el : { "support_material_bottom_interface_layers", "support_material_interface_spacing", "support_material_interface_extruder",
-                    "support_material_interface_speed", "support_material_interface_contact_loops" })
-        toggle_field(el, have_support_material && have_support_interface);
-    toggle_field("support_material_synchronize_layers", have_support_soluble);
+        toggle_field("perimeter_extrusion_width", have_perimeters || have_skirt || have_brim);
+        toggle_field("support_material_extruder", have_support_material || have_skirt);
+        toggle_field("support_material_speed", have_support_material || have_brim || have_skirt);
 
-    toggle_field("perimeter_extrusion_width", have_perimeters || have_skirt || have_brim);
-    toggle_field("support_material_extruder", have_support_material || have_skirt);
-    toggle_field("support_material_speed", have_support_material || have_brim || have_skirt);
+        toggle_field("raft_contact_distance", have_raft && !have_support_soluble);
+        for (auto el : { "raft_expansion", "first_layer_acceleration_over_raft", "first_layer_speed_over_raft" })
+            toggle_field(el, have_raft);
+    }
 
-    toggle_field("raft_contact_distance", have_raft && !have_support_soluble);
-    for (auto el : { "raft_expansion", "first_layer_acceleration_over_raft", "first_layer_speed_over_raft" })
-        toggle_field(el, have_raft);
+    if (config->has("ironing_type"))
+    {
+        //bool has_ironing = config->opt_bool("ironing");
+        //for (auto el : { "ironing_type", "ironing_flowrate", "ironing_spacing", "ironing_speed" })
+        //	toggle_field(el, has_ironing);
+        // BBS
+        bool has_ironing = (config->opt_enum<IroningType>("ironing_type") != IroningType::NoIroning);
+        for (auto el : { "ironing_pattern", "ironing_flow", "ironing_spacing", "ironing_speed", "ironing_angle" })
+            show_field(el, has_ironing);
+    }
 
-    bool has_ironing = config->opt_bool("ironing");
-    for (auto el : { "ironing_type", "ironing_flowrate", "ironing_spacing", "ironing_speed" })
-    	toggle_field(el, has_ironing);
+    if (config->has("complete_objects"))
+    {
+        bool have_sequential_printing = config->opt_bool("complete_objects");
+        for (auto el : { "extruder_clearance_radius", "extruder_clearance_height" })
+            toggle_field(el, have_sequential_printing);
+    }
 
-    bool have_sequential_printing = config->opt_bool("complete_objects");
-    for (auto el : { "extruder_clearance_radius", "extruder_clearance_height" })
-        toggle_field(el, have_sequential_printing);
+    if (config->has("ooze_prevention"))
+    {
+        bool have_ooze_prevention = config->opt_bool("ooze_prevention");
+        toggle_field("standby_temperature_delta", have_ooze_prevention);
+    }
 
-    bool have_ooze_prevention = config->opt_bool("ooze_prevention");
-    toggle_field("standby_temperature_delta", have_ooze_prevention);
+    if (config->has("wipe_tower"))
+    {
+        bool have_wipe_tower = config->opt_bool("wipe_tower");
+        for (auto el : { "wipe_tower_x", "wipe_tower_y", "wipe_tower_width", "wipe_tower_rotation_angle", "wipe_tower_brim_width", "wipe_tower_cone_angle",
+                         "wipe_tower_extra_spacing", "wipe_tower_bridging", "wipe_tower_no_sparse_layers", "single_extruder_multi_material_priming" })
+            toggle_field(el, have_wipe_tower);
+    }
 
-    bool have_wipe_tower = config->opt_bool("wipe_tower");
-    for (auto el : { "wipe_tower_x", "wipe_tower_y", "wipe_tower_width", "wipe_tower_rotation_angle", "wipe_tower_brim_width", "wipe_tower_cone_angle",
-                     "wipe_tower_extra_spacing", "wipe_tower_bridging", "wipe_tower_no_sparse_layers", "single_extruder_multi_material_priming" })
-        toggle_field(el, have_wipe_tower);
+    if (config->has("avoid_crossing_perimeters") && config->has("avoid_crossing_curled_overhangs"))
+    {
+        toggle_field("avoid_crossing_curled_overhangs", !config->opt_bool("avoid_crossing_perimeters"));
+        toggle_field("avoid_crossing_perimeters", !config->opt_bool("avoid_crossing_curled_overhangs"));
 
-    toggle_field("avoid_crossing_curled_overhangs", !config->opt_bool("avoid_crossing_perimeters"));
-    toggle_field("avoid_crossing_perimeters", !config->opt_bool("avoid_crossing_curled_overhangs"));
+        bool have_avoid_crossing_perimeters = config->opt_bool("avoid_crossing_perimeters");
+        toggle_field("avoid_crossing_perimeters_max_detour", have_avoid_crossing_perimeters);
+    }
 
-    bool have_avoid_crossing_perimeters = config->opt_bool("avoid_crossing_perimeters");
-    toggle_field("avoid_crossing_perimeters_max_detour", have_avoid_crossing_perimeters);
-
-    bool have_arachne = config->opt_enum<PerimeterGeneratorType>("perimeter_generator") == PerimeterGeneratorType::Arachne;
-    toggle_field("wall_transition_length", have_arachne);
-    toggle_field("wall_transition_filter_deviation", have_arachne);
-    toggle_field("wall_transition_angle", have_arachne);
-    toggle_field("wall_distribution_count", have_arachne);
-    toggle_field("min_feature_size", have_arachne);
-    toggle_field("min_bead_width", have_arachne);
-    toggle_field("thin_walls", !have_arachne);
+    if (config->has("perimeter_generator"))
+    {
+        bool have_arachne = config->opt_enum<PerimeterGeneratorType>("perimeter_generator") == PerimeterGeneratorType::Arachne;
+        toggle_field("wall_transition_length", have_arachne);
+        toggle_field("wall_transition_filter_deviation", have_arachne);
+        toggle_field("wall_transition_angle", have_arachne);
+        toggle_field("wall_distribution_count", have_arachne);
+        toggle_field("min_feature_size", have_arachne);
+        toggle_field("min_bead_width", have_arachne);
+        toggle_field("thin_walls", !have_arachne);
+    }
 }
 
 void ConfigManipulation::update_print_sla_config(DynamicPrintConfig* config, const bool is_global_config/* = false*/)

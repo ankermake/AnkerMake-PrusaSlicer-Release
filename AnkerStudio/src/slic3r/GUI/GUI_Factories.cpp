@@ -831,17 +831,17 @@ wxMenuItem* MenuFactory::append_menu_item_printable(wxMenu* menu)
 
 void MenuFactory::append_menu_item_invalidate_cut_info(wxMenu* menu)
 {
-    //const wxString menu_name = _L("Invalidate cut info");
+    const wxString menu_name = _L("Invalidate cut info");
 
-    //auto menu_item_id = menu->FindItem(menu_name);
-    //if (menu_item_id != wxNOT_FOUND)
-    //    // Delete old menu item if selected object isn't cut
-    //    menu->Destroy(menu_item_id);
+    auto menu_item_id = menu->FindItem(menu_name);
+    if (menu_item_id != wxNOT_FOUND)
+        // Delete old menu item if selected object isn't cut
+        menu->Destroy(menu_item_id);
 
-    //if (obj_list()->has_selected_cut_object())
-    //    append_menu_item(menu, wxID_ANY, menu_name, "",
-    //        [](wxCommandEvent&) { obj_list()->invalidate_cut_info_for_selection(); }, "", menu,
-    //        []() { return true; }, m_parent);
+    if (obj_list()->has_selected_cut_object())
+        append_menu_item(menu, wxID_ANY, menu_name, "",
+            [](wxCommandEvent&) { obj_list()->invalidate_cut_info_for_selection(); }, "", menu,
+            []() { return true; }, m_parent);
 }
 
 void MenuFactory::append_menu_items_osx(wxMenu* menu)

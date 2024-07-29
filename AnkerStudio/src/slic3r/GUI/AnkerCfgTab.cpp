@@ -565,6 +565,7 @@ void AnkerTab::create_search_edit(wxWindow* parent)
 
 void AnkerTab::force_update() {
     timer.StartOnce(1);
+
 }
 
 void AnkerTab::load_initial_data()
@@ -2366,7 +2367,9 @@ void AnkerTabFilament::build()
         option.opt.width = Field::def_width();
         optgroup->append_single_option_line(option);
         optgroup->append_single_option_line("filament_soluble");
-
+        optgroup->append_single_option_line("enable_pressure_advance");
+        optgroup->append_single_option_line("pressure_advance");
+        
         optgroup = page->new_optgroup(L("Print speed override"));
         optgroup->append_single_option_line("filament_max_volumetric_speed", "max-volumetric-speed_127176");
 
@@ -2512,6 +2515,11 @@ void AnkerTabFilament::toggle_options()
         for (int i = 0; i < 4; i++) {
         toggle_option("overhang_fan_speed_"+std::to_string(i),dynamic_fan_speeds);
         }
+    }
+    
+    if (m_active_page->title() == L("Advanced")) {
+        bool pa = m_config->opt_bool("enable_pressure_advance", 0);
+        toggle_option("pressure_advance", pa);
     }
 
     if (m_active_page->title() == "Filament Overrides")
@@ -5986,7 +5994,7 @@ ConfigManipulation AnkerTab::get_config_manipulation()
         return on_value_change(opt_key, value);
     };
 
-    return ConfigManipulation(load_config, cb_toggle_field, cb_value_change, nullptr, this);
+    return ConfigManipulation(load_config, cb_toggle_field, nullptr, cb_value_change, nullptr, this);
 }
 
 

@@ -30,6 +30,7 @@ namespace Slic3r {
 
 static const std::string VENDOR_PREFIX = "vendor:";
 static const std::string MODEL_PREFIX = "model:";
+static const std::string SLICE_PREFIX = "SliceTimesCheck";
 // Because of a crash in PrusaSlicer 2.3.0/2.3.1 when showing an update notification with some locales, we don't want PrusaSlicer 2.3.0/2.3.1
 // to show this notification. On the other hand, we would like PrusaSlicer 2.3.2 to show an update notification of the upcoming PrusaSlicer 2.4.0.
 // Thus we will let PrusaSlicer 2.3.2 and couple of follow-up versions to download the version number from an alternate file until the PrusaSlicer 2.3.0/2.3.1
@@ -401,7 +402,19 @@ std::string AppConfig::load(const std::string &path)
                     vendor[model_name].insert(variant);
                 }
             }
-    	} else {
+        } else if(boost::starts_with(section.first, SLICE_PREFIX)){
+            if (!section.second.empty()) {
+                for (const auto& data : section.second) {
+                    if (!data.first.empty()) { 
+                        std::string sliceStr = data.first + " = "+ data.second.data();
+                        std::string sliceKey{};
+                        std::shared_ptr<SliceConfig> sliceInfo = load_slice_config_final(sliceStr, data.first,sliceKey);
+                        m_slice_config[section.first][sliceKey] = sliceInfo;
+                    }
+                }
+            }
+        }
+        else {
     		// This must be a section name. Read the entries of a section.
     		std::map<std::string, std::string> &storage = m_storage[section.first];
             for (auto &kvp : section.second)
@@ -554,6 +567,21 @@ void AppConfig::save()
             config_ss << MODEL_PREFIX << model.first << " = " << escaped << std::endl;
         }
     }
+
+    for (const auto& sliceconfig : m_slice_config) {
+        if (sliceconfig.first.empty())
+            continue;
+        config_ss << std::endl << "[" << sliceconfig.first << "]" << std::endl;
+        int i = 0;
+        for (const auto& keyVal : sliceconfig.second) {
+            std::string sliceKey = "slice_key_" + std::to_string(i); ++i;
+            config_ss << sliceKey <<" = "<< keyVal.first <<","  \
+                      <<    "user_id"<<" = "<<keyVal.second->user_id << ","  \
+                      << "version_id"<<" = "<< keyVal.second->version_id << ","  \
+                      <<"slice_times"<<" = "<< keyVal.second->slice_times<<std::endl;
+        }
+    }
+
     // One empty line before the MD5 sum.
     config_ss << std::endl;
 
@@ -841,10 +869,12 @@ void AppConfig::reset_selections()
     }
 }
 
+// Only for the compatibility of version 23 with version 22, regarding the addition of nozzles
+#define SLIC3R_APP_KEY_23 "AnkerMake Studio_23"
 std::string AppConfig::config_path() const
 {
     std::string path = (m_mode == EAppMode::Editor) ?
-        (boost::filesystem::path(Slic3r::data_dir()) / (SLIC3R_APP_KEY ".ini")).make_preferred().string() :
+        (boost::filesystem::path(Slic3r::data_dir()) / (SLIC3R_APP_KEY_23 ".ini")).make_preferred().string() :
         (boost::filesystem::path(Slic3r::data_dir()) / (GCODEVIEWER_APP_KEY ".ini")).make_preferred().string();
 
     return path;

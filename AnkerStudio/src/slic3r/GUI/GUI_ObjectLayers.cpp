@@ -954,7 +954,7 @@ void AnkerObjectLayerEditor::UpdateAndShow(const bool show)
 
     AnkerSidebarNew* rightSidebar = &(wxGetApp().plater()->sidebarnew());
     if (!rightSidebar) return;
-    wxWindow* ItemParameterPanel = rightSidebar->GetItemParameterPanel();
+    wxWindow* ItemParameterPanel = rightSidebar->GetModelParameterPanel();
     if (!ItemParameterPanel) return;
 
     if (!m_parent) m_parent = ItemParameterPanel;

@@ -53,6 +53,14 @@ namespace Utils {
 		return true;
 	}
 
+	std::string wxFileTool::CalcStrMD5(const std::string& str)
+	{
+		MD5 md5;
+		md5.update(str.c_str(), str.size());
+		string md5Str = md5.toString();
+		return md5Str;
+	}
+
 	bool wxFileTool::CalcFileMD5(wxString filename, wxString& md5Str)
 	{
 		ANKER_LOG_INFO << "try calc md5 : " << filename;

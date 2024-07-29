@@ -227,6 +227,7 @@ protected:
     void invalidate_selection();
     void validate_selection(bool predicate = false);
     void update_selection();
+    void update_selection(int topNozzleIndex);
 
 #ifdef __linux__
     static const char* separator_head() { return "------- "; }
@@ -310,6 +311,7 @@ public:
     wxString get_preset_name(const Preset& preset) override;
     void update_dirty();
     void update() override;
+    void update(int topNozzleIndex);
     void msw_rescale() override;
     void sys_color_changed() override;
     void OnSelect(wxCommandEvent& evt) override;

@@ -43,6 +43,7 @@
 #include <fstream>
 #include <string_view>
 
+#include <jansson.h>
 #include "GUI_App.hpp"
 #include "UnsavedChangesDialog.hpp"
 #include "MsgDialog.hpp"
@@ -65,6 +66,7 @@
 #include <wx/msw/cursor.h>
 #include <algorithm>
 #include <wx/url.h>
+#include <wx/variant.h>
 
 #include "FilamentMaterialConvertor.hpp"
 #include "FilamentMaterialManager.hpp"
@@ -88,15 +90,20 @@
 #include "slic3r/GUI/Calibration/CalibrationRetractionDialog.hpp"
 #include "slic3r/GUI/Calibration/CalibrationVfaDialog.hpp"
 #include "../AnkerComFunction.hpp"
+#include "AnkerConfig.hpp"
+#include "HintNotification.hpp"
 extern AnkerPlugin* pAnkerPlugin;
 
 wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_RELOAD_DATA, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_ON_TAB_CHANGE, wxCommandEvent);
 
+#define SHOW_ERR_DIALOG_CMD 1085
+#define HIDE_ERR_DIALOG_CMD 1086
+
 extern "C" void ToggleFullScreen(wxWindow * window);
 using namespace AnkerNet;
-StarConmentData       g_sliceConmentData;
+StarCommentData       g_sliceCommentData;
 namespace Slic3r {
 namespace GUI {
 
@@ -224,7 +231,12 @@ void MainFrame::ShowLoginedMenu()
 		_L("Log Out AnkerMake"),
 		[=](wxCommandEvent&) {
             ANKER_LOG_INFO << "use log out click";
+            auto* ankerNet = AnkerNetInst();
+            if (ankerNet) {
+                ankerNet->logoutToServer();
+            }
             LogOut();
+
 		});
 
     SetWebviewTestItem();
@@ -242,6 +254,13 @@ void MainFrame::LogOut()
     }    
     ShowUnLoginMenu();
     onLogOut();
+
+    if (m_MsgCentreDialog)
+    {
+        m_isMsgCenterIsShow = false;
+        m_MsgCentreDialog->Hide();           
+    }
+
     ShowUnLoginDevice();
 }
 
@@ -262,6 +281,14 @@ void MainFrame::loginFinishHandle()
     wxStandardPaths standarPaths = wxStandardPaths::Get();
     filePath = standarPaths.GetUserDataDir();
     filePath = filePath + "/cache/" + wxString::FromUTF8(ankerNet->GetUserId()) + ".png";
+
+    auto appConfig = Slic3r::GUI::wxGetApp().app_config;
+    if (nullptr == appConfig) {
+        ANKER_LOG_INFO << "02mmPrinter  nohint for user set.";
+        return;
+    }
+    appConfig->set("user_id", ankerNet->GetUserId());
+
 
 #ifndef __APPLE__
     filePath.Replace("\\", "/");
@@ -305,7 +332,7 @@ void MainFrame::loginFinishHandle()
         ShowLoginedMenu();
         ANKER_LOG_INFO << "login back finish0";
     }
-    
+    updateCurrentEnvironment();
     updateBuryInfo();
 
     //wxGetApp().filamentMaterialManager()->AsyncUpdate();
@@ -319,6 +346,8 @@ void MainFrame::loginFinishHandle()
     if (m_pDeviceWidget)
         m_pDeviceWidget->loadDeviceList();
 
+
+    HintDatabase::get_instance().reinit();
     ANKER_LOG_INFO << "loginFinishHandle leave";
 }
 
@@ -344,7 +373,7 @@ void MainFrame::ShowUnLoginMenu()
         ankerNet->logout();
     }    
    
-    m_currentEnvir = EN_ENVIR;
+    updateCurrentEnvironment();
 
     updateBuryInfo();
 
@@ -379,13 +408,15 @@ void MainFrame::ClearLoingiMenu()
 
 void MainFrame::onLogOut()
 {
-    clearStarConmentData();
+    m_isMsgCenterIsShow = false;
+    m_MsgCentreDialog->Hide();    
+    clearStarCommentData();
     RemovePrivacyChoices();
     if (m_loginWebview)
         m_loginWebview->onLogOut();
 
     if (m_plater)
-        m_plater->setStarConmentFlagsTimes(-1);
+        m_plater->setStarCommentFlagsTimes(-1);
 }
 
 
@@ -619,10 +650,23 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_S
     ANKER_LOG_INFO << "init tab panel";
     initTabPanel();
     BindEvent();
+    initAnkerUi();
 }
 
 MainFrame::~MainFrame()
 {
+    if (m_MsgCenterCfg)
+    {
+        delete m_MsgCenterCfg;
+        m_MsgCenterCfg = nullptr;
+    }
+
+    if (m_MsgCenterErrCodeInfo)
+    {
+        delete m_MsgCenterErrCodeInfo;
+        m_MsgCenterErrCodeInfo = nullptr;
+    }
+
     // for crash when app exception exit
     if (!m_normalExit) {
         ANKER_LOG_INFO << "Abnormal program exit";
@@ -712,39 +756,74 @@ void MainFrame::initTabPanel() {
         m_main_sizer->Add(m_pFunctionPanel, 0, wxEXPAND, 0);
         m_pFunctionPanel->Show();
         m_pFunctionPanel->SetPrintTab(m_printTabPanel);
+
+        m_pFunctionPanel->Bind(wxCUSTOMEVT_SHOW_MSG_CENTRE, [=](wxCommandEvent& ev) {
+            ANKER_LOG_INFO << "show msg centre";
+
+            auto ankerNet = AnkerNetInst();
+            if (!ankerNet || !ankerNet->IsLogined()) {
+                wxGetApp().mainframe->ShowAnkerWebView("msg center request to loiginb ");
+            }
+
+            if(ankerNet->IsLogined())
+            {
+                wxPoint winPoint;
+                winPoint.x = this->GetRect().x + (GetRect().GetWidth() - m_MsgCentreDialog->GetRect().GetWidth()) / 2;
+                winPoint.y = this->GetRect().y + (GetRect().GetHeight() - m_MsgCentreDialog->GetRect().GetHeight()) / 2;
+
+                wxVariant* pData = (wxVariant*)(ev.GetClientData());
+                
+                bool isShowOfficical = true;
+                if (pData)
+                {
+                    wxVariantList list = pData->GetList();
+                    isShowOfficical = list[0]->GetBool();                    
+                }
+
+                if (m_MsgCentreDialog)
+                {                            
+                    m_MsgCentreDialog->clearMsg();
+                    m_MsgCentreDialog->Move(winPoint);                    
+                    m_MsgCentreDialog->Raise();                    
+                    m_isMsgCenterIsShow = true;                    
+                    m_MsgCentreDialog->Show();
+                    m_MsgCentreDialog->getMsgCenterRecords(true);
+                }
+            }
+            });
         m_pFunctionPanel->m_calib_menu = m_calibration_menu;
     }
-    m_sliceConmentDialog = new AnkerSliceConmentDialog(this, _L("Rate Your Experience"));
-    m_sliceConmentDialog->SetMaxSize(AnkerSize(400,420));
-    m_sliceConmentDialog->SetMinSize(AnkerSize(400, 420));
-    m_sliceConmentDialog->SetSize(AnkerSize(400, 420));
-    m_sliceConmentDialog->Hide();
-    m_sliceConmentDialog->Bind(wxCUSTOMEVT_ANKER_CONMENT_NOT_ASK, [this](wxCommandEvent& event) {
-        g_sliceConmentData.action = 3;        
+    m_sliceCommentDialog = new AnkerSliceCommentDialog(this, _L("Rate Your Experience"));
+    m_sliceCommentDialog->SetMaxSize(AnkerSize(400,420));
+    m_sliceCommentDialog->SetMinSize(AnkerSize(400, 420));
+    m_sliceCommentDialog->SetSize(AnkerSize(400, 420));
+    m_sliceCommentDialog->Hide();
+    m_sliceCommentDialog->Bind(wxCUSTOMEVT_ANKER_COMMENT_NOT_ASK, [this](wxCommandEvent& event) {
+        g_sliceCommentData.action = 3;        
         auto ankerNet = AnkerNetInst();
         if (ankerNet && ankerNet->IsLogined()) {
-            ankerNet->reportConmentData(g_sliceConmentData);
+            ankerNet->reportCommentData(g_sliceCommentData);
         }
         });
-    m_sliceConmentDialog->Bind(wxCUSTOMEVT_ANKER_CONMENT_SUBMIT, [this](wxCommandEvent& event) {
-        g_sliceConmentData.action = 1;      
+    m_sliceCommentDialog->Bind(wxCUSTOMEVT_ANKER_COMMENT_SUBMIT, [this](wxCommandEvent& event) {
+        g_sliceCommentData.action = 1;      
         wxVariant* pData = (wxVariant*)event.GetClientData();
         if (pData) {
             wxVariantList list = pData->GetList();
-            g_sliceConmentData.rating = list[0]->GetInteger();
-            g_sliceConmentData.reviewData = list[1]->GetString().utf8_str();
+            g_sliceCommentData.rating = list[0]->GetInteger();
+            g_sliceCommentData.reviewData = list[1]->GetString().utf8_str();
         }
         
         auto ankerNet = AnkerNetInst();
         if (ankerNet && ankerNet->IsLogined()) {
-            ankerNet->reportConmentData(g_sliceConmentData);
+            ankerNet->reportCommentData(g_sliceCommentData);
         }
         });
-    m_sliceConmentDialog->Bind(wxCUSTOMEVT_ANKER_CONMENT_CLOSE, [this](wxCommandEvent& event) {
-        g_sliceConmentData.action = 2;        
+    m_sliceCommentDialog->Bind(wxCUSTOMEVT_ANKER_COMMENT_CLOSE, [this](wxCommandEvent& event) {
+        g_sliceCommentData.action = 2;        
         auto ankerNet = AnkerNetInst();
         if (ankerNet && ankerNet->IsLogined()) {
-            ankerNet->reportConmentData(g_sliceConmentData);
+            ankerNet->reportCommentData(g_sliceCommentData);
         }
         });
     // initialize layout from config
@@ -853,6 +932,7 @@ void MainFrame::initTabPanel() {
     Bind(wxEVT_SHOW, &MainFrame::on_show, this);
     Bind(wxEVT_ICONIZE, &MainFrame::on_minimize, this);
     Bind(wxEVT_MAXIMIZE, &MainFrame::on_maximize, this);
+    Bind(wxEVT_ACTIVATE, &MainFrame::on_Activate, this);
 
     //
     m_printTabPanel->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent& event) {
@@ -860,8 +940,14 @@ void MainFrame::initTabPanel() {
 
         if (iSelectedPage == 0) {
             m_currentTabMode = TabMode::TAB_SLICE;
+            m_pMsgCentrePopWindow->Hide();
+
         } else if (iSelectedPage == 1) {
             m_currentTabMode = TabMode::TAB_DEVICE;
+            if (m_hasErrDialog)
+            {
+                ShowErrDialogByCenter();
+            }
             auto ankerNet = AnkerNetInst();
             if (ankerNet && ankerNet->IsLogined()) {
                 ankerNet->AsyRefreshDeviceList();
@@ -1074,18 +1160,43 @@ std::string MainFrame::getAppName()
     return strAppname;
 }
 
+void MainFrame::updateCurrentEnvironment()
+{
+    auto ankerNet = AnkerNetInst();
+    if (!ankerNet || !ankerNet->IsLogined()) 
+    {
+        wxString url = AnkerConfig::getankerDomainUrl();
+        if (url.Contains(wxT("qa")))
+            m_currentEnvir = QA_ENVIR;        
+        else if (url.Contains(wxT("ci")))
+            m_currentEnvir = CI_ENVIR;
+        else
+            m_currentEnvir = US_ENVIR;//DEFAULT
+        return;
+    }
+
+    auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
+    if (obj)
+    {
+        auto currentEnv = obj->getCurrentEnvironmentType();
+        m_currentEnvir = ANKER_ENVIR(currentEnv);
+    }
+
+}
 void MainFrame::updateBuryInfo()
 {
     auto para = DatamangerUi::GetInstance().GetNetPara();
     std::string envir = "US";
     std::string userInfo = std::string();
     std::string userId = std::string();
-    if (m_currentEnvir == EN_ENVIR)
+    if (m_currentEnvir == EU_ENVIR)
         envir = "EU";
     else if (m_currentEnvir == QA_ENVIR)
         envir = "QA";
-    else
+    else if(m_currentEnvir == US_ENVIR)
         envir = "US";
+    else
+        envir = "CI";
     auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
     if (obj)
     {
@@ -1309,6 +1420,8 @@ void MainFrame::update_layout()
 //#endif
         m_printTabPanel->InsertPage(0, m_plater, _L("Plater"));
         m_currentTabMode = TAB_SLICE;
+        if(m_pMsgCentrePopWindow)
+            m_pMsgCentrePopWindow->Hide();
         m_printTabPanel->SetSelection(0);
         //by Samuel, printTabPanel no need show default border
         m_main_sizer->Add(m_printTabPanel, 1, wxEXPAND | wxTOP, 0);
@@ -1675,17 +1788,17 @@ void MainFrame::init_tabpanel()
     });
 
     m_plater = new Plater(this, this);
-    m_plater->Bind(wxCUSTOMEVT_ANKER_SLICE_FOR_CONMENT, [this] (wxCommandEvent & event){
+    m_plater->Bind(wxCUSTOMEVT_ANKER_SLICE_FOR_COMMENT, [this] (wxCommandEvent & event){
 
-        if (!m_showConmentWebView)
+        if (!m_showCommentWebView)
             return;
-        m_showConmentWebView = false;
+        m_showCommentWebView = false;
         wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
         wxSize mfSize = wxGetApp().mainframe->GetClientSize();
-        wxSize dialogSize = m_sliceConmentDialog->GetBestSize();
+        wxSize dialogSize = m_sliceCommentDialog->GetBestSize();
         wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
-        m_sliceConmentDialog->Move(center);
-        m_sliceConmentDialog->ShowModal();        
+        m_sliceCommentDialog->Move(center);
+        m_sliceCommentDialog->ShowModal();        
      });
     m_plater->SetBackgroundColour(wxColour("#18191B"));
     m_plater->Hide();
@@ -1778,6 +1891,13 @@ AnkerWebView* MainFrame::CreateWebView(bool background)
         filePath = standarPaths.GetUserDataDir();
         filePath = filePath + "/cache/" + wxString::FromUTF8(ankerNet->GetUserId()) + ".png";
 
+        auto appConfig = Slic3r::GUI::wxGetApp().app_config;
+        if (nullptr == appConfig) {
+            ANKER_LOG_INFO << "02mmPrinter  nohint for user set.";
+            return;
+        }
+        appConfig->set("user_id",ankerNet->GetUserId());
+
 #ifndef __APPLE__
         filePath.Replace("\\", "/");
 #endif        
@@ -1821,11 +1941,13 @@ AnkerWebView* MainFrame::CreateWebView(bool background)
             ANKER_LOG_INFO << "login back finish0";
         }
 
+        updateCurrentEnvironment();
         updateBuryInfo();
 
         if (m_pDeviceWidget)
             m_pDeviceWidget->loadDeviceList();
 
+        HintDatabase::get_instance().reinit();
         //wxGetApp().filamentMaterialManager()->AsyncUpdate();
         ANKER_LOG_INFO << "login back finish";
         },
@@ -1907,6 +2029,376 @@ void MainFrame::register_win32_callbacks()
 }
 #endif // _WIN32
 
+bool MainFrame::writeMsgCenterCfg(const std::string& cfgStr)
+{
+    bool res = true;
+
+    std::ofstream outfile;
+    // open file if it not exist and create it    
+#ifdef _WIN32
+    wchar_t appDataPath[MAX_PATH] = { 0 };
+    auto hr = SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, appDataPath);
+    char* path = new char[MAX_PATH];
+    size_t pathLength;
+    wcstombs_s(&pathLength, path, MAX_PATH, appDataPath, MAX_PATH);
+    std::string filePath = path;
+    std::string appName = "\\" + std::string(SLIC3R_APP_KEY " Profile");
+    filePath = filePath + appName + "\\msgCenterCfgVersionInfo.json";
+
+    outfile.open(filePath);
+#elif __APPLE__
+    outfile.open("/tmp/msgCenterCfgVersionInfo.json");
+#else
+    outfile.open("/tmp/msgCenterCfgVersionInfo.json");
+#endif
+    // check open status if it success
+    if (!outfile.is_open())
+    {
+        std::cerr << "can't open the file." << std::endl;
+    }
+    else
+    {
+        // write something to file
+        outfile << cfgStr;
+    }
+    // close the file
+    outfile.close();
+    return res;
+}
+
+bool MainFrame::loadMsgCenterCfg()
+{
+    bool res = true;
+    std::ifstream ifs;    
+#ifdef _WIN32
+    wxStandardPaths standarPaths = wxStandardPaths::Get();
+    wxString filePath = standarPaths.GetUserDataDir();
+    //std::string appName = std::string("\\")+ SLIC3R_APP_KEY + std::string(" Profile");
+    std::string appName = std::string("\\")+ SLIC3R_APP_KEY + std::string(" Profile");
+    //filePath = filePath + appName+"\\msgCenterCfgVersionInfo.json";
+    filePath = filePath +"\\msgCenterCfgVersionInfo.json";
+
+    std::string cfgFilePath = filePath.ToStdString();
+    ifs.open(cfgFilePath, std::ios::in);    
+#elif __APPLE__
+    ifs.open("/tmp/msgCenterCfgVersionInfo.json", std::ios::in);
+#else
+    ifs.open("/tmp/msgCenterCfgVersionInfo.json", std::ios::in);
+#endif
+
+    if (!ifs.is_open())
+    {
+        ANKER_LOG_WARNING << "read cfg fail." ;
+        return false;
+    }
+
+    std::string cfgBuf = "";
+    while (std::getline(ifs, cfgBuf))
+    {        
+    }
+    ifs.close();
+
+    json_error_t error;
+    json_t* root = json_loads(cfgBuf.c_str(), 0, &error);
+
+    if (!root) {
+        ANKER_LOG_ERROR << "load loadMsgCenterCfg json fail: " + std::string(error.text);
+        return false;
+    }
+
+    std::map<std::string, MsgCenterConfig> msgCenterConfigMap;
+    if (auto paramsArray = json_object_get(root, "data")) {
+        for (int i = 0; i < json_array_size(paramsArray); ++i)
+        {
+            MsgCenterConfig configItem;
+            json_t* child = json_array_get(paramsArray, i);
+
+            if (auto idObj = json_object_get(child, "id"))
+                configItem.id = json_integer_value(idObj);
+
+            if (auto errCodeObj = json_object_get(child, "error_code"))
+                configItem.error_code = json_string_value(errCodeObj);
+
+            if (auto errLevelObj = json_object_get(child, "alert_level"))
+                configItem.error_level = json_string_value(errLevelObj);
+
+            if (auto valueObj = json_object_get(child, "code_source"))
+                configItem.code_source = json_integer_value(valueObj);
+
+            if (auto articleArray = json_object_get(child, "article_list"))
+            {
+                for (int i = 0; i < json_array_size(articleArray); ++i)
+                {
+                    MsgCenterConfig::ArticleInfo articleInfoItem;
+                    json_t* articleChild = json_array_get(articleArray, i);
+
+                    if (auto languageObj = json_object_get(articleChild, "language"))
+                        articleInfoItem.language = json_string_value(languageObj);
+
+                    if (auto articleUrlObj = json_object_get(articleChild, "article_url"))
+                        articleInfoItem.article_url = json_string_value(articleUrlObj);
+
+                    if (auto articleTitleObj = json_object_get(articleChild, "article_title"))
+                        articleInfoItem.article_title = json_string_value(articleTitleObj);
+
+                    configItem.article_info.push_back(articleInfoItem);
+                }
+
+            }
+            m_MsgCenterCfg->insert(std::make_pair(configItem.error_code, configItem));
+        }
+    }
+    else
+        res = false;
+    return res;
+}
+
+bool MainFrame::writeMsgCenterMultiLanguageCfg(const std::string& cfgStr)
+{
+    bool res = true;
+    std::ofstream outfile;
+    // open file if it not exist and create it
+#ifdef _WIN32
+    wchar_t appDataPath[MAX_PATH] = { 0 };
+    auto hr = SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, SHGFP_TYPE_CURRENT, appDataPath);
+    char* path = new char[MAX_PATH];
+    size_t pathLength;
+    wcstombs_s(&pathLength, path, MAX_PATH, appDataPath, MAX_PATH);
+    std::string filePath = path;
+    std::string appName = "\\" + std::string(SLIC3R_APP_KEY " Profile");
+    filePath = filePath + appName + "\\msgCenterMultiLanguageCfg.json";
+    outfile.open(filePath);
+#elif __APPLE__
+    outfile.open("/tmp/msgCenterMultiLanguageCfg.json");
+#else
+    outfile.open("/tmp/msgCenterMultiLanguageCfg.json");
+#endif
+
+    // check open status if it success
+    if (!outfile.is_open())
+    {
+        std::cerr << "can't open the file." << std::endl;
+    }
+    else
+    {
+        // write something to file
+        outfile << cfgStr;
+    }
+    // close the file
+    outfile.close();
+    return res;
+}
+bool MainFrame::loadMsgCenterMultiLanguageCfg()
+{
+    bool res = true;
+    std::ifstream ifs;
+#ifdef _WIN32
+    wxStandardPaths standarPaths = wxStandardPaths::Get();
+    wxString fileDir = standarPaths.GetUserDataDir();
+
+    std::string appName = std::string("\\") + SLIC3R_APP_KEY + std::string(" Profile");    
+    //fileDir = fileDir + appName + "\\msgCenterMultiLanguageCfg.json";
+    fileDir = fileDir + "\\msgCenterMultiLanguageCfg.json";
+
+    std::string cfgFilePath = fileDir.ToStdString();
+    ifs.open(cfgFilePath, std::ios::in);    
+#elif __APPLE__
+    ifs.open("/tmp/msgCenterMultiLanguageCfg.json");
+#else
+    ifs.open("/tmp/msgCenterMultiLanguageCfg.json");
+#endif
+    if (!ifs.is_open())
+    {
+        ANKER_LOG_WARNING << "read MultiLanguageCfg fail.";
+        return false;
+    }
+
+    std::string cfgBuf = "";
+    while (std::getline(ifs, cfgBuf))
+    {
+    }
+    ifs.close();
+
+    json_error_t error;
+    json_t* root = json_loads(cfgBuf.c_str(), 0, &error);
+
+    if (!root) {
+        ANKER_LOG_ERROR << "load MultiLanguageCfg json fail: " + std::string(error.text);
+        return false;
+    }
+
+    auto jsonDataObj = json_object_get(root, "data");
+    if (!jsonDataObj)
+    {
+        ANKER_LOG_ERROR << "request GetMsgCenterCfgVersionInfo no data ";
+        return false;
+    }
+
+    if (auto paramsArray = json_object_get(jsonDataObj, "text_2_data"))
+    {
+        for (int i = 0; i < json_array_size(paramsArray); ++i)
+        {
+            json_t* child = json_array_get(paramsArray, i);
+            MsgErrCodeInfo Item;
+            if (auto languageObj = json_object_get(child, "language"))
+                Item.language = json_string_value(languageObj);
+
+            if (auto versionObj = json_object_get(child, "version"))
+                Item.version = json_string_value(versionObj);
+
+            if (auto releaseVersionObj = json_object_get(child, "release_version"))
+                Item.release_version = json_string_value(releaseVersionObj);
+
+            if (auto text2DataObj = json_object_get(child, "text_2"))
+            {
+                const char* key;
+                json_t* value;
+                json_object_foreach(text2DataObj, key, value)
+                {
+                    if (json_is_string(value))
+                    {
+                        Item.errorCodeUrlMap[key] = json_string_value(value);
+                    }
+                    else
+                    {
+                        ANKER_LOG_ERROR << "Error: value for key " << key << " is not a string";
+                    }
+                }
+            }
+            m_MsgCenterErrCodeInfo->push_back(Item);
+        }
+    }
+    else
+        return false;
+
+    return res;
+}
+
+
+void MainFrame::ShowErrDialogByCenter()
+{
+    wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+    wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+    wxSize dialogSize = m_pMsgCentrePopWindow->GetBestSize();
+    wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+    m_pMsgCentrePopWindow->Move(center);
+    m_pMsgCentrePopWindow->Raise();
+    m_pMsgCentrePopWindow->Show();
+}
+void MainFrame::showErrMsgDialog(const std::string& errorCode, const std::string& errorLevel, const std::string& sn, const int& cmdType)
+{
+    ANKER_LOG_INFO <<"msg code:"<< errorCode<<"msg level:"<< errorLevel;
+    if (cmdType == HIDE_ERR_DIALOG_CMD)
+    {        
+        if (sn != m_pMsgCentrePopWindow->getDialogSn()|| errorCode!= m_pMsgCentrePopWindow->getDialogErrCode())
+            return;
+        m_pMsgCentrePopWindow->clearData();
+        m_pMsgCentrePopWindow->Hide();
+        return;
+    }
+
+    if (!m_MsgCenterCfg)
+    {
+        m_MsgCenterCfg = new std::map<std::string, MsgCenterConfig>();
+        if (!loadMsgCenterCfg())
+        {
+            //load local cfg msgCenterCfgVersionInfo
+            ANKER_LOG_ERROR << "no any msg center config fail ";
+            return;
+        }                          
+    }
+
+    //std::string currentLanguage = GetTranslateLanguage();
+    std::string currentLanguage = "";
+    int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+    if (type == wxLanguage::wxLANGUAGE_JAPANESE)
+    {
+        currentLanguage = "ja";
+    }
+    else
+    {
+        currentLanguage = "en";//wxLanguage::wxLANGUAGE_ENGLISH
+    }
+    auto desCfg = m_MsgCenterCfg->find(errorCode);
+    std::string realErrorCode = "fdm_news_center_" + errorCode +"_desc";
+    std::string content = "";
+    if (desCfg == m_MsgCenterCfg->end())
+    {
+        ANKER_LOG_ERROR << "no any msg center config for this errorCode: " << errorCode;
+        return;
+    }
+    std::string dialogContent = "";
+    if (!m_MsgCenterErrCodeInfo)
+    {
+        m_MsgCenterErrCodeInfo = new std::vector<MsgErrCodeInfo>();
+        if (!loadMsgCenterMultiLanguageCfg())
+        {
+            //load local cfg msgCenterMultiLanguageCfg
+            ANKER_LOG_ERROR << "no any msg center MultiLanguageCfg fail ";
+            return;
+        }
+    }
+    
+    for (auto it = m_MsgCenterErrCodeInfo->begin(); it != m_MsgCenterErrCodeInfo->end(); ++it) {
+        if ((*it).language == currentLanguage)
+        {
+            auto ErrCodeUrlMap = (*it).errorCodeUrlMap;
+            auto resItem = ErrCodeUrlMap.find(realErrorCode);
+            if (resItem != ErrCodeUrlMap.end())
+                dialogContent = resItem->second;
+        }
+    }    
+
+    auto articleList = desCfg->second.article_info;
+    std::string cfgArticleUrl = "";
+    std::string cfgArticleTitle = "";
+    std::string cfgErrorLevel = desCfg->second.error_level;
+    std::string cfgErrorCode = desCfg->second.error_code;
+
+    //fdm_news_center_0xFE01030001_desc
+    for (auto item : articleList)
+    {
+        if (item.language == currentLanguage)
+        {
+            cfgArticleUrl = item.article_url;
+            //cfgArticleTitle = item.article_title;//server return ""
+            break;
+        }
+    }   
+
+    if (cmdType == SHOW_ERR_DIALOG_CMD)
+    {   
+        auto ankerNet = AnkerNetInst();
+        if (!ankerNet) {
+            return;
+        }
+        DeviceObjectBasePtr devceiObj = ankerNet->getDeviceObjectFromSn(sn);
+        if (!devceiObj)
+            return;
+
+        cfgArticleTitle = devceiObj->GetStationName();
+        wxString titleContent = wxString::FromUTF8(cfgArticleTitle.c_str());        
+        wxString utfDialogContent = wxString::FromUTF8(dialogContent.c_str());
+        if(cfgErrorLevel == LEVEL_S || cfgErrorLevel == LEVEL_P0)
+           utfDialogContent = "[" + cfgErrorCode + "] " +  wxString::FromUTF8(dialogContent.c_str());
+        m_pMsgCentrePopWindow->setValue(utfDialogContent, cfgArticleUrl,cfgErrorCode,cfgErrorLevel, sn, titleContent);
+        if (m_pMsgCentrePopWindow->IsActive())
+        {
+            ankerNet->GetMsgCenterStatus();
+        }
+                                               
+        if (cfgErrorLevel == LEVEL_S)
+            ShowErrDialogByCenter();
+        else
+        {            
+            if (m_currentTabMode == TAB_DEVICE)
+                ShowErrDialogByCenter();
+            else
+                m_hasErrDialog = true;            
+        }
+    }
+}
+
 void MainFrame::InitAnkerDevice()
 {    
     m_pDeviceWidget = new AnkerDevice(m_printTabPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
@@ -1927,6 +2419,7 @@ void MainFrame::InitAnkerDevice()
         {
             wxVariantList list = pData->GetList();
             std::string snID = list[0]->GetString().ToStdString();
+            std::string snIDEx = list[0]->GetString().ToStdString();
             int type = AKNMT_CMD_EVENT_NONE;
             if (list.size() >= 2) {
                 list[1]->GetString().ToInt(&type);
@@ -1935,6 +2428,24 @@ void MainFrame::InitAnkerDevice()
             if (type == AnkerNet::AKNMT_CMD_Z_AXIS_RECOUP) {
                 m_pDeviceWidget->updateAboutZoffsetStatus(snID);
             }
+
+            auto ankerNet = AnkerNetInst();
+            if (!ankerNet) {
+                return;
+            }
+            DeviceObjectBasePtr devceiObj = ankerNet->getDeviceObjectFromSn(snID);
+            if (!devceiObj)
+                return;
+
+            if (type == SHOW_ERR_DIALOG_CMD || type == HIDE_ERR_DIALOG_CMD)
+            {
+                //show error msg dialog
+                std::string errorCode = "";
+                std::string errorLevel = "";
+                devceiObj->GetMsgCenterInfo(errorCode, errorLevel);    
+                showErrMsgDialog(errorCode, errorLevel, snID, type);                
+            }
+
         }
         });
 
@@ -1987,6 +2498,93 @@ void MainFrame::InitAnkerDevice()
             m_pDeviceWidget->updateFileTransferStatus(snID, progress, result);
         }
         });
+    Bind(wxCUSTOMEVT_GET_MSG_CENTER_CFG, [this](wxCommandEvent& event) {        
+
+        std::map<std::string, MsgCenterConfig>* pData = (std::map<std::string, MsgCenterConfig>*)(event.GetClientData());
+        if (pData)
+        {
+            int counts = 0;                
+            counts = pData->size();
+            if (m_MsgCenterCfg)
+            {
+                delete m_MsgCenterCfg;
+                m_MsgCenterCfg = nullptr;
+            }
+            ANKER_LOG_INFO << "msg center config counts is: "<< counts;
+            m_MsgCenterCfg = pData;         
+
+            auto item = pData->begin();
+            while (item != pData->end())
+            {
+                if (item->first == "originMsg")
+                {
+                    writeMsgCenterCfg(item->second.originMsg);
+                    break;
+                }
+                ++item;
+            }
+        }
+        });
+    Bind(wxCUSTOMEVT_GET_MSG_CENTER_RECORDS, [this](wxCommandEvent& event) {
+
+        std::vector<MsgCenterItem>* pData = (std::vector<MsgCenterItem>*)(event.GetClientData());
+        if (pData)
+        {
+            int counts = 0;
+            counts = pData->size();
+            
+            ANKER_LOG_INFO << "msg center config counts is: " << counts;
+            
+            //update content
+            if (pData->size() <= 0)
+                m_MsgCentreDialog->updateCurrentPage();
+
+            updateMsgCenterItemContent(pData);
+            m_MsgCentreDialog->updateMsg(pData);
+        }
+        });
+
+    Bind(wxCUSTOMEVT_GET_MSG_CENTER_ERR_CODE_INFO, [this](wxCommandEvent& event) {
+
+        std::vector<MsgErrCodeInfo>* pData = (std::vector<MsgErrCodeInfo>*)(event.GetClientData());
+        if (pData)
+        {
+            int counts = 0;
+            counts = pData->size();
+            if (m_MsgCenterErrCodeInfo)
+            {
+                delete m_MsgCenterErrCodeInfo;
+                m_MsgCenterErrCodeInfo = nullptr;
+            }
+            ANKER_LOG_INFO << "msg center config counts is: " << counts;
+            m_MsgCenterErrCodeInfo = pData;
+
+
+            auto item = pData->begin();
+            while (item != pData->end())
+            {
+                if (!item->originMsg.empty())
+                {
+                    
+                    writeMsgCenterMultiLanguageCfg(item->originMsg);
+                    break;
+                }
+                ++item;
+            }
+        }
+        });
+
+    Bind(wxCUSTOMEVT_GET_MSG_CENTER_STATUS, [this](wxCommandEvent& event) {
+        wxVariant* pData = (wxVariant*)(event.GetClientData());
+        if (pData)
+        {
+            wxVariantList list = pData->GetList();
+            int officicalNews = list[0]->GetInteger();
+            int printerNews = list[1]->GetInteger();
+            
+            m_pFunctionPanel->setMsgItemRedPointStatus(officicalNews, printerNews);
+        }
+        });
 
     if (m_pDeviceWidget) {
         m_pDeviceWidget->Bind(wxCUSTOMEVT_LOGIN_CLCIKED, [this](wxCommandEvent& event) {
@@ -2027,23 +2625,23 @@ void MainFrame::create_preset_tabs()
         
     InitAnkerDevice();
 
-    Bind(wxCUSTOMEVT_GET_CONMENT_FLAGS, [this](wxCommandEvent& event) {
+    Bind(wxCUSTOMEVT_GET_COMMENT_FLAGS, [this](wxCommandEvent& event) {
         wxVariant* pData = (wxVariant*)event.GetClientData();
         if (pData) {
             wxVariantList list = pData->GetList();
 
-            m_showConmentWebView = list[0]->GetBool();
-            if (m_showConmentWebView)
+            m_showCommentWebView = list[0]->GetBool();
+            if (m_showCommentWebView)
             {
-                g_sliceConmentData.reviewNameID = list[1]->GetString().ToStdString();
-                g_sliceConmentData.reviewName = list[2]->GetString().ToStdString(wxConvUTF8);
-                g_sliceConmentData.appVersion = list[3]->GetString().ToStdString();
-                g_sliceConmentData.country = list[4]->GetString().ToStdString();
-                g_sliceConmentData.sliceCount = list[5]->GetString().ToStdString();
+                g_sliceCommentData.reviewNameID = list[1]->GetString().ToStdString();
+                g_sliceCommentData.reviewName = list[2]->GetString().ToStdString(wxConvUTF8);
+                g_sliceCommentData.appVersion = list[3]->GetString().ToStdString();
+                g_sliceCommentData.country = list[4]->GetString().ToStdString();
+                g_sliceCommentData.sliceCount = list[5]->GetString().ToStdString();
             
-                int sliceTimes = std::stoi(g_sliceConmentData.sliceCount);
+                int sliceTimes = std::stoi(g_sliceCommentData.sliceCount);
                 if(m_plater)
-                    m_plater->setStarConmentFlagsTimes(sliceTimes);
+                    m_plater->setStarCommentFlagsTimes(sliceTimes);
             }
             ANKER_LOG_INFO << "get conment flags success";
         }
@@ -2054,7 +2652,7 @@ void MainFrame::create_preset_tabs()
     });
 
     Bind(wxCUSTOMEVT_ACCOUNT_EXTRUSION, [this](wxCommandEvent& event) {
-       
+        
         static bool accountShowed = false;
         if (accountShowed) {
             return;
@@ -2072,7 +2670,7 @@ void MainFrame::create_preset_tabs()
         wxSize mfSize = wxGetApp().mainframe->GetClientSize();
         wxSize dialogSize = AnkerSize(400, 250);
         wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
-        AnkerDialog dialog(this, wxID_ANY, _AnkerL("common_popup_titlenotice"), 
+        AnkerDialog dialog(this, wxID_ANY, _AnkerL("common_popup_titlenotice"),
             _AnkerL("common_popup_content_accountsqueezed"),
             center, dialogSize);
         dialog.CenterOnParent();
@@ -2422,6 +3020,80 @@ void MainFrame::on_dpi_changed(const wxRect& suggested_rect)
     this->SetSize(sz);
 
     this->Maximize(is_maximized);
+}
+
+void MainFrame::handleErrMsgDialogRes(wxVariant* pData)
+{
+    if (!pData)
+    {
+        ANKER_LOG_WARNING << "handleErrMsgDialogRes no data to handle ";
+        return;
+    }
+
+    std::string snID = "";
+    std::string errorCode = "";
+    std::string errorLevel = "";
+
+    wxVariantList list = pData->GetList();
+    snID = list[0]->GetString().ToStdString();
+    errorCode = list[1]->GetString().ToStdString();
+    errorLevel = list[2]->GetString().ToStdString();
+    
+
+    auto ankerNet = AnkerNetInst();
+    if (!ankerNet) {
+        return;
+    }
+    DeviceObjectBasePtr devceiObj = ankerNet->getDeviceObjectFromSn(snID);
+    if (!devceiObj)
+        return;
+    devceiObj->SendErrWinResToMachine(errorCode, errorLevel);
+}
+void MainFrame::initAnkerUi()
+{
+    wxSize msgWebViewSize = AnkerSize(900, 700);
+    wxPoint msgWebViewPos = wxPoint((GetSize().x - msgWebViewSize.x) / 2, (GetSize().y - msgWebViewSize.y) / 2);
+
+    if (!m_MsgCentreDialog)
+        m_MsgCentreDialog = new AnkerMsgCentreDialog(this);
+    m_MsgCentreDialog->SetSize(AnkerSize(720, 700));  
+    m_MsgCentreDialog->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& evt) { 
+        m_isMsgCenterIsShow = false;            
+        m_pFunctionPanel->setMsgEntrenceRedPointStatus(false);
+        evt.Skip(); });
+    m_pMsgCentrePopWindow = new AnkerCustomDialog(this);
+    m_pMsgCentrePopWindow->SetMaxSize(AnkerSize(400, 240));
+    m_pMsgCentrePopWindow->SetMinSize(AnkerSize(400, 240));
+    m_pMsgCentrePopWindow->SetSize(AnkerSize(400, 240));
+    m_pMsgCentrePopWindow->Bind(wxCUSTOMEVT_ANKER_CUSTOM_CLOSE, [this](wxCommandEvent& event) {
+
+        wxVariant* pData = (wxVariant*)(event.GetClientData());
+        handleErrMsgDialogRes(pData);
+        m_hasErrDialog = false;
+        m_pMsgCentrePopWindow->Hide();
+        });
+    m_pMsgCentrePopWindow->Bind(wxCUSTOMEVT_ANKER_CUSTOM_OK, [this](wxCommandEvent& event) {
+       
+        wxVariant* pData = (wxVariant*)(event.GetClientData());        
+        handleErrMsgDialogRes(pData);
+        m_hasErrDialog = false;
+        m_pMsgCentrePopWindow->Hide();
+        });
+    m_pMsgCentrePopWindow->Bind(wxCUSTOMEVT_ANKER_CUSTOM_CANCEL, [this](wxCommandEvent& event) {
+
+        wxVariant* pData = (wxVariant*)(event.GetClientData());
+        handleErrMsgDialogRes(pData);
+        m_hasErrDialog = false;
+        m_pMsgCentrePopWindow->Hide();
+        });
+    m_pMsgCentrePopWindow->Bind(wxCUSTOMEVT_ANKER_CUSTOM_OTHER, [this](wxCommandEvent& event) {
+
+        wxVariant* pData = (wxVariant*)(event.GetClientData());
+        handleErrMsgDialogRes(pData);
+        m_hasErrDialog = false;
+        m_pMsgCentrePopWindow->Hide();
+        });
+    m_pMsgCentrePopWindow->Hide();
 }
 
 void MainFrame::on_sys_color_changed()
@@ -3170,8 +3842,8 @@ void MainFrame::selectLanguage(GUI_App::AnkerLanguageType language)
 
     auto ankerNet = AnkerNetInst();
     if (ankerNet) {
-        std::string Country = languageCode.substr(0, index).ToStdString();
-        std::string Language = languageCode.substr(index + 1, languageCode.Length() - index).ToStdString();
+        std::string Language  = languageCode.substr(0, index).ToStdString();
+        std::string Country = languageCode.substr(index + 1, languageCode.Length() - index).ToStdString();
         ankerNet->ResetLanguage(Country, Language);
     }
 }
@@ -3574,7 +4246,7 @@ void MainFrame::repair_stl()
     Slic3r::TriangleMesh tmesh;
     tmesh.ReadSTLFile(input_file.ToUTF8().data());
     tmesh.WriteOBJFile(output_file.ToUTF8().data());
-    Slic3r::GUI::show_info(this, L("Your file was repaired."), L("Repair"));
+    Slic3r::GUI::show_info(this, _L("Your file was repaired."), _L("Repair"));
 }
 
 void MainFrame::export_config()
@@ -4005,6 +4677,15 @@ void MainFrame::on_show(wxShowEvent& event)
     if (m_pDeviceWidget)
         m_pDeviceWidget->activate(event.IsShown());
 
+    if (m_MsgCentreDialog)
+    {
+        if (m_isMsgCenterIsShow)
+        {
+            m_MsgCentreDialog->Raise();
+            m_MsgCentreDialog->Show();
+        }
+    }
+
     event.Skip();
 }
 
@@ -4016,6 +4697,23 @@ void MainFrame::on_minimize(wxIconizeEvent& event)
     if (m_pDeviceWidget)
         m_pDeviceWidget->activate(false);
 
+    if (m_pMsgCentrePopWindow)
+        m_MsgCentreDialog->Hide();
+    event.Skip();
+}
+
+void MainFrame::on_Activate(wxActivateEvent& event)
+{
+    if (m_MsgCentreDialog)
+    {
+        if (m_isMsgCenterIsShow)
+        {
+            if (m_MsgCentreDialog->IsShown())
+                return;
+            m_MsgCentreDialog->Raise();
+            m_MsgCentreDialog->Show();
+        }
+    }
     event.Skip();
 }
 
@@ -4028,6 +4726,15 @@ void MainFrame::on_maximize(wxMaximizeEvent& event)
         m_pDeviceWidget->activate(true);
 
     event.Skip();
+
+    if (m_MsgCentreDialog)
+    {
+        if (m_isMsgCenterIsShow)
+        {
+            m_MsgCentreDialog->Raise();
+            m_MsgCentreDialog->Show();
+        }
+    }
 }
 
 
@@ -4051,21 +4758,21 @@ void MainFrame::add_to_recent_projects(const wxString& filename)
         wxGetApp().app_config->set_recent_projects(recent_projects);
     }
 }
-void MainFrame::clearStarConmentData()
+void MainFrame::clearStarCommentData()
 {
-    m_showConmentWebView = false;
+    m_showCommentWebView = false;
     
-    g_sliceConmentData.reviewNameID = "";
-    g_sliceConmentData.reviewName = "";
-    g_sliceConmentData.appVersion = "";
-    g_sliceConmentData.country = "";
+    g_sliceCommentData.reviewNameID = "";
+    g_sliceCommentData.reviewName = "";
+    g_sliceCommentData.appVersion = "";
+    g_sliceCommentData.country = "";
 
-    g_sliceConmentData.sliceCount = "";
+    g_sliceCommentData.sliceCount = "";
 
-    g_sliceConmentData.action = 2;
-    g_sliceConmentData.rating = 0;
-    g_sliceConmentData.reviewData = "";
-    g_sliceConmentData.clientId = "";
+    g_sliceCommentData.action = 2;
+    g_sliceCommentData.rating = 0;
+    g_sliceCommentData.reviewData = "";
+    g_sliceCommentData.clientId = "";
 }
 void MainFrame::technology_changed()
 {
@@ -4117,6 +4824,80 @@ std::string MainFrame::get_dir_name(const wxString &full_name) const
 // add by allen for ankerCfgDlg
 AnkerTabPresetComboBox* MainFrame::GetAnkerTabPresetCombo(const Preset::Type type) {
     return m_ankerCfgDlg ? m_ankerCfgDlg->GetAnkerTabPresetCombo(type) : nullptr;
+}
+
+void MainFrame::updateMsgCenterItemContent(std::vector<MsgCenterItem>* pData)
+{
+    if (!pData || pData->size() <= 0)
+        return;
+
+    //std::string currentLanguage = GetTranslateLanguage();
+    std::string currentLanguage = "";
+    int type = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
+    if (type == wxLanguage::wxLANGUAGE_JAPANESE)
+    {
+        currentLanguage = "ja";
+    }
+    else
+    {
+        currentLanguage = "en";//wxLanguage::wxLANGUAGE_ENGLISH
+    }
+
+    if (!m_MsgCenterCfg)
+    {
+        m_MsgCenterCfg = new std::map<std::string, MsgCenterConfig>();
+        if (!loadMsgCenterCfg())
+        {
+            //load local cfg msgCenterCfgVersionInfo
+            ANKER_LOG_INFO << "no any msg center config fail ";
+            return;
+        }
+    }       
+
+    if (!m_MsgCenterErrCodeInfo)
+    {
+        m_MsgCenterErrCodeInfo = new std::vector<MsgErrCodeInfo>();
+        if (!loadMsgCenterMultiLanguageCfg())
+        {
+            //load local cfg msgCenterMultiLanguageCfg
+            ANKER_LOG_INFO << "no any msg center updateMsgCenterItemContent fail ";
+            return;
+        }
+    }
+
+    for (auto item = pData->begin(); item != pData->end(); ++item)
+    {
+       std::string errorCode = (*item).msgErrorCode;
+       std::string realErrorCode = "fdm_news_center_" + (*item).msgErrorCode + "_desc";
+       auto urlItem = m_MsgCenterCfg->find(errorCode);
+       if (urlItem != m_MsgCenterCfg->end())
+       {
+           auto articleList = (*urlItem).second.article_info;
+           for (auto articleListItem : articleList)
+           {
+               if (articleListItem.language == currentLanguage)
+               {
+                   (*item).msgUrl = articleListItem.article_url;//find url
+                   (*item).msgLevel = (*urlItem).second.error_level;//find url
+                   break;
+               }
+           }
+       }
+
+       for (auto it = m_MsgCenterErrCodeInfo->begin(); it != m_MsgCenterErrCodeInfo->end(); ++it) {
+           if ((*it).language == currentLanguage)
+           {
+               auto ErrCodeUrlMap = (*it).errorCodeUrlMap;
+               auto resItem = ErrCodeUrlMap.find(realErrorCode);
+               if (resItem != ErrCodeUrlMap.end())
+               {
+                   //wxString::FromUTF8((*resItem).second).ToUTF8().data();
+                   //(*item).msgContent = (*resItem).second;//find error content
+                   (*item).msgContent = wxString::FromUTF8((*resItem).second).data();//find error content
+               }
+           }
+       }       
+    }
 }
 
 AnkerTab* MainFrame::openAnkerTabByPresetType(const Preset::Type type)

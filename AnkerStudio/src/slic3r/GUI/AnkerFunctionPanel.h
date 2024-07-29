@@ -7,6 +7,8 @@
 
 wxDECLARE_EVENT(wxCUSTOMEVT_ON_CLICK_LOGON, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ON_TAB_CHANGE, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_SHOW_FEEDBACK, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_SHOW_MSG_CENTRE, wxCommandEvent);
 
 wxDECLARE_EVENT(wxCUSTOMEVT_FEEDBACK, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_SHOW_DOC, wxCommandEvent);
@@ -63,6 +65,8 @@ namespace Slic3r {
 			void initEvent();
 			void OnPaint(wxPaintEvent& event);
 			void SetPrintTab(wxBookCtrlBase* tabControl) { m_pPrintTab = tabControl; };
+			void setMsgEntrenceRedPointStatus(bool hasUnread);
+			void setMsgItemRedPointStatus(int officicalNews,int printerNews);
 			wxMenu* m_calib_menu = nullptr;
 
 			DECLARE_EVENT_TABLE()
@@ -76,7 +80,9 @@ namespace Slic3r {
 			wxBookCtrlBase* m_pPrintTab{nullptr};
 			//collection of all control function  page buttons
 			std::vector<AnkerCombinButton*> m_pTabBtnVec;
-
+			int m_officicalNews = 0;
+			int m_printerNews = 0;
+			AnkerTabBarBtn* m_msgCentreBtn{ nullptr };
 			AnkerTabBarBtn* m_FeedBackHelpBtn{ nullptr };
 			wxMenu* m_pFeedbackHelpMenu { nullptr };			
 		};

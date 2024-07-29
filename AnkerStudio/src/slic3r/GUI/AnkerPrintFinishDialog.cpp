@@ -1,6 +1,7 @@
 #include "AnkerPrintFinishDialog.hpp"
 #include "AnkerBtn.hpp"
 #include "GUI_App.hpp"
+#include "MainFrame.hpp"
 
 #include "libslic3r/Utils.hpp"
  #include "libslic3r/GCode/GCodeProcessor.hpp"
@@ -65,7 +66,7 @@ AnkerPrintFinishDialog::AnkerPrintFinishDialog(std::string currentDeviceSn, wxWi
 	m_textDarkColor = wxColour(TEXT_DARK_RGB_INT);
 #endif // __APPLE__
 	m_LineColor = wxColour(71, 72, 76);
-
+    
 	initUI();
 
 	//Bind(wxEVT_SHOW, &AnkerPrintFinishDialog::OnShow, this);
@@ -100,7 +101,7 @@ void AnkerPrintFinishDialog::setPreviewImage(int width, int height, unsigned cha
 void AnkerPrintFinishDialog::Reset()
 {
 	m_qualityScore = -1;
-	m_printStopReason = STOP_REASON_NONE;
+	m_printStopReason.reset();
 
 }
 
@@ -121,9 +122,11 @@ void AnkerPrintFinishDialog::ShowPrintFinishDialog(bool finishSuss, AnkerPrintFi
 		m_pPreviewImg_fail->Show(true);
 		m_FeedBackHyperLink->Show(true);
 		m_PrintingFailReasonSizer->Show(false);
+		m_PrintingFailFeedbackSizer->Show(false);
 
 		m_pPrintSuccessPanel->Show(false);
 		m_pPrintFailPanel->Show(true);
+		m_FeedBackHyperLink->Show(!m_printStopReasonBtns.empty());
 	}
 
 	Layout();
@@ -202,8 +205,16 @@ void AnkerPrintFinishDialog::UpdateUI(bool finishSuss, AnkerPrintFinishDialog::P
 void AnkerPrintFinishDialog::initUI()
 {
 	SetBackgroundColour(m_dialogColor);
-	SetSizeHints(AnkerSize(324, 530), AnkerSize(324, 530));
-	SetSize(AnkerSize(324, 530));
+	SetSizeHints(AnkerSize(350, 530), AnkerSize(350, 530));
+	SetSize(AnkerSize(350, 530));
+    if(Slic3r::GUI::wxGetApp().mainframe){
+        wxPoint mainframePos = Slic3r::GUI::wxGetApp().mainframe->GetPosition();
+            wxSize mainframeSize = Slic3r::GUI::wxGetApp().mainframe->GetSize();
+            wxSize curSize = GetSize();
+            wxPoint curPos(mainframePos.x + (mainframeSize.GetWidth() - curSize.GetWidth()) / 2, mainframePos.y + (mainframeSize.GetHeight() - curSize.GetHeight()) / 2);
+            SetPosition(curPos);
+    }
+    
 
 	wxBoxSizer* dialogVSizer = new wxBoxSizer(wxVERTICAL);
 	SetSizer(dialogVSizer);
@@ -238,15 +249,6 @@ void AnkerPrintFinishDialog::initUI()
 
 	initPrintSuccessSizer(contentPanel);
 	initPrintFailSizer(contentPanel);
-
-	// dhf test data
-	{
-		AnkerPrintFinishDialog::PrintFinishInfo res;
-		res.m_fileName = "xxxx.gcode";
-		res.m_filamentStr = "12345_testing";
-		res.m_timeSecond = 1000;
-		ShowPrintFinishDialog(false, res);
-	}
 }
 
 
@@ -519,7 +521,7 @@ bool AnkerPrintFinishDialog::initPrintFailSizer(wxWindow* parent)
 
 		m_failStatusSizer->AddStretchSpacer(1);
 
-		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("print_finish_sucess.png")), wxBITMAP_TYPE_PNG);   // print_finish_fail.png
+		wxImage image = wxImage(wxString::FromUTF8(Slic3r::var("print_finish_failed.png")), wxBITMAP_TYPE_PNG);   // print_finish_fail.png
 		//image.Rescale(20, 20);
 		wxStaticBitmap* pFinishedFailIcon = new wxStaticBitmap(m_pPrintFailPanel, wxID_ANY, image);
 		pFinishedFailIcon->SetMinSize(image.GetSize());
@@ -530,7 +532,7 @@ bool AnkerPrintFinishDialog::initPrintFailSizer(wxWindow* parent)
 		m_failStatusSizer->AddSpacer(6);
 
 		// fail
-		wxStaticText* pFinishedFaileText = new wxStaticText(m_pPrintFailPanel, wxID_ANY, _("common_print_popupfinished_noticefailed"));
+		wxStaticText* pFinishedFaileText = new wxStaticText(m_pPrintFailPanel, wxID_ANY, _("common_print_finish_failed"));
 		pFinishedFaileText->SetBackgroundColour(m_dialogColor);
 		pFinishedFaileText->SetForegroundColour(wxColour(255, 0, 0));
 		pFinishedFaileText->SetFont(ANKER_FONT_NO_1);
@@ -671,89 +673,61 @@ bool AnkerPrintFinishDialog::initPrintFailSizer(wxWindow* parent)
 	// printing stop reasion sizer
 	{
 		// lable: "Why did you stop the printing?"
+		wxString labelStr = Slic3r::GUI::WrapEveryCharacter(_("common_print_popupfinished_feedbacktitle"), ANKER_BOLD_FONT_NO_1, AnkerLength(200));
 		wxStaticText* label = new wxStaticText(m_pPrintFailPanel, wxID_ANY, _("common_print_popupfinished_feedbacktitle"));
 		label->SetBackgroundColour(m_dialogColor);
 		label->SetForegroundColour(m_textLightColor);
 		label->SetFont(ANKER_BOLD_FONT_NO_1);
+		label->SetLabel(labelStr);
+		label->SetMinSize(label->GetBestSize());
+		label->SetSize(label->GetBestSize());
 
-		// btn: Bottom Layer Adhesion Failure
-			auto BottomLyerAdhesionBtn = new AnkerBtn(m_pPrintFailPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-			BottomLyerAdhesionBtn->SetMinSize(wxSize(220, 32));
-			BottomLyerAdhesionBtn->SetMaxSize(wxSize(220, 32));
-			BottomLyerAdhesionBtn->SetSize(wxSize(220, 32));
-			BottomLyerAdhesionBtn->SetText(_L("common_print_popupfinished_feedbackoption1"));
-			BottomLyerAdhesionBtn->SetName("Bottom Layer Adhesion Failure");
-			BottomLyerAdhesionBtn->SetBackgroundColour(m_dialogColor);
-			BottomLyerAdhesionBtn->SetBgHoverColor(m_dialogColor);
-			BottomLyerAdhesionBtn->SetborderNorColor(m_LineColor);
-			BottomLyerAdhesionBtn->SetborderHoverBGColor("#A0A0A0");
-			BottomLyerAdhesionBtn->SetTextColor(m_textDarkColor);
-			BottomLyerAdhesionBtn->SetRadius(0);
-			BottomLyerAdhesionBtn->SetFont(ANKER_FONT_NO_1);
-			BottomLyerAdhesionBtn->Bind(wxEVT_BUTTON, &AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick, this);
-	
-		// btn: Spaghetti Mess
-			auto SpaghettiMessBtn = new AnkerBtn(m_pPrintFailPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-			SpaghettiMessBtn->SetMinSize(wxSize(220, 32));
-			SpaghettiMessBtn->SetMaxSize(wxSize(220, 32));
-			SpaghettiMessBtn->SetSize(wxSize(220, 32));
-			SpaghettiMessBtn->SetText(_L("common_print_popupfinished_feedbackoption2"));
-			SpaghettiMessBtn->SetName("Spaghetti Mess");
-			SpaghettiMessBtn->SetBackgroundColour(m_dialogColor);
-			SpaghettiMessBtn->SetBgHoverColor(m_dialogColor);
-			SpaghettiMessBtn->SetborderNorColor(m_LineColor);
-			SpaghettiMessBtn->SetborderHoverBGColor("#A0A0A0");
-			SpaghettiMessBtn->SetTextColor(m_textDarkColor);
-			SpaghettiMessBtn->SetRadius(2);
-			SpaghettiMessBtn->SetFont(ANKER_FONT_NO_1);
-			SpaghettiMessBtn->Bind(wxEVT_BUTTON, &AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick, this);
+		AnkerNetBase* pAnkerNetBase = AnkerNetInst();
+		if (pAnkerNetBase == nullptr) {
+			return false;
+		}
 
-		// btn: Extruder Jam
-			auto ExtruderJamBtn = new AnkerBtn(m_pPrintFailPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-			ExtruderJamBtn->SetMinSize(wxSize(220, 32));
-			ExtruderJamBtn->SetMaxSize(wxSize(220, 32));
-			ExtruderJamBtn->SetSize(wxSize(220, 32));
-			ExtruderJamBtn->SetText(_L("common_print_popupfinished_feedbackoption3"));
-			ExtruderJamBtn->SetName("Extruder Jam");
-			ExtruderJamBtn->SetBackgroundColour(m_dialogColor);
-			ExtruderJamBtn->SetBgHoverColor(m_dialogColor);
-			ExtruderJamBtn->SetborderNorColor(m_LineColor);
-			ExtruderJamBtn->SetborderHoverBGColor("#A0A0A0");
-			ExtruderJamBtn->SetTextColor(m_textDarkColor);
-			ExtruderJamBtn->SetRadius(2);
-			ExtruderJamBtn->SetFont(ANKER_FONT_NO_1);
-			ExtruderJamBtn->Bind(wxEVT_BUTTON, &AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick, this);
-
-		// btn: Give up to print
-			auto GiveUpPrintBtn = new AnkerBtn(m_pPrintFailPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-			GiveUpPrintBtn->SetMinSize(wxSize(220, 32));
-			GiveUpPrintBtn->SetMaxSize(wxSize(220, 32));
-			GiveUpPrintBtn->SetSize(wxSize(220, 32));
-			GiveUpPrintBtn->SetText(_L("common_print_popupfinished_feedbackoption4"));
-			GiveUpPrintBtn->SetName("Give up to print");
-			GiveUpPrintBtn->SetBackgroundColour(m_dialogColor);
-			GiveUpPrintBtn->SetBgHoverColor(m_dialogColor);
-			GiveUpPrintBtn->SetborderNorColor(m_LineColor);
-			GiveUpPrintBtn->SetborderHoverBGColor("#A0A0A0");
-			GiveUpPrintBtn->SetTextColor(m_textDarkColor);
-			GiveUpPrintBtn->SetRadius(2);
-			GiveUpPrintBtn->SetFont(ANKER_FONT_NO_1);
-			GiveUpPrintBtn->Bind(wxEVT_BUTTON, &AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick, this);
-
-			m_PrintingFailReasonSizer = new wxBoxSizer(wxVERTICAL);
-			m_PrintingFailReasonSizer->Add(label, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 10);
-			m_PrintingFailReasonSizer->Add(BottomLyerAdhesionBtn, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 3);
-			m_PrintingFailReasonSizer->Add(SpaghettiMessBtn, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 3);
-			m_PrintingFailReasonSizer->Add(ExtruderJamBtn, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 3);
-			m_PrintingFailReasonSizer->Add(GiveUpPrintBtn, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 3);
-
-			m_printStopReasonBtns.push_back(BottomLyerAdhesionBtn);
-			m_printStopReasonBtns.push_back(SpaghettiMessBtn);
-			m_printStopReasonBtns.push_back(ExtruderJamBtn);
-			m_printStopReasonBtns.push_back(GiveUpPrintBtn);
-
+        // Occupy the PrintingFailReasonButton'space, add controls later in UpdatePrintStopedReasonBtn()
+		m_PrintingFailReasonSizer = new wxBoxSizer(wxVERTICAL);
+		m_PrintingFailReasonSizer->Add(label, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 8);
 		pPrintFailSizer->Add(m_PrintingFailReasonSizer, 0, wxALIGN_CENTER_HORIZONTAL | wxLEFT | wxRIGHT, margin);
 
+		m_PrintingFailReasonSizer->Show(false);
+	}
+
+	// feedback learn more sizer
+	{
+		m_PrintingFailFeedbackSizer = new wxBoxSizer(wxVERTICAL);
+
+		wxString labelStr = Slic3r::GUI::WrapFixWidthAdvance(_("common_print_finish_feedback"), ANKER_BOLD_FONT_NO_1, AnkerLength(200));
+		wxStaticText* label = new wxStaticText(m_pPrintFailPanel, wxID_ANY, _("common_print_finish_feedback"));
+		label->SetBackgroundColour(m_dialogColor);
+		label->SetForegroundColour(m_textLightColor);
+		label->SetFont(ANKER_BOLD_FONT_NO_1);
+		label->SetMinSize(AnkerSize(200, 34));
+		label->SetSize(AnkerSize(200, 34));
+		label->SetLabelText(labelStr);
+		m_PrintingFailFeedbackSizer->Add(label, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 6);
+
+		m_lable_desc = new wxStaticText(m_pPrintFailPanel, wxID_ANY, _(""));
+		m_lable_desc->SetBackgroundColour(m_dialogColor);
+		m_lable_desc->SetForegroundColour(m_textDarkColor);
+		m_PrintingFailFeedbackSizer->Add(m_lable_desc, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 3);
+
+		m_feedbackReadMore = new AnkerHyperlink(m_pPrintFailPanel, wxID_ANY, _L(""), "", wxColour("#000000"), wxDefaultPosition, wxDefaultSize, ALIGN_CENTER);
+		m_feedbackReadMore->SetCustomFont(Body_13);
+		m_feedbackReadMore->SetBackgroundColour(m_dialogColor);
+		m_feedbackReadMore->SetCustumAction(std::bind(&AnkerPrintFinishDialog::OnClickFeedbackLearnMore, this));
+        
+        m_feedbackReadMore->SetMinSize(AnkerSize(this->GetSize().GetWidth() - margin * 2,  50));
+        m_feedbackReadMore->SetSize(AnkerSize(this->GetSize().GetWidth() - margin * 2, 50));
+        m_feedbackReadMore->SetPrintFailFlag(true);
+        m_feedbackReadMore->SetWrapWidth(this->GetSize().GetWidth() - margin*2);
+
+
+		m_PrintingFailFeedbackSizer->Add(m_feedbackReadMore, 0, wxALIGN_CENTER_HORIZONTAL | wxLEFT | wxRIGHT, margin);
+
+		pPrintFailSizer->Add(m_PrintingFailFeedbackSizer, 0, wxALIGN_CENTER_HORIZONTAL | wxLEFT | wxRIGHT, margin);
 		m_PrintingFailReasonSizer->Show(false);
 	}
 
@@ -799,17 +773,6 @@ bool AnkerPrintFinishDialog::initPrintFailSizer(wxWindow* parent)
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
 void AnkerPrintFinishDialog::OnClickQualityScoreBtn(wxCommandEvent& event)
 {
 	wxBitmapButton* button = dynamic_cast<wxBitmapButton*>(event.GetEventObject());
@@ -821,8 +784,6 @@ void AnkerPrintFinishDialog::OnClickQualityScoreBtn(wxCommandEvent& event)
 	ANKER_LOG_INFO << "set print quality score:"<< m_qualityScore;
 	UpdateAllQuilityScoreBtns();
 }
-
-
 
 
 void AnkerPrintFinishDialog::OnEnterQualityScoreBtn(wxMouseEvent& event)
@@ -843,8 +804,6 @@ void AnkerPrintFinishDialog::OnEnterQualityScoreBtn(wxMouseEvent& event)
 
 	Refresh();
 }
-
-
 
 void AnkerPrintFinishDialog::OnLeaveQualityScoreBtn(wxMouseEvent& event)
 {
@@ -880,6 +839,11 @@ void AnkerPrintFinishDialog::OnClickFeedbackHyperlink()
 	Refresh();
 }
 
+void AnkerPrintFinishDialog::OnClickFeedbackLearnMore()
+{
+	if (!m_printStopReason.help_link.empty())
+		wxLaunchDefaultBrowser(m_printStopReason.help_link);
+}
 
 int AnkerPrintFinishDialog::GetBtnQuilityScore(wxBitmapButton* button)
 {
@@ -896,8 +860,6 @@ int AnkerPrintFinishDialog::GetBtnQuilityScore(wxBitmapButton* button)
 	return 0;
 }
 
-
-
 void AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick(wxCommandEvent& event)
 {
 	AnkerBtn* button = dynamic_cast<AnkerBtn*>(event.GetEventObject());
@@ -905,36 +867,65 @@ void AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick(wxCommandEvent& event)
 		return;
 	}
 	m_printStopReason = GetPrintStopReasonFromBtn(button);
-	ANKER_LOG_INFO << "set print stop reason :" << m_printStopReason;
+	ANKER_LOG_INFO << "set print stop reason :" << m_printStopReason.reason_title;
 	UpdatePrintStopedReasonBtn();
+	UpdateFeedBackInfo();
 }
 
 
-AnkerPrintFinishDialog::PrintStopReason AnkerPrintFinishDialog::GetPrintStopReasonFromBtn(AnkerBtn* button)
+PrintStopReasonInfo AnkerPrintFinishDialog::GetPrintStopReasonFromBtn(AnkerBtn* button)
 {
-	PrintStopReason reason = STOP_REASON_NONE;
 	if (button) {
-		if (button->GetName() == "Bottom Layer Adhesion Failure")
-			reason = STOP_REASON_BOTTOM_LAYER_ADHESION;
-		else if (button->GetName() == "Spaghetti Mess")
-			reason = STOP_REASON_SPAGHETTI_MESS;
-		else if (button->GetName() == "Extruder Jam")
-			reason = STOP_REASON_EXTRUDER_JAM;
-		else if (button->GetName() == "Give up to print")
-			reason = STOP_REASON_GIVE_UP;
+		for (size_t i = 0; i < m_printStopReasonBtns.size(); i++) {
+			if (button == m_printStopReasonBtns[i].first) {
+				return m_printStopReasonBtns[i].second;
+			}
+		}
 	}
-	return reason;
+	return PrintStopReasonInfo();
 }
 
 
 void AnkerPrintFinishDialog::UpdatePrintStopedReasonBtn()
 {
+	AnkerNetBase* pAnkerNetBase = AnkerNetInst();
+	if (pAnkerNetBase == nullptr) {
+		return;
+	}
+
+	//Clear dirty data.
+	m_printStopReasonBtns.clear();
+	m_PrintingFailReasonSizer->Clear(true);
+
+	PrintStopReasons reasons;
+	pAnkerNetBase->PostGetPrintStopReasons(reasons, m_currentDeviceSn);
+	m_printStopReasonBtns.resize(reasons.size());
+	for (size_t i = 0; i < reasons.size(); i++) {
+		auto reasonBtn = new AnkerBtn(m_pPrintFailPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+		reasonBtn->SetMinSize(AnkerSize(220, 32));
+		reasonBtn->SetMaxSize(AnkerSize(220, 32));
+		reasonBtn->SetSize(AnkerSize(220, 32));
+		reasonBtn->SetText(wxString::FromUTF8(reasons[i].reason_title));
+		reasonBtn->SetName(wxString::FromUTF8(reasons[i].reason_title));
+		reasonBtn->SetBackgroundColour(m_dialogColor);
+		reasonBtn->SetBgHoverColor(m_dialogColor);
+		reasonBtn->SetborderNorColor(m_LineColor);
+		reasonBtn->SetborderHoverBGColor("#A0A0A0");
+		reasonBtn->SetTextColor(m_textDarkColor);
+		reasonBtn->SetRadius(2);
+		reasonBtn->SetFont(ANKER_FONT_NO_1);
+		reasonBtn->Bind(wxEVT_BUTTON, &AnkerPrintFinishDialog::OnPrintStopedReasonBtnClick, this);
+		m_PrintingFailReasonSizer->Add(reasonBtn, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 3);
+		m_printStopReasonBtns[i] = std::pair<AnkerBtn*, PrintStopReasonInfo>(reasonBtn, reasons[i]);
+	}
+
+
 	for (int i = 0; i < m_printStopReasonBtns.size(); ++i) {
-		AnkerBtn* btn = m_printStopReasonBtns[i];
+		AnkerBtn* btn = m_printStopReasonBtns[i].first;
 		if (btn) {
-			PrintStopReason reason = GetPrintStopReasonFromBtn(btn);
+			PrintStopReasonInfo reason = GetPrintStopReasonFromBtn(btn);
 			// ANKER_LOG_INFO << "==xxx=== m_printStopReason:" << m_printStopReason<<"  reason:"<< reason<<"  btn:"<< btn->GetName();
-			if (m_printStopReason == reason) {
+			if (reason.isValid() && m_printStopReason.reason_value == reason.reason_value) {
 				btn->SetBgNorColor(wxColour("#62d361"));
 				btn->SetTextColor(wxColour("#FFFFFF"));
 			}
@@ -947,9 +938,48 @@ void AnkerPrintFinishDialog::UpdatePrintStopedReasonBtn()
 	Refresh();
 }
 
+void AnkerPrintFinishDialog::UpdateFeedBackInfo()
+{
+	ANKER_LOG_INFO << "help_desc_light: " << wxString::FromUTF8(m_printStopReason.help_desc_light) 
+		<< " help_desc: " << wxString::FromUTF8(m_printStopReason.help_desc);
+	//auto dst_str = [&](const std::string& src, const std::string& link) {
+	//	std::string::size_type pos = src.find(link);
+	//	if (pos != std::string::npos) { return src.substr(0, pos); }
+	//	return src;
+	//};
+
+	if (m_printStopReason.help_desc_light.empty()) {
+		m_feedbackReadMore->SetText("");
+	}
+	else {
+		m_feedbackReadMore->SetText(wxString::FromUTF8(m_printStopReason.help_desc_light));
+	}
+
+	if (!m_printStopReason.help_desc.empty()) {
+		//auto str = "We've prepared some articles for you to quickly find solutions. you should read more>>";
+		//auto dst = dst_str(m_printStopReason.help_desc, m_printStopReason.help_desc_light);
+		//auto display_dst = dst_str(m_printStopReason.help_desc, m_printStopReason.help_desc_light);
+		auto display_dst = m_printStopReason.help_desc;
+		ANKER_LOG_INFO << "display_dst: " << wxString::FromUTF8(display_dst);
+        int lableDescWidth = this->GetSize().GetWidth() - AnkerLength(21);
+        wxString labelStr = Slic3r::GUI::WrapFixWidthAdvance(wxString::FromUTF8(display_dst), Body_14, lableDescWidth, m_printStopReason.language);
+        m_lable_desc->Wrap(lableDescWidth);
+        m_lable_desc->SetLabelText(labelStr);
+        m_lable_desc->Fit();
+	}
+	else {
+		m_lable_desc->SetLabelText("");
+	}
+
+	m_PrintingFailReasonSizer->Show(false);
+	m_PrintingFailFeedbackSizer->Show(true);
+	Layout();
+	Refresh();
+}
+
 void AnkerPrintFinishDialog::ReportPrintResult()
 {
-	if (m_panelType = PRINT_SUCCESS_PANEL) {
+	if (m_panelType == PRINT_SUCCESS_PANEL) {
 		if (m_qualityScore > 0)
 		{
 			std::map<std::string, std::string> map;
@@ -958,13 +988,13 @@ void AnkerPrintFinishDialog::ReportPrintResult()
 			ANKER_LOG_INFO << "report print quality score :" << m_qualityScore;
 		}
 	}
-	else if (m_panelType = PRINT_FAIL_PANEL) {
-		if (m_printStopReason >= 0)
+	else if (m_panelType == PRINT_FAIL_PANEL) {
+		if (m_printStopReason.isValid())
 		{
 			std::map<std::string, std::string> map;
-			map.insert(std::make_pair(c_reason, std::to_string(m_printStopReason)));
+			map.insert(std::make_pair(c_reason, m_printStopReason.reason_value));
 			BuryAddEvent(e_print_stop_reason, map);
-			ANKER_LOG_INFO << "report print stop reason :" << m_printStopReason;
+			ANKER_LOG_INFO << "report print stop reason :" << m_printStopReason.reason_title;
 		}
 	}
 }

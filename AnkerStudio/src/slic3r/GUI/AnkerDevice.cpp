@@ -746,6 +746,7 @@ void AnkerDevice::initUi()
 			auto ankerNet = AnkerNetInst();
 			if (ankerNet && ankerNet->IsLogined()) {
 				ankerNet->AsyRefreshDeviceList();
+				ankerNet->GetMsgCenterStatus();
 			}			
 		});
 

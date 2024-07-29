@@ -9,18 +9,18 @@
 #include <wx/richtext/richtextctrl.h>
 class AnkerBtn;
 
-wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_CONMENT_NOT_ASK, wxCommandEvent);
-wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_CONMENT_SUBMIT, wxCommandEvent);
-wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_CONMENT_CLOSE, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_COMMENT_NOT_ASK, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_COMMENT_SUBMIT, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_COMMENT_CLOSE, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_STAR_COUNTS_CHANGED, wxCommandEvent);
-class AnkerConmentStar :public wxControl
+class AnkerCommentStar :public wxControl
 {
 public:
-	AnkerConmentStar(wxWindow* parent,
+	AnkerCommentStar(wxWindow* parent,
 		wxWindowID winid = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
-	~AnkerConmentStar();
+	~AnkerCommentStar();
 	int getStarCounts();
 	void exitClearBtnImg();
     void resetStar();
@@ -44,11 +44,11 @@ private:
 
 };
 
-class AnkerSliceConmentDialog : public wxDialog
+class AnkerSliceCommentDialog : public wxDialog
 {
 public:
-	AnkerSliceConmentDialog(wxWindow* parent = nullptr, wxString content = "");
-	~AnkerSliceConmentDialog();
+	AnkerSliceCommentDialog(wxWindow* parent = nullptr, wxString content = "");
+	~AnkerSliceCommentDialog();
 
 protected:
 	void initUi();		
@@ -60,12 +60,12 @@ private:
 	wxPanel* m_sumitPanel{ nullptr };
 
 	wxString m_strSuggestion = "";
-	wxRichTextCtrl* m_pConmentTextCtrl{ nullptr };
+	wxRichTextCtrl* m_pCommentTextCtrl{ nullptr };
 	wxStaticBitmap* m_start{ nullptr };
 	AnkerBtn* m_pDonotAskBtn{ nullptr };
 	AnkerBtn* m_pSubmitBtn{ nullptr };
 
-	AnkerConmentStar* m_pStarPanel{ nullptr };
+	AnkerCommentStar* m_pStarPanel{ nullptr };
 
 	wxPanel* m_finishedPanel{ nullptr };
 	wxStaticBitmap* m_finishTipsImg{ nullptr };	

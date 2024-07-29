@@ -13,12 +13,12 @@ std::map<wxString, DEPENDENCY_INFO> parintParamMap = {
 	* paramKey --------->		dependcy map ----------->	dependcy map with 	----------	be depended map	---------------------> depend type
 															value to be int		
 	*/
-	{"ironing_type",	{ {},								{},							{"ironing_speed","ironing_spacing","ironing_pattern","ironing_angle","ironing_flowrate"},				        Type_Shown}},
-	{"ironing_speed",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""},																										    Type_Hide}},
-	{"ironing_spacing",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""},																											Type_Hide }},
-	{"ironing_pattern",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""},																											Type_Hide }},
-	{"ironing_angle",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""},																											Type_Hide }},
-	{"ironing_flowrate",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""},																									    Type_Hide }},
+	{"ironing_type",	{ {},								{},							{"ironing_speed","ironing_spacing","ironing_pattern","ironing_angle","ironing_flowrate"}, {},				        Type_Shown}},
+	{"ironing_speed",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""}, {},																										    Type_Hide}},
+	{"ironing_spacing",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""}, {},																											Type_Hide }},
+	{"ironing_pattern",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""}, {},																											Type_Hide }},
+	{"ironing_angle",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""}, {},																											Type_Hide }},
+	{"ironing_flowrate",	{ {{"ironing_type","no ironing"}},	{{"ironing_type",0}},		{""}, {},																									    Type_Hide }},
 
 	 // support tab
 	 {"support_material",	{ {},								{},						{"support_material_threshold","raft_contact_distance",
@@ -28,48 +28,50 @@ std::map<wxString, DEPENDENCY_INFO> parintParamMap = {
 																						"support_material_angle","support_material_closing_radius","support_material_interface_layers","support_material_bottom_interface_layers",
 																						"support_material_interface_pattern","support_material_interface_spacing","support_material_interface_contact_loops","support_material_buildplate_only",
 																						"support_material_xy_spacing","dont_support_bridges","support_material_synchronize_layers","support_tree_angle","support_tree_angle_slow","support_tree_branch_diameter",
-																						"support_tree_branch_diameter_angle","support_tree_tip_diameter","support_tree_branch_distance","support_tree_top_rate"}, Type_Enable}},
+																						"support_tree_branch_diameter_angle","support_tree_tip_diameter","support_tree_branch_distance","support_tree_top_rate"}, {}, Type_Enable}},
+	{"support_material_threshold",						{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"raft_contact_distance",							{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"raft_expansion",									{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_style",							{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_contact_distance",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
 
+
+	{"support_material_bottom_contact_distance",		{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_pattern",						{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_with_sheath",					{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_spacing",						{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_angle",							{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_closing_radius",					{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+
+
+	{"support_material_interface_layers",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_bottom_interface_layers",		{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_interface_pattern",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_interface_spacing",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_interface_contact_loops",		{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_buildplate_only",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+
+	{"support_material_synchronize_layers",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_material_xy_spacing",						{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"dont_support_bridges",							{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_angle",								{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_angle_slow",							{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_branch_diameter",					{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_branch_diameter_angle",				{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_tip_diameter",						{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_branch_distance",					{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
+	{"support_tree_top_rate",							{ {{"support_material","1"}},	{{"support_material",1}},		{""}, {},	Type_Enable }},
 	
 	
+	{"role_based_wipe_speed",	                            { {},   {},		           {"wipe_speed"}, {},                          Type_Enable}},
+	{"wipe_speed",							{ {{"role_based_wipe_speed","1"}},	      {{"role_based_wipe_speed",1}},   {""}, {},	Type_Disable }},
 
-	{"support_material_threshold",						{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"raft_contact_distance",							{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"raft_expansion",									{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_style",							{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_contact_distance",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-
-
-	{"support_material_bottom_contact_distance",		{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_pattern",						{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_with_sheath",					{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_spacing",						{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_angle",							{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_closing_radius",					{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-
-
-	{"support_material_interface_layers",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_bottom_interface_layers",		{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_interface_pattern",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_interface_spacing",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_interface_contact_loops",		{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_buildplate_only",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-
-	{"support_material_synchronize_layers",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_material_xy_spacing",						{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"dont_support_bridges",							{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_angle",								{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_angle_slow",							{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_branch_diameter",					{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_branch_diameter_angle",				{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_tip_diameter",						{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_branch_distance",					{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	{"support_tree_top_rate",							{ {{"support_material","1"}},	{{"support_material",1}},		{""},	Type_Enable }},
-	
-	
-	{"role_based_wipe_speed",	                            { {},   {},		           {"wipe_speed"},                          Type_Enable}},
-	{"wipe_speed",							{ {{"role_based_wipe_speed","1"}},	      {{"role_based_wipe_speed",1}},   {""},	Type_Disable }},
-	
+	{"spiral_vase",							{ {},	      {},   {}, {{"perimeters", wxVariant("1")}, {"fill_density", wxVariant("0")}, {"top_solid_layers", wxVariant("0")}, {"support_material", wxVariant(false)}, {"thin_walls", wxVariant(false)}},		Type_Enable}},
+	//{"perimeters",							{ {},	      {},   {}, {{"spiral_vase", wxVariant(false)}},		Type_Enable}},
+	//{"fill_density",							{ {},	      {},   {}, {{"spiral_vase", wxVariant(false)}},		Type_Enable}},
+	//{"top_solid_layers",							{ {},	      {},   {}, {{"spiral_vase", wxVariant(false)}},		Type_Enable}},
+	//{"support_material",							{ {},	      {},   {}, {{"spiral_vase", wxVariant(false)}},		Type_Enable}},
+	//{"thin_walls",							{ {},	      {},   {}, {{"spiral_vase", wxVariant(false)}},		Type_Enable}},
 };
 
 AnkerPrintParaItem::AnkerPrintParaItem(wxWindow* parent,
@@ -77,6 +79,7 @@ AnkerPrintParaItem::AnkerPrintParaItem(wxWindow* parent,
 	wxString title,
 	wxString tabTitle,
 	PrintParamMode printMode,
+	AnkerParameterPanel* panel,
 	wxWindowID winid /*= wxID_ANY*/,
 	bool local, bool layer_height, bool part, bool modifer,
 	const wxPoint& pos /*= wxDefaultPosition*/,
@@ -87,13 +90,19 @@ AnkerPrintParaItem::AnkerPrintParaItem(wxWindow* parent,
 	, m_tabTitle(tabTitle)
 	, m_PrintMode(printMode)
 	, m_group_property(std::make_shared<GroupProperty>(local, layer_height, part, modifer))
+	, m_pParamPanel(panel)
 {
 	initUi();
 }
 
 AnkerPrintParaItem::~AnkerPrintParaItem()
 {
-
+	for (auto itr = m_optionParameterMap.begin(); itr != m_optionParameterMap.end(); itr++)
+	{
+		delete itr->second;
+		itr->second = nullptr;
+	}
+	m_optionParameterMap.clear();
 }
 
 wxString AnkerPrintParaItem::getTitle() const
@@ -184,15 +193,16 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 		pFullLineSizer->AddSpacer(8);
 	}
 
-	PARAMETER_GROUP paraGroup;
-	paraGroup.m_optionKey = configOptionKey;
-	paraGroup.m_optionTip = GetOptionTip(configOptionKey);
-	paraGroup.m_unit = GetOptionSideText(configOptionKey);
-	paraGroup.m_dataType = dataType;
-	paraGroup.m_pBtn = resetBtn;
-	paraGroup.m_pLabel = pTitle;
-	paraGroup.m_type = controlType;
-	SetParamDepedency(paraGroup, 0);
+	PARAMETER_GROUP* paraGroup = new PARAMETER_GROUP;
+	paraGroup->m_optionKey = configOptionKey;
+	paraGroup->m_optionTip = GetOptionTip(configOptionKey);
+	paraGroup->m_unit = GetOptionSideText(configOptionKey);
+	paraGroup->m_dataType = dataType;
+	paraGroup->m_pBtn = resetBtn;
+	paraGroup->m_pLabel = pTitle;
+	paraGroup->m_type = controlType;
+	paraGroup->m_bIsMultiStr = uiConifg.bIsMultiStr;
+	SetParamDependency(*(paraGroup), 0);
 
 	auto groupItemPtr = std::make_shared<GroupItemProperty>(configOptionKey, pTitle, resetBtn, local, layer_height, part, modifer);
 
@@ -230,196 +240,204 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 		if (strList.GetCount() > 0)
 			pCBox->SetSelection(0);
 
-		pCBox->Bind(wxEVT_COMBOBOX, [this, configOptionKey, resetBtn, pCBox, paraGroup](wxCommandEvent& event) {
-
-			if (!resetBtn || !pCBox)
+		pCBox->Bind(wxEVT_COMBOBOX, [this, configOptionKey](wxCommandEvent& event) {
+			auto itr = m_optionParameterMap.find(configOptionKey);
+			if (itr == m_optionParameterMap.end())
 				return;
 
+			AnkerSimpleCombox* pCBox = dynamic_cast<AnkerSimpleCombox*>(itr->second->m_pWindow);
 			int cboxIndex = pCBox->GetSelection();
-			std::string cboxText = pCBox->GetString(cboxIndex).ToStdString();
-			wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+			setItemValue(*(itr->second), cboxIndex);
 
-			if (strLabel.Contains('\n'))
-				strLabel.Replace('\n', "");
+			//if (!resetBtn || !pCBox)
+			//	return;
 
-			if (configOptionKey.empty())
-				return;
-			auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
-			int  prusaIndex = 0;
-			wxVariant cfgData;
+			//int cboxIndex = pCBox->GetSelection();
+			//std::string cboxText = pCBox->GetString(cboxIndex).ToStdString();
+			//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
 
-			switch (paraGroup.m_dataType)
-			{
-			case Item_enum_SeamPosition:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::SeamPosition>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_ironing_pattern:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::InfillPattern>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_print_order:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::WallSequence>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_PerimeterGeneratorType:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::PerimeterGeneratorType>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_FuzzySkinType:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::FuzzySkinType>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_InfillPattern:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::InfillPattern>(configOptionKey.ToStdString());
-				auto tempStrData = printConfig.opt_serialize(configOptionKey.ToStdString());
-				std::locale loc;
-				tempStrData[0] = std::toupper(tempStrData[0], loc);
+			//if (strLabel.Contains('\n'))
+			//	strLabel.Replace('\n', "");
 
-				auto realData = m_parameterData.m_fillPatternData[tempStrData];
-				if (cboxText != realData)
-				{
-					resetBtn->Show();
-					ItemDirtyData dirtyData;
-					dirtyData.tabName = m_tabTitle;
-					dirtyData.titleName = m_title;
-					dirtyData.prusaKey = configOptionKey.ToStdString();
-					dirtyData.ankerKey = strLabel;
-					dirtyData.dataType = paraGroup.m_dataType;
-					m_dirtyMap.insert(std::make_pair(configOptionKey.ToStdString(), dirtyData));
-				}
-				else
-				{
-					auto iter = m_dirtyMap.find(configOptionKey.ToStdString());
-					if (iter != m_dirtyMap.end())
-						m_dirtyMap.erase(iter);
+			//if (configOptionKey.empty())
+			//	return;
+			//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+			//int  prusaIndex = 0;
+			//wxVariant cfgData;
 
-					resetBtn->Hide();
-				}
+			//switch (paraGroup.m_dataType)
+			//{
+			//case Item_enum_SeamPosition:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::SeamPosition>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_ironing_pattern:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::InfillPattern>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_print_order:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::WallSequence>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_PerimeterGeneratorType:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::PerimeterGeneratorType>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_FuzzySkinType:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::FuzzySkinType>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_InfillPattern:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::InfillPattern>(configOptionKey.ToStdString());
+			//	auto tempStrData = printConfig.opt_serialize(configOptionKey.ToStdString());
+			//	std::locale loc;
+			//	tempStrData[0] = std::toupper(tempStrData[0], loc);
 
-				wxString lastSelStr = m_optionParameterMap.find(configOptionKey)->second.m_UIvalue;
-				wxString cboxSelStr = pCBox->GetString(cboxIndex);
-				if (lastSelStr != cboxSelStr)
-				{
-					updateUi(paraGroup.m_optionKey.ToStdString(), cboxSelStr);
+			//	auto realData = m_parameterData.m_fillPatternData[tempStrData];
+			//	if (cboxText != realData)
+			//	{
+			//		resetBtn->Show();
+			//		ItemDirtyData dirtyData;
+			//		dirtyData.tabName = m_tabTitle;
+			//		dirtyData.titleName = m_title;
+			//		dirtyData.prusaKey = configOptionKey.ToStdString();
+			//		dirtyData.ankerKey = strLabel;
+			//		dirtyData.dataType = paraGroup.m_dataType;
+			//		m_dirtyMap.insert(std::make_pair(configOptionKey.ToStdString(), dirtyData));
+			//	}
+			//	else
+			//	{
+			//		auto iter = m_dirtyMap.find(configOptionKey.ToStdString());
+			//		if (iter != m_dirtyMap.end())
+			//			m_dirtyMap.erase(iter);
 
-					wxWindowUpdateLocker updateLocker(this);
-					updateModelParams(paraGroup, wxVariant(wxString::Format("%d", cboxIndex)), configOptionKey, strLabel);
-					onDatachanged(false, configOptionKey);
-					onUpdateResetBtn();
-					//Refresh();
-					Layout();
-				}
+			//		resetBtn->Hide();
+			//	}
 
-				return;
-			}
-			break;
-			case Item_enum_TopSurfaceSinglePerimeter:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::SinglePerimeterType>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
+			//	wxString lastSelStr = m_optionParameterMap.find(configOptionKey)->second.m_UIvalue;
+			//	wxString cboxSelStr = pCBox->GetString(cboxIndex);
+			//	if (lastSelStr != cboxSelStr)
+			//	{
+			//		updateUi(paraGroup.m_optionKey.ToStdString(), cboxSelStr);
 
-			case Item_enum_IroningType:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::IroningType>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_DraftShield:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::DraftShield>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_BrimType:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::BrimType>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_SupportMaterialStyle:
-			{
-				Slic3r::SupportMaterialStyle emunData = printConfig.opt_enum<Slic3r::SupportMaterialStyle>(configOptionKey.ToStdString());
-				int tempData = m_parameterData.m_StyleMap[emunData];
-				prusaIndex = tempData;
-			}
-			break;
-			case Item_enum_SupportMaterialPattern:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::SupportMaterialPattern>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_SupportMaterialInterfacePattern:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::SupportMaterialInterfacePattern>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-			}
-			break;
-			case Item_enum_SlicingMode:
-			{
-				auto tempData = printConfig.opt_enum<Slic3r::SlicingMode>(configOptionKey.ToStdString());
-				prusaIndex = (int)tempData;
-				break;
-			}
-			default:
-				break;
-			}
+			//		wxWindowUpdateLocker updateLocker(this);
+			//		//RefreshDependParamState(configOptionKey, cboxSelStr);
+			//		updateModelParams(paraGroup, wxVariant(wxString::Format("%d", cboxIndex)), configOptionKey, strLabel);
+			//		onDatachanged(false, configOptionKey);
+			//		onUpdateResetBtn();
+			//		//Refresh();
+			//		Layout();
+			//	}
 
-			if (cboxIndex != prusaIndex)
-			{
-				ItemDirtyData dirtyData;
-				dirtyData.tabName = m_tabTitle;
-				dirtyData.titleName = m_title;
-				dirtyData.prusaKey = configOptionKey.ToStdString();
-				dirtyData.ankerKey = strLabel;
-				dirtyData.dataType = paraGroup.m_dataType;
+			//	return;
+			//}
+			//break;
+			//case Item_enum_TopSurfaceSinglePerimeter:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::SinglePerimeterType>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
 
-				m_dirtyMap.insert(std::make_pair(configOptionKey.ToStdString(), dirtyData));
-				resetBtn->Show();
-			}
-			else
-			{
-				auto iter = m_dirtyMap.find(configOptionKey.ToStdString());
-				if (iter != m_dirtyMap.end())
-					m_dirtyMap.erase(iter);
-				resetBtn->Hide();
-			}
+			//case Item_enum_IroningType:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::IroningType>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_DraftShield:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::DraftShield>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_BrimType:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::BrimType>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_SupportMaterialStyle:
+			//{
+			//	Slic3r::SupportMaterialStyle emunData = printConfig.opt_enum<Slic3r::SupportMaterialStyle>(configOptionKey.ToStdString());
+			//	int tempData = m_parameterData.m_StyleMap[emunData];
+			//	prusaIndex = tempData;
+			//}
+			//break;
+			//case Item_enum_SupportMaterialPattern:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::SupportMaterialPattern>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_SupportMaterialInterfacePattern:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::SupportMaterialInterfacePattern>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//}
+			//break;
+			//case Item_enum_SlicingMode:
+			//{
+			//	auto tempData = printConfig.opt_enum<Slic3r::SlicingMode>(configOptionKey.ToStdString());
+			//	prusaIndex = (int)tempData;
+			//	break;
+			//}
+			//default:
+			//	break;
+			//}
 
-			wxString lastSelStr = m_optionParameterMap.find(configOptionKey)->second.m_UIvalue;
-			wxString cboxSelStr = pCBox->GetString(cboxIndex);
-			if (lastSelStr != cboxSelStr)
-			{
-				updateUi(paraGroup.m_optionKey.ToStdString(), cboxSelStr);
+			//if (cboxIndex != prusaIndex)
+			//{
+			//	ItemDirtyData dirtyData;
+			//	dirtyData.tabName = m_tabTitle;
+			//	dirtyData.titleName = m_title;
+			//	dirtyData.prusaKey = configOptionKey.ToStdString();
+			//	dirtyData.ankerKey = strLabel;
+			//	dirtyData.dataType = paraGroup.m_dataType;
 
-				wxWindowUpdateLocker updateLocker(resetBtn);
-				RefreashDependParamState(configOptionKey, cboxIndex);
-				onDatachanged(false, configOptionKey);
-				onUpdateResetBtn();
+			//	m_dirtyMap.insert(std::make_pair(configOptionKey.ToStdString(), dirtyData));
+			//	resetBtn->Show();
+			//}
+			//else
+			//{
+			//	auto iter = m_dirtyMap.find(configOptionKey.ToStdString());
+			//	if (iter != m_dirtyMap.end())
+			//		m_dirtyMap.erase(iter);
+			//	resetBtn->Hide();
+			//}
 
-				updateModelParams(paraGroup, wxVariant(cboxIndex), configOptionKey, strLabel);
-				//Refresh();
-				Layout();
-			}
+			//wxString lastSelStr = m_optionParameterMap.find(configOptionKey)->second.m_UIvalue;
+			//wxString cboxSelStr = pCBox->GetString(cboxIndex);
+			//if (lastSelStr != cboxSelStr)
+			//{
+			//	updateUi(paraGroup.m_optionKey.ToStdString(), cboxSelStr);
+
+			//	wxWindowUpdateLocker updateLocker(resetBtn);
+			//	//RefreshDependParamState(configOptionKey, cboxIndex);
+			//	onDatachanged(false, configOptionKey);
+			//	onUpdateResetBtn();
+
+			//	updateModelParams(paraGroup, wxVariant(cboxIndex), configOptionKey, strLabel);
+			//	//Refresh();
+			//	Layout();
+			//}
 			});
 
 		pTitleSizer->Add(pCBox, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxBOTTOM | wxTOP, 2);
 		pTitleSizer->AddSpacer(4);
-		paraGroup.m_pWindow = pCBox;
-		paraGroup.pLineSizer = pTitleSizer;
+		paraGroup->m_pWindow = pCBox;
+		paraGroup->m_pLineSizer = pTitleSizer;
 
 		groupItemPtr->_window = pCBox;
 		groupItemPtr->_boxSizer = pTitleSizer;
@@ -468,504 +486,520 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 		if (strList.GetCount() > 0)
 			pCBox->SetSelection(0);
 
-		pCBox->Bind(wxEVT_KILL_FOCUS, [this, resetBtn, pCBox, configOptionKey](wxFocusEvent& event) {
-			int index = 0;
-			wxString text = wxString();
-			if (!pCBox || !resetBtn)
+		pCBox->Bind(wxEVT_KILL_FOCUS, [this, configOptionKey](wxFocusEvent& event) {
+			auto itr = m_optionParameterMap.find(configOptionKey);
+			if (itr == m_optionParameterMap.end())
 				return;
 
-			auto it = this->m_optionParameterMap.find(configOptionKey);
-			if (it == this->m_optionParameterMap.end())
-				return;
-
-			auto& paraGroup = it->second;
-			std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
-			if (prusaKeyString.empty())
-			{
-				return;
-			}
-			index = pCBox->GetSelection();
-			text = pCBox->GetValue();
-			//by samuel, just return when no change
-			if (isExceptionHadleEditParam(configOptionKey) && CheckExceptionParamValue(text, configOptionKey, paraGroup.m_unit))
-			{
-				return;
-			}
-			else
-			{
-				wxString strTrimValue = text;
-				strTrimValue.Replace(wxT(" "), wxT(""));
-				strTrimValue.Replace(paraGroup.m_unit, wxT(""));
-				strTrimValue.Replace(" ", "");
-				wxString strUIValue = paraGroup.m_UIvalue;
-				strUIValue.Replace(wxT(" "), wxT(""));
-				strUIValue.Replace(paraGroup.m_unit, wxT(""));
-				strUIValue.Replace(" ", "");
-				if (text == strUIValue || strTrimValue == strUIValue)
-				{
-					return;
-				}
-				text = strTrimValue;
-			}
-			bool havePercent = false;
-			if (text.EndsWith("%")) {
-				havePercent = true;
-			}
-			text.Replace('%', "");
-
-			int iCheckValueType = checkEditBoxInput(text, paraGroup.m_optionKey, paraGroup.m_dataType, havePercent);
-
-			if (1 == iCheckValueType)
-			{
-				// recover the last valid input
-				updateUi(prusaKeyString, paraGroup.m_UIvalue);
-				Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK);
-				dialog.SetSize(wxSize(320, 250));
-				dialog.ShowModal();
-				return;
-			}
-			else if (2 == iCheckValueType)
-			{
-				float min = 0.0f, max = 0.0f;
-				GetOptionMaxMinDefVal(prusaKeyString, min, max);
-				if (paraGroup.m_dataType == Item_floatOrPercent)
-				{
-					double value;
-					text.ToDouble(&value);
-					if (!havePercent) {
-						if (value > max) {
-							// choose float data or percent data
-							const wxString msg_text = wxString::Format("Is it %s%% or %s %s?\nYES for %s%%, \nNO for %s %s.", text, text, "mm", text, text, "mm");
-							Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Parameter validation") + ": " + prusaKeyString, wxYES | wxNO);
-							dialog.SetSize(wxSize(400, 250));
-							if (dialog.ShowModal() == wxID_YES)
-								text = RemoveTrailingZeros(text) + "%";
-							else {
-								//text = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));  // limit to max
-								text = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
-							}
-						}
-						else if (value < min) {
-							//text = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));    // limit to min
-							text = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
-						}
-					}
-				}
-				else // if (paraGroup.m_dataType == Item_float || paraGroup.m_dataType == Item_int || paraGroup.m_dataType == Item_Percent)
-				{
-					// set the focus to the item to avoid another kill focus event to this editing control on Mac -- xavier
-					this->SetFocus();
-
-					wxString newRealEditValue;
-					if (!ValueCheck(paraGroup, text, newRealEditValue)) {
-						// recover the last valid input
-						updateUi(prusaKeyString, paraGroup.m_UIvalue);
-						return;
-					}
-					text = newRealEditValue;
-
-					double value;
-					text.ToDouble(&value);
-					if (value > max)
-						text = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
-					else if (value < min)
-						text = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
-
-					//TODO  should do this ?
-					if (paraGroup.m_dataType == Item_Percent)
-						text = text + "%";
-				}
-
-				updateUi(prusaKeyString, text + (havePercent ? "%" : ""));
-			}
-
-			wxString strLabel = paraGroup.m_pLabel->GetLabelText();
-			if (strLabel.Contains('\n'))
-				strLabel.Replace('\n', "");
-
-			//auto dataMap = m_parameterData.getItemMap(m_tabTitle);
-			//std::string prusaKeyString = dataMap[strLabel].ToStdString();
-			auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
-			std::string prusaValue = printConfig.opt_serialize(prusaKeyString);
-			wxString wxPrusaValue = prusaValue;
-
-			wxString realData = "";
-			bool bdirty = false;
-			wxVariant cfgData = text;
-			if ("support_material_contact_distance" == prusaKeyString)
-			{
-				if (text != wxPrusaValue)
-				{
-					if (pCBox->FindString(wxPrusaValue))
-					{
-						bdirty = true;
-						resetBtn->Show();
-					}
-					else
-					{
-						int prusaIndex = wxAtoi(wxPrusaValue);
-						if (index == prusaIndex)
-						{
-							bdirty = false;
-							resetBtn->Hide();
-						}
-						else
-						{
-							bdirty = true;
-							resetBtn->Show();
-						}
-					}
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else if ("support_material_bottom_contact_distance" == prusaKeyString)
-			{
-
-				if (text != wxPrusaValue)
-				{
-					if (pCBox->FindString(wxPrusaValue))
-					{
-
-						if (text == _L("Same as top"))
-						{
-							bdirty = false;
-							resetBtn->Hide();
-						}
-						else
-						{
-							bdirty = true;
-							resetBtn->Show();
-						}
-					}
-					else
-					{
-						int prusaIndex = wxAtoi(wxPrusaValue);
-						if (index == prusaIndex)
-						{
-							bdirty = false;
-							resetBtn->Hide();
-						}
-						else
-						{
-							bdirty = true;
-							resetBtn->Show();
-						}
-					}
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else if ("support_material_interface_layers" == prusaKeyString)
-			{
-
-				if (wxPrusaValue == ("0"))
-					realData = _L("0 (off)");
-				else if (wxPrusaValue == ("2"))
-					realData = _L("2 (default)");
-				else if (wxPrusaValue == ("3"))
-					realData = _L("3 (heavy)");
-				else if (wxPrusaValue == ("1"))
-					realData = _L("1 (light)");
-				else
-					realData = wxPrusaValue;
-
-				if (text != realData)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else if ("support_material_bottom_interface_layers" == prusaKeyString)
-			{
-				int prusaIndex = wxAtoi(wxPrusaValue);
-				int iRealSetValue = index - 1;
-				if (iRealSetValue == prusaIndex)
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-				else
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-			}
-			else if ("fill_density" == prusaKeyString || "infill_anchor" == prusaKeyString || "infill_anchor_max" == prusaKeyString)
-			{
-				if (text != prusaValue)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else
-			{
-				resetBtn->Hide();
-			}
-
-			if (bdirty)
-			{
-				ItemDirtyData dirtyData;
-				dirtyData.tabName = m_tabTitle;
-				dirtyData.titleName = m_title;
-				dirtyData.prusaKey = prusaKeyString;
-				dirtyData.ankerKey = strLabel;
-				dirtyData.dataType = paraGroup.m_dataType;
-				m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
-			}
-			else
-			{
-				auto iter = m_dirtyMap.find(prusaKeyString);
-				if (iter != m_dirtyMap.end())
-					m_dirtyMap.erase(iter);
-
-			}
-			wxWindowUpdateLocker updateLocker(resetBtn);
-			onDatachanged(false, prusaKeyString);
-			onUpdateResetBtn();
-			updateModelParams(paraGroup, wxVariant(cfgData), prusaKeyString, strLabel);
-			//Refresh();
-			Layout();
-			});
-		pCBox->Bind(wxEVT_COMBOBOX, [this, resetBtn, pCBox, configOptionKey, paraGroup](wxCommandEvent& event) {
-			if (!resetBtn || !pCBox)
+			AnkerSimpleCombox* pCBox = dynamic_cast<AnkerSimpleCombox*>(itr->second->m_pWindow);
+			if (!pCBox)
 				return;
 
 			int index = 0;
 			wxString text = wxString();
-
-			index = pCBox->GetSelection();
 			text = pCBox->GetValue();
+			setItemValue(*(itr->second), text);
 
-			auto it = this->m_optionParameterMap.find(configOptionKey);
-			if (it == this->m_optionParameterMap.end())
-				return;
+			//auto it = this->m_optionParameterMap.find(configOptionKey);
+			//if (it == this->m_optionParameterMap.end())
+			//	return;
 
-			auto& paraGroup = it->second;
-			std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
-			if (prusaKeyString.empty())
-			{
-				return;
-			}
-			index = pCBox->GetSelection();
-			text = pCBox->GetValue();
-			//by samuel, just return when no change
-			if (isExceptionHadleEditParam(configOptionKey) && CheckExceptionParamValue(text, configOptionKey, paraGroup.m_unit))
-			{
-				return;
-			}
-			else
-			{
-				wxString strTrimValue = text;
-				strTrimValue.Replace(wxT(" "), wxT(""));
-				strTrimValue.Replace(paraGroup.m_unit, wxT(""));
-				strTrimValue.Replace(" ", "");
-				wxString strUIValue = paraGroup.m_UIvalue;
-				strUIValue.Replace(wxT(" "), wxT(""));
-				strUIValue.Replace(paraGroup.m_unit, wxT(""));
-				strUIValue.Replace(" ", "");
-				if (text == strUIValue || strTrimValue == strUIValue)
-				{
-					return;
-				}
-				text = strTrimValue;
-			}
+			//auto& paraGroup = it->second;
+			//std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
+			//if (prusaKeyString.empty())
+			//{
+			//	return;
+			//}
+			//index = pCBox->GetSelection();
+			//text = pCBox->GetValue();
+			////by samuel, just return when no change
+			//if (isExceptionHadleEditParam(configOptionKey) && CheckExceptionParamValue(text, configOptionKey, paraGroup.m_unit))
+			//{
+			//	return;
+			//}
+			//else
+			//{
+			//	wxString strTrimValue = text;
+			//	strTrimValue.Replace(wxT(" "), wxT(""));
+			//	strTrimValue.Replace(paraGroup.m_unit, wxT(""));
+			//	strTrimValue.Replace(" ", "");
+			//	wxString strUIValue = paraGroup.m_UIvalue;
+			//	strUIValue.Replace(wxT(" "), wxT(""));
+			//	strUIValue.Replace(paraGroup.m_unit, wxT(""));
+			//	strUIValue.Replace(" ", "");
+			//	if (text == strUIValue || strTrimValue == strUIValue)
+			//	{
+			//		return;
+			//	}
+			//	text = strTrimValue;
+			//}
+			//bool havePercent = false;
+			//if (text.EndsWith("%")) {
+			//	havePercent = true;
+			//}
+			//text.Replace('%', "");
 
-			updateUi(prusaKeyString, text);
+			//int iCheckValueType = checkEditBoxInput(text, paraGroup.m_optionKey, paraGroup.m_dataType, havePercent);
 
-			wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+			//if (1 == iCheckValueType)
+			//{
+			//	// recover the last valid input
+			//	updateUi(prusaKeyString, paraGroup.m_UIvalue);
+			//	Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK);
+			//	dialog.SetSize(wxSize(320, 250));
+			//	dialog.ShowModal();
+			//	return;
+			//}
+			//else if (2 == iCheckValueType)
+			//{
+			//	float min = 0.0f, max = 0.0f;
+			//	GetOptionMaxMinDefVal(prusaKeyString, min, max);
+			//	if (paraGroup.m_dataType == Item_floatOrPercent)
+			//	{
+			//		double value;
+			//		text.ToDouble(&value);
+			//		if (!havePercent) {
+			//			if (value > max) {
+			//				// choose float data or percent data
+			//				const wxString msg_text = wxString::Format("Is it %s%% or %s %s?\nYES for %s%%, \nNO for %s %s.", text, text, "mm", text, text, "mm");
+			//				Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Parameter validation") + ": " + prusaKeyString, wxYES | wxNO);
+			//				dialog.SetSize(wxSize(400, 250));
+			//				if (dialog.ShowModal() == wxID_YES)
+			//					text = RemoveTrailingZeros(text) + "%";
+			//				else {
+			//					//text = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));  // limit to max
+			//					text = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+			//				}
+			//			}
+			//			else if (value < min) {
+			//				//text = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));    // limit to min
+			//				text = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+			//			}
+			//		}
+			//	}
+			//	else // if (paraGroup.m_dataType == Item_float || paraGroup.m_dataType == Item_int || paraGroup.m_dataType == Item_Percent)
+			//	{
+			//		// set the focus to the item to avoid another kill focus event to this editing control on Mac -- xavier
+			//		this->SetFocus();
 
-			if (strLabel.Contains('\n'))
-				strLabel.Replace('\n', "");
+			//		wxString newRealEditValue;
+			//		if (!ValueCheck(paraGroup, text, newRealEditValue)) {
+			//			// recover the last valid input
+			//			updateUi(prusaKeyString, paraGroup.m_UIvalue);
+			//			return;
+			//		}
+			//		text = newRealEditValue;
 
-			auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
-			std::string prusaValue = printConfig.opt_serialize(prusaKeyString);
-			wxString wxPrusaValue = prusaValue;
+			//		double value;
+			//		text.ToDouble(&value);
+			//		if (value > max)
+			//			text = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
+			//		else if (value < min)
+			//			text = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
 
-			wxString realData = "";
-			bool bdirty = false;
+			//		//TODO  should do this ?
+			//		if (paraGroup.m_dataType == Item_Percent)
+			//			text = text + "%";
+			//	}
 
-			wxVariant cfgData = text;
-			if ("support_material_contact_distance" == prusaKeyString)
-			{
-				if (wxPrusaValue.size() > 0 && wxPrusaValue.size() <= 3)
-				{
-					if (wxPrusaValue.Contains("0.1"))
-						realData = _L("0.1 (detachable)");
-					else if (wxPrusaValue.Contains("0.2"))
-						realData = _L("0.2 (detachable)");
-					else
-						realData = _L("0 (soluble)");
+			//	updateUi(prusaKeyString, text + (havePercent ? "%" : ""));
+			//}
 
-					if (text != realData)
-					{
-						bdirty = true;
-						resetBtn->Show();
-					}
-					else
-					{
-						bdirty = false;
-						resetBtn->Hide();
-					}
-				}
-				else
-				{
-					if (text != wxPrusaValue)
-					{
-						bdirty = true;
-						resetBtn->Show();
-					}
-					else
-					{
-						bdirty = false;
-						resetBtn->Hide();
-					}
-				}
-			}
-			else if ("support_material_bottom_contact_distance" == prusaKeyString)
-			{
-				if (wxPrusaValue == "0")
-					realData = _L("Same as top");
-				else if (wxPrusaValue == "0.1")
-					realData = _L("0.1");
-				else if (wxPrusaValue == "0.2")
-					realData = _L("0.2");
+			//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+			//if (strLabel.Contains('\n'))
+			//	strLabel.Replace('\n', "");
 
-				if (text != realData)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else if ("support_material_interface_layers" == prusaKeyString)
-			{
+			////auto dataMap = m_parameterData.getItemMap(m_tabTitle);
+			////std::string prusaKeyString = dataMap[strLabel].ToStdString();
+			//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+			//std::string prusaValue = printConfig.opt_serialize(prusaKeyString);
+			//wxString wxPrusaValue = prusaValue;
 
-				if (wxPrusaValue == ("0"))
-					realData = _L("0 (off)");
-				else if (wxPrusaValue == ("2"))
-					realData = _L("2 (default)");
-				else if (wxPrusaValue == ("3"))
-					realData = _L("3 (heavy)");
-				else if (wxPrusaValue == ("1"))
-					realData = _L("1 (light)");
-				else
-					realData = wxPrusaValue;
+			//wxString realData = "";
+			//bool bdirty = false;
+			//wxVariant cfgData = text;
+			//if ("support_material_contact_distance" == prusaKeyString)
+			//{
+			//	if (text != wxPrusaValue)
+			//	{
+			//		if (pCBox->FindString(wxPrusaValue))
+			//		{
+			//			bdirty = true;
+			//			resetBtn->Show();
+			//		}
+			//		else
+			//		{
+			//			int prusaIndex = wxAtoi(wxPrusaValue);
+			//			if (index == prusaIndex)
+			//			{
+			//				bdirty = false;
+			//				resetBtn->Hide();
+			//			}
+			//			else
+			//			{
+			//				bdirty = true;
+			//				resetBtn->Show();
+			//			}
+			//		}
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else if ("support_material_bottom_contact_distance" == prusaKeyString)
+			//{
 
-				if (text != realData)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else if ("support_material_bottom_interface_layers" == prusaKeyString)
-			{
-				if (wxPrusaValue == ("0"))
-					realData = _L("0 (off)");
-				else if (wxPrusaValue == ("-1"))
-					realData = _L("Same as top");
-				else if (wxPrusaValue == ("2"))
-					realData = _L("2 (default)");
-				else if (wxPrusaValue == ("3"))
-					realData = _L("3 (heavy)");
-				else if (wxPrusaValue == ("1"))
-					realData = _L("1 (light)");
-				else
-					realData = wxPrusaValue;
+			//	if (text != wxPrusaValue)
+			//	{
+			//		if (pCBox->FindString(wxPrusaValue))
+			//		{
 
-				if (text != realData)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
+			//			if (text == _L("Same as top"))
+			//			{
+			//				bdirty = false;
+			//				resetBtn->Hide();
+			//			}
+			//			else
+			//			{
+			//				bdirty = true;
+			//				resetBtn->Show();
+			//			}
+			//		}
+			//		else
+			//		{
+			//			int prusaIndex = wxAtoi(wxPrusaValue);
+			//			if (index == prusaIndex)
+			//			{
+			//				bdirty = false;
+			//				resetBtn->Hide();
+			//			}
+			//			else
+			//			{
+			//				bdirty = true;
+			//				resetBtn->Show();
+			//			}
+			//		}
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else if ("support_material_interface_layers" == prusaKeyString)
+			//{
 
-			else if ("fill_density" == prusaKeyString || "infill_anchor" == prusaKeyString || "infill_anchor_max" == prusaKeyString)
-			{
-				wxString editValue = text.ToStdString();
-				wxString strUnit = ' ' + _L("mm");
-				editValue.Replace('%', "");
-				editValue.Replace(strUnit, "");
+			//	if (wxPrusaValue == ("0"))
+			//		realData = _L("0 (off)");
+			//	else if (wxPrusaValue == ("2"))
+			//		realData = _L("2 (default)");
+			//	else if (wxPrusaValue == ("3"))
+			//		realData = _L("3 (heavy)");
+			//	else if (wxPrusaValue == ("1"))
+			//		realData = _L("1 (light)");
+			//	else
+			//		realData = wxPrusaValue;
 
-				wxString presetValue = prusaValue;
-				presetValue.Replace('%', "");
-				presetValue.Replace("mm", "");
+			//	if (text != realData)
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else if ("support_material_bottom_interface_layers" == prusaKeyString)
+			//{
+			//	int prusaIndex = wxAtoi(wxPrusaValue);
+			//	int iRealSetValue = index - 1;
+			//	if (iRealSetValue == prusaIndex)
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//	else
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//}
+			//else if ("fill_density" == prusaKeyString || "infill_anchor" == prusaKeyString || "infill_anchor_max" == prusaKeyString)
+			//{
+			//	if (text != prusaValue)
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else
+			//{
+			//	resetBtn->Hide();
+			//}
 
-				if (editValue != presetValue)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-			}
-			else
-			{
-				resetBtn->Hide();
-			}
+			//if (bdirty)
+			//{
+			//	ItemDirtyData dirtyData;
+			//	dirtyData.tabName = m_tabTitle;
+			//	dirtyData.titleName = m_title;
+			//	dirtyData.prusaKey = prusaKeyString;
+			//	dirtyData.ankerKey = strLabel;
+			//	dirtyData.dataType = paraGroup.m_dataType;
+			//	m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+			//}
+			//else
+			//{
+			//	auto iter = m_dirtyMap.find(prusaKeyString);
+			//	if (iter != m_dirtyMap.end())
+			//		m_dirtyMap.erase(iter);
 
-			if (bdirty)
-			{
-				ItemDirtyData dirtyData;
-				dirtyData.tabName = m_tabTitle;
-				dirtyData.titleName = m_title;
-				dirtyData.prusaKey = prusaKeyString;
-				dirtyData.ankerKey = strLabel;
-				dirtyData.dataType = paraGroup.m_dataType;
-				m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
-			}
-			else
-			{
-				auto iter = m_dirtyMap.find(prusaKeyString);
-				if (iter != m_dirtyMap.end())
-					m_dirtyMap.erase(iter);
-			}
-			wxWindowUpdateLocker updateLocker(resetBtn);
-			onDatachanged(false, prusaKeyString);
-			onUpdateResetBtn();
-			updateModelParams(paraGroup, wxVariant(cfgData), prusaKeyString, strLabel);
-			//Refresh();
+			//}
+			//wxWindowUpdateLocker updateLocker(resetBtn);
+			////RefreshDependParamState(configOptionKey, text);
+			//onDatachanged(false, prusaKeyString);
+			//onUpdateResetBtn();
+			//updateModelParams(paraGroup, wxVariant(cfgData), prusaKeyString, strLabel);
+			////Refresh();
 			//Layout();
+			});
+		pCBox->Bind(wxEVT_COMBOBOX, [this, configOptionKey](wxCommandEvent& event) {
+			auto itr = m_optionParameterMap.find(configOptionKey);
+			if (itr == m_optionParameterMap.end())
+				return;
+
+			AnkerSimpleCombox* pCBox = dynamic_cast<AnkerSimpleCombox*>(itr->second->m_pWindow);
+			if (!pCBox)
+				return;
+
+			int index = 0;
+			wxString text = wxString();
+			index = pCBox->GetSelection();
+			text = pCBox->GetValue();
+
+			setItemValue(*(itr->second), index);
+
+			//auto it = this->m_optionParameterMap.find(configOptionKey);
+			//if (it == this->m_optionParameterMap.end())
+			//	return;
+
+			//auto& paraGroup = it->second;
+			//std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
+			//if (prusaKeyString.empty())
+			//{
+			//	return;
+			//}
+			//index = pCBox->GetSelection();
+			//text = pCBox->GetValue();
+			////by samuel, just return when no change
+			//if (isExceptionHadleEditParam(configOptionKey) && CheckExceptionParamValue(text, configOptionKey, paraGroup.m_unit))
+			//{
+			//	return;
+			//}
+			//else
+			//{
+			//	wxString strTrimValue = text;
+			//	strTrimValue.Replace(wxT(" "), wxT(""));
+			//	strTrimValue.Replace(paraGroup.m_unit, wxT(""));
+			//	strTrimValue.Replace(" ", "");
+			//	wxString strUIValue = paraGroup.m_UIvalue;
+			//	strUIValue.Replace(wxT(" "), wxT(""));
+			//	strUIValue.Replace(paraGroup.m_unit, wxT(""));
+			//	strUIValue.Replace(" ", "");
+			//	if (text == strUIValue || strTrimValue == strUIValue)
+			//	{
+			//		return;
+			//	}
+			//	text = strTrimValue;
+			//}
+
+			//updateUi(prusaKeyString, text);
+
+			//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+
+			//if (strLabel.Contains('\n'))
+			//	strLabel.Replace('\n', "");
+
+			//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+			//std::string prusaValue = printConfig.opt_serialize(prusaKeyString);
+			//wxString wxPrusaValue = prusaValue;
+
+			//wxString realData = "";
+			//bool bdirty = false;
+
+			//wxVariant cfgData = text;
+			//if ("support_material_contact_distance" == prusaKeyString)
+			//{
+			//	if (wxPrusaValue.size() > 0 && wxPrusaValue.size() <= 3)
+			//	{
+			//		if (wxPrusaValue.Contains("0.1"))
+			//			realData = _L("0.1 (detachable)");
+			//		else if (wxPrusaValue.Contains("0.2"))
+			//			realData = _L("0.2 (detachable)");
+			//		else
+			//			realData = _L("0 (soluble)");
+
+			//		if (text != realData)
+			//		{
+			//			bdirty = true;
+			//			resetBtn->Show();
+			//		}
+			//		else
+			//		{
+			//			bdirty = false;
+			//			resetBtn->Hide();
+			//		}
+			//	}
+			//	else
+			//	{
+			//		if (text != wxPrusaValue)
+			//		{
+			//			bdirty = true;
+			//			resetBtn->Show();
+			//		}
+			//		else
+			//		{
+			//			bdirty = false;
+			//			resetBtn->Hide();
+			//		}
+			//	}
+			//}
+			//else if ("support_material_bottom_contact_distance" == prusaKeyString)
+			//{
+			//	if (wxPrusaValue == "0")
+			//		realData = _L("Same as top");
+			//	else if (wxPrusaValue == "0.1")
+			//		realData = _L("0.1");
+			//	else if (wxPrusaValue == "0.2")
+			//		realData = _L("0.2");
+
+			//	if (text != realData)
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else if ("support_material_interface_layers" == prusaKeyString)
+			//{
+
+			//	if (wxPrusaValue == ("0"))
+			//		realData = _L("0 (off)");
+			//	else if (wxPrusaValue == ("2"))
+			//		realData = _L("2 (default)");
+			//	else if (wxPrusaValue == ("3"))
+			//		realData = _L("3 (heavy)");
+			//	else if (wxPrusaValue == ("1"))
+			//		realData = _L("1 (light)");
+			//	else
+			//		realData = wxPrusaValue;
+
+			//	if (text != realData)
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else if ("support_material_bottom_interface_layers" == prusaKeyString)
+			//{
+			//	if (wxPrusaValue == ("0"))
+			//		realData = _L("0 (off)");
+			//	else if (wxPrusaValue == ("-1"))
+			//		realData = _L("Same as top");
+			//	else if (wxPrusaValue == ("2"))
+			//		realData = _L("2 (default)");
+			//	else if (wxPrusaValue == ("3"))
+			//		realData = _L("3 (heavy)");
+			//	else if (wxPrusaValue == ("1"))
+			//		realData = _L("1 (light)");
+			//	else
+			//		realData = wxPrusaValue;
+
+			//	if (text != realData)
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+
+			//else if ("fill_density" == prusaKeyString || "infill_anchor" == prusaKeyString || "infill_anchor_max" == prusaKeyString)
+			//{
+			//	wxString editValue = text.ToStdString();
+			//	wxString strUnit = ' ' + _L("mm");
+			//	editValue.Replace('%', "");
+			//	editValue.Replace(strUnit, "");
+
+			//	wxString presetValue = prusaValue;
+			//	presetValue.Replace('%', "");
+			//	presetValue.Replace("mm", "");
+
+			//	if (editValue != presetValue)
+			//	{
+			//		bdirty = true;
+			//		resetBtn->Show();
+			//	}
+			//	else
+			//	{
+			//		bdirty = false;
+			//		resetBtn->Hide();
+			//	}
+			//}
+			//else
+			//{
+			//	resetBtn->Hide();
+			//}
+
+			//if (bdirty)
+			//{
+			//	ItemDirtyData dirtyData;
+			//	dirtyData.tabName = m_tabTitle;
+			//	dirtyData.titleName = m_title;
+			//	dirtyData.prusaKey = prusaKeyString;
+			//	dirtyData.ankerKey = strLabel;
+			//	dirtyData.dataType = paraGroup.m_dataType;
+			//	m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+			//}
+			//else
+			//{
+			//	auto iter = m_dirtyMap.find(prusaKeyString);
+			//	if (iter != m_dirtyMap.end())
+			//		m_dirtyMap.erase(iter);
+			//}
+			//wxWindowUpdateLocker updateLocker(resetBtn);
+			////RefreshDependParamState(configOptionKey, text);
+			//onDatachanged(false, prusaKeyString);
+			//onUpdateResetBtn();
+			//updateModelParams(paraGroup, wxVariant(cfgData), prusaKeyString, strLabel);
+			////Refresh();
+			////Layout();
 			});
 
 		pTitleSizer->Add(pCBox, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, 2);
 		pTitleSizer->AddSpacer(4);
-		paraGroup.m_pWindow = pCBox;
-		paraGroup.pLineSizer = pTitleSizer;
+		paraGroup->m_pWindow = pCBox;
+		paraGroup->m_pLineSizer = pTitleSizer;
 		groupItemPtr->_window = pCBox;
 		groupItemPtr->_boxSizer = pTitleSizer;
 	}break;
@@ -998,163 +1032,175 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 		pItemEdit->getUnitEdit()->SetMinSize(AnkerSize(-1, lineEditHeight - unitHeight));
 		pItemEdit->getUnitEdit()->SetMaxSize(AnkerSize(-1, lineEditHeight - unitHeight));
 		pItemEdit->getUnitEdit()->SetSize(AnkerSize(-1, lineEditHeight - unitHeight));
-
-		pItemEdit->Bind(wxCUSTOMEVT_EDIT_FINISHED, [this, resetBtn, pItemEdit, configOptionKey](wxCommandEvent& event) {
+		
+		pItemEdit->Bind(wxCUSTOMEVT_EDIT_FINISHED, [this, configOptionKey](wxCommandEvent& event) {
 			CallAfter([=]() {
-				if (!pItemEdit || !resetBtn)
+				auto itr = m_optionParameterMap.find(configOptionKey);
+				if (itr == m_optionParameterMap.end())
 					return;
 
-				auto it = this->m_optionParameterMap.find(configOptionKey);
-				if (it == this->m_optionParameterMap.end())
+				AnkerLineEditUnit* pItemEdit = dynamic_cast<AnkerLineEditUnit*>(itr->second->m_pWindow);
+				if (!pItemEdit)
 					return;
 
-				auto& paraGroup = it->second;
-				std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
-				if (prusaKeyString.empty())
+				if (!pItemEdit)
 					return;
 
-				float min = 0.0f, max = 0.0f;
-				GetOptionMaxMinDefVal(prusaKeyString, min, max);
-
-				wxString strUnit = _L("mm");
 				wxString editValue = pItemEdit->GetValue();
-				wxString realEditValue = editValue;
+				setItemValue(*(itr->second), editValue);
 
-				realEditValue.Replace(" ", "");
-				realEditValue.Replace(strUnit, "");
+				//auto it = this->m_optionParameterMap.find(configOptionKey);
+				//if (it == this->m_optionParameterMap.end())
+				//	return;
 
-				// by samuel, no need to go ahead if no change with the last value 
-				if (editValue == paraGroup.m_UIvalue || realEditValue == paraGroup.m_UIvalue)
-				{
-					return;
-				}
+				//auto& paraGroup = it->second;
+				//std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
+				//if (prusaKeyString.empty())
+				//	return;
 
-				bool inputHavePercent = false;
-				if (editValue.EndsWith("%")) {
-					inputHavePercent = true;
-				}
-				realEditValue.Replace('%', "");
+				//float min = 0.0f, max = 0.0f;
+				//GetOptionMaxMinDefVal(prusaKeyString, min, max);
 
-				wxString newRealEditValue;
-				if (!ValueCheck(paraGroup, realEditValue, newRealEditValue)) {
-					// recover the last valid input
-					updateUi(prusaKeyString, paraGroup.m_UIvalue);
-					return;
-				}
-				realEditValue = newRealEditValue;
-				if (!isNumber(realEditValue.ToStdString())) {
-					//Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK );
-					//dialog.SetSize(wxSize(320, 250));
-					//dialog.ShowModal();
-					// recover the last valid input
-					updateUi(prusaKeyString, paraGroup.m_UIvalue);
-					return;
-				}
+				//wxString strUnit = _L("mm");
+				//wxString editValue = pItemEdit->GetValue();
+				//wxString realEditValue = editValue;
 
-				if (paraGroup.m_dataType == Item_floatOrPercent)
-				{
-					double value;
-					realEditValue.ToDouble(&value);
-					if (!inputHavePercent) {
-						if (value > max) {
-							// choose float data or percent data
-							const wxString msg_text = wxString::Format("Is it %s%% or %s %s?\nYES for %s%%, \nNO for %s %s.", realEditValue, realEditValue, "mm", realEditValue, realEditValue, "mm");
-							Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Parameter validation") + ": " + prusaKeyString, wxYES | wxNO);
-							dialog.SetSize(wxSize(400, 250));
-							if (dialog.ShowModal() == wxID_YES)
-								realEditValue = RemoveTrailingZeros(realEditValue) + "%";
-							else {
-								//realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));    // limit to max
-								realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
-							}
-						}
-						else if (value < min) {
-							//realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));  // limit to min
-							realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
-						}
-					}
-				}
-				else if (paraGroup.m_dataType == Item_float)
-				{
-					double value;
-					realEditValue.ToDouble(&value);
-					if (value > max)
-						realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
-					else if (value < min)
-						realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
-				}
-				updateUi(prusaKeyString, realEditValue + (inputHavePercent ? "%" : ""));
+				//realEditValue.Replace(" ", "");
+				//realEditValue.Replace(strUnit, "");
+
+				//// by samuel, no need to go ahead if no change with the last value 
+				//if (editValue == paraGroup.m_UIvalue || realEditValue == paraGroup.m_UIvalue)
+				//{
+				//	return;
+				//}
+
+				//bool inputHavePercent = false;
+				//if (editValue.EndsWith("%")) {
+				//	inputHavePercent = true;
+				//}
+				//realEditValue.Replace('%', "");
+
+				//wxString newRealEditValue;
+				//if (!ValueCheck(paraGroup, realEditValue, newRealEditValue)) {
+				//	// recover the last valid input
+				//	updateUi(prusaKeyString, paraGroup.m_UIvalue);
+				//	return;
+				//}
+				//realEditValue = newRealEditValue;
+				//if (!isNumber(realEditValue.ToStdString())) {
+				//	//Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK );
+				//	//dialog.SetSize(wxSize(320, 250));
+				//	//dialog.ShowModal();
+				//	// recover the last valid input
+				//	updateUi(prusaKeyString, paraGroup.m_UIvalue);
+				//	return;
+				//}
+
+				//if (paraGroup.m_dataType == Item_floatOrPercent)
+				//{
+				//	double value;
+				//	realEditValue.ToDouble(&value);
+				//	if (!inputHavePercent) {
+				//		if (value > max) {
+				//			// choose float data or percent data
+				//			const wxString msg_text = wxString::Format("Is it %s%% or %s %s?\nYES for %s%%, \nNO for %s %s.", realEditValue, realEditValue, "mm", realEditValue, realEditValue, "mm");
+				//			Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Parameter validation") + ": " + prusaKeyString, wxYES | wxNO);
+				//			dialog.SetSize(wxSize(400, 250));
+				//			if (dialog.ShowModal() == wxID_YES)
+				//				realEditValue = RemoveTrailingZeros(realEditValue) + "%";
+				//			else {
+				//				//realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));    // limit to max
+				//				realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+				//			}
+				//		}
+				//		else if (value < min) {
+				//			//realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));  // limit to min
+				//			realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+				//		}
+				//	}
+				//}
+				//else if (paraGroup.m_dataType == Item_float)
+				//{
+				//	double value;
+				//	realEditValue.ToDouble(&value);
+				//	if (value > max)
+				//		realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
+				//	else if (value < min)
+				//		realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
+				//}
+				//updateUi(prusaKeyString, realEditValue + (inputHavePercent ? "%" : ""));
 
 
-				wxString strLabel = paraGroup.m_pLabel->GetLabelText();
-				if (strLabel.Contains('\n'))
-					strLabel.Replace('\n', "");
+				//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+				//if (strLabel.Contains('\n'))
+				//	strLabel.Replace('\n', "");
 
-				auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+				//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
 
-				wxString prusaValue = printConfig.opt_serialize(prusaKeyString);
-				bool prusaValueHavePercent = prusaValue.Contains("%") ? true : false;
-				wxString realPrusaValue = prusaValue;
-				realPrusaValue.Replace('%', "");
-				realPrusaValue.Replace("mm", "");
+				//wxString prusaValue = printConfig.opt_serialize(prusaKeyString);
+				//bool prusaValueHavePercent = prusaValue.Contains("%") ? true : false;
+				//wxString realPrusaValue = prusaValue;
+				//realPrusaValue.Replace('%', "");
+				//realPrusaValue.Replace("mm", "");
 
-				//if use invaild data and set default value for layer height.
-				if (prusaKeyString == "layer_height")
-				{
-					double dValue = 0;
-					realEditValue.ToDouble(&dValue);
+				////if use invaild data and set default value for layer height.
+				//if (prusaKeyString == "layer_height")
+				//{
+				//	double dValue = 0;
+				//	realEditValue.ToDouble(&dValue);
 
-					if (dValue < 0.01)
-					{
-						realEditValue = "0.01";
-						updateUi(_L("layer_height"), realEditValue);
-					}
-				}
+				//	if (dValue < 0.01)
+				//	{
+				//		realEditValue = "0.01";
+				//		updateUi(_L("layer_height"), realEditValue);
+				//	}
+				//}
 
-				wxVariant cfgData = (realEditValue + (inputHavePercent ? "%" : ""));
-				bool bdirty = false;
-				if (realEditValue == realPrusaValue && (inputHavePercent && prusaValueHavePercent || !inputHavePercent && !prusaValueHavePercent))
-				{
-					bdirty = false;
-					resetBtn->Hide();
+				//wxVariant cfgData = (realEditValue + (inputHavePercent ? "%" : ""));
+				//bool bdirty = false;
+				//if (realEditValue == realPrusaValue && (inputHavePercent && prusaValueHavePercent || !inputHavePercent && !prusaValueHavePercent))
+				//{
+				//	bdirty = false;
+				//	resetBtn->Hide();
 
-				}
-				else
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
+				//}
+				//else
+				//{
+				//	bdirty = true;
+				//	resetBtn->Show();
+				//}
 
-				if (bdirty)
-				{
-					ItemDirtyData dirtyData;
-					dirtyData.tabName = m_tabTitle;
-					dirtyData.titleName = m_title;
-					dirtyData.prusaKey = prusaKeyString;
-					dirtyData.ankerKey = strLabel;
-					dirtyData.dataType = paraGroup.m_dataType;
-					m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
-				}
-				else
-				{
-					auto iter = m_dirtyMap.find(prusaKeyString);
-					if (iter != m_dirtyMap.end())
-						m_dirtyMap.erase(iter);
-				}
-				wxWindowUpdateLocker updateLocker(this);
-				onDatachanged(false, prusaKeyString);
-				onUpdateResetBtn();
-				updateModelParams(paraGroup, wxVariant(cfgData), prusaKeyString, strLabel);
-				Refresh();
-				Layout();
+				//if (bdirty)
+				//{
+				//	ItemDirtyData dirtyData;
+				//	dirtyData.tabName = m_tabTitle;
+				//	dirtyData.titleName = m_title;
+				//	dirtyData.prusaKey = prusaKeyString;
+				//	dirtyData.ankerKey = strLabel;
+				//	dirtyData.dataType = paraGroup.m_dataType;
+				//	m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+				//}
+				//else
+				//{
+				//	auto iter = m_dirtyMap.find(prusaKeyString);
+				//	if (iter != m_dirtyMap.end())
+				//		m_dirtyMap.erase(iter);
+				//}
+				//wxWindowUpdateLocker updateLocker(this);
+				////RefreshDependParamState(configOptionKey, realEditValue);
+				//onDatachanged(false, prusaKeyString);
+				//onUpdateResetBtn();
+				//updateModelParams(paraGroup, wxVariant(cfgData), prusaKeyString, strLabel);
+				//Refresh();
+				//Layout();
 				});
 			});
 
 		pTitleSizer->Add(pItemEdit, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, 2);
 		pTitleSizer->AddSpacer(4);
 
-		paraGroup.m_pWindow = pItemEdit;
-		paraGroup.pLineSizer = pTitleSizer;
+		paraGroup->m_pWindow = pItemEdit;
+		paraGroup->m_pLineSizer = pTitleSizer;
 
 		groupItemPtr->_window = pItemEdit;
 		groupItemPtr->_boxSizer = pTitleSizer;
@@ -1195,69 +1241,101 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 
 		pTitleSizer->Add(pCheckBox, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, wxALIGN_CENTER_VERTICAL, 0);
 		pTitleSizer->AddSpacer(4);
-		pCheckBox->Bind(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED, [this, configOptionKey, resetBtn, pCheckBox, paraGroup](wxCommandEvent& event) {
-			if (!resetBtn)
+		pCheckBox->Bind(wxCUSTOMEVT_ANKER_CHECKBOX_CLICKED, [this, configOptionKey](wxCommandEvent& event) {
+			auto itr = m_optionParameterMap.find(configOptionKey);
+			if (itr == m_optionParameterMap.end())
+				return;
+
+			AnkerCheckBox* pCheckBox = dynamic_cast<AnkerCheckBox*>(itr->second->m_pWindow);
+			if (!pCheckBox)
 				return;
 
 			bool isChecked = pCheckBox->getCheckStatus();
-			wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+			setItemValue(*(itr->second), isChecked);
+			//if (!resetBtn)
+			//	return;
 
-			if (strLabel.Contains('\n'))
-				strLabel.Replace('\n', "");
+			//bool isChecked = pCheckBox->getCheckStatus();
+			//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+
+			//if (strLabel.Contains('\n'))
+			//	strLabel.Replace('\n', "");
 
 
-			std::string prusaKeyString = configOptionKey.ToStdString();
-			if (prusaKeyString.empty())
-				return;
-			auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+			//std::string prusaKeyString = configOptionKey.ToStdString();
+			//if (prusaKeyString.empty())
+			//	return;
+			//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
 
-			bool hasKey = printConfig.has(prusaKeyString);
-			if (!hasKey) {
-				ANKER_LOG_ERROR << "printConfig have no this option key:" << prusaKeyString << ", cann't set it's value";
-				return;
-			}
+			//bool hasKey = printConfig.has(prusaKeyString);
+			//if (!hasKey) {
+			//	ANKER_LOG_ERROR << "printConfig have no this option key:" << prusaKeyString << ", cann't set it's value";
+			//	return;
+			//}
 
-			bool option_value = printConfig.opt_bool(prusaKeyString);
-			bool bdirty = false;
-			if (isChecked != option_value)
-			{
-				bdirty = true;
-				resetBtn->Show();
-			}
-			else
-			{
-				bdirty = false;
-				resetBtn->Hide();
-			}
+			//if (prusaKeyString == "spiral_vase")
+			//{
+			//	wxString msg_text = _(L("The Spiral Vase mode requires:\n"
+			//		"- one perimeter\n"
+			//		"- no top solid layers\n"
+			//		"- 0% fill density\n"
+			//		"- no support material\n"
+			//		"- Detect thin walls disabled"));
+			//	msg_text += "\n\n" + _(L("Shall I adjust those settings in order to enable Spiral Vase?"));
 
-			if (bdirty)
-			{
-				ItemDirtyData dirtyData;
-				dirtyData.tabName = m_tabTitle;
-				dirtyData.titleName = m_title;
-				dirtyData.prusaKey = prusaKeyString;
-				dirtyData.ankerKey = strLabel;
-				dirtyData.dataType = paraGroup.m_dataType;
-				m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
-			}
-			else
-			{
-				auto iter = m_dirtyMap.find(prusaKeyString);
-				if (iter != m_dirtyMap.end())
-					m_dirtyMap.erase(iter);
-			}
+			//	Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Spiral Vase"), wxYES | wxNO);
+			//	dialog.SetSize(wxSize(540, 340));
+			//	auto answer = dialog.ShowModal();
+			//	if (answer == wxID_NO)
+			//	{
+			//		// recover the last valid input
+			//		updateUi(prusaKeyString, paraGroup.m_UIvalue);
+			//		return;
+			//	}
+			//}
 
-			wxWindowUpdateLocker updateLocker(this->GetParent());
-			RefreashDependParamState(configOptionKey, (int)isChecked);
-			onDatachanged(false, prusaKeyString);
-			onUpdateResetBtn();
-			updateModelParams(paraGroup, wxVariant(isChecked), prusaKeyString, strLabel);
-			//Refresh();
-			Layout();
+			//bool option_value = printConfig.opt_bool(prusaKeyString);
+			//bool bdirty = false;
+			//if (isChecked != option_value)
+			//{
+			//	bdirty = true;
+			//	resetBtn->Show();
+			//}
+			//else
+			//{
+			//	bdirty = false;
+			//	resetBtn->Hide();
+			//}
+
+			//if (bdirty)
+			//{
+			//	ItemDirtyData dirtyData;
+			//	dirtyData.tabName = m_tabTitle;
+			//	dirtyData.titleName = m_title;
+			//	dirtyData.prusaKey = prusaKeyString;
+			//	dirtyData.ankerKey = strLabel;
+			//	dirtyData.dataType = paraGroup.m_dataType;
+			//	m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+			//}
+			//else
+			//{
+			//	auto iter = m_dirtyMap.find(prusaKeyString);
+			//	if (iter != m_dirtyMap.end())
+			//		m_dirtyMap.erase(iter);
+			//}
+
+			//wxWindowUpdateLocker updateLocker(this->GetParent());
+			//RefreshDependParamState(configOptionKey, (int)isChecked);
+			//onDatachanged(false, prusaKeyString);
+			//onUpdateResetBtn();
+			//updateModelParams(paraGroup, wxVariant(isChecked), prusaKeyString, strLabel);
+			////Refresh();
+			//Layout();
 			});
 
-		paraGroup.m_pWindow = pCheckBox;
-		paraGroup.pLineSizer = pTitleSizer;
+		paraGroup->m_pWindow = pCheckBox;
+		paraGroup->m_pLineSizer = pTitleSizer;
+		paraGroup->m_UIvalue = "0";
 
 		groupItemPtr->_window = pCheckBox;
 		groupItemPtr->_boxSizer = pTitleSizer;
@@ -1293,115 +1371,130 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 
 		pItemEdit->setLineEditFont(Head_14);
 
-		pItemEdit->Bind(wxCUSTOMEVT_ANKER_SPIN_EDIT_TEXT_CHANGED, [this, configOptionKey, resetBtn, pItemEdit](wxCommandEvent& event) {
+        pItemEdit->Bind(wxCUSTOMEVT_ANKER_SPIN_EDIT_TEXT_CHANGED, [this, configOptionKey](wxCommandEvent& event) {
 			CallAfter([=]() {
-				if (!resetBtn)
+				auto itr = m_optionParameterMap.find(configOptionKey);
+				if (itr == m_optionParameterMap.end())
 					return;
 
-				auto it = this->m_optionParameterMap.find(configOptionKey);
-				if (it == this->m_optionParameterMap.end())
+				AnkerSpinEdit* pItemEdit = dynamic_cast<AnkerSpinEdit*>(itr->second->m_pWindow);
+				if (!pItemEdit)
 					return;
 
-				auto& paraGroup = it->second;
-				std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
-				if (prusaKeyString.empty())
-					return;
-
-				int uValue = 0;
 				wxString strValue = pItemEdit->GetValue();
-				strValue.Replace(" ", "");
-				// by samuel, no need to go ahead if no change with the last value 
-				if (strValue == paraGroup.m_UIvalue || pItemEdit->GetValue() == paraGroup.m_UIvalue)
-				{
-					return;
-				}
-				wxString newStrValue;
-				if (!ValueCheck(paraGroup, strValue, newStrValue)) {
-					// recover the last valid input
-					updateUi(prusaKeyString, paraGroup.m_UIvalue);
-					return;
-				}
-				strValue = newStrValue;
+				setItemValue(*(itr->second), strValue);
+				//if (!resetBtn)
+				//    return;
 
-				if (!isNumber(strValue.ToStdString())) {
-					Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK);
-					dialog.SetSize(wxSize(320, 250));
-					dialog.ShowModal();
-					// recover the last valid input
-					updateUi(prusaKeyString, paraGroup.m_UIvalue);
-					return;
-				}
+				//auto it = this->m_optionParameterMap.find(configOptionKey);
+				//if (it == this->m_optionParameterMap.end())
+				//    return;
 
-				strValue.ToInt(&uValue);
-				float min = 0.0f, max = 0.0f;
-				GetOptionMaxMinDefVal(prusaKeyString, min, max);
-				if (uValue > max) {
-					uValue = max;
-					//pItemEdit->SetValue(RemoveTrailingZeros(wxString::Format(wxT("%f"), max)));
-					strValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
-				}
-				else if (uValue < min) {
-					uValue = min;
-					//pItemEdit->SetValue(RemoveTrailingZeros(wxString::Format(wxT("%f"), min)));
-					strValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
-				}
-				updateUi(prusaKeyString, strValue);
+				//auto& paraGroup = it->second;
+				//std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
+				//if (prusaKeyString.empty())
+				//    return;
 
-				wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+				//int uValue = 0;
+				//wxString strValue = pItemEdit->GetValue();
+				//strValue.Replace(" ", "");
+				//// by samuel, no need to go ahead if no change with the last value 
+				//if (strValue == paraGroup.m_UIvalue || pItemEdit->GetValue() == paraGroup.m_UIvalue)
+				//{
+				//    return;
+				//}
 
-				if (strLabel.Contains('\n'))
-					strLabel.Replace('\n', "");
+				//// set the focus to the item to avoid another kill focus event to this editing control on Mac -- xavier
+				//this->SetFocus();
 
-				auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
-				float prusasValue = 0;
-				if ("top_solid_min_thickness" == prusaKeyString || "bottom_solid_min_thickness" == prusaKeyString)
-					prusasValue = printConfig.opt_float(prusaKeyString);
-				else
-					prusasValue = printConfig.opt_int(prusaKeyString);
+				//wxString newStrValue;
+				//if (!ValueCheck(paraGroup, strValue, newStrValue)) {
+				//    // recover the last valid input
+				//    updateUi(prusaKeyString, paraGroup.m_UIvalue);
+				//    return;
+				//}
+				//strValue = newStrValue;
 
-				bool bdirty = false;
-				if (uValue != prusasValue)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
+				//if (!isNumber(strValue.ToStdString())) {
+				//    Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK);
+				//    dialog.SetSize(wxSize(320, 250));
+				//    dialog.ShowModal();
+				//    // recover the last valid input
+				//    updateUi(prusaKeyString, paraGroup.m_UIvalue);
+				//    return;
+				//}
 
-				if (bdirty)
-				{
-					ItemDirtyData dirtyData;
-					dirtyData.tabName = m_tabTitle;
-					dirtyData.titleName = m_title;
-					dirtyData.prusaKey = configOptionKey;
-					dirtyData.ankerKey = strLabel;
-					dirtyData.dataType = paraGroup.m_dataType;
+				//strValue.ToInt(&uValue);
+				//float min = 0.0f, max = 0.0f;
+				//GetOptionMaxMinDefVal(prusaKeyString, min, max);
+				//if (uValue > max) {
+				//    uValue = max;
+				//    //pItemEdit->SetValue(RemoveTrailingZeros(wxString::Format(wxT("%f"), max)));
+				//    strValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
+				//}
+				//else if (uValue < min) {
+				//    uValue = min;
+				//    //pItemEdit->SetValue(RemoveTrailingZeros(wxString::Format(wxT("%f"), min)));
+				//    strValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
+				//}
+				//updateUi(prusaKeyString, strValue);
 
-					m_dirtyMap.insert(std::make_pair(configOptionKey, dirtyData));
-				}
-				else
-				{
-					auto iter = m_dirtyMap.find(configOptionKey);
-					if (iter != m_dirtyMap.end())
-						m_dirtyMap.erase(iter);
-				}
+				//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
 
-				wxWindowUpdateLocker updateLocker(resetBtn);
-				onDatachanged(false, prusaKeyString);
-				onUpdateResetBtn();
-				updateModelParams(paraGroup, wxVariant(uValue), configOptionKey, strLabel);
-				//Refresh();
-				Layout();
+				//if (strLabel.Contains('\n'))
+				//    strLabel.Replace('\n', "");
+
+				//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+				//float prusasValue = 0;
+				//if ("top_solid_min_thickness" == prusaKeyString || "bottom_solid_min_thickness" == prusaKeyString)
+				//    prusasValue = printConfig.opt_float(prusaKeyString);
+				//else
+				//    prusasValue = printConfig.opt_int(prusaKeyString);
+
+				//bool bdirty = false;
+				//if (uValue != prusasValue)
+				//{
+				//    bdirty = true;
+				//    resetBtn->Show();
+				//}
+				//else
+				//{
+				//    bdirty = false;
+				//    resetBtn->Hide();
+				//}
+
+				//if (bdirty)
+				//{
+				//    ItemDirtyData dirtyData;
+				//    dirtyData.tabName = m_tabTitle;
+				//    dirtyData.titleName = m_title;
+				//    dirtyData.prusaKey = configOptionKey;
+				//    dirtyData.ankerKey = strLabel;
+				//    dirtyData.dataType = paraGroup.m_dataType;
+
+				//    m_dirtyMap.insert(std::make_pair(configOptionKey, dirtyData));
+				//}
+				//else
+				//{
+				//    auto iter = m_dirtyMap.find(configOptionKey);
+				//    if (iter != m_dirtyMap.end())
+				//        m_dirtyMap.erase(iter);
+				//}
+
+				//wxWindowUpdateLocker updateLocker(resetBtn);
+				//RefreshDependParamState(configOptionKey, strValue);
+				//onDatachanged(false, prusaKeyString);
+				//onUpdateResetBtn();
+				//updateModelParams(paraGroup, wxVariant(uValue), configOptionKey, strLabel);
+				////Refresh();
+				//Layout();
 				});
-			});
+            });
 
 		pTitleSizer->Add(pItemEdit, 0, wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, 2);
 		pTitleSizer->AddSpacer(4);
-		paraGroup.m_pWindow = pItemEdit;
-		paraGroup.pLineSizer = pTitleSizer;
+		paraGroup->m_pWindow = pItemEdit;
+		paraGroup->m_pLineSizer = pTitleSizer;
 
 		groupItemPtr->_window = pItemEdit;
 		groupItemPtr->_boxSizer = pTitleSizer;
@@ -1466,82 +1559,96 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 		//			}), pTextCtrl->GetId());
 
 
-		pTextCtrl->Bind(wxEVT_KILL_FOCUS, ([this, pTextCtrl, configOptionKey, resetBtn, paraGroup, uiConifg](wxEvent& e)
+		pTextCtrl->Bind(wxEVT_KILL_FOCUS, ([this, configOptionKey, uiConifg](wxEvent& e)
 			{
 				e.Skip();
+
+				auto itr = m_optionParameterMap.find(configOptionKey);
+				if (itr == m_optionParameterMap.end())
+					return;
+
+				wxTextCtrl* pTextCtrl = dynamic_cast<wxTextCtrl*>(itr->second->m_pWindow);
+				if (!pTextCtrl)
+					return;
+
 #if !defined(__WXGTK__)
 				pTextCtrl->GetToolTip()->Enable(true);
 #endif // __WXGTK__
 				//if (!bEnterPressed)
 				//	propagate_value();
 
-				if (!resetBtn)
-					return;
 				wxString strValue = pTextCtrl->GetValue();
-				wxString strLabel = paraGroup.m_pLabel->GetLabelText();
-
-				if (strLabel.Contains('\n'))
-					strLabel.Replace('\n', "");
-
-				std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
-				if (prusaKeyString.empty())
-					return;
-				auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
-				std::string prusasValue;
-				if (uiConifg.bIsMultiStr)
-				{
-					std::vector<std::string> showTextVec;
-					showTextVec = printConfig.opt_strings(prusaKeyString);
-					if (showTextVec.size() > 0)
-					{
-						prusasValue = Slic3r::join_strings_with_newlines(showTextVec);
-					}
-				}
-				else
-				{
-					prusasValue = printConfig.opt_string(prusaKeyString);
-				}
-
-
-				bool bdirty = false;
-
-				if (strValue != prusasValue)
-				{
-					bdirty = true;
-					resetBtn->Show();
-				}
-				else
-				{
-					bdirty = false;
-					resetBtn->Hide();
-				}
-
-				if (bdirty)
-				{
-					ItemDirtyData dirtyData;
-					dirtyData.tabName = m_tabTitle;
-					dirtyData.titleName = m_title;
-					dirtyData.prusaKey = configOptionKey;
-					dirtyData.ankerKey = strLabel;
-					dirtyData.dataType = paraGroup.m_dataType;
-					m_dirtyMap.insert(std::make_pair(configOptionKey, dirtyData));
-				}
-				else
-				{
-					auto iter = m_dirtyMap.find(configOptionKey);
-					if (iter != m_dirtyMap.end())
-						m_dirtyMap.erase(iter);
-				}
-
+				setItemValue(*(itr->second), strValue);
 				pTextCtrl->SelectNone();
 
-				wxWindowUpdateLocker updateLocker(this);
-				onDatachanged(false, prusaKeyString);
-				onUpdateResetBtn();
-				Layout();
+				//if (!resetBtn)
+				//	return;
+				//wxString strValue = pTextCtrl->GetValue();
+				//wxString strLabel = paraGroup.m_pLabel->GetLabelText();
+
+				//if (strLabel.Contains('\n'))
+				//	strLabel.Replace('\n', "");
+
+				//std::string prusaKeyString = paraGroup.m_optionKey.ToStdString();
+				//if (prusaKeyString.empty())
+				//	return;
+				//auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+				//std::string prusasValue;
+				//if (uiConifg.bIsMultiStr)
+				//{
+				//	std::vector<std::string> showTextVec;
+				//	showTextVec = printConfig.opt_strings(prusaKeyString);
+				//	if (showTextVec.size() > 0)
+				//	{
+				//		prusasValue = Slic3r::join_strings_with_newlines(showTextVec);
+				//	}
+				//}
+				//else
+				//{
+				//	prusasValue = printConfig.opt_string(prusaKeyString);
+				//}
+
+
+				//bool bdirty = false;
+
+				//if (strValue != prusasValue)
+				//{
+				//	bdirty = true;
+				//	resetBtn->Show();
+				//}
+				//else
+				//{
+				//	bdirty = false;
+				//	resetBtn->Hide();
+				//}
+
+				//if (bdirty)
+				//{
+				//	ItemDirtyData dirtyData;
+				//	dirtyData.tabName = m_tabTitle;
+				//	dirtyData.titleName = m_title;
+				//	dirtyData.prusaKey = configOptionKey;
+				//	dirtyData.ankerKey = strLabel;
+				//	dirtyData.dataType = paraGroup.m_dataType;
+				//	m_dirtyMap.insert(std::make_pair(configOptionKey, dirtyData));
+				//}
+				//else
+				//{
+				//	auto iter = m_dirtyMap.find(configOptionKey);
+				//	if (iter != m_dirtyMap.end())
+				//		m_dirtyMap.erase(iter);
+				//}
+
+				//pTextCtrl->SelectNone();
+
+				//wxWindowUpdateLocker updateLocker(this);
+				//RefreshDependParamState(configOptionKey, strValue);
+				//onDatachanged(false, prusaKeyString);
+				//onUpdateResetBtn();
+				//Layout();
 			}), pTextCtrl->GetId());
-		paraGroup.m_pWindow = pTextCtrl;
-		paraGroup.pLineSizer = pTitleSizer;
+		paraGroup->m_pWindow = pTextCtrl;
+		paraGroup->m_pLineSizer = pTitleSizer;
 		groupItemPtr->_window = pTextCtrl;
 		groupItemPtr->_boxSizer = pTitleSizer;
 		item = pTextCtrl;
@@ -1551,7 +1658,7 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 		break;
 	}
 
-	m_optionParameterMap.insert(std::pair<wxString, PARAMETER_GROUP>(configOptionKey, paraGroup));
+	m_optionParameterMap.insert({ configOptionKey, paraGroup });
 	if (m_group_property) {
 		m_group_property->propertyItems.emplace_back(groupItemPtr);
 	}
@@ -1603,34 +1710,1136 @@ bool AnkerPrintParaItem::hsaDirtyData()
 		return false;
 }
 
-ItemInfo AnkerPrintParaItem::getWidgetValue(const wxString& optionKey)
+int AnkerPrintParaItem::setItemValue(PARAMETER_GROUP& itemParam, wxVariant newData, bool updateFlag)
 {
-	auto iter = m_optionParameterMap.find(optionKey);
-	ItemInfo valueData;
-	if (iter != m_optionParameterMap.end())
+	if (!itemParam.m_pWindow || !itemParam.m_pBtn)
+		return -1;
+
+	wxString configOptionKey = itemParam.m_optionKey;
+	auto it = this->m_optionParameterMap.find(configOptionKey);
+	if (it == this->m_optionParameterMap.end())
+		return - 1;
+
+	std::string prusaKeyString = itemParam.m_optionKey.ToStdString();
+	if (prusaKeyString.empty())
+		return -1;
+
+	auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+
+	// ItemComBox
+	if (itemParam.m_type == ItemComBox)
 	{
-		valueData.paramDataType = iter->second.m_dataType;
-		auto widgetType = iter->second.m_type;
-		switch (widgetType)
+		AnkerSimpleCombox* pCBox = dynamic_cast<AnkerSimpleCombox*>(itemParam.m_pWindow);
+		if (pCBox == nullptr)
+			return -1;
+
+		int cboxIndex = -1;
+		wxString cboxText = "";
+
+		if (newData.GetType() == "long")
 		{
-		case ItemComBox:
+			cboxIndex = newData.GetInteger();
+			cboxText = pCBox->GetString(cboxIndex);
+		}
+		else if (newData.GetType() == "string")
 		{
-			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
-			int index = pComBox->GetSelection();
-			valueData.paramDataValue = wxVariant(pComBox->GetSelection());
-			return valueData;
+			cboxText = newData.GetString();
+			cboxIndex = pCBox->FindString(cboxText);
+			if (cboxIndex == wxNOT_FOUND)
+				return -1;
+		}
+		else
+			return -1;
+
+		if (cboxIndex < 0 || cboxText.empty())
+			return -1;
+
+		wxString strLabel = itemParam.m_pLabel->GetLabelText();
+
+		if (strLabel.Contains('\n'))
+			strLabel.Replace('\n', "");
+
+		if (configOptionKey.empty())
+			return -1;
+
+		int  prusaIndex = 0;
+		wxVariant cfgData;
+
+		switch (itemParam.m_dataType)
+		{
+		case Item_enum_SeamPosition:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::SeamPosition>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
 		}
 		break;
-		case ItemEditUinit:
+		case Item_enum_ironing_pattern:
 		{
-			AnkerLineEditUnit* pEditRange = static_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
-			wxString data = pEditRange->getValue();
+			auto tempData = printConfig.opt_enum<Slic3r::InfillPattern>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_print_order:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::WallSequence>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_PerimeterGeneratorType:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::PerimeterGeneratorType>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_FuzzySkinType:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::FuzzySkinType>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_InfillPattern:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::InfillPattern>(configOptionKey.ToStdString());
+			auto tempStrData = printConfig.opt_serialize(configOptionKey.ToStdString());
+			std::locale loc;
+			tempStrData[0] = std::toupper(tempStrData[0], loc);
 
-			//if use invaild data and set default value for layer height.
-			if (optionKey == _L("layer_height"))
+			auto realData = m_parameterData.m_fillPatternData[tempStrData];
+			if (cboxText != realData)
 			{
-				double dValue = 0;
-				data.ToDouble(&dValue);
+				itemParam.m_pBtn->Show();
+				ItemDirtyData dirtyData;
+				dirtyData.tabName = m_tabTitle;
+				dirtyData.titleName = m_title;
+				dirtyData.prusaKey = configOptionKey.ToStdString();
+				dirtyData.ankerKey = strLabel;
+				dirtyData.dataType = itemParam.m_dataType;
+				m_dirtyMap.insert(std::make_pair(configOptionKey.ToStdString(), dirtyData));
+			}
+			else
+			{
+				auto iter = m_dirtyMap.find(configOptionKey.ToStdString());
+				if (iter != m_dirtyMap.end())
+					m_dirtyMap.erase(iter);
+
+				itemParam.m_pBtn->Hide();
+			}
+
+			wxString lastSelStr = m_optionParameterMap.find(configOptionKey)->second->m_UIvalue;
+			if (lastSelStr != cboxText)
+			{
+				updateUi(configOptionKey.ToStdString(), cboxText);
+
+				wxWindowUpdateLocker updateLocker(this);
+				RefreshDependParamState(configOptionKey, cboxText);
+				updateModelParams(itemParam, wxVariant(wxString::Format("%d", cboxIndex)), configOptionKey, strLabel);
+				if (updateFlag)
+					onDatachanged(false, configOptionKey);
+				onUpdateResetBtn();
+				//Refresh();
+				Layout();
+			}
+
+			return 1;
+		}
+		break;
+		case Item_enum_TopSurfaceSinglePerimeter:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::SinglePerimeterType>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+
+		case Item_enum_IroningType:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::IroningType>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_DraftShield:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::DraftShield>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_BrimType:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::BrimType>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_SupportMaterialStyle:
+		{
+			Slic3r::SupportMaterialStyle emunData = printConfig.opt_enum<Slic3r::SupportMaterialStyle>(configOptionKey.ToStdString());
+			int tempData = m_parameterData.m_StyleMap[emunData];
+			prusaIndex = tempData;
+		}
+		break;
+		case Item_enum_SupportMaterialPattern:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::SupportMaterialPattern>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_SupportMaterialInterfacePattern:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::SupportMaterialInterfacePattern>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+		}
+		break;
+		case Item_enum_SlicingMode:
+		{
+			auto tempData = printConfig.opt_enum<Slic3r::SlicingMode>(configOptionKey.ToStdString());
+			prusaIndex = (int)tempData;
+			break;
+		}
+		default:
+			break;
+		}
+
+		if (cboxIndex != prusaIndex)
+		{
+			ItemDirtyData dirtyData;
+			dirtyData.tabName = m_tabTitle;
+			dirtyData.titleName = m_title;
+			dirtyData.prusaKey = configOptionKey.ToStdString();
+			dirtyData.ankerKey = strLabel;
+			dirtyData.dataType = itemParam.m_dataType;
+
+			m_dirtyMap.insert(std::make_pair(configOptionKey.ToStdString(), dirtyData));
+			itemParam.m_pBtn->Show();
+		}
+		else
+		{
+			auto iter = m_dirtyMap.find(configOptionKey.ToStdString());
+			if (iter != m_dirtyMap.end())
+				m_dirtyMap.erase(iter);
+			itemParam.m_pBtn->Hide();
+		}
+
+		wxString lastSelStr = m_optionParameterMap.find(configOptionKey)->second->m_UIvalue;
+		if (lastSelStr != cboxText)
+		{
+			updateUi(itemParam.m_optionKey.ToStdString(), cboxText);
+
+			wxWindowUpdateLocker updateLocker(itemParam.m_pBtn);
+			RefreshDependParamState(configOptionKey, cboxIndex);
+			if (updateFlag)
+				onDatachanged(false, configOptionKey);
+			onUpdateResetBtn();
+
+			updateModelParams(itemParam, wxVariant(cboxIndex), configOptionKey, strLabel);
+			//Refresh();
+			Layout();
+
+			return 1;
+		}
+	}
+	// ItemEditBox
+	else if (itemParam.m_type == ItemEditBox)
+    {
+        AnkerSimpleCombox* pCBox = dynamic_cast<AnkerSimpleCombox*>(itemParam.m_pWindow);
+        if (pCBox == nullptr)
+            return -1;
+
+        int index = 0;
+        wxString text = wxString();
+
+        if (newData.GetType() == "long")
+        {
+            index = newData.GetInteger();
+            text = pCBox->GetString(index);
+
+            //by samuel, just return when no change
+            if (isExceptionHadleEditParam(configOptionKey) && CheckExceptionParamValue(text, configOptionKey, itemParam.m_unit))
+            {
+                return -1;
+            }
+            else
+            {
+                wxString strTrimValue = text;
+                strTrimValue.Replace(wxT(" "), wxT(""));
+                strTrimValue.Replace(itemParam.m_unit, wxT(""));
+                strTrimValue.Replace(" ", "");
+                wxString strUIValue = itemParam.m_UIvalue;
+                strUIValue.Replace(wxT(" "), wxT(""));
+                strUIValue.Replace(itemParam.m_unit, wxT(""));
+                strUIValue.Replace(" ", "");
+                if (text == strUIValue || strTrimValue == strUIValue)
+                {
+                    return -1;
+                }
+                text = strTrimValue;
+            }
+
+            updateUi(prusaKeyString, text);
+
+            wxString strLabel = itemParam.m_pLabel->GetLabelText();
+
+            if (strLabel.Contains('\n'))
+                strLabel.Replace('\n', "");
+
+            auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+            std::string prusaValue = printConfig.opt_serialize(prusaKeyString);
+            wxString wxPrusaValue = prusaValue;
+
+            wxString realData = "";
+            bool bdirty = false;
+
+            wxVariant cfgData = text;
+            if ("support_material_contact_distance" == prusaKeyString)
+            {
+                if (wxPrusaValue.size() > 0 && wxPrusaValue.size() <= 3)
+                {
+                    if (wxPrusaValue.Contains("0.1"))
+                        realData = _L("0.1 (detachable)");
+                    else if (wxPrusaValue.Contains("0.2"))
+                        realData = _L("0.2 (detachable)");
+                    else
+                        realData = _L("0 (soluble)");
+
+                    if (text != realData)
+                    {
+                        bdirty = true;
+                        itemParam.m_pBtn->Show();
+                    }
+                    else
+                    {
+                        bdirty = false;
+                        itemParam.m_pBtn->Hide();
+                    }
+                }
+                else
+                {
+                    if (text != wxPrusaValue)
+                    {
+                        bdirty = true;
+                        itemParam.m_pBtn->Show();
+                    }
+                    else
+                    {
+                        bdirty = false;
+                        itemParam.m_pBtn->Hide();
+                    }
+                }
+            }
+            else if ("support_material_bottom_contact_distance" == prusaKeyString)
+            {
+                if (wxPrusaValue == "0")
+                    realData = _L("Same as top");
+                else if (wxPrusaValue == "0.1")
+                    realData = _L("0.1");
+                else if (wxPrusaValue == "0.2")
+                    realData = _L("0.2");
+
+                if (text != realData)
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else if ("support_material_interface_layers" == prusaKeyString)
+            {
+
+                if (wxPrusaValue == ("0"))
+                    realData = _L("0 (off)");
+                else if (wxPrusaValue == ("2"))
+                    realData = _L("2 (default)");
+                else if (wxPrusaValue == ("3"))
+                    realData = _L("3 (heavy)");
+                else if (wxPrusaValue == ("1"))
+                    realData = _L("1 (light)");
+                else
+                    realData = wxPrusaValue;
+
+                if (text != realData)
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else if ("support_material_bottom_interface_layers" == prusaKeyString)
+            {
+                if (wxPrusaValue == ("0"))
+                    realData = _L("0 (off)");
+                else if (wxPrusaValue == ("-1"))
+                    realData = _L("Same as top");
+                else if (wxPrusaValue == ("2"))
+                    realData = _L("2 (default)");
+                else if (wxPrusaValue == ("3"))
+                    realData = _L("3 (heavy)");
+                else if (wxPrusaValue == ("1"))
+                    realData = _L("1 (light)");
+                else
+                    realData = wxPrusaValue;
+
+                if (text != realData)
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else if ("fill_density" == prusaKeyString || "infill_anchor" == prusaKeyString || "infill_anchor_max" == prusaKeyString)
+            {
+                wxString editValue = text.ToStdString();
+                wxString strUnit = ' ' + _L("mm");
+                editValue.Replace('%', "");
+                editValue.Replace(strUnit, "");
+
+                wxString presetValue = prusaValue;
+                presetValue.Replace('%', "");
+                presetValue.Replace("mm", "");
+
+                if (editValue != presetValue)
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else
+            {
+                itemParam.m_pBtn->Hide();
+            }
+
+            if (bdirty)
+            {
+                ItemDirtyData dirtyData;
+                dirtyData.tabName = m_tabTitle;
+                dirtyData.titleName = m_title;
+                dirtyData.prusaKey = prusaKeyString;
+                dirtyData.ankerKey = strLabel;
+                dirtyData.dataType = itemParam.m_dataType;
+                m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+            }
+            else
+            {
+                auto iter = m_dirtyMap.find(prusaKeyString);
+                if (iter != m_dirtyMap.end())
+                    m_dirtyMap.erase(iter);
+            }
+            wxWindowUpdateLocker updateLocker(itemParam.m_pBtn);
+            //RefreshDependParamState(configOptionKey, text);
+			if (updateFlag)
+				onDatachanged(false, prusaKeyString);
+            onUpdateResetBtn();
+            updateModelParams(itemParam, wxVariant(cfgData), prusaKeyString, strLabel);
+            //Refresh();
+            //Layout();
+        }
+        else if (newData.GetType() == "string")
+        {
+            text = newData.GetString();
+            index = pCBox->FindString(text);
+
+            //by samuel, just return when no change
+            if (isExceptionHadleEditParam(configOptionKey) && CheckExceptionParamValue(text, configOptionKey, itemParam.m_unit))
+            {
+                return -1;
+            }
+            else
+            {
+                wxString strTrimValue = text;
+                strTrimValue.Replace(wxT(" "), wxT(""));
+                strTrimValue.Replace(itemParam.m_unit, wxT(""));
+                strTrimValue.Replace(" ", "");
+                wxString strUIValue = itemParam.m_UIvalue;
+                strUIValue.Replace(wxT(" "), wxT(""));
+                strUIValue.Replace(itemParam.m_unit, wxT(""));
+                strUIValue.Replace(" ", "");
+                if (text == strUIValue || strTrimValue == strUIValue)
+                {
+                    return -1;
+                }
+                text = strTrimValue;
+            }
+            bool havePercent = false;
+            if (text.EndsWith("%")) {
+                havePercent = true;
+            }
+            text.Replace('%', "");
+
+            int iCheckValueType = checkEditBoxInput(text, itemParam.m_optionKey, itemParam.m_dataType, havePercent);
+
+            if (1 == iCheckValueType)
+            {
+                // recover the last valid input
+                updateUi(prusaKeyString, itemParam.m_UIvalue);
+                Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK);
+                dialog.SetSize(wxSize(320, 250));
+                dialog.ShowModal();
+                return -1;
+            }
+            else if (2 == iCheckValueType)
+            {
+                float min = 0.0f, max = 0.0f;
+                GetOptionMaxMinDefVal(prusaKeyString, min, max);
+                if (itemParam.m_dataType == Item_floatOrPercent)
+                {
+                    double value;
+                    text.ToDouble(&value);
+                    if (!havePercent) {
+                        if (value > max) {
+                            // choose float data or percent data
+                            const wxString msg_text = wxString::Format("Is it %s%% or %s %s?\nYES for %s%%, \nNO for %s %s.", text, text, "mm", text, text, "mm");
+                            Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Parameter validation") + ": " + prusaKeyString, wxYES | wxNO);
+                            dialog.SetSize(wxSize(400, 250));
+                            if (dialog.ShowModal() == wxID_YES)
+                                text = RemoveTrailingZeros(text) + "%";
+                            else {
+                                //text = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));  // limit to max
+                                text = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+                            }
+                        }
+                        else if (value < min) {
+                            //text = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));    // limit to min
+                            text = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+                        }
+                    }
+                }
+                else // if (paraGroup.m_dataType == Item_float || paraGroup.m_dataType == Item_int || paraGroup.m_dataType == Item_Percent)
+                {
+                    // set the focus to the item to avoid another kill focus event to this editing control on Mac -- xavier
+                    this->SetFocus();
+
+                    wxString newRealEditValue;
+                    if (!ValueCheck(itemParam, text, newRealEditValue)) {
+                        // recover the last valid input
+                        updateUi(prusaKeyString, itemParam.m_UIvalue);
+                        return -1;
+                    }
+                    text = newRealEditValue;
+
+                    double value;
+                    text.ToDouble(&value);
+                    if (value > max)
+                        text = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
+                    else if (value < min)
+                        text = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
+
+                    //TODO  should do this ?
+                    if (itemParam.m_dataType == Item_Percent)
+                        text = text + "%";
+                }
+
+                updateUi(prusaKeyString, text + (havePercent ? "%" : ""));
+            }
+
+            wxString strLabel = itemParam.m_pLabel->GetLabelText();
+            if (strLabel.Contains('\n'))
+                strLabel.Replace('\n', "");
+
+            //auto dataMap = m_parameterData.getItemMap(m_tabTitle);
+            //std::string prusaKeyString = dataMap[strLabel].ToStdString();
+            auto printConfig = Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+            std::string prusaValue = printConfig.opt_serialize(prusaKeyString);
+            wxString wxPrusaValue = prusaValue;
+
+            wxString realData = "";
+            bool bdirty = false;
+            wxVariant cfgData = text;
+            if ("support_material_contact_distance" == prusaKeyString)
+            {
+                if (text != wxPrusaValue)
+                {
+                    if (pCBox->FindString(wxPrusaValue))
+                    {
+                        bdirty = true;
+                        itemParam.m_pBtn->Show();
+                    }
+                    else
+                    {
+                        int prusaIndex = wxAtoi(wxPrusaValue);
+                        if (index == prusaIndex)
+                        {
+                            bdirty = false;
+                            itemParam.m_pBtn->Hide();
+                        }
+                        else
+                        {
+                            bdirty = true;
+                            itemParam.m_pBtn->Show();
+                        }
+                    }
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else if ("support_material_bottom_contact_distance" == prusaKeyString)
+            {
+
+                if (text != wxPrusaValue)
+                {
+                    if (pCBox->FindString(wxPrusaValue))
+                    {
+
+                        if (text == _L("Same as top"))
+                        {
+                            bdirty = false;
+                            itemParam.m_pBtn->Hide();
+                        }
+                        else
+                        {
+                            bdirty = true;
+                            itemParam.m_pBtn->Show();
+                        }
+                    }
+                    else
+                    {
+                        int prusaIndex = wxAtoi(wxPrusaValue);
+                        if (index == prusaIndex)
+                        {
+                            bdirty = false;
+                            itemParam.m_pBtn->Hide();
+                        }
+                        else
+                        {
+                            bdirty = true;
+                            itemParam.m_pBtn->Show();
+                        }
+                    }
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else if ("support_material_interface_layers" == prusaKeyString)
+            {
+
+                if (wxPrusaValue == ("0"))
+                    realData = _L("0 (off)");
+                else if (wxPrusaValue == ("2"))
+                    realData = _L("2 (default)");
+                else if (wxPrusaValue == ("3"))
+                    realData = _L("3 (heavy)");
+                else if (wxPrusaValue == ("1"))
+                    realData = _L("1 (light)");
+                else
+                    realData = wxPrusaValue;
+
+                if (text != realData)
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else if ("support_material_bottom_interface_layers" == prusaKeyString)
+            {
+                int prusaIndex = wxAtoi(wxPrusaValue);
+                int iRealSetValue = index - 1;
+                if (iRealSetValue == prusaIndex)
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+                else
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+            }
+            else if ("fill_density" == prusaKeyString || "infill_anchor" == prusaKeyString || "infill_anchor_max" == prusaKeyString)
+            {
+                if (text != prusaValue)
+                {
+                    bdirty = true;
+                    itemParam.m_pBtn->Show();
+                }
+                else
+                {
+                    bdirty = false;
+                    itemParam.m_pBtn->Hide();
+                }
+            }
+            else
+            {
+                itemParam.m_pBtn->Hide();
+            }
+
+            if (bdirty)
+            {
+                ItemDirtyData dirtyData;
+                dirtyData.tabName = m_tabTitle;
+                dirtyData.titleName = m_title;
+                dirtyData.prusaKey = prusaKeyString;
+                dirtyData.ankerKey = strLabel;
+                dirtyData.dataType = itemParam.m_dataType;
+                m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+            }
+            else
+            {
+                auto iter = m_dirtyMap.find(prusaKeyString);
+                if (iter != m_dirtyMap.end())
+                    m_dirtyMap.erase(iter);
+
+            }
+            wxWindowUpdateLocker updateLocker(itemParam.m_pBtn);
+            //RefreshDependParamState(configOptionKey, text);
+			if (updateFlag)
+				onDatachanged(false, prusaKeyString);
+            onUpdateResetBtn();
+            updateModelParams(itemParam, wxVariant(cfgData), prusaKeyString, strLabel);
+            //Refresh();
+            Layout();
+        }
+        else
+            return -1;
+
+        if (index < 0 || text.empty())
+            return -1;
+    }
+	// ItemEditUinit
+    else if (itemParam.m_type == ItemEditUinit)
+    {
+        if (newData.GetType() != "string")
+            return -1;
+
+        float min = 0.0f, max = 0.0f;
+        GetOptionMaxMinDefVal(prusaKeyString, min, max);
+
+        wxString strUnit = _L("mm");
+
+        wxString editValue = newData.GetString();
+        wxString realEditValue = editValue;
+        wxString UIValue = itemParam.m_UIvalue.GetString();
+
+        realEditValue.Replace(" ", "");
+        realEditValue.Replace(strUnit, "");
+
+        // by samuel, no need to go ahead if no change with the last value 
+        if (editValue == UIValue || realEditValue == UIValue)
+        {
+            return -1;
+        }
+
+        bool inputHavePercent = false;
+        if (editValue.EndsWith("%")) {
+            inputHavePercent = true;
+        }
+        realEditValue.Replace('%', "");
+
+        wxString newRealEditValue;
+        if (!ValueCheck(itemParam, realEditValue, newRealEditValue)) {
+            // recover the last valid input
+            updateUi(prusaKeyString, itemParam.m_UIvalue);
+            return -1;
+        }
+        realEditValue = newRealEditValue;
+        if (!isNumber(realEditValue.ToStdString())) {
+            //Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK );
+            //dialog.SetSize(wxSize(320, 250));
+            //dialog.ShowModal();
+            // recover the last valid input
+            updateUi(prusaKeyString, itemParam.m_UIvalue);
+            return -1;
+        }
+
+        if (itemParam.m_dataType == Item_floatOrPercent)
+        {
+            double value;
+            realEditValue.ToDouble(&value);
+            if (!inputHavePercent) {
+                if (value > max) {
+                    // choose float data or percent data
+                    const wxString msg_text = wxString::Format("Is it %s%% or %s %s?\nYES for %s%%, \nNO for %s %s.", realEditValue, realEditValue, "mm", realEditValue, realEditValue, "mm");
+                    Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Parameter validation") + ": " + prusaKeyString, wxYES | wxNO);
+                    dialog.SetSize(wxSize(400, 250));
+                    if (dialog.ShowModal() == wxID_YES)
+                        realEditValue = RemoveTrailingZeros(realEditValue) + "%";
+                    else {
+                        //realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));    // limit to max
+                        realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+                    }
+                }
+                else if (value < min) {
+                    //realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));  // limit to min
+                    realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), value));  // the user input value
+                }
+            }
+        }
+        else if (itemParam.m_dataType == Item_float)
+        {
+            double value;
+            realEditValue.ToDouble(&value);
+            if (value > max)
+                realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
+            else if (value < min)
+                realEditValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
+        }
+        updateUi(prusaKeyString, realEditValue + (inputHavePercent ? "%" : ""));
+
+
+        wxString strLabel = itemParam.m_pLabel->GetLabelText();
+        if (strLabel.Contains('\n'))
+            strLabel.Replace('\n', "");
+
+        wxString prusaValue = printConfig.opt_serialize(prusaKeyString);
+        bool prusaValueHavePercent = prusaValue.Contains("%") ? true : false;
+        wxString realPrusaValue = prusaValue;
+        realPrusaValue.Replace('%', "");
+        realPrusaValue.Replace("mm", "");
+
+        //if use invaild data and set default value for layer height.
+        if (prusaKeyString == "layer_height")
+        {
+            double dValue = 0;
+            realEditValue.ToDouble(&dValue);
+
+            if (dValue < 0.01)
+            {
+                realEditValue = "0.01";
+                updateUi(_L("layer_height"), realEditValue);
+            }
+        }
+
+        wxVariant cfgData = (realEditValue + (inputHavePercent ? "%" : ""));
+        bool bdirty = false;
+        if (realEditValue == realPrusaValue && (inputHavePercent && prusaValueHavePercent || !inputHavePercent && !prusaValueHavePercent))
+        {
+            bdirty = false;
+            itemParam.m_pBtn->Hide();
+
+        }
+        else
+        {
+            bdirty = true;
+            itemParam.m_pBtn->Show();
+        }
+
+        if (bdirty)
+        {
+            ItemDirtyData dirtyData;
+            dirtyData.tabName = m_tabTitle;
+            dirtyData.titleName = m_title;
+            dirtyData.prusaKey = prusaKeyString;
+            dirtyData.ankerKey = strLabel;
+            dirtyData.dataType = itemParam.m_dataType;
+            m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+        }
+        else
+        {
+            auto iter = m_dirtyMap.find(prusaKeyString);
+            if (iter != m_dirtyMap.end())
+                m_dirtyMap.erase(iter);
+        }
+        wxWindowUpdateLocker updateLocker(this);
+        //RefreshDependParamState(configOptionKey, realEditValue);
+		if (updateFlag)
+			onDatachanged(false, prusaKeyString);
+        onUpdateResetBtn();
+        updateModelParams(itemParam, wxVariant(cfgData), prusaKeyString, strLabel);
+        Refresh();
+        Layout();
+    }
+	// ItemCheckBox
+	else if (itemParam.m_type == ItemCheckBox)
+	{
+		if (newData.GetType() != "bool")
+			return -1;
+
+		bool isChecked = newData.GetBool();
+		wxString strLabel = itemParam.m_pLabel->GetLabelText();
+		bool currentChecked = itemParam.m_UIvalue.GetBool();
+
+		if (strLabel.Contains('\n'))
+			strLabel.Replace('\n', "");
+
+		bool hasKey = printConfig.has(prusaKeyString);
+		if (!hasKey) {
+			ANKER_LOG_ERROR << "printConfig have no this option key:" << prusaKeyString << ", cann't set it's value";
+			return -1;
+		}
+
+		//if (prusaKeyString == "spiral_vase" && !currentChecked)
+		//{
+		//	wxString msg_text = _(L("The Spiral Vase mode requires:\n"
+		//		"- one perimeter\n"
+		//		"- no top solid layers\n"
+		//		"- 0% fill density\n"
+		//		"- no support material\n"
+		//		"- Detect thin walls disabled"));
+		//	msg_text += "\n\n" + _(L("Shall I adjust those settings in order to enable Spiral Vase?"));
+
+		//	Slic3r::GUI::MessageDialog dialog(m_parent, msg_text, _L("Spiral Vase"), wxYES | wxNO);
+		//	dialog.SetSize(wxSize(540, 340));
+		//	auto answer = dialog.ShowModal();
+		//	if (answer == wxID_NO)
+		//	{
+		//		// recover the last valid input
+		//		updateUi(prusaKeyString, itemParam.m_UIvalue);
+		//		return -1;
+		//	}
+		//}
+
+		bool option_value = printConfig.opt_bool(prusaKeyString);
+		bool bdirty = false;
+		if (isChecked != option_value)
+		{
+			bdirty = true;
+			itemParam.m_pBtn->Show();
+		}
+		else
+		{
+			bdirty = false;
+			itemParam.m_pBtn->Hide();
+		}
+
+		if (bdirty)
+		{
+			ItemDirtyData dirtyData;
+			dirtyData.tabName = m_tabTitle;
+			dirtyData.titleName = m_title;
+			dirtyData.prusaKey = prusaKeyString;
+			dirtyData.ankerKey = strLabel;
+			dirtyData.dataType = itemParam.m_dataType;
+			m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
+		}
+		else
+		{
+			auto iter = m_dirtyMap.find(prusaKeyString);
+			if (iter != m_dirtyMap.end())
+				m_dirtyMap.erase(iter);
+		}
+
+		updateUi(prusaKeyString, isChecked);
+
+		wxWindowUpdateLocker updateLocker(this->GetParent());
+		RefreshDependParamState(configOptionKey, (int)isChecked);
+		if (updateFlag)
+			onDatachanged(false, prusaKeyString);
+		onUpdateResetBtn();
+		updateModelParams(itemParam, wxVariant(isChecked), prusaKeyString, strLabel);
+		//Refresh();
+		Layout();
+    }
+	// ItemSpinBox
+	else if (itemParam.m_type == ItemSpinBox)
+    {
+		if (newData.GetType() != "string")
+			return -1;
+
+        wxString originValue = newData.GetString();
+        wxString strValue = newData.GetString();
+		wxString UIValue = itemParam.m_UIvalue.GetString();
+		strValue.Replace(" ", "");
+        // by samuel, no need to go ahead if no change with the last value 
+        if (originValue == UIValue || strValue == UIValue)
+        {
+            return -1;
+        }
+
+        // set the focus to the item to avoid another kill focus event to this editing control on Mac -- xavier
+        this->SetFocus();
+
+        wxString newStrValue;
+        if (!ValueCheck(itemParam, strValue, newStrValue)) {
+            // recover the last valid input
+            updateUi(prusaKeyString, itemParam.m_UIvalue);
+            return -1;
+        }
+        strValue = newStrValue;
+
+        if (!isNumber(strValue.ToStdString())) {
+            Slic3r::GUI::MessageDialog dialog(m_parent, _L("Invalid numeric input"), _L("Parameter validation") + ": " + prusaKeyString, wxOK);
+            dialog.SetSize(wxSize(320, 250));
+            dialog.ShowModal();
+            // recover the last valid input
+            updateUi(prusaKeyString, itemParam.m_UIvalue);
+            return -1;
+        }
+
+        int uValue = 0;
+        strValue.ToInt(&uValue);
+        float min = 0.0f, max = 0.0f;
+        GetOptionMaxMinDefVal(prusaKeyString, min, max);
+        if (uValue > max) {
+            uValue = max;
+            //pItemEdit->SetValue(RemoveTrailingZeros(wxString::Format(wxT("%f"), max)));
+            strValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), max));
+        }
+        else if (uValue < min) {
+            uValue = min;
+            //pItemEdit->SetValue(RemoveTrailingZeros(wxString::Format(wxT("%f"), min)));
+            strValue = RemoveTrailingZeros(wxString::Format(wxT("%f"), min));
+        }
+        updateUi(prusaKeyString, strValue);
+
+        wxString strLabel = itemParam.m_pLabel->GetLabelText();
+
+        if (strLabel.Contains('\n'))
+            strLabel.Replace('\n', "");
+
+        float prusasValue = 0;
+        if ("top_solid_min_thickness" == prusaKeyString || "bottom_solid_min_thickness" == prusaKeyString)
+            prusasValue = printConfig.opt_float(prusaKeyString);
+        else
+            prusasValue = printConfig.opt_int(prusaKeyString);
+
+        bool bdirty = false;
+        if (uValue != prusasValue)
+        {
+            bdirty = true;
+            itemParam.m_pBtn->Show();
+        }
+        else
+        {
+            bdirty = false;
+            itemParam.m_pBtn->Hide();
+        }
+
+        if (bdirty)
+        {
+            ItemDirtyData dirtyData;
+            dirtyData.tabName = m_tabTitle;
+            dirtyData.titleName = m_title;
+            dirtyData.prusaKey = configOptionKey;
+            dirtyData.ankerKey = strLabel;
+            dirtyData.dataType = itemParam.m_dataType;
+
+            m_dirtyMap.insert(std::make_pair(configOptionKey, dirtyData));
+        }
+        else
+        {
+            auto iter = m_dirtyMap.find(configOptionKey);
+            if (iter != m_dirtyMap.end())
+                m_dirtyMap.erase(iter);
+        }
+
+        wxWindowUpdateLocker updateLocker(itemParam.m_pBtn);
+        RefreshDependParamState(configOptionKey, strValue);
+		if (updateFlag)
+			onDatachanged(false, prusaKeyString);
+        onUpdateResetBtn();
+        updateModelParams(itemParam, wxVariant(uValue), configOptionKey, strLabel);
+        //Refresh();
+        Layout();
+    }
+	// ItemTextCtrl
+    else if (itemParam.m_type == ItemTextCtrl)
+    {
+        if (newData.GetType() != "string")
+            return -1;
+
+        wxString strValue = newData.GetString();
+        wxString strLabel = itemParam.m_pLabel->GetLabelText();
+
+        if (strLabel.Contains('\n'))
+            strLabel.Replace('\n', "");
+
+        std::string prusasValue;
+        if (itemParam.m_bIsMultiStr)
+        {
+            std::vector<std::string> showTextVec;
+            showTextVec = printConfig.opt_strings(prusaKeyString);
+            if (showTextVec.size() > 0)
+            {
+                prusasValue = Slic3r::join_strings_with_newlines(showTextVec);
+            }
+        }
+        else
+        {
+            prusasValue = printConfig.opt_string(prusaKeyString);
+        }
+
+
+        bool bdirty = false;
+
+        if (strValue != prusasValue)
+        {
+            bdirty = true;
+            itemParam.m_pBtn->Show();
+        }
+        else
+        {
+            bdirty = false;
+            itemParam.m_pBtn->Hide();
+        }
+
+        if (bdirty)
+        {
+            ItemDirtyData dirtyData;
+            dirtyData.tabName = m_tabTitle;
+            dirtyData.titleName = m_title;
+            dirtyData.prusaKey = configOptionKey;
+            dirtyData.ankerKey = strLabel;
+            dirtyData.dataType = itemParam.m_dataType;
+            m_dirtyMap.insert(std::make_pair(configOptionKey, dirtyData));
+        }
+        else
+        {
+            auto iter = m_dirtyMap.find(configOptionKey);
+            if (iter != m_dirtyMap.end())
+                m_dirtyMap.erase(iter);
+        }
+
+        wxWindowUpdateLocker updateLocker(this);
+        RefreshDependParamState(configOptionKey, strValue);
+		if (updateFlag)
+			onDatachanged(false, prusaKeyString);
+        onUpdateResetBtn();
+        Layout();
+    }
+
+    return 0;
+}
+
+ItemInfo AnkerPrintParaItem::getWidgetValue(const wxString& optionKey)
+{
+    auto iter = m_optionParameterMap.find(optionKey);
+    ItemInfo valueData;
+    if (iter != m_optionParameterMap.end())
+    {
+        valueData.paramDataType = iter->second->m_dataType;
+        auto widgetType = iter->second->m_type;
+        switch (widgetType)
+        {
+        case ItemComBox:
+        {
+            wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
+            int index = pComBox->GetSelection();
+            valueData.paramDataValue = wxVariant(pComBox->GetSelection());
+            return valueData;
+        }
+        break;
+        case ItemEditUinit:
+        {
+            AnkerLineEditUnit* pEditRange = static_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
+            wxString data = pEditRange->getValue();
+
+            //if use invaild data and set default value for layer height.
+            if (optionKey == _L("layer_height"))
+            {
+                double dValue = 0;
+                data.ToDouble(&dValue);
 
 				if (dValue < 0.01)
 				{
@@ -1645,21 +2854,21 @@ ItemInfo AnkerPrintParaItem::getWidgetValue(const wxString& optionKey)
 		break;
 		case ItemCheckBox:
 		{
-			AnkerCheckBox* pCheckBox = static_cast<AnkerCheckBox*>(iter->second.m_pWindow);
+			AnkerCheckBox* pCheckBox = static_cast<AnkerCheckBox*>(iter->second->m_pWindow);
 			valueData.paramDataValue = wxVariant(pCheckBox->getCheckStatus());
 			return valueData;
 		}
 		break;
 		case ItemSpinBox:
 		{
-			AnkerLineEditUnit* pEditUnit = static_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
+			AnkerLineEditUnit* pEditUnit = static_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
 			valueData.paramDataValue = wxVariant(pEditUnit->getValue());
 			return valueData;
 		}
 		break;
 		case ItemEditBox:
 		{
-			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 			int index = pComBox->GetSelection();
 			auto currentStr = pComBox->GetValue();
 
@@ -1669,7 +2878,7 @@ ItemInfo AnkerPrintParaItem::getWidgetValue(const wxString& optionKey)
 
 		case ItemTextCtrl:
 		{
-			wxTextCtrl* pTextCtrl = static_cast<wxTextCtrl*>(iter->second.m_pWindow);
+			wxTextCtrl* pTextCtrl = static_cast<wxTextCtrl*>(iter->second->m_pWindow);
 			auto currentStr = pTextCtrl->GetValue();
 			valueData.paramDataValue = wxVariant(currentStr);
 			return valueData;
@@ -1705,17 +2914,17 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 	auto iter = m_optionParameterMap.find(optionKey);
 	if (iter != m_optionParameterMap.end())
 	{
-		auto controlType = iter->second.m_type;
-		iter->second.pLineSizer->Show(iter->second.bShown);
+		auto controlType = iter->second->m_type;
+		iter->second->m_pLineSizer->Show(iter->second->m_bShown);
 		if (m_dirtyMap.find("optionKey") != m_dirtyMap.end())
 		{
-			iter->second.m_pBtn->Show();
+			iter->second->m_pBtn->Show();
 		}
 		else
 		{
-			iter->second.m_pBtn->Hide();
+			iter->second->m_pBtn->Hide();
 		}
-		iter->second.m_pWindow->Enable(iter->second.bEnable);
+		iter->second->m_pWindow->Enable(iter->second->m_bEnable);
 		
 
 		switch (controlType)
@@ -1735,7 +2944,7 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 				itemStrValue = "";// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 				Itemvalue = 0;// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 			}
-			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 			pCurrentWidget = pComBox;
 			if (pComBox)
 			{
@@ -1745,11 +2954,11 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 				int count = pComBox->GetCount();
 				if (data.GetType() == wxT("string")) {
 					pComBox->SetStringSelection(itemStrValue);
-					iter->second.m_UIvalue = itemStrValue;
+					iter->second->m_UIvalue = itemStrValue;
 				}
 				else {
 					pComBox->SetSelection(Itemvalue);
-					iter->second.m_UIvalue = pComBox->GetString(Itemvalue);
+					iter->second->m_UIvalue = pComBox->GetString(Itemvalue);
 				}
 				if (cbIndex < count)
 				{
@@ -1758,7 +2967,7 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 
 					tooltipsValue = pComBox->GetString(cbIndex);
 				}
-				RefreashDependParamState(optionKey, Itemvalue);
+				RefreshDependParamState(optionKey, Itemvalue);
 			}
 			break;
 		}
@@ -1778,18 +2987,18 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 				itemStrValue = "";// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 				Itemvalue = 0;// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 			}
-			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 			pCurrentWidget = pComBox;
 			if (pComBox)
 			{
 				if (isExceptionHadleEditParam(optionKey))
 				{
-					HandleExceptionPram(optionKey, pComBox, itemStrValue, iter);
+					HandleExceptionPram(optionKey, pComBox, itemStrValue, *(iter->second));
 				}
 				else
 				{
 					pComBox->SetValue(itemStrValue);
-					iter->second.m_UIvalue = itemStrValue;
+					iter->second->m_UIvalue = itemStrValue;
 				}
 			}
 			break;
@@ -1797,7 +3006,7 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 		case ItemEditUinit:
 		{
 			wxString Itemvalue = { "" };
-			AnkerLineEditUnit* pEditUnit = static_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
+			AnkerLineEditUnit* pEditUnit = static_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
 			if (!isReset)
 				Itemvalue = data.GetString();
 			else
@@ -1815,14 +3024,14 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 				}
 
 				pEditUnit->setValue(Itemvalue);
-				iter->second.m_UIvalue = Itemvalue;
+				iter->second->m_UIvalue = Itemvalue;
 			}
 			break;
 		}
 		
 		case ItemCheckBox:
 		{
-			AnkerCheckBox* pCheckBox = static_cast<AnkerCheckBox*>(iter->second.m_pWindow);
+			AnkerCheckBox* pCheckBox = static_cast<AnkerCheckBox*>(iter->second->m_pWindow);
 			bool Itemvalue = true;
 			if (!isReset)
 				Itemvalue = data.GetBool();
@@ -1849,12 +3058,12 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 				Itemvalue = "0";// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 			}
 
-			AnkerLineEditUnit* pEditRange = static_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
+			AnkerLineEditUnit* pEditRange = static_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
 			if (pEditRange)
 			{
 				pCurrentWidget = pEditRange;
 				pEditRange->setValue(Itemvalue);
-				iter->second.m_UIvalue = Itemvalue;
+				iter->second->m_UIvalue = Itemvalue;
 			}
 			break;
 		}
@@ -1870,12 +3079,12 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey,
 				Itemvalue = "";
 			}
 
-			wxTextCtrl* pTextCtrl = static_cast<wxTextCtrl*>(iter->second.m_pWindow);
+			wxTextCtrl* pTextCtrl = static_cast<wxTextCtrl*>(iter->second->m_pWindow);
 			if (pTextCtrl)
 			{
 				pCurrentWidget = pTextCtrl;
 				pTextCtrl->SetValue(Itemvalue);
-				iter->second.m_UIvalue = Itemvalue;
+				iter->second->m_UIvalue = Itemvalue;
 			}
 			break;
 		}
@@ -1909,7 +3118,7 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 	auto iter = m_optionParameterMap.find(optionKey);
 	if (iter != m_optionParameterMap.end())
 	{
-		auto controlType = iter->second.m_type;
+		auto controlType = iter->second->m_type;
 		switch (controlType)
 		{
 		case ItemComBox:
@@ -1927,16 +3136,16 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 				itemStrValue = "";// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 				Itemvalue = 0;// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 			}
-			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 			if (pComBox)
 			{
 				if (data.GetType() == wxT("string")) {
 					pComBox->SetStringSelection(itemStrValue);
-					iter->second.m_UIvalue = itemStrValue;
+					iter->second->m_UIvalue = itemStrValue;
 				}
 				else {
 					pComBox->SetSelection(Itemvalue);
-					iter->second.m_UIvalue = pComBox->GetString(Itemvalue);
+					iter->second->m_UIvalue = pComBox->GetString(Itemvalue);
 				}
 			}
 		}
@@ -1956,25 +3165,25 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 				itemStrValue = "";// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 				Itemvalue = 0;// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 			}
-			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+			wxOwnerDrawnComboBox* pComBox = static_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 
 			if (pComBox)
 			{
 				int comCount = pComBox->GetCount();
 				if (data.GetType() == wxT("string")) {
 					pComBox->SetValue(itemStrValue);
-					iter->second.m_UIvalue = itemStrValue;
+					iter->second->m_UIvalue = itemStrValue;
 				}
 				else
 				{
 					int comBoxCount = pComBox->GetCount();
 					if (Itemvalue >= comBoxCount) {
 						pComBox->SetValue(itemStrValue);
-						iter->second.m_UIvalue = itemStrValue;
+						iter->second->m_UIvalue = itemStrValue;
 					}
 					else {
 						pComBox->SetSelection(Itemvalue);
-						iter->second.m_UIvalue = pComBox->GetString(Itemvalue);
+						iter->second->m_UIvalue = pComBox->GetString(Itemvalue);
 					}
 				}
 			}
@@ -1983,7 +3192,7 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 		case ItemEditUinit:
 		{
 			wxString Itemvalue = { "" };
-			AnkerLineEditUnit* pEditUnit = static_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
+			AnkerLineEditUnit* pEditUnit = static_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
 			if (!isReset)
 				Itemvalue = data.GetString();
 			else
@@ -1991,13 +3200,13 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 
 			if (pEditUnit) {
 				pEditUnit->setValue(Itemvalue);
-				iter->second.m_UIvalue = Itemvalue;
+				iter->second->m_UIvalue = Itemvalue;
 			}
 		}
 		break;
 		case ItemCheckBox:
 		{
-			AnkerCheckBox* pCheckBox = static_cast<AnkerCheckBox*>(iter->second.m_pWindow);
+			AnkerCheckBox* pCheckBox = static_cast<AnkerCheckBox*>(iter->second->m_pWindow);
 			bool Itemvalue = true;
 			if (!isReset)
 				Itemvalue = data.GetBool();
@@ -2005,7 +3214,10 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 				Itemvalue = false;// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);			
 
 			if (pCheckBox)
+			{
 				pCheckBox->setCheckStatus(Itemvalue);
+				iter->second->m_UIvalue = std::to_string((int)Itemvalue);
+			}
 		}
 		break;
 		case ItemSpinBox:
@@ -2016,10 +3228,10 @@ void AnkerPrintParaItem::updateUi(const wxString& optionKey, wxVariant data, boo
 			else
 				Itemvalue = "0";// wxGetApp().preset_bundle->prints.get_selected_preset().config.get_abs_value(strKey);
 
-			AnkerLineEditUnit* pEditRange = static_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
+			AnkerLineEditUnit* pEditRange = static_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
 			if (pEditRange) {
 				pEditRange->setValue(Itemvalue);
-				iter->second.m_UIvalue = Itemvalue;
+				iter->second->m_UIvalue = Itemvalue;
 			}
 		}
 		break;
@@ -2035,10 +3247,10 @@ void AnkerPrintParaItem::showOptionHighlight(const wxString& optionKey, wxColour
 	static int times = 0;
 	if (iter != m_optionParameterMap.end())
 	{
-		(*iter).second.m_pLabel->SetForegroundColour(m_colour);
+		(*iter).second->m_pLabel->SetForegroundColour(m_colour);
 		Refresh();
 		m_HightLightTimer->Start(1000);
-		m_pCurrentLabel = (*iter).second.m_pLabel;
+		m_pCurrentLabel = (*iter).second->m_pLabel;
 		m_colour = labelColor;
 	}
 }
@@ -2109,15 +3321,15 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 	auto iter = m_optionParameterMap.begin();
 	while (iter != m_optionParameterMap.end())
 	{
-		if (button == iter->second.m_pBtn)
+		if (button == iter->second->m_pBtn)
 		{
 			wxString option_key = iter->first;
-			wxString wxidgetLabel = iter->second.m_pLabel->GetLabel();
+			wxString wxidgetLabel = iter->second->m_pLabel->GetLabel();
 
 			if (option_key.IsEmpty())
 				return;
 
-			ItemDataType dataTyoe = iter->second.m_dataType;
+			ItemDataType dataTyoe = iter->second->m_dataType;
 			wxVariant data;
 			switch (dataTyoe)
 			{
@@ -2337,11 +3549,11 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 					m_dirtyMap.erase(iter);
 			}
 
-			switch (iter->second.m_type)
+			switch (iter->second->m_type)
 			{
 			case ItemComBox:
 			{
-				wxOwnerDrawnComboBox* pComBox = dynamic_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+				wxOwnerDrawnComboBox* pComBox = dynamic_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 				if (!pComBox)
 				{
 					++iter;
@@ -2350,20 +3562,20 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 
 				if (data.GetType() == wxT("string")) {
 					pComBox->SetStringSelection(data.GetString());
-					iter->second.m_UIvalue = data.GetString();
+					iter->second->m_UIvalue = data.GetString();
 				}
 				else{
 					int index = data.GetInteger();
 					pComBox->SetSelection(index);
-					iter->second.m_UIvalue = pComBox->GetString(index);
+					iter->second->m_UIvalue = pComBox->GetString(index);
 				}
 				wxWindowUpdateLocker updateLocker(this->GetParent());
-				RefreashDependParamState(option_key, data.GetInteger());
+				RefreshDependParamState(option_key, data.GetInteger());
 				break;
 			}
 			case ItemEditBox:
 			{
-				wxOwnerDrawnComboBox* pComBox = dynamic_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+				wxOwnerDrawnComboBox* pComBox = dynamic_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 				if (!pComBox)
 				{
 					++iter;
@@ -2385,7 +3597,7 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 							strValue = strValue + " " + _L("mm");
 					}
 					pComBox->SetValue(strValue);
-					iter->second.m_UIvalue = strValue;
+					iter->second->m_UIvalue = strValue;
 				}
 				else
 				{
@@ -2421,7 +3633,7 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 								realData = _L("Same as top");
 						}
 						pComBox->SetValue(realData);
-						iter->second.m_UIvalue = realData;
+						iter->second->m_UIvalue = realData;
 					}
 					else
 					{
@@ -2429,12 +3641,12 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 						{
 							// by samuel, the print param saved value is equal to the combo index + 1
 							pComBox->SetSelection(index + 1);
-							iter->second.m_UIvalue = pComBox->GetString(index + 1);
+							iter->second->m_UIvalue = pComBox->GetString(index + 1);
 						}
 						else if ( "support_material_interface_layers" == option_key)
 						{
 							pComBox->SetSelection(index);
-							iter->second.m_UIvalue = pComBox->GetString(index);
+							iter->second->m_UIvalue = pComBox->GetString(index);
 						}
 					}
 				}
@@ -2442,7 +3654,7 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 			}
 			case ItemEditUinit:
 			{
-				AnkerLineEditUnit* pEdit = dynamic_cast<AnkerLineEditUnit*>(iter->second.m_pWindow);
+				AnkerLineEditUnit* pEdit = dynamic_cast<AnkerLineEditUnit*>(iter->second->m_pWindow);
 				if (!pEdit)
 				{
 					Slic3r::SupportMaterialStyle emunData = printConfig.opt_enum<Slic3r::SupportMaterialStyle>(option_key.ToStdString());
@@ -2451,16 +3663,16 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 				}
 
 				pEdit->SetValue(data);
-				iter->second.m_UIvalue = data.GetString();
+				iter->second->m_UIvalue = data.GetString();
 				break;
 
 			}
 			case ItemCheckBox:
 			{
-				AnkerCheckBox* pCheckBox = dynamic_cast<AnkerCheckBox*>(iter->second.m_pWindow);
+				AnkerCheckBox* pCheckBox = dynamic_cast<AnkerCheckBox*>(iter->second->m_pWindow);
 				if (!pCheckBox)
 				{
-					wxOwnerDrawnComboBox* pComBox = dynamic_cast<wxOwnerDrawnComboBox*>(iter->second.m_pWindow);
+					wxOwnerDrawnComboBox* pComBox = dynamic_cast<wxOwnerDrawnComboBox*>(iter->second->m_pWindow);
 					if (!pComBox)
 					{
 						++iter;
@@ -2483,18 +3695,18 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 							pComBox->SetSelection(data.GetInteger());
 					}
 					wxWindowUpdateLocker updateLockerParent(this->GetParent());
-					RefreashDependParamState(option_key, data.GetInteger());
+					RefreshDependParamState(option_key, data.GetInteger());
 					break;
 				}
 
 				wxWindowUpdateLocker updateLocker(this->GetParent());
 				pCheckBox->setCheckStatus(data);
-				RefreashDependParamState(option_key, data.GetInteger());
+				RefreshDependParamState(option_key, data.GetInteger());
 				break;
 			}
 			case ItemSpinBox:
 			{
-				AnkerSpinEdit* pEdit = dynamic_cast<AnkerSpinEdit*>(iter->second.m_pWindow);
+				AnkerSpinEdit* pEdit = dynamic_cast<AnkerSpinEdit*>(iter->second->m_pWindow);
 				if (!pEdit)
 				{
 					++iter;
@@ -2502,13 +3714,13 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 				}
 
 				pEdit->setValue(data);
-				iter->second.m_UIvalue = data.GetString();
+				iter->second->m_UIvalue = data.GetString();
 				break;
 			}
 		
 			case ItemTextCtrl:
 			{
-				wxTextCtrl* pTextCtrl = dynamic_cast<wxTextCtrl*>(iter->second.m_pWindow);
+				wxTextCtrl* pTextCtrl = dynamic_cast<wxTextCtrl*>(iter->second->m_pWindow);
 				if (!pTextCtrl)
 				{
 					++iter;
@@ -2516,7 +3728,7 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 				}
 				wxString showStr = wxString(data.GetString());
 				pTextCtrl->SetValue(showStr);
-				iter->second.m_UIvalue = showStr;
+				iter->second->m_UIvalue = showStr;
 				break;
 			}
 
@@ -2526,7 +3738,7 @@ void AnkerPrintParaItem::onResetBtnClicked(wxCommandEvent& event)
 
 			onDatachanged(true, option_key);
 			onUpdateResetBtn();
-			updateModelParams(iter->second, wxVariant(data), option_key, wxidgetLabel);
+			updateModelParams(*(iter->second), wxVariant(data), option_key, wxidgetLabel);
 			Refresh();
 			Layout();
 
@@ -2629,7 +3841,7 @@ void AnkerPrintParaItem::saveSetPresetPropertyValue(Slic3r::ModelConfig* printCo
 	}
 	case Item_enum_SupportMaterialStyle:
 	{
-		Slic3r::SupportMaterialStyle supportMaterialStyle = (Slic3r::SupportMaterialStyle)propertyValue.GetInteger();
+		Slic3r::SupportMaterialStyle supportMaterialStyle = m_parameterData.m_StyleMap[propertyValue.GetInteger()];
 		Slic3r::ConfigOptionEnum<Slic3r::SupportMaterialStyle>* configOption = new Slic3r::ConfigOptionEnum<Slic3r::SupportMaterialStyle>(supportMaterialStyle);
 		printConfig->set_key_value(prusaProperty, configOption);
 		break;
@@ -2901,7 +4113,7 @@ ItemDataType AnkerPrintParaItem::GetItemDataType(wxString optionKey)
 {
 	ItemDataType type = Item_UNKONWN;
 	if (m_optionParameterMap.find(optionKey) != m_optionParameterMap.end())
-		type = m_optionParameterMap[optionKey].m_dataType;
+		type = m_optionParameterMap[optionKey]->m_dataType;
 	return type;
 }
 
@@ -2909,7 +4121,7 @@ wxString AnkerPrintParaItem::GetItemUnit(wxString optionKey)
 {
 	wxString unit;
 	if (m_optionParameterMap.find(optionKey) != m_optionParameterMap.end())
-		unit = m_optionParameterMap[optionKey].m_unit;
+		unit = m_optionParameterMap[optionKey]->m_unit;
 	return unit;
 }
 
@@ -2918,7 +4130,7 @@ void AnkerPrintParaItem::hideAllResetBtn()
 	auto iter = m_optionParameterMap.begin();
 	while (iter != m_optionParameterMap.end())
 	{
-		auto pResetBtn = iter->second.m_pBtn;
+		auto pResetBtn = iter->second->m_pBtn;
 		if (pResetBtn)
 			pResetBtn->Hide();
 		++iter;
@@ -2936,9 +4148,9 @@ void AnkerPrintParaItem::showResetBtn(const wxString& optionKey, bool show)
 	if (iter != m_optionParameterMap.end())
 	{
 		auto group = iter->second;
-		group.m_pBtn->Show(show);
+		group->m_pBtn->Show(show);
 
-		wxString strLabel = group.m_pLabel->GetLabelText();
+		wxString strLabel = group->m_pLabel->GetLabelText();
 		if (strLabel.Contains('\n'))
 			strLabel.Replace('\n', "");
 
@@ -2951,7 +4163,7 @@ void AnkerPrintParaItem::showResetBtn(const wxString& optionKey, bool show)
 			dirtyData.titleName = m_title;
 			dirtyData.prusaKey = prusaKeyString;
 			dirtyData.ankerKey = strLabel;
-			dirtyData.dataType = group.m_dataType;
+			dirtyData.dataType = group->m_dataType;
 			m_dirtyMap.insert(std::make_pair(prusaKeyString, dirtyData));
 		}
 		else
@@ -3066,18 +4278,18 @@ std::map<wxString, wxString> AnkerPrintParaItem::GetExceptionParamMap(wxString s
 	return comValueVec;
 }
 
-void AnkerPrintParaItem::HandleExceptionPram(wxString strParamKey, wxOwnerDrawnComboBox* pEditBox, wxString strValue, std::map<wxString, PARAMETER_GROUP>::iterator paramInfoIter)
+void AnkerPrintParaItem::HandleExceptionPram(wxString strParamKey, wxOwnerDrawnComboBox* pEditBox, wxString strValue, PARAMETER_GROUP& paramInfo)
 {
 	std::map<wxString, wxString> comValueVec = GetExceptionParamMap(strParamKey);
 	if (comValueVec.find(strValue) != comValueVec.end())
 	{
 		pEditBox->SetValue(comValueVec[strValue]);
-		paramInfoIter->second.m_UIvalue = comValueVec[strValue];
+		paramInfo.m_UIvalue = comValueVec[strValue];
 	}
 	else
 	{
 		pEditBox->SetValue(strValue);
-		paramInfoIter->second.m_UIvalue = strValue;
+		paramInfo.m_UIvalue = strValue;
 	}
 }
 
@@ -3087,7 +4299,7 @@ enum CHECK_TYPE
 	type_enable_disable,
 };
 
-void AnkerPrintParaItem::SetParamDepedency(PARAMETER_GROUP& paramInfo, int chengeType/*= 0*/, int iCheckDependStandard /*= 0*/, int iCheckValue /*= 0*/)
+void AnkerPrintParaItem::SetParamDependency(PARAMETER_GROUP& paramInfo, int changeType/*= 0*/, int iCheckDependStandard /*= 0*/, int iCheckValue /*= 0*/)
 {
 	if (parintParamMap.find(paramInfo.m_optionKey) == parintParamMap.end())
 	{
@@ -3098,7 +4310,7 @@ void AnkerPrintParaItem::SetParamDepedency(PARAMETER_GROUP& paramInfo, int cheng
 	std::vector<Dependency_Type> checkStandardVec;
 	CHECK_TYPE checkType;
 	DEPENDENCY_INFO info = parintParamMap[paramInfo.m_optionKey];
-	paramInfo.dependencyInfo = info;
+	paramInfo.m_dependencyInfo = info;
 	if (std::find(showHidePairVec.begin(), showHidePairVec.end(), info.depencyType) != showHidePairVec.end())
 	{
 		checkStandardVec = showHidePairVec;
@@ -3114,10 +4326,10 @@ void AnkerPrintParaItem::SetParamDepedency(PARAMETER_GROUP& paramInfo, int cheng
 	if (iCheckDependStandard == 0)
 	{
 	chekcSate = std::all_of(info.dependedParamMap.begin(), info.dependedParamMap.end(),
-			[this, info, checkStandardVec, iCheckDependStandard, iCheckValue, chengeType](const std::pair<wxString, wxString>& element) {
+			[this, info, checkStandardVec, iCheckDependStandard, iCheckValue, changeType](const std::pair<wxString, wxString>& element) {
 				wxString strKey = element.first;
 				// get the config value
-				auto printConfig  = (chengeType == 0) ? Slic3r::GUI::wxGetApp().plater()->get_global_config(): Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
+				auto printConfig  = (changeType == 0) ? Slic3r::GUI::wxGetApp().plater()->get_global_config(): Slic3r::GUI::wxGetApp().preset_bundle->prints.get_edited_preset().config;
 				wxString strParamValue = printConfig.opt_serialize(strKey.ToStdString());
 				if ((strParamValue == element.second && info.depencyType == checkStandardVec[0]) ||
 					(strParamValue != element.second && info.depencyType == checkStandardVec[1]))
@@ -3150,15 +4362,15 @@ void AnkerPrintParaItem::SetParamDepedency(PARAMETER_GROUP& paramInfo, int cheng
 	{
 	case type_show_hide:
 	{
-		paramInfo.bEnable = true;
-		paramInfo.bShown = chekcSate;
+		paramInfo.m_bEnable = true;
+		paramInfo.m_bShown = chekcSate;
 		break;
 	}
 	
 	case type_enable_disable:
 	{
-		paramInfo.bEnable = chekcSate;
-		paramInfo.bShown = true;
+		paramInfo.m_bEnable = chekcSate;
+		paramInfo.m_bShown = true;
 		break;
 	}
 
@@ -3171,7 +4383,7 @@ PARAMETER_GROUP& AnkerPrintParaItem::GetParamDepenencyRef(wxString strParamKey)
 {
 	if (m_optionParameterMap.find(strParamKey) != m_optionParameterMap.end())
 	{
-		return m_optionParameterMap[strParamKey];
+		return *(m_optionParameterMap[strParamKey]);
 	}
 	else
 	{
@@ -3477,19 +4689,21 @@ void AnkerPrintParaItem::ChangeMaxMinValueForPrinter(const wxString& optionKey, 
 		std::string printModel = printer_preset.config.opt_string("printer_model");
 		std::vector<double> nozzle_diameters = static_cast<const Slic3r::ConfigOptionFloats*>(printer_preset.config.option("nozzle_diameter"))->values;
 		if (nozzle_diameters.size() == 1) {
-			if ((printModel == "M5C" || printModel == "M5") && (nozzle_diameters[0] == 0.4 || nozzle_diameters[0] == 0.2)) {
+			if ((printModel == "M5C" || printModel == "M5" || printModel == "M5 All Metal Hotend") && (nozzle_diameters[0] == 0.4 || nozzle_diameters[0] == 0.2)) {
 				min = 0.1f;
 			}
 		}
 	}
 }
 
-void AnkerPrintParaItem::RefreashDependParamState(wxString strChangedOptionkey,int iSetValue)
+void AnkerPrintParaItem::RefreshDependParamState(wxString strChangedOptionkey,wxVariant newValue)
 {
+	return;
+
 	if (parintParamMap.find(strChangedOptionkey) != parintParamMap.end() &&
-		parintParamMap[strChangedOptionkey].beDependedParamVec.size() > 0)
+		(parintParamMap[strChangedOptionkey].beDependedParamVec.size() > 0 || parintParamMap[strChangedOptionkey].beDependedParamDataMap.size() > 0))
 	{
-		std::map<wxString, PARAMETER_GROUP> allParamInfos;
+		std::map<wxString, PARAMETER_GROUP*> allParamInfos;
 		if (m_PrintMode == mode_global)
 		{
 			// todo: need to get the refrence ti refresh the total param info in param panel
@@ -3505,21 +4719,53 @@ void AnkerPrintParaItem::RefreashDependParamState(wxString strChangedOptionkey,i
 			return;
 		}
 		
-		bool bNeedRefreash = false;
-		for (int i = 0; i< parintParamMap[strChangedOptionkey].beDependedParamVec.size();i++)
+		bool bNeedRefresh = false; 
+		if (newValue.IsType("long"))
 		{
-			wxString strDependKey = parintParamMap[strChangedOptionkey].beDependedParamVec[i];
+			int newValueInt = newValue.GetInteger();
+			for (int i = 0; i < parintParamMap[strChangedOptionkey].beDependedParamVec.size(); i++)
+			{
+				wxString strDependKey = parintParamMap[strChangedOptionkey].beDependedParamVec[i];
+				if (allParamInfos.find(strDependKey) != allParamInfos.end())
+				{
+					bNeedRefresh = true;
+					PARAMETER_GROUP* info = allParamInfos[strDependKey];
+					SetParamDependency(*info, 0, 1, newValueInt);
+					info->m_pWindow->Enable(info->m_bEnable);
+					info->m_pLineSizer->Show(info->m_bShown);
+
+					auto itr = parintParamMap[strChangedOptionkey].beDependedParamDataMap.find(strDependKey);
+					if (itr != parintParamMap[strChangedOptionkey].beDependedParamDataMap.end())
+					{
+						//wxGetApp().plater()->sidebarnew()
+						m_pParamPanel->setItemValue(strDependKey, itr->second);
+					}
+
+					//refresh revert icon state
+					if (m_dirtyMap.find(strDependKey) == m_dirtyMap.end())
+					{
+						info->m_pBtn->Hide();
+					}
+				}
+				else
+				{
+					//ANKER_LOG_ERROR << "depended param key not found, please check the logic";
+					continue;
+				}
+			}
+		}
+
+		for (auto itr = parintParamMap[strChangedOptionkey].beDependedParamDataMap.begin(); itr != parintParamMap[strChangedOptionkey].beDependedParamDataMap.end(); itr++)
+		{
+			wxString strDependKey = itr->first;
 			if (allParamInfos.find(strDependKey) != allParamInfos.end())
 			{
-				bNeedRefreash = true;
-				PARAMETER_GROUP info = allParamInfos[strDependKey];
-				SetParamDepedency(info, 0, 1, iSetValue);
-				info.m_pWindow->Enable(info.bEnable);
-				info.pLineSizer->Show(info.bShown);
-				//refresh revert icon state
-				if (m_dirtyMap.find(strDependKey) == m_dirtyMap.end())
+				bNeedRefresh = true;
+
+				auto itr = parintParamMap[strChangedOptionkey].beDependedParamDataMap.find(strDependKey);
+				if (itr != parintParamMap[strChangedOptionkey].beDependedParamDataMap.end())
 				{
-					info.m_pBtn->Hide();
+					m_pParamPanel->setItemValue(strDependKey, itr->second);
 				}
 			}
 			else
@@ -3530,7 +4776,7 @@ void AnkerPrintParaItem::RefreashDependParamState(wxString strChangedOptionkey,i
 		}
 
 		// only UI would change will call layout 
-		if (bNeedRefreash)
+		if (bNeedRefresh)
 		{
 			wxWindowUpdateLocker updateLocker(this->GetParent());
 			this->GetParent()->Layout();
@@ -3595,7 +4841,7 @@ void AnkerPrintParaItem::SetItemVisible(Slic3r::GUI::ItemType type, Slic3r::Mode
 	auto refreshDepence = [&](const wxString &key) {
 		auto info = getWidgetValue(key);
 		int value = info.paramDataValue.GetInteger();
-		RefreashDependParamState(key, value);
+		//RefreshDependParamState(key, value);
 	};
 
 	auto is_dirty = [&](const wxString& key) {

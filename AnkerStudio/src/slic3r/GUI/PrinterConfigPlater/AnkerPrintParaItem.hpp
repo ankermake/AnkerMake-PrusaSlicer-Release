@@ -12,6 +12,7 @@
 #include "slic3r/GUI/ObjectDataViewModel.hpp"
 
 class wxOwnerDrawnComboBox;
+class AnkerParameterPanel;
 
 
 typedef struct tagGroupParamUIConfig {
@@ -37,6 +38,7 @@ public:
 		wxString title,
 		wxString tabTitle,
 		PrintParamMode printMode,
+		AnkerParameterPanel* panel, 
 		wxWindowID winid = wxID_ANY,
 	    bool local = true, bool layer_height = true, 
 		bool part = false, bool modifer = false,
@@ -51,6 +53,7 @@ public:
 	void updateModelParams(const PARAMETER_GROUP& paraGroup, wxVariant cfgData, const wxString& prusaKeyString, wxString& strLabel);
 	bool hsaDirtyData();
 
+	int setItemValue(PARAMETER_GROUP& itemParam, wxVariant newData, bool updateFlag = true);
 	ItemInfo getWidgetValue(const wxString& optionKey);
 	bool isExistOption(const wxString& optionKey);
 	void updateUi(const wxString& optionKey, wxVariant data, bool isReset = false);
@@ -60,13 +63,13 @@ public:
 	void clearDirtyData();
 	void showResetBtn(const wxString& optionKey, bool show = true);
 	bool isExceptionHadleEditParam(wxString strParamKey);
-	void HandleExceptionPram(wxString strParamKey, wxOwnerDrawnComboBox* pEditBox, wxString strValue ,std::map<wxString, PARAMETER_GROUP>::iterator paramInfoIter);
+	void HandleExceptionPram(wxString strParamKey, wxOwnerDrawnComboBox* pEditBox, wxString strValue , PARAMETER_GROUP& paramInfo);
 	// 
-	// iCheckDependStandard equal 0:  check satndard to be  dependedParamMap in DEPENDENCY_INFO struct
-	// iCheckDependStandard equal 1:  check satndard to be  dependedParamNewFormsMap in DEPENDENCY_INFO struct
+	// iCheckDependStandard equal 0:  check standard to be  dependedParamMap in DEPENDENCY_INFO struct
+	// iCheckDependStandard equal 1:  check standard to be  dependedParamNewFormsMap in DEPENDENCY_INFO struct
 	// chengeType equal 0: change from param change 
 	// chengeType equal 1: change from preset change 
-	void SetParamDepedency(PARAMETER_GROUP& paramInfo, int chengeType = 0, int iCheckDependStandard = 0, int iCheckValue = 0);
+	void SetParamDependency(PARAMETER_GROUP& paramInfo, int changeType = 0, int iCheckDependStandard = 0, int iCheckValue = 0);
 	// notes: if strParamKey not found in map ,this function will throw exception
 	PARAMETER_GROUP& GetParamDepenencyRef(wxString strParamKey);
 	
@@ -85,7 +88,7 @@ public:
 	int checkEditBoxInput(wxString strInput,wxString strParamKey,ItemDataType dataType,bool bHavePercent);
 	bool CheckExceptionParamValue(wxString strEditValue, wxString paramKey, wxString strUnit);
 	std::map<wxString, wxString> GetExceptionParamMap(wxString strParamKey);
-	std::map<wxString, PARAMETER_GROUP> GetGroupparamInfos() { return  m_optionParameterMap; }
+	std::map<wxString, PARAMETER_GROUP*> GetGroupparamInfos() { return  m_optionParameterMap; }
 	std::shared_ptr<GroupProperty> GetGroupProperty() const { return m_group_property; }
 	void SetItemVisible(Slic3r::GUI::ItemType type, Slic3r::ModelVolumeType volume_type);
 
@@ -107,13 +110,13 @@ protected:
 	wxString RemoveLeadingAndTrailingZeros(const wxString& strnum);
 
 	bool ValueCheck(const PARAMETER_GROUP& param, const wxString& value, wxString& newValue);
-	void RefreashDependParamState(wxString strChangedOptionkey, int iSetValue);
+	void RefreshDependParamState(wxString strChangedOptionkey, wxVariant newValue);
 	void ChangeMaxMinValueForPrinter(const wxString& optionKey, float& max, float& min);
 private:
 	void TestRemoveLeadingAndTrailingZeros();
 
 private:
-
+	AnkerParameterPanel* m_pParamPanel{ nullptr };
 	wxBoxSizer* m_pMainVSizer;
 	wxString m_icon;
 	wxString m_title;
@@ -121,7 +124,7 @@ private:
 	wxTimer* m_HightLightTimer{ nullptr };
 	wxStaticText* m_pCurrentLabel{ nullptr };
 	wxColour m_colour{ "#A9AAAB" };
-	std::map<wxString, PARAMETER_GROUP> m_optionParameterMap; // option_key - option_parameter map for this group
+	std::map<wxString, PARAMETER_GROUP*> m_optionParameterMap; // option_key - option_parameter map for this group
 	//add by alves for check if has changed data and notify to save the changeds
 	std::map<wxString, ItemDirtyData> m_dirtyMap;
 	AnkerParameterData m_parameterData;  //  data redundancy, it's wast of memery beacause each option group(AnkerPrintParaItem) heve one AnkerParameterData object

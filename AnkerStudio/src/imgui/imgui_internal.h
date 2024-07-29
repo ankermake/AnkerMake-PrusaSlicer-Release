@@ -2561,6 +2561,11 @@ namespace ImGui
     IMGUI_API bool          CheckboxFlags(const char* label, ImS64* flags, ImS64 flags_value);
     IMGUI_API bool          CheckboxFlags(const char* label, ImU64* flags, ImU64 flags_value);
 
+    IMGUI_API void          TextCentered(const char* text, ...);                            // formatted text
+    IMGUI_API void          TextAlignCenter(const char* label);
+    IMGUI_API void          TextV(const char* fmt, va_list args)                            IM_FMTLIST(1);
+
+
     // Widgets low-level behaviors
     IMGUI_API bool          ButtonBehavior(const ImRect& bb, ImGuiID id, bool* out_hovered, bool* out_held, ImGuiButtonFlags flags = 0);
     IMGUI_API bool          DragBehavior(ImGuiID id, ImGuiDataType data_type, void* p_v, float v_speed, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags);

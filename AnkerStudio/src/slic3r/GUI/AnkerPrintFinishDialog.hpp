@@ -24,15 +24,6 @@ public:
 		PRINT_FAIL_PANEL,
 	};
 
-	enum PrintStopReason
-	{
-		STOP_REASON_NONE = -1,
-		STOP_REASON_BOTTOM_LAYER_ADHESION = 0,
-		STOP_REASON_SPAGHETTI_MESS,
-		STOP_REASON_EXTRUDER_JAM,
-		STOP_REASON_GIVE_UP,
-	};
-
 	struct PrintFinishInfo
 	{
 		bool finishSuss = true;
@@ -75,18 +66,17 @@ private:
 	void UpdateAllQuilityScoreBtns( );
 	int GetBtnQuilityScore(wxBitmapButton* btn);
 
-	PrintStopReason GetPrintStopReasonFromBtn(AnkerBtn* button);
+	PrintStopReasonInfo GetPrintStopReasonFromBtn(AnkerBtn* button);
 	void UpdatePrintStopedReasonBtn();
 	void ReportPrintResult();
-
-
+	void UpdateFeedBackInfo();
 
 	void OnClickQualityScoreBtn(wxCommandEvent& event);
 	void OnEnterQualityScoreBtn(wxMouseEvent& event);
 	void OnLeaveQualityScoreBtn(wxMouseEvent& event);
 
 	void OnClickFeedbackHyperlink();
-
+	void OnClickFeedbackLearnMore();
 
 
 	void OnPrintStopedReasonBtnClick(wxCommandEvent& event);
@@ -99,32 +89,32 @@ private:
 
 private:
 	std::string m_currentDeviceSn;
-
-	AnkerTitledPanel* m_pTitledPanel;
 	wxColour m_dialogColor;
 	wxColour m_textLightColor;
 	wxColour m_textDarkColor;
 	wxColour m_LineColor;
 
+
 	DlgPanelType m_panelType{ PANEL_TYPE_NONE };
+	AnkerTitledPanel* m_pTitledPanel{ nullptr };
 
 	// success dialog 
-	wxPanel* m_pPrintSuccessPanel;
+	wxPanel* m_pPrintSuccessPanel { nullptr };
 
-	wxStaticBitmap* m_pPreviewImg;
-	wxStaticText* m_pGcodeFileNameText;
-	wxStaticText* m_pPercentageText;
-	wxStaticText* m_pFinishTimeStampText;
+	wxStaticBitmap* m_pPreviewImg { nullptr };
+	wxStaticText* m_pGcodeFileNameText { nullptr };
+	wxStaticText* m_pPercentageText { nullptr };
+	wxStaticText* m_pFinishTimeStampText { nullptr };
 
-	wxStaticText* m_pPrintTimeValText;
-	wxStaticText* m_pFilamentValText;
+	wxStaticText* m_pPrintTimeValText { nullptr };
+	wxStaticText* m_pFilamentValText { nullptr };
 
-	AnkerBtn* m_pRePrintBtn;
-	AnkerBtn* m_pFinishBtn;
+	AnkerBtn* m_pRePrintBtn { nullptr };
+	AnkerBtn* m_pFinishBtn { nullptr };
 
 
-	wxBitmap* m_bitmapUnmark;
-	wxBitmap* m_bitmapMark;
+	wxBitmap* m_bitmapUnmark { nullptr };
+	wxBitmap* m_bitmapMark { nullptr };
 	std::vector<wxBitmapButton*> m_QualityScoreBtns;
 	int m_qualityScore{ 0 };
 
@@ -132,25 +122,29 @@ private:
 
 
 	// print fail dialog
-	wxPanel* m_pPrintFailPanel;
+	wxPanel* m_pPrintFailPanel { nullptr };
 
-	wxBoxSizer* m_failStatusSizer;
-	wxStaticBitmap* m_pPreviewImg_fail;
-	wxStaticText* m_pGcodeFileNameText_fail;
-	wxStaticText* m_pPercentageText_fail;
-	wxStaticText* m_pFinishTimeStampText_fail;
+	wxBoxSizer* m_failStatusSizer { nullptr };
+	wxStaticBitmap* m_pPreviewImg_fail{ nullptr };
+	wxStaticText* m_pGcodeFileNameText_fail{ nullptr };
+	wxStaticText* m_pPercentageText_fail { nullptr };
+	wxStaticText* m_pFinishTimeStampText_fail { nullptr };
 
-	wxStaticText* m_pPrintTimeValText_fail;
-	wxStaticText* m_pFilamentValText_fail;
+	wxStaticText* m_pPrintTimeValText_fail { nullptr };
+	wxStaticText* m_pFilamentValText_fail { nullptr };
 
-	AnkerHyperlink* m_FeedBackHyperLink;
-	wxBoxSizer* m_PrintingFailReasonSizer;
-	std::vector<AnkerBtn*> m_printStopReasonBtns;
+	AnkerHyperlink* m_FeedBackHyperLink { nullptr };
+	wxBoxSizer* m_PrintingFailReasonSizer { nullptr };
+
+	wxStaticText* m_lable_desc { nullptr };
+	AnkerHyperlink* m_feedbackReadMore{ nullptr };
+	wxBoxSizer* m_PrintingFailFeedbackSizer { nullptr };
+	std::vector<std::pair<AnkerBtn*, PrintStopReasonInfo>>m_printStopReasonBtns;
 
 	AnkerBtn* m_pRePrintBtn_fail;
 	AnkerBtn* m_pFinishBtn_fail;
 
-	PrintStopReason m_printStopReason = STOP_REASON_NONE;
+	PrintStopReasonInfo m_printStopReason;
 
 };
 

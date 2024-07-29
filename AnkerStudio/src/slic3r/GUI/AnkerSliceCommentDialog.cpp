@@ -1,11 +1,11 @@
-#include "AnkerSliceConmentDialog.hpp"
+#include "AnkerSliceCommentDialog.hpp"
 
-wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_CONMENT_NOT_ASK, wxCommandEvent);
-wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_CONMENT_SUBMIT, wxCommandEvent);
-wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_CONMENT_CLOSE, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_COMMENT_NOT_ASK, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_COMMENT_SUBMIT, wxCommandEvent);
+wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_COMMENT_CLOSE, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_STAR_COUNTS_CHANGED, wxCommandEvent);
 
-AnkerConmentStar::AnkerConmentStar( wxWindow* parent,
+AnkerCommentStar::AnkerCommentStar( wxWindow* parent,
     wxWindowID winid /*= wxID_ANY*/,
     const wxPoint& pos /*= wxDefaultPosition*/,
     const wxSize& size /*= wxDefaultSize*/)    
@@ -14,7 +14,7 @@ AnkerConmentStar::AnkerConmentStar( wxWindow* parent,
     initUi();
 }
 
-AnkerConmentStar::~AnkerConmentStar()
+AnkerCommentStar::~AnkerCommentStar()
 {
     exitClearBtnImg();
     if (m_badStarBitmap)
@@ -29,7 +29,7 @@ AnkerConmentStar::~AnkerConmentStar()
     }    
 }
 
-void AnkerConmentStar::initUi()
+void AnkerCommentStar::initUi()
 {    
     SetBackgroundColour(wxColour("#333438"));
     wxBoxSizer* pMainHsizer = new wxBoxSizer(wxHORIZONTAL);
@@ -75,11 +75,11 @@ void AnkerConmentStar::initUi()
     setBtnImg(m_pStarFourthBtn, m_badStarBitmap);
     setBtnImg(m_pStarFifthBtn, m_badStarBitmap);
 
-    m_pStarFirstBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerConmentStar::onBtnClick, this);
-    m_pStarSecondBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerConmentStar::onBtnClick, this);
-    m_pStarThirdBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerConmentStar::onBtnClick, this);
-    m_pStarFourthBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerConmentStar::onBtnClick, this);
-    m_pStarFifthBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerConmentStar::onBtnClick, this);
+    m_pStarFirstBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerCommentStar::onBtnClick, this);
+    m_pStarSecondBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerCommentStar::onBtnClick, this);
+    m_pStarThirdBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerCommentStar::onBtnClick, this);
+    m_pStarFourthBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerCommentStar::onBtnClick, this);
+    m_pStarFifthBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, &AnkerCommentStar::onBtnClick, this);
 
     pMainHsizer->AddStretchSpacer();
     pMainHsizer->Add(m_pStarFirstBtn, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
@@ -96,7 +96,7 @@ void AnkerConmentStar::initUi()
     SetSizer(pMainHsizer);
 }
 
-void AnkerConmentStar::setBtnImg(AnkerBtn* pBtn, wxBitmap* Img)
+void AnkerCommentStar::setBtnImg(AnkerBtn* pBtn, wxBitmap* Img)
 {
     if (!pBtn || !Img)
         return;
@@ -107,7 +107,7 @@ void AnkerConmentStar::setBtnImg(AnkerBtn* pBtn, wxBitmap* Img)
     pBtn->SetDisableImg(Img);
 }
 
-void AnkerConmentStar::resetStar()
+void AnkerCommentStar::resetStar()
 {
     setBtnImg(m_pStarFirstBtn, m_badStarBitmap);
     setBtnImg(m_pStarSecondBtn, m_badStarBitmap);
@@ -118,7 +118,7 @@ void AnkerConmentStar::resetStar()
     m_starCounts = 0;
 }
 
-void AnkerConmentStar::exitClearBtnImg()
+void AnkerCommentStar::exitClearBtnImg()
 {
     m_pStarFirstBtn->clearImg();
     m_pStarSecondBtn->clearImg();
@@ -126,12 +126,12 @@ void AnkerConmentStar::exitClearBtnImg()
     m_pStarFourthBtn->clearImg();
     m_pStarFifthBtn->clearImg();
 }
-int AnkerConmentStar::getStarCounts()
+int AnkerCommentStar::getStarCounts()
 {
     return m_starCounts;
 }
 
-void AnkerConmentStar::onBtnClick(wxCommandEvent& event)
+void AnkerCommentStar::onBtnClick(wxCommandEvent& event)
 {
     AnkerBtn* senderObjt = dynamic_cast<AnkerBtn*>(event.GetEventObject());
     if (!senderObjt)
@@ -201,7 +201,7 @@ void AnkerConmentStar::onBtnClick(wxCommandEvent& event)
     Refresh();
 }
 
-AnkerSliceConmentDialog::AnkerSliceConmentDialog(wxWindow* parent, wxString content)
+AnkerSliceCommentDialog::AnkerSliceCommentDialog(wxWindow* parent, wxString content)
     : wxDialog(parent, wxID_ANY, _L("common_star_conment_title"))//_L("Rate Your Experience"))
 {
     SetBackgroundColour(wxColor(41, 42, 45));    
@@ -209,12 +209,12 @@ AnkerSliceConmentDialog::AnkerSliceConmentDialog(wxWindow* parent, wxString cont
     initEvent();
 }
 
-AnkerSliceConmentDialog::~AnkerSliceConmentDialog()
+AnkerSliceCommentDialog::~AnkerSliceCommentDialog()
 {
 
 }
 
-void AnkerSliceConmentDialog::checkSubmitBtn()
+void AnkerSliceCommentDialog::checkSubmitBtn()
 {
     int starCount = m_pStarPanel->getStarCounts();
     if (starCount > 0) {
@@ -227,33 +227,33 @@ void AnkerSliceConmentDialog::checkSubmitBtn()
     }
 }
 
-void AnkerSliceConmentDialog::initEvent()
+void AnkerSliceCommentDialog::initEvent()
 {        
     //clear hint text
-    m_pConmentTextCtrl->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {
-        auto hint = m_pConmentTextCtrl->GetHint();
-        auto text = m_pConmentTextCtrl->GetValue();
+    m_pCommentTextCtrl->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {
+        auto hint = m_pCommentTextCtrl->GetHint();
+        auto text = m_pCommentTextCtrl->GetValue();
         if (hint == text) {
-            m_pConmentTextCtrl->SetValue("");
+            m_pCommentTextCtrl->SetValue("");
         }
         Update();
         Refresh();
         Layout();
         event.Skip();
         });
-    m_pConmentTextCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
-        auto text = m_pConmentTextCtrl->GetValue();
+    m_pCommentTextCtrl->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
+        auto text = m_pCommentTextCtrl->GetValue();
         if (text.Length() > 5000) {
             text = text.Left(5000);
-            m_pConmentTextCtrl->SetValue(text);
-            m_pConmentTextCtrl->SetInsertionPointEnd();
+            m_pCommentTextCtrl->SetValue(text);
+            m_pCommentTextCtrl->SetInsertionPointEnd();
         }
         //checkOkBtn();
         event.Skip();
         });    
 }
 
-void AnkerSliceConmentDialog::initUi()
+void AnkerSliceCommentDialog::initUi()
 {
     SetBackgroundColour(wxColour("#333438"));
     wxStaticText* pLine = new wxStaticText(this, wxID_ANY, "");
@@ -270,7 +270,6 @@ void AnkerSliceConmentDialog::initUi()
 
     wxBoxSizer *pSumitPanelHSizer = new wxBoxSizer(wxHORIZONTAL);
     wxBoxSizer *pSumitPanelVSizer = new wxBoxSizer(wxVERTICAL);
-    
     m_pMainVSizer->Add(pLine);
 
     //m_strSuggestion = "We'd love your feedback! How would you rate your experience with AnkerMake Studio V3.1.20?";
@@ -278,24 +277,24 @@ void AnkerSliceConmentDialog::initUi()
     versionInfo +=SLIC3R_VERSION;
 
     m_strSuggestion = wxString::Format(_L("common_star_conment_content"), versionInfo);
-    m_strSuggestion = Slic3r::GUI::WrapEveryCharacter(m_strSuggestion, ANKER_FONT_NO_1, AnkerLength(350));
-    wxStaticText* pConmentTitle = new wxStaticText(m_sumitPanel, 
+    m_strSuggestion = Slic3r::GUI::WrapFixWidth(m_strSuggestion, ANKER_FONT_NO_1, AnkerLength(333));
+    wxStaticText* pCommentTitle = new wxStaticText(m_sumitPanel, 
                                                     wxID_ANY,
                                                     "",
                                                     wxDefaultPosition, 
                                                     wxDefaultSize,
                                                     wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL);
-
-    pConmentTitle->SetMaxSize(AnkerSize(350,70));
-    pConmentTitle->SetMinSize(AnkerSize(350,70));
-    pConmentTitle->SetSize(AnkerSize(350,70));
-    pConmentTitle->SetBackgroundColour(wxColour("#333438"));
-    pConmentTitle->SetForegroundColour(wxColour("#ADAEAF"));
-    pConmentTitle->SetFont(ANKER_FONT_NO_1);   
-    pConmentTitle->SetLabelText(m_strSuggestion);
+    pCommentTitle->SetMaxSize(AnkerSize(340,70));
+    pCommentTitle->SetMinSize(AnkerSize(340,70));
+    pCommentTitle->SetSize(AnkerSize(340,70));
+    
+    pCommentTitle->SetBackgroundColour(wxColour("#333438"));
+    pCommentTitle->SetForegroundColour(wxColour("#ADAEAF"));
+    pCommentTitle->SetFont(ANKER_FONT_NO_1);
+    pCommentTitle->SetLabelText(m_strSuggestion);
 
     //star
-    m_pStarPanel = new AnkerConmentStar(m_sumitPanel, wxID_ANY);
+    m_pStarPanel = new AnkerCommentStar(m_sumitPanel, wxID_ANY);
     m_pStarPanel->SetMaxSize(AnkerSize(150,20));
     m_pStarPanel->SetMinSize(AnkerSize(150, 20));
     m_pStarPanel->SetSize(AnkerSize(150, 20));
@@ -307,20 +306,30 @@ void AnkerSliceConmentDialog::initUi()
     pStarHSizer->Add(m_pStarPanel, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
     pStarHSizer->AddStretchSpacer();
 
-    m_pConmentTextCtrl = new wxRichTextCtrl(m_sumitPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_CHARWRAP | wxBORDER_NONE);
-    m_pConmentTextCtrl->SetBackgroundColour(wxColour("#292A2D"));    
-    m_pConmentTextCtrl->SetMaxLength(3000);
+    m_pCommentTextCtrl = new wxRichTextCtrl(m_sumitPanel, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_WORDWRAP | wxBORDER_NONE);
+    m_pCommentTextCtrl->SetBackgroundColour(wxColour("#292A2D"));    
+    m_pCommentTextCtrl->SetMaxLength(3000);
     wxRichTextAttr attr;
     attr.SetTextColour(*wxWHITE);
-    m_pConmentTextCtrl->SetEditable(true);
-    m_pConmentTextCtrl->SetBasicStyle(attr);
-    //m_pConmentTextCtrl->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {});
-    m_pConmentTextCtrl->SetFont(ANKER_FONT_NO_1);
-    m_pConmentTextCtrl->SetMaxSize(AnkerSize(350, 160));
-    m_pConmentTextCtrl->SetMinSize(AnkerSize(350, 160));
-    m_pConmentTextCtrl->SetSize(AnkerSize(350, 160));
-    //m_pConmentTextCtrl->SetHint(_L("Tell us more about your feeling, we will contact you directly if you have the complain about the slicer. (Optional)"));   
-    m_pConmentTextCtrl->SetHint(_L("common_star_conment_placed_text"));   
+    m_pCommentTextCtrl->SetEditable(true);
+    m_pCommentTextCtrl->SetBasicStyle(attr);
+    //m_pCommentTextCtrl->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& event) {});
+    m_pCommentTextCtrl->SetFont(ANKER_FONT_NO_1);
+    
+
+    
+#ifdef __APPLE__
+    m_pCommentTextCtrl->SetMaxSize(AnkerSize(300, 160));
+    m_pCommentTextCtrl->SetMinSize(AnkerSize(300, 160));
+    m_pCommentTextCtrl->SetSize(AnkerSize(300, 160));
+#else
+    m_pCommentTextCtrl->SetMaxSize(AnkerSize(320, 160));
+    m_pCommentTextCtrl->SetMinSize(AnkerSize(320, 160));
+    m_pCommentTextCtrl->SetSize(AnkerSize(320, 160));
+#endif
+    
+    //m_pCommentTextCtrl->SetHint(_L("Tell us more about your feeling, we will contact you directly if you have the complain about the slicer. (Optional)"));   
+    m_pCommentTextCtrl->SetHint(_L("common_star_conment_placed_text"));   
 
     wxCursor handCursor(wxCURSOR_HAND);
     m_pDonotAskBtn = new AnkerBtn(m_sumitPanel, wxID_ANY);
@@ -335,11 +344,11 @@ void AnkerSliceConmentDialog::initUi()
     m_pDonotAskBtn->SetCursor(handCursor);
     m_pDonotAskBtn->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this] (wxCommandEvent & event) {
         m_isUserClose = false;
-        wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CONMENT_NOT_ASK);
+        wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_COMMENT_NOT_ASK);
         ProcessEvent(evt);  
         m_finishedPanel->Hide();
         m_sumitPanel->Show();
-        m_pConmentTextCtrl->SetHint(_L("common_star_conment_placed_text"));
+        m_pCommentTextCtrl->SetHint(_L("common_star_conment_placed_text"));
         m_pStarPanel->resetStar();        
         this->EndModal(wxID_CLOSE);
     });
@@ -363,13 +372,13 @@ void AnkerSliceConmentDialog::initUi()
         Refresh();
         Layout();
         m_isUserClose = false;
-        wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CONMENT_SUBMIT);
+        wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_COMMENT_SUBMIT);
         wxVariant eventData;
         eventData.ClearList();
 
-        wxString data = m_pConmentTextCtrl->GetValue();
-        auto hint = m_pConmentTextCtrl->GetHint();
-        auto text = m_pConmentTextCtrl->GetValue();
+        wxString data = m_pCommentTextCtrl->GetValue();
+        auto hint = m_pCommentTextCtrl->GetHint();
+        auto text = m_pCommentTextCtrl->GetValue();
         if (hint == text) {
             data = "";
         }
@@ -390,11 +399,11 @@ void AnkerSliceConmentDialog::initUi()
     pBtnHSizer->AddStretchSpacer();
 
     pSumitPanelVSizer->AddSpacer(AnkerLength(24));
-    pSumitPanelVSizer->Add(pConmentTitle, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
+    pSumitPanelVSizer->Add(pCommentTitle, wxALIGN_CENTER | wxEXPAND, wxALIGN_CENTER | wxEXPAND, 0);
     pSumitPanelVSizer->AddSpacer(AnkerLength(16));
     pSumitPanelVSizer->Add(pStarHSizer, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
     pSumitPanelVSizer->AddSpacer(AnkerLength(12));
-    pSumitPanelVSizer->Add(m_pConmentTextCtrl, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
+    pSumitPanelVSizer->Add(m_pCommentTextCtrl, wxALIGN_CENTER | wxEXPAND, wxALIGN_CENTER | wxEXPAND, 0);
     pSumitPanelVSizer->AddSpacer(AnkerLength(24));
     pSumitPanelVSizer->Add(pBtnHSizer, wxALL | wxEXPAND, wxALL | wxEXPAND, 0);
     pSumitPanelVSizer->AddSpacer(AnkerLength(16));
@@ -468,7 +477,7 @@ void AnkerSliceConmentDialog::initUi()
         this->Hide();
         m_finishedPanel->Hide();
         m_sumitPanel->Show();
-        m_pConmentTextCtrl->SetHint(_L("common_star_conment_placed_text"));
+        m_pCommentTextCtrl->SetHint(_L("common_star_conment_placed_text"));
         m_pStarPanel->resetStar();
         m_isUserClose = false;
         Update();
@@ -506,9 +515,9 @@ void AnkerSliceConmentDialog::initUi()
         {        
             m_finishedPanel->Hide();
             m_sumitPanel->Show();
-            m_pConmentTextCtrl->SetHint(_L("common_star_conment_placed_text"));
+            m_pCommentTextCtrl->SetHint(_L("common_star_conment_placed_text"));
             m_pStarPanel->resetStar();
-            wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_CONMENT_CLOSE);
+            wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_COMMENT_CLOSE);
             ProcessEvent(evt);
         }
         event.Skip();

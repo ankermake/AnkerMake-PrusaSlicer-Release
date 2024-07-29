@@ -119,6 +119,7 @@ typedef struct _DEPENDENCY_INFO
 	std::map<wxString,wxString> dependedParamMap; //key --> condition
 	std::map<wxString, int> dependedParamNewFormsMap;//key --> condition but condition as int type
 	std::vector<wxString> beDependedParamVec;
+	std::map<wxString, wxVariant> beDependedParamDataMap;//key --> condition but condition as wxVariant type
 	Dependency_Type depencyType = Type_None;
 }*pDEPENDENCY_INFO, DEPENDENCY_INFO;
 
@@ -128,15 +129,16 @@ typedef struct _PARAMETER_GROUP
 	wxStaticText* m_pLabel = nullptr;
 	ItemDataType m_dataType = Item_int;
 	wxWindow* m_pWindow = nullptr;
-	wxBoxSizer* pLineSizer= nullptr; // the hole line sizer of the param.
+	wxBoxSizer* m_pLineSizer= nullptr; // the hole line sizer of the param.
 	ScalableButton* m_pBtn = nullptr;
-	wxString m_UIvalue = "";
+	wxVariant m_UIvalue = "";
 	wxString m_unit = "";
 	wxString m_optionTip = "";
 	ControlType m_type;
-	bool bEnable = true;
-	bool bShown = true;
-	DEPENDENCY_INFO dependencyInfo;
+	bool m_bEnable = true;
+	bool m_bShown = true;
+	bool m_bIsMultiStr = false;
+	DEPENDENCY_INFO m_dependencyInfo;
 }*pPARAMETER_GROUP, PARAMETER_GROUP;
 
 

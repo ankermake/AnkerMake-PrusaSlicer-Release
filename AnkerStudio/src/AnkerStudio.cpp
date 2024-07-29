@@ -249,11 +249,18 @@ int CLI::run(int argc, char **argv)
 #endif // ENABLE_GL_CORE_PROFILE
 
     // Read input file(s) if any.
-    for (const std::string& file : m_input_files)
+    for (const std::string& file : m_input_files) {
         if (is_gcode_file(file) && boost::filesystem::exists(file)) {
+            ANKER_LOG_INFO << "It's gcode file:" << file;
             start_as_gcodeviewer = true;
             break;
         }
+        if (is_acode_file(file) && boost::filesystem::exists(file)) {
+            ANKER_LOG_INFO << "It's acode file:" << file;
+            start_as_gcodeviewer = true;
+            break;
+        }
+    }
     if (!start_as_gcodeviewer) {
         for (const std::string& file : m_input_files) {
             if (boost::starts_with(file, "ankerstudio://")) {

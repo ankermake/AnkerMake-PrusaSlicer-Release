@@ -205,6 +205,8 @@ void PrintObject::make_perimeters()
                                 offset(slice.expolygon, float(- perimeters_thickness)),
                                 offset(slice.expolygon, float(- perimeters_thickness - critical_area_depth))
                             );
+                            if (critical_area.empty())
+                                break;
                             // check whether a portion of the upper slices falls inside the critical area
                             const Polylines intersection = intersection_pl(to_polylines(upper_layerm_polygons), critical_area);
                             // only add an additional loop if at least 30% of the slice loop would benefit from it

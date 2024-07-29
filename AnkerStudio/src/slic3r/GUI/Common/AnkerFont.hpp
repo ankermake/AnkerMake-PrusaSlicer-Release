@@ -22,6 +22,7 @@ public:
 	wxFont Font_Body_14;
 	wxFont Font_Body_12;
 	wxFont Font_Body_10;
+	wxFont Font_Body_13;
 };
 
 typedef Singleton<AnkerGlobalFont> AnkerFontSingleton;
@@ -30,6 +31,7 @@ typedef Singleton<AnkerGlobalFont> AnkerFontSingleton;
 #define Head_12  AnkerFontSingleton::getInstance().Font_Head_12
 
 #define Body_14  AnkerFontSingleton::getInstance().Font_Body_14
+#define Body_13  AnkerFontSingleton::getInstance().Font_Body_13
 #define Body_12  AnkerFontSingleton::getInstance().Font_Body_12
 #define Body_10  AnkerFontSingleton::getInstance().Font_Body_10
 

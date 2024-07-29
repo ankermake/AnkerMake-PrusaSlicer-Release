@@ -363,7 +363,7 @@ void Field::get_value_by_opt_type(wxString& str, const bool check_value/* = true
                 std::string printModel = printer_preset.config.opt_string("printer_model");
                 std::vector<double> nozzle_diameters = static_cast<const ConfigOptionFloats*>(printer_preset.config.option("nozzle_diameter"))->values;                
                 if (nozzle_diameters.size() == 1) {
-                    if ((printModel == "M5C" || printModel == "M5") && (nozzle_diameters[0] == 0.4 || nozzle_diameters[0] == 0.2)) {
+                    if ((printModel == "M5C" || printModel == "M5" || printModel == "M5 All Metal Hotend") && (nozzle_diameters[0] == 0.4 || nozzle_diameters[0] == 0.2)) {
                          max = 80.0f;
                     }
                 }

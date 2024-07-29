@@ -42,10 +42,14 @@ public:
 		bool isBlock = false,
 		unsigned int nTimeOut = 600) = 0;
 
+	//get current env type
+	virtual int getCurrentEnvironmentType() = 0;
 	//post feedback by http
 	//it is a async interface
 	virtual void AsyPostFeedBack(FeedBackInfo info) = 0;
-	virtual void AsyPostGetPrintStopReasons(PrintStopReasons &reasons) = 0;
+	virtual void PostGetPrintStopReasons(PrintStopReasons &reasons, const std::string& station_sn) = 0;
+	// post get slice tips by http
+	virtual inline bool PostGetSliceTips(SliceTips& sliceTips) = 0;
 
 	//set callback for Recover Curl , triggered when curl return CURLE_COULDNT_RESOLVE_HOST
 	virtual void SetCallback_RecoverCurl(NormalCallBack callback) = 0;
@@ -53,10 +57,16 @@ public:
 	virtual void SetCallback_OtaInfoRecv(CallBack_OtaInfoRecv callback) = 0;
 	//set callback for update filament info , triggered when receive filament info and is newer than local
 	virtual void SetCallback_FilamentRecv(NormalCallBack callback) = 0;
-	virtual void SetCallback_ConmentFlagsRecv(ConmentFlagsCallBack callback) = 0;
+	virtual void SetCallback_GetMsgCenterConfig(CallBack_MsgCenterCfg callback) = 0;
+	virtual void SetCallback_GetMsgCenterRecords(CallBack_MsgCenterRecords callback) = 0;
+	virtual void SetCallback_GetMsgCenterErrorCodeInfo(CallBack_MsgCenterErrCodeInfo callback) = 0;
+	virtual void SetCallback_GetMsgCenterStatus(CallBack_MsgCenterStatus callback) = 0;	
+	virtual void SetCallback_CommentFlagsRecv(CommentFlagsCallBack callback) = 0;
 	//set callback for process http error , triggered when http interface return error
 	virtual void SetsendSigHttpError(sendSigHttpError_T function) = 0;
 
+	virtual void GetMsgCenterRecords(const int& newType, const int& num, const int& page,bool isSyn = false) = 0;
+	virtual void GetMsgCenterStatus() = 0;
 	//get nick name of user
 	virtual std::string GetNickName() = 0;
 	//get download url of Avatar of user
@@ -81,9 +91,11 @@ public:
 
 	//check whether user is logined
 	virtual bool IsLogined() = 0;
+	//remove msg item by msgids
+	virtual void removeMsgByIds(const std::vector<int>& msgList,bool isSyn = false) = 0;
 	//log out and clear data and status
 	virtual void logout() = 0;
-
+	virtual void logoutToServer() = 0;
 	//refresh device list
 	//it is a async interface
 	virtual void AsyRefreshDeviceList() = 0;
@@ -148,7 +160,7 @@ public:
 	//get user info
 	virtual std::string GetUserInfo() = 0;
 
-	virtual void reportConmentData(StarConmentData data) = 0;
+	virtual void reportCommentData(StarCommentData data) = 0;
 
 	// process something after web login finish 
 	virtual void ProcessWebLoginFinish() = 0;

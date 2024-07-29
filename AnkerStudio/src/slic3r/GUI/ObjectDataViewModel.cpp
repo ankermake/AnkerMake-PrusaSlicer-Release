@@ -1845,13 +1845,17 @@ ModelConfig* ObjectDataViewModel::GetModelConfig(const wxDataViewItem& item)
         return model_config;
     }
 
-    const int obj_idx = this->GetObjectIdByItem(item);
-    assert(obj_idx >= 0);
-    if (!wxGetApp().plater()) {
+    auto plater = wxGetApp().plater();
+    if (!plater) {
         return model_config;
     }
 
-    auto object = wxGetApp().plater()->model().objects[obj_idx];
+    const int obj_idx = this->GetObjectIdByItem(item);
+    if (obj_idx < 0 || obj_idx >= plater->model().objects.size()) {
+        return model_config;
+    }
+
+    auto object = plater->model().objects[obj_idx];
     if (type & itObject) {
         model_config = &object->config;
     }

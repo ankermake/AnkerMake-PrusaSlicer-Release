@@ -135,7 +135,7 @@
 #include "AnkerNetModule/HttpTool.h"
 #include "AnkerNetBase.h"
 #include <slic3r/GUI/AnkerNetModule/AnkerNetDownloadDialog.h>
-
+#include "HintNotification.hpp"
 
 // The default retention log is 7 days
 #define LOG_SAVE_DAYS  7
@@ -196,6 +196,133 @@ extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& 
 	}
 
 	return wrapStr;
+}
+
+extern wxString WrapFixWidth(const wxString& str, wxFont font, const int& lineLength)
+{
+    wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
+    dc.SetFont(font);
+    wxSize size = dc.GetTextExtent(str);
+
+    wxString wrapStr;
+    int tmpWidth = 0;
+    for (size_t i = 0; i < str.length(); i++) {
+        wxSize tmpSize = dc.GetTextExtent(str[i]);
+        tmpWidth += tmpSize.x;
+        if (tmpWidth < lineLength) {
+            wrapStr += str[i];
+        }
+        else {
+            wrapStr += '\n';
+            wrapStr += str[i];
+            tmpWidth = 0;
+        }
+    }
+
+    return wrapStr;
+}
+
+extern wxString WrapFixWidthAdvance(const wxString& str, wxFont font, const int& lineLength, std::string language)
+{
+    wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
+    dc.SetFont(font);
+    wxSize size = dc.GetTextExtent(str);
+
+    if (language == "en") {
+        wxString wrapStr;
+        int tmpWidth = 0;
+        wxArrayString words = wxSplit(str, ' ');
+        for (const auto& word : words) {
+            wxSize tmpSize = dc.GetTextExtent(word + " ");
+            tmpWidth += tmpSize.x;
+            if (tmpWidth < lineLength) {
+                wrapStr += word;
+                wrapStr += " ";
+            } else {
+                wrapStr += '\n';
+                wrapStr += word;
+                wrapStr += " ";
+                tmpWidth = 0;
+            }
+        }
+        return wrapStr;
+    }
+
+    if (language == "ja") {
+        wxString wrapStr;
+        int tmpWidth = 0;
+        for (size_t i = 0; i < str.length(); i++) {
+            wxSize tmpSize = dc.GetTextExtent(str[i]);
+            tmpWidth += tmpSize.x;
+            if (tmpWidth < lineLength) {
+                wrapStr += str[i];
+            } else {
+                wrapStr += '\n';
+                wrapStr += str[i];
+                tmpWidth = 0;
+            }
+        }
+        return wrapStr;
+    }
+    return "";
+}
+
+extern wxString WrapFixWidthAdvance(const wxString& str, wxFont font, const int& lineLength)
+{
+    wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
+    dc.SetFont(font);
+    wxSize size = dc.GetTextExtent(str);
+
+    auto isJapaneseCharacter = [=](wchar_t ch) -> bool {
+        return (ch >= 0x3040 && ch <= 0x309F) || // Hiragana
+            (ch >= 0x30A0 && ch <= 0x30FF) || // Katakana
+            (ch >= 0x4E00 && ch <= 0x9FBF) || // Kanji (CJK Unified Ideographs)
+            (ch >= 0xFF66 && ch <= 0xFF9D);   // Half-width Katakana
+    };
+    auto isJapanese = [=](const wxString& str) ->bool {
+        for (size_t i = 0; i < str.length(); ++i) {
+            if (isJapaneseCharacter(str[i])) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (isJapanese(str)) {
+        wxString wrapStr;
+        int tmpWidth = 0;
+        for (size_t i = 0; i < str.length(); i++) {
+            wxSize tmpSize = dc.GetTextExtent(str[i]);
+            tmpWidth += tmpSize.x;
+            if (tmpWidth < lineLength) {
+                wrapStr += str[i];
+            } else {
+                wrapStr += '\n';
+                wrapStr += str[i];
+                tmpWidth = 0;
+            }
+        }
+        return wrapStr;
+    } else { // it is English
+        wxString wrapStr;
+        int tmpWidth = 0;
+        wxArrayString words = wxSplit(str, ' ');
+        for (const auto& word : words) {
+            wxSize tmpSize = dc.GetTextExtent(word + " ");
+            tmpWidth += tmpSize.x;
+            if (tmpWidth < lineLength) {
+                wrapStr += word;
+                wrapStr += " ";
+            } else {
+                wrapStr += '\n';
+                wrapStr += word;
+                wrapStr += " ";
+                tmpWidth = 0;
+            }
+        }
+        return wrapStr;
+    }
+    return "";
 }
 
 class SplashScreen : public wxSplashScreen
@@ -1506,7 +1633,7 @@ bool GUI_App::on_init_inner()
     onlinePresetManager()->CheckAndUpdate();
     
     DatamangerUi::GetInstance().LoadNetLibrary(nullptr, true);
-
+    HintDatabase::get_instance().reinit();
     SplashScreen* scrn = nullptr;
     if (app_config->get_bool("show_splash_screen")) {
         // make a bitmap with dark grey banner on the left side
@@ -1724,12 +1851,15 @@ bool GUI_App::on_init_inner()
     setBuryHeaderList(headerList);
 
     std::string envir = "US";
-    if (mainframe->m_currentEnvir == EN_ENVIR)
+    if (mainframe->m_currentEnvir == EU_ENVIR)
         envir = "EU";
     else if(mainframe->m_currentEnvir == QA_ENVIR)
         envir = "QA";
-    else
+    else if(mainframe->m_currentEnvir == US_ENVIR)
         envir = "US";
+    else
+        envir = "CI";
+
     setPluginParameter("", envir,"", para.Openudid);
 
     reportBuryEvent(e_start_soft, buryMap);
@@ -4398,7 +4528,7 @@ void GUI_App::readDownloadFile()
 {
     while (!m_bReadUrlStop.load()) {
         autoDeleteUrlFile();
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     }
 }
 

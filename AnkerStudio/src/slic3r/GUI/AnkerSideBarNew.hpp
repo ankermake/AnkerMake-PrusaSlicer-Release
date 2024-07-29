@@ -1,6 +1,7 @@
 #ifndef _ANKER_SIDEBAR_NEW_HPP_
 #define _ANKER_SIDEBAR_NEW_HPP_
 
+#include "slic3r/GUI/NozzlePriorPresent/NozzlePriorityQueue.hpp"
 #include <memory>
 #include <vector>
 
@@ -20,10 +21,10 @@ class wxScrolledWindow;
 class wxString;
 class AnkerBitmapCombox;
 
-enum CurrentPane
+enum CurrentPanelMode
 {
-    PANEL_RIGHT_MENU_PARAMETER = 0,
-    PANEL_PARAMETER_PANEL = 1,
+    PANEL_MODEL_PARAMETER = 0,
+    PANEL_GLOBAL_PARAMETER = 1,
     PANEL_OTHER_PARAMETER = 2,
 };
 
@@ -212,7 +213,9 @@ namespace Slic3r {
             void SetCurrentModelConfig(Slic3r::ModelConfig* config, ObjectDataViewModelNode* node, bool bUpdate = false);
             void HideLocalParamPanel();
             void SwitchParamPanelMode(bool show);
-            wxWindow* GetItemParameterPanel();
+            CurrentPanelMode GetCurrentParamPanelMode() { return m_currentParamPanelMode; }
+            AnkerParameterPanel* GetGlobalParameterPanel();
+            AnkerParameterPanel* GetModelParameterPanel();
             
             void updatePresets(Slic3r::Preset::Type preset_type);
             void onExtrudersChange(size_t changedExtruderNums = 0);
@@ -242,9 +245,9 @@ namespace Slic3r {
             void jump_to_option(const std::string& opt_key, Preset::Type type, const std::wstring& category);
             void search();
             void getItemList(wxStringList& list, ControlListType listType);
-            void setItemValue(const wxString tabName, const wxString& widgetLabel, wxVariant data);
             void openSupportMaterialPage(wxString itemName, wxString text);
-            void setItemSupportValue(const wxString tabName, const wxString& configOptionKey, bool value);
+            void setGlobalParamItemValue(const wxString tabName, const wxString& widgetLabel, wxVariant data);
+            void setObjectParamItemValue(const wxString tabName, const wxString& configOptionKey, wxVariant data);
             void setCalibrationValue(const wxString& configOptionKey, wxVariant value, ConfigOption* option);
 
             // set load file flag
@@ -268,12 +271,16 @@ namespace Slic3r {
             void set_layer_height_sizer(wxBoxSizer* sizer, bool layer_root = true);
             void detach_layer_height_sizer();
 
-            std::map < wxString, PARAMETER_GROUP> getGlobalParamInfo();
-            std::map < wxString, PARAMETER_GROUP> getModelParamInfo();
+            std::map < wxString, PARAMETER_GROUP*> getGlobalParamInfo();
+            std::map < wxString, PARAMETER_GROUP*> getModelParamInfo();
         private:
             void updateFilamentEditDlgPos();
             void modifyExtrudersInfo(const std::vector<SFilamentEditInfo> filamentInfoList, 
                 bool bRemove = false, int removeIndex = 0);
+            void updateNozzle();
+            void startUpUpdateNozzle();
+            void noStartUpUpdateNozzle();
+
             void updateAllPresetComboboxes();
             void getEditFilamentFromCfg(size_t changedExtruderNums = 0);
             void getAllFilamentFromCfg();
@@ -336,7 +343,7 @@ namespace Slic3r {
             wxDECLARE_EVENT_TABLE();
 
             wxString m_sizerFlags = "";
-            CurrentPane m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
+            CurrentPanelMode m_currentParamPanelMode = PANEL_GLOBAL_PARAMETER;
             std::atomic_bool m_bLoadProjectFile{ false };
             wxTimer m_timer;
         };

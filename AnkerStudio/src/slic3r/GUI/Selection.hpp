@@ -325,7 +325,6 @@ public:
     std::pair<BoundingBoxf3, Transform3d> get_bounding_box_in_reference_system(ECoordinatesType type) const;
 
     void setup_cache();
-
     void translate(const Vec3d& displacement, TransformationType transformation_type);
     void rotate(const Vec3d& rotation, TransformationType transformation_type);
     void flattening_rotate(const Vec3d& normal);

@@ -3444,9 +3444,9 @@ void GCodeViewer::render_legend(float& legend_height)
     ImGui::SetNextWindowBgAlpha(0.6f);
 
 #ifdef __APPLE__
-    const float wind_width = 700;
+    const float wind_width = 750;
 #else
-    const float wind_width = 350 * wxGetApp().em_unit() * 0.1;
+    const float wind_width = 400 * wxGetApp().em_unit() * 0.1;
 #endif
     const float max_height = 0.75f * static_cast<float>(cnv_size.get_height());
     const float child_height = 0.3333f * max_height;
@@ -3868,7 +3868,11 @@ void GCodeViewer::render_legend(float& legend_height)
             select_item = i;
     }
 
-    imgui.combo(std::string(""), view_type_display, select_item, ImGuiComboFlags_HeightLargest);
+#ifdef __APPLE__
+    imgui.combo(std::string(""), view_type_display, select_item, ImGuiComboFlags_HeightLargest, 620, 620);
+#else
+    imgui.combo(std::string(""), view_type_display, select_item, ImGuiComboFlags_HeightLargest, 320, 320);
+#endif // __APPLE__
     if (select_item < view_type_display.size())
         view_type = viewType_for_name[view_type_display[select_item]];
 
@@ -3906,7 +3910,11 @@ void GCodeViewer::render_legend(float& legend_height)
         imgui.title(_u8L("Fan Speed (%)"));
     }
     else if (m_view_type == EViewType::ColorPrint) {
+#ifdef __APPLE__
+        offsets[3] = 320 * wxGetApp().em_unit() * 0.1;
+#else
         offsets[3] = 210 * wxGetApp().em_unit() * 0.1;
+#endif
         append_headers({ _u8L("Filament"), "", "", "",_u8L("Model") }, offsets);
     }
     else if (m_view_type == EViewType::Tool)
@@ -4355,7 +4363,10 @@ void GCodeViewer::render_legend(float& legend_height)
             ImGui::Spacing();
             auto right_most_label = _u8L("Display");
             // offsets[offsets.size() - 1] = wind_width - ImGui::GetStyle().WindowPadding.x - ImGui::CalcTextSize(right_most_label.c_str()).x;
-            append_headers({ _u8L("Options"),"",  "", "", right_most_label }, offsets);
+#ifdef __APPLE__
+            offsets[3] = 320;
+#endif
+            append_headers({ _u8L("Options"), "",  "", "", right_most_label }, offsets);
 
             show_time = false;
             MoveType_items.push_back(EMoveType::Travel);
@@ -4477,11 +4488,19 @@ void GCodeViewer::render_legend(float& legend_height)
                         add_strings_row_to_table(_u8L("Model printing time") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), short_time(get_time_dhms(gcode_info->print_time)), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
                     else
                     {
-                        add_strings_row_to_table(_u8L("Filament") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), convert_mm_to_m(gcode_info->filament_used_length_mm) + "    " + formating_unit_str(gcode_info->filament_used_weight_g), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
-                        add_strings_row_to_table(_u8L("Cost") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), gcode_info->filament_used_cost, ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
-                        add_strings_row_to_table(_u8L("Model printing time") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), short_time(get_time_dhms(gcode_info->print_time)), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
-                        add_strings_row_to_table(_u8L("Size") + ":", ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()), wxString::Format("%.2f X %.2f X %.2f mm", gcode_info->boxSize[0], gcode_info->boxSize[1], gcode_info->boxSize[2]).ToStdString(), ImGuiWrapper::to_ImVec4(ColorRGBA::WHITE()));
-
+                        ImGuiIO& io = ImGui::GetIO();
+                        ImFont* font = io.Fonts->Fonts[0];
+                        float origScale = font->Scale;
+                        font->Scale = 1.1;
+                        ImGui::PushFont(font);
+                        ImGui::PopFont();
+                        add_strings_row_to_table(_u8L("Filament") + ":         ", ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()), convert_mm_to_m(gcode_info->filament_used_length_mm) + "    " + formating_unit_str(gcode_info->filament_used_weight_g), ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()));
+                        add_strings_row_to_table(_u8L("Cost") + ":        ", ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()), gcode_info->filament_used_cost, ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()));
+                        add_strings_row_to_table(_u8L("Model printing time") + ":       ", ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()), short_time(get_time_dhms(gcode_info->print_time)), ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()));
+                        add_strings_row_to_table(_u8L("Size") + ":    ", ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()), wxString::Format("%.2f X %.2f X %.2f mm", gcode_info->boxSize[0], gcode_info->boxSize[1], gcode_info->boxSize[2]).ToStdString(), ImGuiWrapper::to_ImVec4(ColorRGBA::GREENISH()));
+                        font->Scale = origScale;
+                        ImGui::PushFont(font);
+                        ImGui::PopFont();
                     }
                     ImGui::EndTable();
                 }

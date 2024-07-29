@@ -24,7 +24,9 @@
 #include "AnkerWebView.hpp"
 #include "AnkerFunctionPanel.h"
 #include "AnkerConfigDialog/AnkerConfigDialog.hpp"
-#include "AnkerSliceConmentDialog.hpp"
+#include "common/AnkerMsgDialog.hpp"
+#include "AnkerMsgCentreDialog.hpp"
+#include "AnkerSliceCommentDialog.hpp"
 
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_RELOAD_DATA, wxCommandEvent);
@@ -129,6 +131,7 @@ class MainFrame : public DPIFrame
     void on_show(wxShowEvent& event);
     void on_minimize(wxIconizeEvent& event);
     void on_maximize(wxMaximizeEvent& event);
+    void on_Activate(wxActivateEvent& event);
 
     void OnDocumentLoaded(wxWebViewEvent& evt);
 	void OnScriptMessage(wxCommandEvent& evt);
@@ -181,6 +184,7 @@ class MainFrame : public DPIFrame
     static void onDownLoadProgress(double dltotal, double dlnow, double ultotal, double ulnow);
 
     std::string getAppName();
+    void updateCurrentEnvironment();
     void updateBuryInfo();
     wxMenu* GetHelpMenu();
     void DealPrivacyChoices(const wxCommandEvent& event);
@@ -195,7 +199,8 @@ class MainFrame : public DPIFrame
 protected:
     virtual void on_dpi_changed(const wxRect &suggested_rect) override;
     virtual void on_sys_color_changed() override;
-
+    void initAnkerUi();
+    void handleErrMsgDialogRes(wxVariant* pData);
     void ShowLoginedMenu();
     void ShowUnLoginDevice();
     void ShowUnLoginMenu();
@@ -206,8 +211,11 @@ protected:
     void OnHttpConnectError(wxCommandEvent& event);
     void BindEvent();
 
-
-
+    void showErrMsgDialog(const std::string& errorCode,const std::string& errorLevel,const std::string& sn,  const int& cmdType);
+    bool writeMsgCenterCfg(const std::string& cfgStr);
+    bool writeMsgCenterMultiLanguageCfg(const std::string& cfgStr);
+    bool loadMsgCenterCfg();
+    bool loadMsgCenterMultiLanguageCfg();
 public:
     enum TabPosition
     {
@@ -298,24 +306,27 @@ public:
 
     void        add_to_recent_projects(const wxString& filename);
     void        technology_changed();
-    void        clearStarConmentData();
+    void        clearStarCommentData();
 
     PrintHostQueueDialog* printhost_queue_dlg() { return m_printhost_queue_dlg; }
-
+    void updateMsgCenterItemContent(std::vector<MsgCenterItem>* pData);
     // add by allen for ankerCfgDlg
     AnkerTabPresetComboBox* GetAnkerTabPresetCombo(const Preset::Type type);
 
     AnkerTab* openAnkerTabByPresetType(const Preset::Type type);
 
     void loginFinishHandle();
-
+    void ShowErrDialogByCenter();
     AnkerWebView*         m_loginWebview{ nullptr };    // background
-    bool                  m_showConmentWebView{ false };
+    AnkerMsgCentreDialog* m_MsgCentreDialog{ nullptr };
+    bool m_isMsgCenterIsShow = false;
+    bool                  m_showCommentWebView{ false };
     Plater*               m_plater { nullptr };
     wxBookCtrlBase*       m_tabpanel { nullptr };
     // add by allen for ankerCfgDlg
     AnkerConfigDlg*       m_ankerCfgDlg{ nullptr };
     TabMode m_currentTabMode{ TAB_COUNT };
+    bool    m_hasErrDialog = false;
     wxBookCtrlBase*       m_printTabPanel{ nullptr };
     SettingsDialog        m_settings_dialog;
     DiffPresetDialog      diff_dialog;
@@ -324,9 +335,13 @@ public:
     PrintHostQueueDialog* m_printhost_queue_dlg;
     GalleryDialog*        m_gallery_dialog{ nullptr };
 
-    AnkerFunctionPanel*        m_pFunctionPanel;
-    AnkerSliceConmentDialog* m_sliceConmentDialog{ nullptr };    
+    AnkerFunctionPanel*        m_pFunctionPanel{ nullptr };
+    AnkerCustomDialog* m_pMsgCentrePopWindow{ nullptr };
+    AnkerSliceCommentDialog* m_sliceCommentDialog{ nullptr };    
 
+    std::map<std::string, MsgCenterConfig>* m_MsgCenterCfg{ nullptr };
+    std::vector<MsgErrCodeInfo>* m_MsgCenterErrCodeInfo{ nullptr };    
+    
 #ifdef __APPLE__
     std::unique_ptr<wxTaskBarIcon> m_taskbar_icon;
 #endif // __APPLE__
@@ -334,7 +349,7 @@ public:
     wxMenu*             m_pLoginMenu {nullptr};
     AnkerDevice*        m_pDeviceWidget{ nullptr };
 
-    ANKER_ENVIR         m_currentEnvir = EN_ENVIR;   
+    ANKER_ENVIR         m_currentEnvir = US_ENVIR;
     wxString            m_loginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/?nocache=%s#/login")};
     wxString            m_backloginUrl = {wxString("https://community-qa.eufylife.com/passport-ct/?nocache=%s#/login?invisible=true")};
     inline std::string getCurTimestamp()

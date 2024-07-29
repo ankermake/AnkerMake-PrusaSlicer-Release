@@ -24,6 +24,7 @@
 #include "../Common/AnkerLineEditUnit.hpp"
 #include "../AnkerLineEdit.hpp"
 #include "../PresetComboBoxes.hpp"
+#include "../ConfigManipulation.hpp"
 #include "AnkerPrintParaItem.hpp"
 #include "AnkerParameterData.hpp"
 #include "libslic3r/Model.hpp"
@@ -143,21 +144,25 @@ public:
 	void updateEasyWidget();
 	void updatePreset(Slic3r::DynamicPrintConfig& printConfig);
 	void updatePresetEx(Slic3r::DynamicPrintConfig* printConfig);
+	void checkUIData(Slic3r::DynamicPrintConfig* printConfig = nullptr);
 	void getItemList(wxStringList& list,ControlListType listType);
-	void setItemValue(const wxString& optionKey, wxVariant data);
-	void setItemValue(const wxString tabName, const wxString& optionKey, wxVariant data);
+	void setItemValue(const wxString& optionKey, wxVariant data, bool updateFlag = true);
+	void setItemValue(const wxString tabName, const wxString& optionKey, wxVariant data, bool updateFlag = true);
 	void setItemValueEx(const wxString tabName, const wxString &optionKey, wxVariant data,bool needReset);
 	void openSupportMaterialPage(wxString itemName, wxString text);
 	
+	AnkerParameterData& getParameterData() { return m_parameterData; }
+
 	bool refreshParamPanel(const Slic3r::DynamicPrintConfig& current_config, std::map<std::string, Slic3r::ConfigOption*> &mp);
 	void setItemDataValue(const wxString& tabName, const std::string& key, ItemDataType type);
 	void updateItemParamPanel(const std::map<std::string, Slic3r::ConfigOption*>& mp);
-	void showRightParameterpanel(bool show = true);
 	wxString GetTabNameByKey(const std::string& key);
 
-
+	bool isRightParameterPanel() { return m_isModelParameterPanel; }
+	void showModelParamPanel(bool show = true);
 	void setCurrentModelConfig(Slic3r::ModelConfig* config, const Slic3r::DynamicPrintConfig& current_config,  Slic3r::GUI::ObjectDataViewModelNode* node, 
 		bool bUpdate);
+	void resetModelConfig() { m_modelParameterCfg = nullptr; }
 
 	void hideLocalParamPanel();
 	void setParamVisible(Slic3r::GUI::ItemType type, Slic3r::ModelVolumeType volume_type, bool bUpdate);
@@ -167,7 +172,7 @@ public:
 	void onPresetComboSelChanged(Slic3r::GUI::AnkerPlaterPresetComboBox* presetChoice, const int selection);
 	void moveWipeTower(double x, double y, double angle);
 	void onEasyPanelItemClicked(wxString strItemName);
-	std::map<wxString, PARAMETER_GROUP> getAllPrintParamInfos();
+	std::map<wxString, PARAMETER_GROUP*> getAllPrintParamInfos();
 	bool isSelectSystemPreset();
 
 	void onPrinterPresetChange();
@@ -240,12 +245,14 @@ private:
 	AnkerChooseBtn* GetTabBtnByName(const wxString& name);
 
 private:
+	void init_configManipulation();
 	void CreateGlobalParamPanel();
 	void CreateLocalParamPanel();
 	void createObjectlistPanel();
 	void UpdateObjectListControlHeigh();
 
 private:
+	bool m_easyFlag{ true };
 	AnkerEasyPanel* m_pEasyWidget{ nullptr };
 	ScalableButton* m_printParameterEditBtn{ nullptr };
 	wxStaticText* m_pTitleLabel{ nullptr };
@@ -306,11 +313,11 @@ private:
 	std::map<wxString, std::list<AnkerPrintParaItem*>> m_windowTabMap;//tab-groups
 	bool m_hasChanged = false;
 
-	bool m_isRightParameterPanel{false};
-	Slic3r::ModelConfig* m_rightParameterCfg{};
+	bool m_isModelParameterPanel{false};
+	Slic3r::ModelConfig* m_modelParameterCfg { nullptr };
 	AnkerParameterData m_parameterData;   //  data redundancy, it's wast of memery beacause each option group heve one AnkerParameterData object
 	wxBoxSizer* m_pTabItemScrolledVWinSizer;
-	std::map<wxString, PARAMETER_GROUP> m_AllPrintParamInfo;
+	std::map<wxString, PARAMETER_GROUP*> m_AllPrintParamInfo;
 	const PrintParamMode m_PrintParamMode;
 
 	wxTimer m_slice_delay_timer;
@@ -318,6 +325,8 @@ private:
 	wxString m_current_tab_name { " "};
 	Slic3r::GUI::ItemType m_current_type { Slic3r::GUI::ItemType::itUndef };
 	Slic3r::ModelVolumeType m_volume_type{ Slic3r::ModelVolumeType::INVALID };
+
+	ConfigManipulation m_config_manipulation;
 };
 
 #endif

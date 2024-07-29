@@ -817,6 +817,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionString,              color_change_gcode))
     ((ConfigOptionString,              pause_print_gcode))
     ((ConfigOptionString,              template_custom_gcode))
+    ((ConfigOptionBools,               enable_pressure_advance))
+    ((ConfigOptionFloats,              pressure_advance))
 )
 
 static inline std::string get_extrusion_axis(const GCodeConfig &cfg)

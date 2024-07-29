@@ -4,6 +4,7 @@
 #include <locale>
 #include <codecvt>
 #include <algorithm>
+#include "../../Utils/wxFileTool.hpp"
 #include "libslic3r/Utils.hpp"
 
 #include <time.h>
@@ -272,7 +273,9 @@ SysInfo SysInfoCollector::GetSysInfo()
     machineId = buffer;
 
 #endif // _WIN32
+
     m_sysInfo.m_machineid = machineId.ToStdString();
     ANKER_LOG_INFO << "Machine id: " << m_sysInfo.m_machineid;
+
     return m_sysInfo;
 }

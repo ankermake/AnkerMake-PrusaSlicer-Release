@@ -331,8 +331,8 @@ void init_text_lines(TextLinesModel &text_lines, const Selection& selection, /* 
 struct GLGizmoEmboss::Facenames: public ::Facenames{};
 struct GLGizmoEmboss::GuiCfg: public ::GuiCfg{};
 
-GLGizmoEmboss::GLGizmoEmboss(GLCanvas3D &parent)
-    : GLGizmoBase(parent, M_ICON_FILENAME, -2)
+GLGizmoEmboss::GLGizmoEmboss(GLCanvas3D &parent, const std::string& icon_filename, unsigned int sprite_id)
+    : GLGizmoBase(parent, icon_filename, sprite_id)
     , m_gui_cfg(nullptr)
     , m_style_manager(m_imgui->get_glyph_ranges(), create_default_styles)
     , m_face_names(std::make_unique<Facenames>())
@@ -949,7 +949,7 @@ void GLGizmoEmboss::on_render_input_window(float x, float y, float bottom_limit)
         y = std::min(y, bottom_limit - min_window_size.y);
         // position near toolbar
         ImVec2 pos(x, y);
-        ImGui::SetNextWindowPos(pos, ImGuiCond_Once);
+        ImGui::SetNextWindowPos(pos, ImGuiCond_Always);
     }
 
     bool is_opened = true;

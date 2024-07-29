@@ -111,6 +111,7 @@ extern bool is_plain_file(const boost::filesystem::directory_entry &path);
 extern bool is_ini_file(const boost::filesystem::directory_entry &path);
 extern bool is_idx_file(const boost::filesystem::directory_entry &path);
 extern bool is_gcode_file(const std::string &path);
+extern bool is_acode_file(const std::string& path);
 extern bool is_img_file(const std::string& path);
 extern bool is_gallery_file(const boost::filesystem::directory_entry& path, char const* type);
 extern bool is_gallery_file(const std::string& path, char const* type);

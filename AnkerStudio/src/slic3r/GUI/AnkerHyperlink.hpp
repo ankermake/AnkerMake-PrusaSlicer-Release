@@ -1,7 +1,7 @@
 #ifndef _ANKER_HYPER_LINK_HPP_
 #define _ANKER_HYPER_LINK_HPP_
 #include "wx/wx.h"
-
+#include "Common/AnkerGUIConfig.hpp"
 
 #define CustomActionFun std::function<void()>
 
@@ -31,6 +31,11 @@ public:
 
 	void SetCustumAction(CustomActionFun f);
 	void SetWrapWidth(int w);
+	void SetCustomFont(const wxFont& font);
+	void SetText(const wxString& text) { m_text = text; }
+    
+    void SetPrintFailFlag(bool f){ m_printflag = f; }
+
 
 	virtual void OnEnter(wxMouseEvent& event);
 	virtual void OnLeave(wxMouseEvent& event);
@@ -39,12 +44,14 @@ public:
 protected:
 	void OnPaint(wxPaintEvent& event);
 	void drawWrapText(wxPaintDC& dc, wxString& text, int wrapWidth);
+    void drawPrintFailWrapText(wxPaintDC& dc, wxString& text, int wrapWidth);
 
 private:
-
+	wxFont m_font { ANKER_FONT_NO_1 };
 	wxString m_link = wxString("");
 	wxString m_text = wxString("");
 	int m_wrapWidth = -1;
+    bool m_printflag = false;
 	TextAlignType m_alignType{ ALIGN_LEFT };
 	CustomActionFun CustomAction{ nullptr };
 };

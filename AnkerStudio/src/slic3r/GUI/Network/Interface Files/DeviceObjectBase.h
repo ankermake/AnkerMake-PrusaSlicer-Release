@@ -26,11 +26,14 @@ public:
     virtual std::string GetPrintFile() = 0;
     virtual std::string GetFileName() = 0;
 
+    virtual void GetMsgCenterInfo(std::string&errorCode,std::string& errorLevel) = 0;    
+
     virtual int GetProcess() = 0;
     virtual int64_t GetTime() = 0;
 
     virtual anker_device_type GetDeviceType() = 0;
     virtual anker_device_parts_type GetDevicePartsType() = 0;
+    virtual std::string GetDeviceVersion() = 0;
 
     virtual int GetHotBedCurrentTemperature() = 0;
     virtual int GetHotBedTargetTemperature() = 0;
@@ -51,8 +54,6 @@ public:
     virtual void clearExceptionFinished() = 0;
     virtual PrintFailedInfo GetPrintFailedInfo() const = 0;
 
-    virtual void printComputerLocalFile(const std::string& fullPath) = 0;
-
     virtual MtColorSlotDataVec GetMtSlotData() const = 0;
 
     // return map is empty, no cutoff or clogging
@@ -69,6 +70,7 @@ public:
     // Mqtt Ctrl CMD.
     virtual void SetLocalPrintData(const VrCardInfoMap& vrCardInfoMap, const std::string& filepath = "") = 0;
     virtual void SetRemotePrintData(const VrCardInfoMap& vrCardInfoMap, const std::string& filepath = "") = 0;
+    virtual void SendErrWinResToMachine(const std::string& errorCode, const std::string& errorLevel) = 0;
     virtual void setDevicePrintPause() = 0;
     virtual void setDevicePrintStop() = 0;
     virtual void setDevicePrintResume() = 0;
@@ -115,21 +117,21 @@ public:
 
     virtual void setRequestGCodeInfo(const std::string& filepath) = 0;   
     virtual GCodeInfo GetGcodeInfo() const = 0;
+    virtual void SetLastFilament() = 0;
+    virtual std::string GetLastFilament() const = 0;
 
     virtual  PliesInfo GetLayerPtr() const = 0;
     
     virtual void clearDeviceExceptionInfo() = 0;
-    virtual void ClearDeviceExceptionInfoEx() = 0;
 
     virtual void NozzleSwitch(int newNozzleNum = 0) = 0;
 
     virtual bool GetCameraLimit() = 0;
 
     virtual bool GetTransfering() = 0;
-    virtual bool StartFileTransfer() = 0;
 
-    // P2P video
-    virtual void videoStopSussSlot(const std::string& sn) = 0;
+    virtual void SetDeviceFunctions() = 0;
+    virtual bool GetPreheatFunction() const = 0;
 };
 
 }

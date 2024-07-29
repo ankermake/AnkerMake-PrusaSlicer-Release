@@ -62,16 +62,16 @@ namespace Slic3r {
 
             // Parameter panel default universal Sizer
             wxBoxSizer* m_pParameterVSizer{ nullptr };
-            AnkerParameterPanel* m_pAnkerParameterPanel{ nullptr };
+            AnkerParameterPanel* m_pAnkerGlobalParameterPanel{ nullptr };
 
-            //right key menu parameter panel defualt universal Sizer
-			//wxBoxSizer* m_pRightMenuParameterVSizer{ nullptr };
-			AnkerParameterPanel* m_pAnkerRightMenuParameterPanel{ nullptr };
+            //model parameter panel default universal Sizer
+			//wxBoxSizer* m_pModelParameterVSizer{ nullptr };
+			AnkerParameterPanel* m_pAnkerModelParameterPanel{ nullptr };
             DynamicPrintConfig m_current_item_config;
 
-            // objectlist (embeded in m_pAnkerRightMenuParameterPanel)
+            // objectlist (embeded in m_pAnkerModelParameterPanel)
             AnkerObjectListControl* m_control{ nullptr };
-            //objectlayer (embeded in m_pAnkerRightMenuParameterPanel)
+            //objectlayer (embeded in m_pAnkerModelParameterPanel)
             AnkerObjectLayerEditor* m_object_layers{ nullptr };
 
             // custom universal sizer, you can define your generic sizer to replace it
@@ -126,8 +126,108 @@ namespace Slic3r {
             std::string m_strOldFilamentName;
             std::string m_strNewFilamentName;
 
+            NozzlePriorityQueue m_M5NozzlePriQue;
+            NozzlePriorityQueue m_M5AllNozzlePriQue;
+            NozzlePriorityQueue m_M5CNozzlePriQue;
+            void InitNozzleQueues(const wxArrayString& items);
+            std::tuple<std::string, int> GetTopNozzle();
+            void ClearQueues();
         };
-       
+
+        void AnkerSidebarNew::priv::InitNozzleQueues(const wxArrayString& items) {
+            // Clear the dirty data before initialize.
+            ClearQueues();
+            
+            // Get the printer's machine type
+            auto GetMachineType = [=](const std::string& printerName)->std::string {
+                std::string result;
+                std::regex pattern(R"(AnkerMake\s(.*?)\s\d+\.\d+\smm)");
+                std::smatch match;
+                if (std::regex_search(printerName, match, pattern)) {
+                    if (match.size() > 1) {
+                        result = match[1].str();
+                    }
+                }
+                return result;
+            };
+            
+            // Get the printer's nozzle type
+            auto GetNozzleSize = [=](const std::string& printerName)->std::string {
+                std::size_t mmPos = printerName.find(" mm");
+                if (mmPos == std::string::npos) { 
+                    return "";
+                }
+                std::size_t spacePos = printerName.rfind(' ', mmPos - 1);
+                if (spacePos == std::string::npos) {
+                    return "";
+                }
+                std::string numberStr = printerName.substr(spacePos + 1, mmPos - spacePos - 1);
+                return numberStr;
+            };
+            
+            // According the machinetype, add nozzle to relvant queue.
+            int printerIndex = 1;
+            for (auto item : items) {
+                std::string printerName(item.mb_str());
+                std::string machineType = GetMachineType(printerName);
+                std::string NozzleSize = GetNozzleSize(printerName);
+                //if (printerName == "！！！！！ System presets ！！！！！") { seq++;  continue; }
+                //if (printerName == "！！！！！ My Presets ！！！！！") { return; }
+                static bool isSystemPresets = true;
+                if (isSystemPresets) {
+                    if (printerName.find("System presets") != std::string::npos) { 
+                        isSystemPresets = false; 
+                        continue;
+                    }
+                }
+                if (printerName.find("My Presets") != std::string::npos) { 
+                    return;  
+                }
+            
+                if (machineType == "M5") {
+                    m_M5NozzlePriQue.AddNozzle(NozzleSize, printerIndex); 
+                    printerIndex++;
+                    continue;
+                }
+            
+                if (machineType == "M5 All Metal Hotend") {
+                    m_M5AllNozzlePriQue.AddNozzle(NozzleSize, printerIndex); 
+                    printerIndex++;
+                    continue;
+                }
+            
+                if (machineType == "M5C") {
+                    m_M5CNozzlePriQue.AddNozzle(NozzleSize, printerIndex); 
+                    printerIndex++;
+                    continue;
+                }
+            }
+        }
+    
+        std::tuple<std::string, int> AnkerSidebarNew::priv::GetTopNozzle() {
+            std::string preffix = "AnkerMake ";
+            std::string suffix = " mm Nozzle";
+            NozzleElement tmp = m_M5NozzlePriQue.GetTopElem();
+            if (tmp.m_Nozzle != "") { 
+                return std::make_tuple(preffix + "M5 " + tmp.m_Nozzle + suffix, tmp.m_seq); 
+            }
+            tmp = m_M5AllNozzlePriQue.GetTopElem();
+            if (tmp.m_Nozzle != "") {
+                return std::make_tuple(preffix + "M5 All Metal Hotend " + tmp.m_Nozzle + suffix, tmp.m_seq);
+            }
+            tmp = m_M5CNozzlePriQue.GetTopElem();
+            if (tmp.m_Nozzle != "") {
+                return std::make_tuple(preffix + "M5C " + tmp.m_Nozzle + suffix, tmp.m_seq);
+            }
+            return std::make_tuple("", -1);
+        }
+    
+        void AnkerSidebarNew::priv::ClearQueues() {
+            m_M5NozzlePriQue.Clear();
+            m_M5AllNozzlePriQue.Clear();
+            m_M5CNozzlePriQue.Clear();
+        }
+
         AnkerFilamentEditDlg::AnkerFilamentEditDlg(wxWindow* parent, std::string title, SFilamentEditInfo filamentEditInfo, AnkerBtn* btn)
             : wxFrame(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxFRAME_FLOAT_ON_PARENT | wxFRAME_TOOL_WINDOW)
             , m_title(title)
@@ -515,8 +615,8 @@ namespace Slic3r {
             // if we have selected new filament colour, we should update the filament info
             Bind(wxCUSTOMEVT_UPDATE_FILAMENT_INFO, &AnkerSidebarNew::onUpdateFilamentInfo, this);
             Bind(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, [this](wxCommandEvent& event) {
-	            if (p->m_pAnkerParameterPanel)
-                    p->m_pAnkerParameterPanel->reloadData();
+	            if (p->m_pAnkerGlobalParameterPanel)
+                    p->m_pAnkerGlobalParameterPanel->reloadData();
 	            });
 
             // if you want to experience the effect of reset and restore sidebar
@@ -535,47 +635,47 @@ namespace Slic3r {
 
 		void AnkerSidebarNew::reloadParameterData()
 		{
-            if(p->m_pAnkerParameterPanel)
-                p->m_pAnkerParameterPanel->reloadData();
+            if(p->m_pAnkerGlobalParameterPanel)
+                p->m_pAnkerGlobalParameterPanel->reloadData();
 		}
 
 		void AnkerSidebarNew::updatePreset(DynamicPrintConfig& config)
 		{
-            if(p->m_pAnkerParameterPanel)
-                p->m_pAnkerParameterPanel->updatePreset(config);
+            if(p->m_pAnkerGlobalParameterPanel)
+                p->m_pAnkerGlobalParameterPanel->updatePreset(config);
 		}
 
 		void AnkerSidebarNew::hidePopupWidget()
 		{
-            if (p->m_pAnkerParameterPanel)
-                p->m_pAnkerParameterPanel->hidePoupWidget();
+            if (p->m_pAnkerGlobalParameterPanel)
+                p->m_pAnkerGlobalParameterPanel->hidePoupWidget();
 		}
 
 		void AnkerSidebarNew::ChangeViewMode(int mode)
 		{
-            if(p->m_pAnkerParameterPanel)
-                p->m_pAnkerParameterPanel->ChangeViewMode(mode);
+            if(p->m_pAnkerGlobalParameterPanel)
+                p->m_pAnkerGlobalParameterPanel->ChangeViewMode(mode);
 
-            if (p->m_pAnkerRightMenuParameterPanel)
-                p->m_pAnkerRightMenuParameterPanel->ChangeViewMode(mode);
+            if (p->m_pAnkerModelParameterPanel)
+                p->m_pAnkerModelParameterPanel->ChangeViewMode(mode);
 		}
 
 		void AnkerSidebarNew::enableSliceBtn(bool isSaveBtn, bool isEnable)
 		{
-            if(p->m_pAnkerParameterPanel)
-                p->m_pAnkerParameterPanel->enableSliceBtn(isSaveBtn, isEnable);
+            if(p->m_pAnkerGlobalParameterPanel)
+                p->m_pAnkerGlobalParameterPanel->enableSliceBtn(isSaveBtn, isEnable);
 
-            if (p->m_pAnkerRightMenuParameterPanel) 
-                p->m_pAnkerRightMenuParameterPanel->enableSliceBtn(isSaveBtn, isEnable);
+            if (p->m_pAnkerModelParameterPanel) 
+                p->m_pAnkerModelParameterPanel->enableSliceBtn(isSaveBtn, isEnable);
 		}
 
         void AnkerSidebarNew::updatePreviewBtn(bool GcodeValid, int reason)
         {
-            if (p->m_pAnkerParameterPanel)
-                p->m_pAnkerParameterPanel->UpdatePreviewModeButtons(GcodeValid, reason);
+            if (p->m_pAnkerGlobalParameterPanel)
+                p->m_pAnkerGlobalParameterPanel->UpdatePreviewModeButtons(GcodeValid, reason);
 
-            if (p->m_pAnkerRightMenuParameterPanel)
-                p->m_pAnkerRightMenuParameterPanel->UpdatePreviewModeButtons(GcodeValid, reason);
+            if (p->m_pAnkerModelParameterPanel)
+                p->m_pAnkerModelParameterPanel->UpdatePreviewModeButtons(GcodeValid, reason);
         }
 
         bool AnkerSidebarNew::replaceUniverseSubSizer(wxSizer* sizer, wxString sizerFlags) {
@@ -583,11 +683,11 @@ namespace Slic3r {
             // if sizer is nullptr, use default m_pParameterVSizer instead;            
             if (!sizer)
             {
-                m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
+                m_currentParamPanelMode = PANEL_GLOBAL_PARAMETER;
                 sizer = p->m_pParameterVSizer;
             }
             else
-                m_showRightMenuPanel = PANEL_OTHER_PARAMETER;
+                m_currentParamPanelMode = PANEL_OTHER_PARAMETER;
             m_sizerFlags = sizerFlags;
             
             //add by alves
@@ -604,22 +704,22 @@ namespace Slic3r {
 
             p->m_mainSizer->Add(sizer, 1, wxEXPAND | wxTop, 8 * p->m_marginBase);
             sizer->Show(true);
-            if (m_showRightMenuPanel == PANEL_RIGHT_MENU_PARAMETER)
+            if (m_currentParamPanelMode == PANEL_MODEL_PARAMETER)
             {
-                p->m_pAnkerParameterPanel->Hide();
-                p->m_pAnkerRightMenuParameterPanel->Show();
-                p->m_pAnkerRightMenuParameterPanel->get_switch_btn()->SetValue(true);
+                p->m_pAnkerGlobalParameterPanel->Hide();
+                p->m_pAnkerModelParameterPanel->Show();
+                p->m_pAnkerModelParameterPanel->get_switch_btn()->SetValue(true);
             }
-            else if (m_showRightMenuPanel == PANEL_PARAMETER_PANEL)
+            else if (m_currentParamPanelMode == PANEL_GLOBAL_PARAMETER)
             {
-                p->m_pAnkerParameterPanel->Show();
-                p->m_pAnkerRightMenuParameterPanel->Hide();
-                p->m_pAnkerParameterPanel->get_switch_btn()->SetValue(false);
+                p->m_pAnkerGlobalParameterPanel->Show();
+                p->m_pAnkerModelParameterPanel->Hide();
+                p->m_pAnkerGlobalParameterPanel->get_switch_btn()->SetValue(false);
             }
             else
             {
-                p->m_pAnkerParameterPanel->Hide();
-                p->m_pAnkerRightMenuParameterPanel->Hide();
+                p->m_pAnkerGlobalParameterPanel->Hide();
+                p->m_pAnkerModelParameterPanel->Hide();
             }
 
             refreshSideBarLayout();
@@ -656,11 +756,11 @@ namespace Slic3r {
                 SetSizer(p->m_mainSizer, false);
                 if (bForceAllDefault) {
                     // use all of the default layout includes universe sub sizer
-                    m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
+                    m_currentParamPanelMode = PANEL_GLOBAL_PARAMETER;
                     replaceUniverseSubSizer(p->m_pParameterVSizer);
                 }
                 else
-                    m_showRightMenuPanel = PANEL_OTHER_PARAMETER;
+                    m_currentParamPanelMode = PANEL_OTHER_PARAMETER;
                 p->m_mainSizer->Show(true);
             }
             else {
@@ -668,7 +768,7 @@ namespace Slic3r {
                 sizer->Show(true);
             }
             
-            p->m_pAnkerRightMenuParameterPanel->Hide();
+            p->m_pAnkerModelParameterPanel->Hide();
             
             refreshSideBarLayout();                 
             this->Thaw();
@@ -677,14 +777,14 @@ namespace Slic3r {
 
         void AnkerSidebarNew::detach_layer_height_sizer()
         {
-            if (p && p->m_pAnkerRightMenuParameterPanel)
-                p->m_pAnkerRightMenuParameterPanel->detach_layer_height_sizer();
+            if (p && p->m_pAnkerModelParameterPanel)
+                p->m_pAnkerModelParameterPanel->detach_layer_height_sizer();
         }
 
         void AnkerSidebarNew::set_layer_height_sizer(wxBoxSizer* sizer, bool layer_root)
         {
-            if (p && p->m_pAnkerRightMenuParameterPanel)
-                p->m_pAnkerRightMenuParameterPanel->set_layer_height_sizer(sizer, layer_root);
+            if (p && p->m_pAnkerModelParameterPanel)
+                p->m_pAnkerModelParameterPanel->set_layer_height_sizer(sizer, layer_root);
         }
     
         void AnkerSidebarNew::setFixedDefaultSidebar() {
@@ -710,7 +810,7 @@ namespace Slic3r {
             // 4.parameterPanel sizer
             createPrintParameterSidebar();
 			createRightMenuPrintParameterSidebar();
-			p->m_pAnkerRightMenuParameterPanel->Hide();
+			p->m_pAnkerModelParameterPanel->Hide();
             p->m_mainSizer->Add(p->m_pParameterVSizer, wxEXPAND | wxALL, wxEXPAND | wxALL, 0);
                         
             SetSizer(p->m_mainSizer);
@@ -736,6 +836,76 @@ namespace Slic3r {
             Refresh();
         }
 
+        void AnkerSidebarNew::updateNozzle()
+        {
+            if (p == nullptr) { return; }
+            if (p->m_comboPrinter == nullptr) { return; }
+
+            wxString curSelectedName = from_u8(wxGetApp().app_config->get("last_printer"));
+
+            // 1 judge the wizard wheather delete the curselect through the wizard dialog.
+            bool curSelectDeletedFlag = true;
+            wxArrayString items = p->m_comboPrinter->GetStrings();
+            int index = 0;
+            for (auto item : items) {
+                if (item == curSelectedName) {
+                    // if the current selected item
+                    wxCommandEvent evt = wxCommandEvent(wxEVT_COMBOBOX);
+                    evt.SetInt(index);
+                    evt.SetEventObject(p->m_comboPrinter);
+                    ProcessEvent(evt);
+                    curSelectDeletedFlag = false;
+                    break;
+                }
+                index++;
+            }
+
+            // 2.1 if the last_printer is not deleted , keep it no changes in config
+            if (!curSelectDeletedFlag) { return; }
+
+            // 2.2. if the last_printer is deleted, choose the top priority nozzle
+            if (curSelectDeletedFlag) {
+                wxCommandEvent evt = wxCommandEvent(wxEVT_COMBOBOX);
+                p->InitNozzleQueues(p->m_comboPrinter->GetStrings());
+                auto selectTopNozzleItem = p->GetTopNozzle();
+                evt.SetInt(std::get<1>(selectTopNozzleItem));
+                evt.SetEventObject(p->m_comboPrinter);
+                ProcessEvent(evt);
+                std::string topPrinter = std::get<0>(selectTopNozzleItem);
+                Slic3r::GUI::wxGetApp().plater()->HintFor02mmPrinter(topPrinter);
+                // memorize the last_printer in config
+                wxGetApp().app_config->set("last_printer", topPrinter);
+            }
+        }
+
+        void AnkerSidebarNew::startUpUpdateNozzle()
+        {
+            updateNozzle();
+        }
+        
+        extern std::atomic_bool gIsClickWizardFinish;
+        void AnkerSidebarNew::noStartUpUpdateNozzle()
+        {
+            if (p == nullptr) { return; }
+            if (p->m_comboPrinter == nullptr) { return; }
+
+            if (gIsClickWizardFinish.load()) { // click finish button of wizard dialog
+                updateNozzle();
+                gIsClickWizardFinish.store(false);
+            } else { // toggle the combox
+                // get the current selected item
+                int selectdIndex = p->m_comboPrinter->GetSelection();
+                wxString selectedName = p->m_comboPrinter->GetString(selectdIndex);
+
+                // memorize the last_printer in config
+                if (selectdIndex != wxNOT_FOUND) {
+                    std::string printer = into_u8(selectedName);
+                    Slic3r::GUI::wxGetApp().plater()->HintFor02mmPrinter(printer);
+                    wxGetApp().app_config->set("last_printer", printer);
+                }
+            }
+        }
+
         void AnkerSidebarNew::updateAllPresetComboboxes()
         {
             PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
@@ -748,44 +918,24 @@ namespace Slic3r {
                 p->combo_sla_print->update();
                 p->combo_sla_material->update();
             }*/
+
             // Update the printer choosers, update the dirty flags.
             if (p->m_comboPrinter) {
 
                 p->m_comboPrinter->update();
 
-                // auto switch to the printer used last time on start up
-                int selectIdex = p->m_comboPrinter->GetSelection();
-                wxString selectItem = p->m_comboPrinter->GetString(selectIdex);
+                //1 When in Startup, choose the last_printer, or the top priority nozzle
                 static bool isStartup = true;
                 if (isStartup) {
                     isStartup = false;
-
-                    wxString last_printer = from_u8(wxGetApp().app_config->get("last_printer"));
-                    if (selectItem != last_printer && !last_printer.empty()) {
-                        wxArrayString items = p->m_comboPrinter->GetStrings();
-                        int i = 0;
-                        for (auto item : items) {
-                            if (item == last_printer) {
-                                wxCommandEvent evt = wxCommandEvent(wxEVT_COMBOBOX);
-                                evt.SetInt(i);
-                                evt.SetEventObject(p->m_comboPrinter);
-                                ProcessEvent(evt);
-                                break;
-                            }
-                            ++i;
-                        }
-                    }
-                }
-
-                if (selectIdex != wxNOT_FOUND) {
-                    std::string printer = into_u8(selectItem);
-                    wxGetApp().app_config->set("last_printer", printer);
-                    // ANKER_LOG_INFO << "set config last_printer selectIdex :" << selectIdex << " :" << printer;
+                    startUpUpdateNozzle();
+                } else {
+                    // 2  not startup. you can refer the relvant thing:
+                    // in code, ConfigWizard::priv::on_bnt_finish()
+                    // in UI, Setup Wizard - Printer Preset Selection - finish
+                    noStartUpUpdateNozzle();
                 }
             }
-
-            //// Update the extrudes
-            //onExtrudersChange();
 
             // Update the filament choosers to only contain the compatible presets, update the color preview,
             // update the dirty flags.
@@ -835,8 +985,8 @@ namespace Slic3r {
             }
 
               case Preset::TYPE_PRINT:
-                   p->m_pAnkerParameterPanel->reloadDataEx();
-                   p->m_pAnkerRightMenuParameterPanel->reloadDataEx();
+                   p->m_pAnkerGlobalParameterPanel->reloadDataEx();
+                   p->m_pAnkerModelParameterPanel->reloadDataEx();
                    break;
             /*
                case Preset::TYPE_SLA_PRINT:
@@ -1164,11 +1314,11 @@ namespace Slic3r {
                     return;
                 ANKER_LOG_INFO << "preset combox of printer clicked";
                 (*comboPrinter)->SetFocus();
-                if (p->m_pAnkerParameterPanel)
+                if (p->m_pAnkerGlobalParameterPanel)
                 {
-                    if (!p->m_pAnkerParameterPanel->checkDirtyData())
+                    if (!p->m_pAnkerGlobalParameterPanel->checkDirtyData())
                         onComboBoxClick(*comboPrinter);
-                    //p->m_pAnkerParameterPanel->reloadData();
+                    //p->m_pAnkerGlobalParameterPanel->reloadData();
                 }
                 });
             (*comboPrinter)->set_selection_changed_function([this, comboPrinter](int selection) {
@@ -1328,11 +1478,11 @@ namespace Slic3r {
                         return;
                     ANKER_LOG_INFO << "preset combox of filament clicked";
                     (*comboFilament)->SetFocus();
-                    if (p->m_pAnkerParameterPanel)
+                    if (p->m_pAnkerGlobalParameterPanel)
                     {
-                        if (!p->m_pAnkerParameterPanel->checkDirtyData())
+                        if (!p->m_pAnkerGlobalParameterPanel->checkDirtyData())
                             onComboBoxClick(*comboFilament);
-                        //p->m_pAnkerParameterPanel->reloadData();
+                        //p->m_pAnkerGlobalParameterPanel->reloadData();
                     }
                     });
                 (*comboFilament)->set_selection_changed_function([this, comboFilament](int selection) {
@@ -1346,7 +1496,7 @@ namespace Slic3r {
                     Slic3r::GUI::wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->get_current_preset_name(strPrintPresetName);
                     wxGetApp().getAnkerTab(Preset::TYPE_PRINT)->select_preset(Preset::remove_suffix_modified(strPrintPresetName));
 
-                    p->m_pAnkerParameterPanel->reloadDataEx();
+                    p->m_pAnkerGlobalParameterPanel->reloadDataEx();
                    /* wxCommandEvent comboboxChangedEvt = wxCommandEvent(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED);
                     comboboxChangedEvt.SetEventObject(this);
                     wxPostEvent(&wxGetApp().plater()->sidebarnew(), comboboxChangedEvt);*/
@@ -1399,81 +1549,85 @@ namespace Slic3r {
             if (!p->m_pParameterVSizer)
                 p->m_pParameterVSizer = new wxBoxSizer(wxVERTICAL);
 
-            if (!p->m_pAnkerParameterPanel)
+            if (!p->m_pAnkerGlobalParameterPanel)
             {   
-                p->m_pAnkerParameterPanel = new AnkerParameterPanel(this,mode_global, wxID_ANY);
-                p->m_pAnkerParameterPanel->Bind(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED, [this](wxCommandEvent& event) {
+                p->m_pAnkerGlobalParameterPanel = new AnkerParameterPanel(this,mode_global, wxID_ANY);
+                p->m_pAnkerGlobalParameterPanel->Bind(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED, [this](wxCommandEvent& event) {
                     wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_SLICE_BTN_CLICKED);
                     evt.SetEventObject(this);                    
                     wxPostEvent(this, evt);
                     });
-                p->m_pAnkerParameterPanel->Bind(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED, [this](wxCommandEvent& event) {
+                p->m_pAnkerGlobalParameterPanel->Bind(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED, [this](wxCommandEvent& event) {
                     wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_SAVE_PROJECT_CLICKED);
                     evt.SetEventObject(this);                    
                     wxPostEvent(this, evt);
                     });
-				p->m_pAnkerParameterPanel->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, [this](wxCommandEvent& event) {                    
+				p->m_pAnkerGlobalParameterPanel->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, [this](wxCommandEvent& event) {                    
 					wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS);
 					evt.SetEventObject(this);					
                     wxPostEvent(this, evt);
 					});
-                p->m_pAnkerParameterPanel->SetBackgroundColour(wxColour("#292A2D"));
-                p->m_pAnkerParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
-                p->m_pAnkerParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
-                p->m_pParameterVSizer->Add(p->m_pAnkerParameterPanel, 1, wxEXPAND);
+                p->m_pAnkerGlobalParameterPanel->SetBackgroundColour(wxColour("#292A2D"));
+                p->m_pAnkerGlobalParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
+                p->m_pAnkerGlobalParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
+                p->m_pParameterVSizer->Add(p->m_pAnkerGlobalParameterPanel, 1, wxEXPAND);
             }
         }
 
 		void AnkerSidebarNew::createRightMenuPrintParameterSidebar()
 		{
-			if (!p->m_pAnkerRightMenuParameterPanel)
+			if (!p->m_pAnkerModelParameterPanel)
 			{
-				p->m_pAnkerRightMenuParameterPanel = new AnkerParameterPanel(this, mode_model, wxID_ANY);
-                p->m_pAnkerRightMenuParameterPanel->showRightParameterpanel();
-				p->m_pAnkerRightMenuParameterPanel->Bind(wxCUSTOMEVT_ANKER_DELETE_CFG_EDIT, [this](wxCommandEvent& event) {
+				p->m_pAnkerModelParameterPanel = new AnkerParameterPanel(this, mode_model, wxID_ANY);
+                p->m_pAnkerModelParameterPanel->showModelParamPanel();
+				p->m_pAnkerModelParameterPanel->Bind(wxCUSTOMEVT_ANKER_DELETE_CFG_EDIT, [this](wxCommandEvent& event) {
                     this->Freeze();
 					wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_DELETE_CFG_EDIT);
                     evt.SetEventObject(this);
                     wxPostEvent(this, evt); 
 
-                    m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
-                    p->m_pAnkerRightMenuParameterPanel->Hide();
-                    p->m_pAnkerParameterPanel->Show();
+                    m_currentParamPanelMode = PANEL_GLOBAL_PARAMETER;
+                    p->m_pAnkerModelParameterPanel->Hide();
+                    p->m_pAnkerGlobalParameterPanel->Show();
                     Refresh();
                     Layout();
                     this->Thaw();
                     });
 
-                p->m_pAnkerRightMenuParameterPanel->Bind(wxCUSTOMEVT_ANKER_EXIT_RIGHT_MENU_PANEL, [this](wxCommandEvent& event) {
+                p->m_pAnkerModelParameterPanel->Bind(wxCUSTOMEVT_ANKER_EXIT_RIGHT_MENU_PANEL, [this](wxCommandEvent& event) {
                     this->Freeze();
                     wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ANKER_EXIT_RIGHT_MENU_PANEL);
                     evt.SetEventObject(this);
                     wxPostEvent(this, evt);
 
-                    m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
-                    p->m_pAnkerRightMenuParameterPanel->Hide();
-                    p->m_pAnkerParameterPanel->Show();
+                    m_currentParamPanelMode = PANEL_GLOBAL_PARAMETER;
+                    p->m_pAnkerModelParameterPanel->Hide();
+                    p->m_pAnkerGlobalParameterPanel->Show();
                     Refresh();
                     Layout();		
                     this->Thaw();
                     });
 
-                p->m_pAnkerRightMenuParameterPanel->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, [this](wxCommandEvent& event) {           
+                p->m_pAnkerModelParameterPanel->Bind(wxCUSTOMEVT_ANKER_BACKGROUND_PROCESS, [this](wxCommandEvent& event) {           
                     updateItemConfigInfo(event.GetInt(), event.GetString());
                     wxGetApp().mainframe->on_config_changed(&wxGetApp().plater()->get_global_config());
+                    if (object_list() != nullptr && object_list()->objects() != nullptr 
+                        && !object_list()->objects()->empty()) {
+                        p->m_pAnkerModelParameterPanel->checkUIData();
+                    }
                 });
 
-				p->m_pAnkerRightMenuParameterPanel->SetBackgroundColour(wxColour("#292A2D"));
-				p->m_pAnkerRightMenuParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
-				p->m_pAnkerRightMenuParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
-				p->m_pParameterVSizer->Add(p->m_pAnkerRightMenuParameterPanel, wxEXPAND|wxALL, wxEXPAND | wxALL, 0);
+				p->m_pAnkerModelParameterPanel->SetBackgroundColour(wxColour("#292A2D"));
+				p->m_pAnkerModelParameterPanel->SetMinSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
+				p->m_pAnkerModelParameterPanel->SetSize(AnkerSize(SIDEBARNEW_WIDGET_WIDTH, -1));
+				p->m_pParameterVSizer->Add(p->m_pAnkerModelParameterPanel, wxEXPAND|wxALL, wxEXPAND | wxALL, 0);
 				p->m_pParameterVSizer->AddSpacer(4);
 			}
 		}
 
         void AnkerSidebarNew::update_current_item_config() {
-            if (p->m_pAnkerRightMenuParameterPanel) {
-                p->m_pAnkerRightMenuParameterPanel->updatePreset(p->m_current_item_config);
+            if (p->m_pAnkerModelParameterPanel) {
+                p->m_pAnkerModelParameterPanel->updatePreset(p->m_current_item_config);
             }
         }
 
@@ -1586,11 +1740,11 @@ namespace Slic3r {
 
         void AnkerSidebarNew::onSize(wxSizeEvent& evt) {
             updateFilamentEditDlgPos();
-            //p->m_pAnkerRightMenuParameterPanel->Fit();
-            p->m_pAnkerRightMenuParameterPanel->Refresh();
+            //p->m_pAnkerModelParameterPanel->Fit();
+            p->m_pAnkerModelParameterPanel->Refresh();
             //by samuel,only need to fit in parent window
-           // p->m_pAnkerParameterPanel->Fit();
-            p->m_pAnkerParameterPanel->Refresh();
+           // p->m_pAnkerGlobalParameterPanel->Fit();
+            p->m_pAnkerGlobalParameterPanel->Refresh();
             evt.Skip();
         }
         
@@ -1704,22 +1858,22 @@ namespace Slic3r {
                 respect_mode ? m_mode : comExpert, type, search_inputs);
         }
 
-        std::map < wxString, PARAMETER_GROUP> AnkerSidebarNew::getGlobalParamInfo()
+        std::map < wxString, PARAMETER_GROUP*> AnkerSidebarNew::getGlobalParamInfo()
         {
-            std::map < wxString, PARAMETER_GROUP> resultInfo;
-            if (p->m_pAnkerParameterPanel != nullptr)
+            std::map < wxString, PARAMETER_GROUP*> resultInfo;
+            if (p->m_pAnkerGlobalParameterPanel != nullptr)
             {
-                resultInfo = p->m_pAnkerParameterPanel->getAllPrintParamInfos();
+                resultInfo = p->m_pAnkerGlobalParameterPanel->getAllPrintParamInfos();
             }
             return resultInfo;
         }
 
-        std::map < wxString, PARAMETER_GROUP> AnkerSidebarNew::getModelParamInfo()
+        std::map < wxString, PARAMETER_GROUP*> AnkerSidebarNew::getModelParamInfo()
         {
-            std::map < wxString, PARAMETER_GROUP> resultInfo;
-            if (p->m_pAnkerRightMenuParameterPanel != nullptr)
+            std::map < wxString, PARAMETER_GROUP*> resultInfo;
+            if (p->m_pAnkerModelParameterPanel != nullptr)
             {
-                resultInfo = p->m_pAnkerRightMenuParameterPanel->getAllPrintParamInfos();
+                resultInfo = p->m_pAnkerModelParameterPanel->getAllPrintParamInfos();
             }
             return resultInfo;
         }
@@ -1767,25 +1921,24 @@ namespace Slic3r {
 
         void AnkerSidebarNew::getItemList(wxStringList& list, ControlListType listType)
         {
-             p->m_pAnkerParameterPanel->getItemList(list, listType);
+             p->m_pAnkerGlobalParameterPanel->getItemList(list, listType);
         }
 
-        void AnkerSidebarNew::setItemValue(const wxString tabName, const wxString& configOptionKey, wxVariant data)
+        void AnkerSidebarNew::setGlobalParamItemValue(const wxString tabName, const wxString& configOptionKey, wxVariant data)
         {
-            p->m_pAnkerParameterPanel->setItemValue(tabName, configOptionKey, data);
+            p->m_pAnkerGlobalParameterPanel->setItemValue(tabName, configOptionKey, data);
         }
 
-        void AnkerSidebarNew::setItemSupportValue(const wxString tabName, const wxString& configOptionKey, bool value)
+        void AnkerSidebarNew::setObjectParamItemValue(const wxString tabName, const wxString& configOptionKey, wxVariant data)
         {
-            p->m_pAnkerRightMenuParameterPanel->setItemValue(tabName, configOptionKey, value);
-            object_list()->update_item_support_config(configOptionKey, value);
+            p->m_pAnkerModelParameterPanel->setItemValue(tabName, configOptionKey, data);
         }
 
         void AnkerSidebarNew::setCalibrationValue(const wxString& configOptionKey, wxVariant value, ConfigOption* option)
         {
             if (!option) return;
 
-            p->m_pAnkerParameterPanel->setItemValue(configOptionKey, value);
+            p->m_pAnkerGlobalParameterPanel->setItemValue(configOptionKey, value);
             auto &global_config = wxGetApp().plater()->get_global_config();
             if (global_config.has(configOptionKey.ToStdString())) {
                 global_config.set_key_value(configOptionKey.ToStdString(), option);
@@ -1796,7 +1949,7 @@ namespace Slic3r {
 
         void AnkerSidebarNew::openSupportMaterialPage(wxString itemName, wxString text)
         {
-            p->m_pAnkerParameterPanel->openSupportMaterialPage(itemName, text);
+            p->m_pAnkerGlobalParameterPanel->openSupportMaterialPage(itemName, text);
         }
 
 
@@ -1832,7 +1985,7 @@ namespace Slic3r {
 
         void AnkerSidebarNew::moveWipeTower(double x, double y, double rotate)
         {
-            p->m_pAnkerParameterPanel->moveWipeTower(x, y, rotate);
+            p->m_pAnkerGlobalParameterPanel->moveWipeTower(x, y, rotate);
         }
 
 
@@ -2467,12 +2620,12 @@ namespace Slic3r {
 
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_ANKER_FILAMENT_CHANGED, [this](wxCommandEvent&event) {
 
-                if(p->m_pAnkerParameterPanel)
-                    p->m_pAnkerParameterPanel->reloadData();	
+                if(p->m_pAnkerGlobalParameterPanel)
+                    p->m_pAnkerGlobalParameterPanel->reloadData();	
 
                 });
             p->m_filamentEditDlg->Bind(wxCUSTOMEVT_CHECK_RIGHT_DIRTY_DATA, [this](wxCommandEvent& event) {
-                p->m_pAnkerParameterPanel->checkDirtyData();
+                p->m_pAnkerGlobalParameterPanel->checkDirtyData();
             });
             //listen m_filamentPanel's size event, because we needs m_filamentPanel's correct screen position
             p->m_filamentPanel->Bind(wxEVT_SIZE, [this](wxSizeEvent& event) {
@@ -2722,8 +2875,8 @@ namespace Slic3r {
             wxGetApp().obj_list()->update_objects_list_extruder_column(p->m_editFilamentInfoList.size());
 
             // reload data by AnkerParameterPanel
-            if (p->m_pAnkerParameterPanel) {
-                p->m_pAnkerParameterPanel->reloadData();
+            if (p->m_pAnkerGlobalParameterPanel) {
+                p->m_pAnkerGlobalParameterPanel->reloadData();
             }  
         }
 
@@ -2789,35 +2942,35 @@ namespace Slic3r {
 
         void AnkerSidebarNew::SetCurrentModelConfig(Slic3r::ModelConfig* config, ObjectDataViewModelNode* node, bool bUpdate)
         {
-            if (!p->m_pAnkerRightMenuParameterPanel)
+            if (!p->m_pAnkerModelParameterPanel)
                 return;
 
-            p->m_pAnkerRightMenuParameterPanel->setCurrentModelConfig(config, p->m_current_item_config, node, bUpdate);
+            p->m_pAnkerModelParameterPanel->setCurrentModelConfig(config, p->m_current_item_config, node, bUpdate);
         }
 
         void AnkerSidebarNew::HideLocalParamPanel()
         {
-            if (!p->m_pAnkerRightMenuParameterPanel) return;
+            if (!p->m_pAnkerModelParameterPanel) return;
             
-            p->m_pAnkerRightMenuParameterPanel->hideLocalParamPanel();
+            p->m_pAnkerModelParameterPanel->hideLocalParamPanel();
         }
 
         void AnkerSidebarNew::SwitchParamPanelMode(bool show)
         {
             if (!show) {
-                m_showRightMenuPanel = PANEL_PARAMETER_PANEL;
-                p->m_pAnkerRightMenuParameterPanel->Hide();
-                p->m_pAnkerParameterPanel->Show();
-                p->m_pAnkerParameterPanel->get_switch_btn()->SetValue(false);
+                m_currentParamPanelMode = PANEL_GLOBAL_PARAMETER;
+                p->m_pAnkerModelParameterPanel->Hide();
+                p->m_pAnkerGlobalParameterPanel->Show();
+                p->m_pAnkerGlobalParameterPanel->get_switch_btn()->SetValue(false);
             }
             else {
                 replaceUniverseSubSizer();
-                m_showRightMenuPanel = PANEL_RIGHT_MENU_PARAMETER;
-                p->m_pAnkerParameterPanel->Hide();
-                p->m_pAnkerRightMenuParameterPanel->Show();
-                p->m_pAnkerRightMenuParameterPanel->get_switch_btn()->SetValue(true);
+                m_currentParamPanelMode = PANEL_MODEL_PARAMETER;
+                p->m_pAnkerGlobalParameterPanel->Hide();
+                p->m_pAnkerModelParameterPanel->Show();
+                p->m_pAnkerModelParameterPanel->get_switch_btn()->SetValue(true);
                 object_list()->update_selections();
-                //object_list()->part_selection_changed(); (use this code when support/seam param create by imgui)
+                //object_list()->part_selection_changed(); //(use this code when support/seam param create by imgui)
             }
 
             refreshSideBarLayout();
@@ -2825,20 +2978,25 @@ namespace Slic3r {
 
         void AnkerSidebarNew::updateParameterPanel()
         {
-            if (!p->m_pAnkerParameterPanel)
+            if (!p->m_pAnkerGlobalParameterPanel)
                 return;
 
-            p->m_pAnkerParameterPanel->saveAllUi();
+            p->m_pAnkerGlobalParameterPanel->saveAllUi();
         }
 
-        wxWindow* AnkerSidebarNew::GetItemParameterPanel()
+        AnkerParameterPanel* AnkerSidebarNew::GetGlobalParameterPanel()
         {
-            return  p->m_pAnkerRightMenuParameterPanel;
+            return  p->m_pAnkerGlobalParameterPanel;
+        }
+
+        AnkerParameterPanel* AnkerSidebarNew::GetModelParameterPanel()
+        {
+            return  p->m_pAnkerModelParameterPanel;
         }
 
         bool AnkerSidebarNew::checkDirtyDataonParameterpanel()
         {
-           return p->m_pAnkerParameterPanel->checkDirtyData();
+           return p->m_pAnkerGlobalParameterPanel->checkDirtyData();
         }
 
 		void AnkerSidebarNew::onComboBoxClick(Slic3r::GUI::AnkerPlaterPresetComboBox* presetComboBox)
@@ -2858,8 +3016,11 @@ namespace Slic3r {
 				Slic3r::GUI::wxGetApp().getAnkerTab(presetType)->select_preset(Slic3r::Preset::remove_suffix_modified(preset_name));
 
                 if (presetType == Preset::TYPE_PRINTER) {
-                    if (p && p->m_pAnkerParameterPanel)
-                        p->m_pAnkerParameterPanel->onPrinterPresetChange();
+                    //if the printerName is 0.2mm nozzle's printer,popup a hint dialog
+                    Slic3r::GUI::wxGetApp().plater()->HintFor02mmPrinter(preset_name);
+
+                    if (p && p->m_pAnkerGlobalParameterPanel)
+                        p->m_pAnkerGlobalParameterPanel->onPrinterPresetChange();
                 }
 			}
 		}

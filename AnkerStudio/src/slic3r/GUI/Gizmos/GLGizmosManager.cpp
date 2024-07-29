@@ -45,6 +45,7 @@ GLGizmosManager::GLGizmosManager(GLCanvas3D& parent)
     , m_hover(Undefined)
     , m_tooltip("")
     , m_serializing(false)
+    , m_object_manipulation(parent)
 {
 }
 
@@ -58,6 +59,67 @@ std::vector<size_t> GLGizmosManager::get_selectable_idxs() const
     return out;
 }
 
+#if USE_OCRA
+GLGizmosManager::EType GLGizmosManager::get_gizmo_from_mouse(const Vec2d& mouse_pos) const
+{
+    if (!m_enabled)
+        return Undefined;
+
+    float cnv_h = (float)m_parent.get_canvas_size().get_height();
+    float height = get_scaled_total_height();
+    float icons_size = m_layout.scaled_icons_size();
+    float border = m_layout.scaled_border();
+
+    //BBS: GUI refactor: GLToolbar&&Gizmo adjust
+    float cnv_w = (float)m_parent.get_canvas_size().get_width();
+    float width = get_scaled_total_width();
+#if TOOLBAR_ON_TOP
+    //float space_width = GLGizmosManager::Default_Icons_Size * wxGetApp().toolbar_icon_scale();;
+    float top_x = std::max(m_parent.get_main_toolbar_width() + border, 0.5f * (cnv_w - width + m_parent.get_main_toolbar_width() + m_parent.get_collapse_toolbar_width() /*- m_parent.get_assemble_view_toolbar_width()*/) + border);
+    if (m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView)
+        top_x = 0.5f * cnv_w /* + 0.5f * (m_parent.get_assembly_paint_toolbar_width()) */;
+    float top_y = 0;
+    float stride_x = m_layout.scaled_stride_x();
+
+    // is mouse vertically in the area?
+    //if ((border <= (float)mouse_pos(0) && ((float)mouse_pos(0) <= border + icons_size))) {
+    if (((top_y + border) <= (float)mouse_pos(1)) && ((float)mouse_pos(1) <= (top_y + border + icons_size))) {
+        // which icon is it on?
+        int from_left = (float)mouse_pos(0) - top_x < 0 ? -1 : (int)((float)mouse_pos(0) - top_x) / stride_x;
+        if (from_left < 0)
+            return Undefined;
+        // is it really on the icon or already past the border?
+        if ((float)mouse_pos(0) <= top_x + from_left * stride_x + icons_size) {
+            std::vector<size_t> selectable = get_selectable_idxs();
+            if (from_left < selectable.size())
+                return (GLGizmosManager::EType)selectable[from_left];
+        }
+}
+#else
+    //float top_y = 0.5f * (cnv_h - height) + border;
+    float top_x = cnv_w - width;
+    float top_y = 0.5f * (cnv_h - height + m_parent.get_main_toolbar_height() /*- m_parent.get_assemble_view_toolbar_width()*/) + border;
+    float stride_y = m_layout.scaled_stride_y();
+
+    // is mouse horizontally in the area?
+    //if ((border <= (float)mouse_pos(0) && ((float)mouse_pos(0) <= border + icons_size))) {
+    if (((top_x + border) <= (float)mouse_pos(0)) && ((float)mouse_pos(0) <= (top_x + border + icons_size))) {
+        // which icon is it on?
+        size_t from_top = (size_t)((float)mouse_pos(1) - top_y) / stride_y;
+        if (from_top < 0)
+            return Undefined;
+        // is it really on the icon or already past the border?
+        if ((float)mouse_pos(1) <= top_y + from_top * stride_y + icons_size) {
+            std::vector<size_t> selectable = get_selectable_idxs();
+            if (from_top < selectable.size())
+                return (GLGizmosManager::EType)(selectable[from_top]);
+        }
+    }
+#endif
+
+    return Undefined;
+}
+#else
 GLGizmosManager::EType GLGizmosManager::get_gizmo_from_mouse(const Vec2d &mouse_pos) const
 {
     if (!m_enabled) return Undefined;
@@ -84,8 +146,12 @@ GLGizmosManager::EType GLGizmosManager::get_gizmo_from_mouse(const Vec2d &mouse_
     return Undefined;
 }
 
+#endif
 bool GLGizmosManager::init()
 {
+    bool result = init_icon_textures();
+    if (!result) return result;
+
     m_background_texture.metadata.filename = "toolbar_background.png";
     m_background_texture.metadata.left = 16;
     m_background_texture.metadata.top = 16;
@@ -99,9 +165,9 @@ bool GLGizmosManager::init()
     }
 
     // Order of gizmos in the vector must match order in EType!
-    m_gizmos.emplace_back(new GLGizmoMove3D(m_parent, "move.svg", 0));
-    m_gizmos.emplace_back(new GLGizmoScale3D(m_parent, "scale.svg", 1));
-    m_gizmos.emplace_back(new GLGizmoRotate3D(m_parent, "rotate.svg", 2));
+    m_gizmos.emplace_back(new GLGizmoMove3D(m_parent, "move.svg", 0, &m_object_manipulation));
+    m_gizmos.emplace_back(new GLGizmoScale3D(m_parent, "scale.svg", 1, &m_object_manipulation));
+    m_gizmos.emplace_back(new GLGizmoRotate3D(m_parent, "rotate.svg", 2, &m_object_manipulation));
     m_gizmos.emplace_back(new GLGizmoFlatten(m_parent, "place.svg", 3));
     m_gizmos.emplace_back(new GLGizmoCut3D(m_parent, "cut.svg", 4));
     m_gizmos.emplace_back(new GLGizmoHollow(m_parent, "hollow.svg", 5));
@@ -110,7 +176,7 @@ bool GLGizmosManager::init()
     m_gizmos.emplace_back(new GLGizmoSeam(m_parent, "seam.svg", 8));
     m_gizmos.emplace_back(new GLGizmoMmuSegmentation(m_parent, "mmu_segmentation.svg", 9));
     m_gizmos.emplace_back(new GLGizmoMeasure(m_parent, "measure.svg", 10));
-    m_gizmos.emplace_back(new GLGizmoEmboss(m_parent));
+    m_gizmos.emplace_back(new GLGizmoEmboss(m_parent, "toolbar_text.svg", 11));
     m_gizmos.emplace_back(new GLGizmoSVG(m_parent));
     m_gizmos.emplace_back(new GLGizmoSimplify(m_parent));
 
@@ -131,6 +197,60 @@ bool GLGizmosManager::init()
     m_highlight = std::pair<EType, bool>(Undefined, false);
 
     return true;
+}
+
+bool GLGizmosManager::init_icon_textures()
+{
+    ImTextureID texture_id;
+
+    icon_list.clear();
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/icons/toolbar_reset.svg", 14, 14, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TOOLBAR_RESET, texture_id));
+    else
+        return false;
+
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/icons/toolbar_reset_hover.svg", 14, 14, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TOOLBAR_RESET_HOVER, texture_id));
+    else
+        return false;
+
+/*    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/toolbar_tooltip.svg", 30, 22, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TOOLBAR_TOOLTIP, texture_id));
+    else
+        return false;
+
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/toolbar_tooltip_hover.svg", 30, 22, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TOOLBAR_TOOLTIP_HOVER, texture_id));
+    else
+        return false;
+
+
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/text_B.svg", 20, 20, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TEXT_B, texture_id));
+    else
+        return false;
+
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/text_B_dark.svg", 20, 20, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TEXT_B_DARK, texture_id));
+    else
+        return false;
+
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/text_T.svg", 20, 20, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TEXT_T, texture_id));
+    else
+        return false;
+
+    if (IMTexture::load_from_svg_file(Slic3r::resources_dir() + "/images/text_T_dark.svg", 20, 20, texture_id))
+        icon_list.insert(std::make_pair((int)IC_TEXT_T_DARK, texture_id));
+    else
+        return false*/;
+
+    return true;
+}
+
+float GLGizmosManager::get_layout_scale()
+{
+    return m_layout.scale;
 }
 
 bool GLGizmosManager::init_arrow(const std::string& filename)
@@ -240,7 +360,12 @@ void GLGizmosManager::update_data()
         m_common_gizmos_data->update(get_current()
                                    ? get_current()->get_requirements()
                                    : CommonGizmosDataID(0));
+
     if (m_current != Undefined) m_gizmos[m_current]->data_changed(m_serializing);
+
+    // GUI refactor: add object manipulation in gizmo
+    m_object_manipulation.update_ui_from_settings();
+    m_object_manipulation.UpdateAndShow(true);
 }
 
 bool GLGizmosManager::is_running() const
@@ -384,10 +509,11 @@ void GLGizmosManager::render_overlay()
 
 void GLGizmosManager::render_anker_data()
 {
+    return;
     if (m_current != Undefined) {
         m_gizmos[m_current]->updateAnkerData();
     }
-    if (m_current == Emboss || m_current == Svg || m_current == Cut) {
+    if (m_current == Emboss || m_current == Svg || m_current == Cut || m_current == Measure) {
         const std::vector<size_t> selectable_idxs = get_selectable_idxs();
         if (selectable_idxs.empty())
             return;
@@ -401,13 +527,7 @@ void GLGizmosManager::render_anker_data()
         float main_toolbar_width = m_parent.get_main_toolbar_size();
         float c_x = (cnv_size.get_width() - main_toolbar_width) / 2.0;
         Vec2d pos{ 0,0 };
-        size_t item = 0;
-        if (m_current == Emboss || m_current == Svg) {
-            item = 14;
-        }
-        else if (m_current == Cut) {
-            item = 8;
-        }
+        size_t item = get_current()->get_sprite_id();
         m_parent.get_main_toolbar_item_pos(item, pos);
 #ifdef __APPLE__
         pos[0] += 150;
@@ -750,6 +870,67 @@ void GLGizmosManager::update_after_undo_redo(const UndoRedo::Snapshot& snapshot)
         dynamic_cast<GLGizmoSlaSupports*>(m_gizmos[SlaSupports].get())->reslice_until_step(slaposPad, true);
 }
 
+#if USE_OCRA
+void GLGizmosManager::render_background(float left, float top, float right, float bottom, float border_w, float border_h) const
+{
+    unsigned int tex_id = m_background_texture.texture.get_id();
+    float tex_width = (float)m_background_texture.texture.get_width();
+    float tex_height = (float)m_background_texture.texture.get_height();
+    if ((tex_id != 0) && (tex_width > 0) && (tex_height > 0))
+    {
+        //BBS: GUI refactor: remove the corners of gizmo
+        float inv_tex_width = (tex_width != 0.0f) ? 1.0f / tex_width : 0.0f;
+        float inv_tex_height = (tex_height != 0.0f) ? 1.0f / tex_height : 0.0f;
+
+        float internal_left_uv = (float)m_background_texture.metadata.left * inv_tex_width;
+        float internal_right_uv = 1.0f - (float)m_background_texture.metadata.right * inv_tex_width;
+        float internal_top_uv = 1.0f - (float)m_background_texture.metadata.top * inv_tex_height;
+        float internal_bottom_uv = (float)m_background_texture.metadata.bottom * inv_tex_height;
+
+        GLTexture::render_sub_texture(tex_id, left, right, bottom, top, { { internal_left_uv, internal_bottom_uv }, { internal_right_uv, internal_bottom_uv }, { internal_right_uv, internal_top_uv }, { internal_left_uv, internal_top_uv } });
+    }
+}
+
+void GLGizmosManager::render_arrow(const GLCanvas3D& parent, EType highlighted_type) const
+{
+    std::vector<size_t> selectable_idxs = get_selectable_idxs();
+    if (selectable_idxs.empty())
+        return;
+    float cnv_w = (float)m_parent.get_canvas_size().get_width();
+    float inv_zoom = (float)wxGetApp().plater()->get_camera().get_inv_zoom();
+    float height = get_scaled_total_height();
+    float zoomed_border = m_layout.scaled_border() * inv_zoom;
+    float zoomed_top_x = (-0.5f * cnv_w) * inv_zoom;
+    float zoomed_top_y = (0.5f * height) * inv_zoom;
+    zoomed_top_x += zoomed_border;
+    zoomed_top_y -= zoomed_border;
+    float icons_size = m_layout.scaled_icons_size();
+    float zoomed_icons_size = icons_size * inv_zoom;
+    float zoomed_stride_y = m_layout.scaled_stride_y() * inv_zoom;
+    for (size_t idx : selectable_idxs)
+    {
+        if (idx == highlighted_type) {
+            int tex_width = m_icons_texture.get_width();
+            int tex_height = m_icons_texture.get_height();
+            unsigned int tex_id = m_arrow_texture.get_id();
+            float inv_tex_width = (tex_width != 0.0f) ? 1.0f / tex_width : 0.0f;
+            float inv_tex_height = (tex_height != 0.0f) ? 1.0f / tex_height : 0.0f;
+
+            float internal_left_uv = 0.0f /*(float)m_arrow_texture.metadata.left * inv_tex_width*/;
+            float internal_right_uv = 1.0f /*- (float)m_arrow_texture.metadata.right * inv_tex_width*/;
+            float internal_top_uv = 1.0f /*- (float)m_arrow_texture.metadata.top * inv_tex_height*/;
+            float internal_bottom_uv = 0.0f /*(float)m_arrow_texture.metadata.bottom * inv_tex_height*/;
+
+            float arrow_sides_ratio = (float)m_arrow_texture.get_height() / (float)m_arrow_texture.get_width();
+
+            GLTexture::render_sub_texture(tex_id, zoomed_top_x + zoomed_icons_size * 1.2f, zoomed_top_x + zoomed_icons_size * 1.2f + zoomed_icons_size * 2.2f * arrow_sides_ratio, zoomed_top_y - zoomed_icons_size * 1.6f, zoomed_top_y + zoomed_icons_size * 0.6f, { { internal_left_uv, internal_bottom_uv }, { internal_left_uv, internal_top_uv }, { internal_right_uv, internal_top_uv }, { internal_right_uv, internal_bottom_uv } });
+            break;
+        }
+        zoomed_top_y -= zoomed_stride_y;
+    }
+}
+
+#else
 void GLGizmosManager::render_background(float left, float top, float right, float bottom, float border_w, float border_h) const
 {
     const unsigned int tex_id = m_background_texture.texture.get_id();
@@ -850,7 +1031,135 @@ void GLGizmosManager::render_arrow(const GLCanvas3D& parent, EType highlighted_t
         top_y -= stride_y;
     }
 }
+#endif
 
+#if USE_OCRA
+//when rendering, {0, 0} is at the center, {-0.5, 0.5} at the left-top
+void GLGizmosManager::do_render_overlay() const
+{
+    std::vector<size_t> selectable_idxs = get_selectable_idxs();
+    if (selectable_idxs.empty())
+        return;
+
+    float cnv_w = (float)m_parent.get_canvas_size().get_width();
+    float cnv_h = (float)m_parent.get_canvas_size().get_height();
+    float zoom = (float)wxGetApp().plater()->get_camera().get_zoom();
+    float inv_zoom = (float)wxGetApp().plater()->get_camera().get_inv_zoom();
+
+    float height = get_scaled_total_height();
+    float width = get_scaled_total_width();
+    float zoomed_border = m_layout.scaled_border() * inv_zoom;
+
+	float zoomed_top_x;
+	if (m_parent.get_canvas_type() == GLCanvas3D::CanvasAssembleView) {
+		zoomed_top_x = /*0.5f * m_parent.get_assembly_paint_toolbar_width() * inv_zoom*/ 0.f;
+	}
+	else {
+		// GUI refactor: GLToolbar&&Gizmo adjust
+#if TOOLBAR_ON_TOP
+		float main_toolbar_width = (float)m_parent.get_main_toolbar_width();
+		float assemble_view_width = /*(float)m_parent.get_assemble_view_toolbar_width()*/0.f;
+		float collapse_width = (float)m_parent.get_collapse_toolbar_width();
+		//float space_width = GLGizmosManager::Default_Icons_Size * wxGetApp().toolbar_icon_scale();
+		//float zoomed_top_x = 0.5f *(cnv_w + main_toolbar_width - 2 * space_width - width) * inv_zoom;
+
+		float main_toolbar_left = std::max(-0.5f * cnv_w, -0.5f * (main_toolbar_width + get_scaled_total_width() + assemble_view_width - collapse_width)) * inv_zoom;
+		//float zoomed_top_x = 0.5f *(main_toolbar_width + collapse_width - width - assemble_view_width) * inv_zoom;
+		zoomed_top_x = main_toolbar_left + (main_toolbar_width)*inv_zoom;
+	}
+	float zoomed_top_y = 0.5f * cnv_h * inv_zoom;
+#else
+	//float zoomed_top_x = (-0.5f * cnv_w) * inv_zoom;
+	//float zoomed_top_y = (0.5f * height) * inv_zoom;
+    float zoomed_top_x = (0.5f * cnv_w - width) * inv_zoom;
+    float main_toolbar_height = (float)m_parent.get_main_toolbar_height();
+    float assemble_view_height = (float)m_parent.get_assemble_view_toolbar_height();
+    //float space_height = GLGizmosManager::Default_Icons_Size * wxGetApp().toolbar_icon_scale();
+    float zoomed_top_y = 0.5f * (height + assemble_view_height - main_toolbar_height) * inv_zoom;
+#endif
+    //BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": zoomed_top_y %1%, space_height %2%, main_toolbar_height %3% zoomed_top_x %4%") % zoomed_top_y % space_height % main_toolbar_height % zoomed_top_x;
+
+    float zoomed_left = zoomed_top_x;
+    float zoomed_top = zoomed_top_y;
+    float zoomed_right = zoomed_left + width * inv_zoom;
+    float zoomed_bottom = zoomed_top - height * inv_zoom;
+
+    //render_background(zoomed_left, zoomed_top, zoomed_right, zoomed_bottom, zoomed_border, zoomed_border);
+
+    zoomed_top_x += zoomed_border;
+    zoomed_top_y -= zoomed_border;
+
+    float icons_size = m_layout.scaled_icons_size();
+    float zoomed_icons_size = icons_size * inv_zoom;
+    float zoomed_stride_y = m_layout.scaled_stride_y() * inv_zoom;
+    //BBS: GUI refactor: GLToolbar&&Gizmo adjust
+    float zoomed_stride_x = m_layout.scaled_stride_x() * inv_zoom;
+
+    unsigned int icons_texture_id = m_icons_texture.get_id();
+    int tex_width = m_icons_texture.get_width();
+    int tex_height = m_icons_texture.get_height();
+
+    if ((icons_texture_id == 0) || (tex_width <= 1) || (tex_height <= 1))
+        return;
+
+    float du = (float)(tex_width - 1) / (6.0f * (float)tex_width); // 6 is the number of possible states if the icons
+    float dv = (float)(tex_height - 1) / (float)(m_gizmos.size() * tex_height);
+
+    // tiles in the texture are spaced by 1 pixel
+    float u_offset = 1.0f / (float)tex_width;
+    float v_offset = 1.0f / (float)tex_height;
+
+    bool is_render_current = false;
+
+    //for (size_t idx : selectable_idxs)
+    //{
+    //	GLGizmoBase* gizmo = m_gizmos[idx].get();
+    //	unsigned int sprite_id = gizmo->get_sprite_id();
+    //	// higlighted state needs to be decided first so its highlighting in every other state
+    //	int icon_idx = (m_highlight.first == idx ? (m_highlight.second ? 4 : 5) : (m_current == idx) ? 2 : ((m_hover == idx) ? 1 : (gizmo->is_activable() ? 0 : 3)));
+
+    //	float v_top = v_offset + sprite_id * dv;
+    //	float u_left = u_offset + icon_idx * du;
+    //	float v_bottom = v_top + dv - v_offset;
+    //	float u_right = u_left + du - u_offset;
+
+    //	GLTexture::render_sub_texture(icons_texture_id, zoomed_top_x, zoomed_top_x + zoomed_icons_size, zoomed_top_y - zoomed_icons_size, zoomed_top_y, { { u_left, v_bottom }, { u_right, v_bottom }, { u_right, v_top }, { u_left, v_top } });
+
+    if (m_current > -1 && m_current < m_gizmos.size()) {
+        //BBS: GUI refactor: GLToolbar&&Gizmo adjust
+        //render_input_window uses a different coordination(imgui)
+        //1. no need to scale by camera zoom, set {0,0} at left-up corner for imgui
+#if TOOLBAR_ON_TOP
+        //gizmo->render_input_window(width, 0.5f * cnv_h - zoomed_top_y * zoom, toolbar_top);
+
+        Vec2d pos{ 0,0 };
+        pos = get_gizmo_render_position(m_current);
+        m_gizmos[m_current]->render_input_window(pos[0], pos[1], cnv_h);
+
+        //gizmo->render_input_window(0.5 * cnv_w + zoomed_top_x * zoom, height, cnv_h);
+        //m_gizmos[m_current]->render_input_window(0.5 * cnv_w + 0.5f * zoomed_top_x * cnv_w, get_scaled_total_height(), cnv_h);
+
+        is_render_current = true;
+#else
+        float toolbar_top = cnv_h - wxGetApp().plater()->get_view_toolbar().get_height();
+        //gizmo->render_input_window(width, 0.5f * cnv_h - zoomed_top_y * zoom, toolbar_top);
+        gizmo->render_input_window(cnv_w - width, 0.5f * cnv_h - zoomed_top_y * zoom, toolbar_top);
+#endif
+    }
+//#if TOOLBAR_ON_TOP
+//			zoomed_top_x += zoomed_stride_x;
+//#else
+//			zoomed_top_y -= zoomed_stride_y;
+//#endif
+//		}
+
+    // BBS simplify gizmo is not a selected gizmo and need to render input window
+    if (!is_render_current && m_current != Undefined) {
+        m_gizmos[m_current]->render_input_window(0.5 * cnv_w + zoomed_top_x * zoom, height, cnv_h);
+    }
+}
+
+#else
 void GLGizmosManager::do_render_overlay() const
 {
     const std::vector<size_t> selectable_idxs = get_selectable_idxs();
@@ -922,15 +1231,43 @@ void GLGizmosManager::do_render_overlay() const
     if (m_current != Undefined)
         m_gizmos[m_current]->render_input_window(get_scaled_total_width(), current_y, cnv_h - wxGetApp().plater()->get_view_toolbar().get_height());
 }
-
+#endif
 float GLGizmosManager::get_scaled_total_height() const
 {
+#if TOOLBAR_ON_TOP
+    return 2.0f * m_layout.scaled_border() + m_layout.scaled_icons_size();
+#else
     return m_layout.scale * (2.0f * m_layout.border + (float)get_selectable_idxs().size() * m_layout.stride_y() - m_layout.gap_y);
+#endif
 }
 
 float GLGizmosManager::get_scaled_total_width() const
 {
+#if TOOLBAR_ON_TOP
+    return m_layout.scale * (2.0f * m_layout.border + (float)get_selectable_idxs().size() * m_layout.stride_x() - m_layout.gap_x);
+#else
     return 2.0f * m_layout.scaled_border() + m_layout.scaled_icons_size();
+#endif
+}
+
+Vec2d GLGizmosManager::get_gizmo_render_position(size_t gizmoID) const
+{
+    if (gizmoID == std::string::npos || gizmoID >= m_gizmos.size())
+        return Vec2d(-1, -1);
+
+    GLGizmoBase* gizmo = m_gizmos[gizmoID].get();
+    int id = m_parent.get_main_toolbar_item_id(gizmo->get_name(false, false));
+
+    Vec2d pos{ 0,0 };
+    const Size cnv_size = m_parent.get_canvas_size();
+    const float cnv_w = (float)cnv_size.get_width();
+    const float cnv_h = (float)cnv_size.get_height();
+    if (cnv_w == 0 || cnv_h == 0)
+        return pos;
+
+    m_parent.get_main_toolbar_item_pos(id, pos);
+
+    return pos;
 }
 
 GLGizmoBase* GLGizmosManager::get_current() const

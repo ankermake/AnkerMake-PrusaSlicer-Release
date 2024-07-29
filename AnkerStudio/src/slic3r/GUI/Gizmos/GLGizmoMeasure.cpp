@@ -20,8 +20,8 @@
 namespace Slic3r {
 namespace GUI {
 
-static const Slic3r::ColorRGBA SELECTED_1ST_COLOR = { 0.25f, 0.75f, 0.75f, 1.0f };
-static const Slic3r::ColorRGBA SELECTED_2ND_COLOR = { 0.75f, 0.25f, 0.75f, 1.0f };
+static const Slic3r::ColorRGBA SELECTED_1ST_COLOR = { 0.0f, 1.0f, 1.0f, 1.0f };
+static const Slic3r::ColorRGBA SELECTED_2ND_COLOR = { 1.0f, 0.0f, 1.0f, 1.0f };
 static const Slic3r::ColorRGBA NEUTRAL_COLOR      = { 0.5f, 0.5f, 0.5f, 1.0f };
 
 static const int POINT_ID         = 100;
@@ -62,10 +62,10 @@ static std::string surface_feature_type_as_string(Measure::SurfaceFeatureType ty
     {
     default:
     case Measure::SurfaceFeatureType::Undef:  { return _u8L("No feature"); }
-    case Measure::SurfaceFeatureType::Point:  { return (_L("common_right_panel_measure_selection_vertex")).ToStdString(); }
-    case Measure::SurfaceFeatureType::Edge:   { return (_L("common_right_panel_measure_selection_edge")).ToStdString(); }
-    case Measure::SurfaceFeatureType::Circle: { return (_L("common_right_panel_measure_selection_circle")).ToStdString(); }
-    case Measure::SurfaceFeatureType::Plane:  { return (_L("common_right_panel_measure_selection_plane")).ToStdString(); }
+    case Measure::SurfaceFeatureType::Point:  { return (_u8L("common_right_panel_measure_selection_vertex")); }
+    case Measure::SurfaceFeatureType::Edge:   { return (_u8L("common_right_panel_measure_selection_edge")); }
+    case Measure::SurfaceFeatureType::Circle: { return (_u8L("common_right_panel_measure_selection_circle")); }
+    case Measure::SurfaceFeatureType::Plane:  { return (_u8L("common_right_panel_measure_selection_plane")); }
     }
 }
 
@@ -73,10 +73,10 @@ static std::string point_on_feature_type_as_string(Measure::SurfaceFeatureType t
 {
     std::string ret;
     switch (type) {
-    case Measure::SurfaceFeatureType::Point:  { ret = (_L("common_right_panel_measure_selection_vertex")).ToStdString(); break; }
-    case Measure::SurfaceFeatureType::Edge:   { ret = (_L("common_right_panel_measure_selection_point_on_edge")).ToStdString(); break; }
-    case Measure::SurfaceFeatureType::Circle: { ret = (_L("common_right_panel_measure_selection_point_on_circle")).ToStdString(); break; }
-    case Measure::SurfaceFeatureType::Plane:  { ret = (_L("common_right_panel_measure_selection_point_on_plane")).ToStdString(); break; }
+    case Measure::SurfaceFeatureType::Point:  { ret = (_u8L("common_right_panel_measure_selection_vertex")); break; }
+    case Measure::SurfaceFeatureType::Edge:   { ret = (_u8L("common_right_panel_measure_selection_point_on_edge")); break; }
+    case Measure::SurfaceFeatureType::Circle: { ret = (_u8L("common_right_panel_measure_selection_point_on_circle")); break; }
+    case Measure::SurfaceFeatureType::Plane:  { ret = (_u8L("common_right_panel_measure_selection_point_on_plane")); break; }
     default:                                  { assert(false); break; }
     }
     return ret;
@@ -1834,7 +1834,10 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
     if (m_editing_distance)
         return;
 
-    m_imgui->begin(get_name(), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    // Orca
+    ImGuiWrapper::push_toolbar_style(m_parent.get_scale());
+
+    m_imgui->begin(get_name(), ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
 
     // adjust window position to avoid overlap the view toolbar
     const float win_h = ImGui::GetWindowHeight();
@@ -1849,6 +1852,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
             last_y = y;
     }
 
+#ifdef COMMENT_SHIFT
     if (ImGui::BeginTable("Commands", 2)) {
         unsigned int row_count = 1;
         add_row_to_table(
@@ -2012,16 +2016,18 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
 
         ImGui::EndTable();
     }
+#endif
 
     const bool use_inches = wxGetApp().app_config->get_bool("use_inches");
     const std::string units = use_inches ? " " + _u8L("in") : " " + _u8L("mm");
 
-    ImGui::Separator();
-    const ImGuiTableFlags flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersH;
-    if (ImGui::BeginTable("Selection", 2, flags)) {
+    //ImGui::Separator();
+    const ImGuiTableFlags flags = ImGuiTableFlags_NoBordersInBody;
+    if (ImGui::BeginTable("Selection", 2, flags)) 
+    {
         auto format_item_text = [this, use_inches, &units](const SelectedFeatures::Item& item) {
             if (!item.feature.has_value())
-                return (_L("common_right_panel_measure_selection_none").ToStdString());
+                return (_u8L("common_right_panel_measure_selection_none"));
 
             std::string text = (item.source == item.feature) ? surface_feature_type_as_string(item.feature->get_type()) :
                 item.is_center ? center_on_feature_type_as_string(item.source->get_type()) : point_on_feature_type_as_string(item.source->get_type(), m_hover_id);
@@ -2031,21 +2037,21 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
                 radius = (on_circle - center).norm();
                 if (use_inches)
                     radius = ObjectManipulation::mm_to_in * radius;
-                text += " (" + _L("Diameter").ToStdString() + ": " + format_double(2.0 * radius) + units + ")";
+                text += " (" + _u8L("Diameter") + ": " + format_double(2.0 * radius) + units + ")";
             }
             else if (item.feature.has_value() && item.feature->get_type() == Measure::SurfaceFeatureType::Edge) {
                 auto [start, end] = item.feature->get_edge();
                 double length = (end - start).norm();
                 if (use_inches)
                     length = ObjectManipulation::mm_to_in * length;
-                text += " (" + (_L("common_right_panel_measure_selection_length_of_edge")).ToStdString() + ": " + format_double(length) + units + ")";
+                text += " (" + (_u8L("common_right_panel_measure_selection_length_of_edge")) + ": " + format_double(length) + units + ")";
             }
             return text;
         };
 
-        add_strings_row_to_table(*m_imgui, _u8L("common_right_panel_measure_selection") + " 1:", ImGuiWrapper::to_ImVec4(SELECTED_1ST_COLOR), format_item_text(m_selected_features.first),
+        add_strings_row_to_table(*m_imgui, _u8L("common_right_panel_measure_selection") + " 1:    ", ImGuiWrapper::to_ImVec4(SELECTED_1ST_COLOR), format_item_text(m_selected_features.first),
           ImGuiWrapper::to_ImVec4(SELECTED_1ST_COLOR));
-        add_strings_row_to_table(*m_imgui, _u8L("common_right_panel_measure_selection") + " 2:", ImGuiWrapper::to_ImVec4(SELECTED_2ND_COLOR), format_item_text(m_selected_features.second),
+        add_strings_row_to_table(*m_imgui, _u8L("common_right_panel_measure_selection") + " 2:    ", ImGuiWrapper::to_ImVec4(SELECTED_2ND_COLOR), format_item_text(m_selected_features.second),
           ImGuiWrapper::to_ImVec4(SELECTED_2ND_COLOR));
         ImGui::EndTable();
     }
@@ -2067,13 +2073,13 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
         ImGui::TableSetColumnIndex(2);
         if (m_imgui->image_button(ImGui::ClipboardBtnIcon, _L("Copy to clipboard"))) {
             wxTheClipboard->Open();
-            wxTheClipboard->SetData(new wxTextDataObject(col_1 + ": " + col_2));
+            wxTheClipboard->SetData(new wxTextDataObject(wxString((col_1 + ": " + col_2).c_str(), wxConvUTF8)));
             wxTheClipboard->Close();
         }
     };
 
     ImGui::Separator();
-    m_imgui->text(_L("common_right_panel_measure_title"));
+    m_imgui->text(_u8L("common_right_panel_measure_title"));
 
     const unsigned int max_measure_row_count = 2;
     unsigned int measure_row_count = 0;
@@ -2082,7 +2088,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
             const Measure::MeasurementResult& measure = m_measurement_result;
             if (measure.angle.has_value()) {
                 ImGui::PushID("ClipboardAngle");
-                add_measure_row_to_table((_L("common_right_panel_measure_type_angle")).ToStdString(), ImGuiWrapper::COL_ORANGE_LIGHT, format_double(Geometry::rad2deg(measure.angle->angle)) + "°",
+                add_measure_row_to_table((_u8L("common_right_panel_measure_type_angle")), ImGuiWrapper::COL_ORANGE_LIGHT, format_double(Geometry::rad2deg(measure.angle->angle)) + "°",
                     ImGui::GetStyleColorVec4(ImGuiCol_Text));
                 ++measure_row_count;
                 ImGui::PopID();
@@ -2096,7 +2102,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
                 ImGui::PushID("ClipboardDistanceInfinite");
-                add_measure_row_to_table(show_strict ? _u8L("Perpendicular distance") : _u8L("Distance"), ImGuiWrapper::COL_ORANGE_LIGHT, format_double(distance) + units,
+                add_measure_row_to_table(show_strict ? _u8L("common_right_panel_measure_type_perpendicular_distance") : _u8L("common_measure_Distance"), ImGuiWrapper::COL_ORANGE_LIGHT, format_double(distance) + units,
                     ImGui::GetStyleColorVec4(ImGuiCol_Text));
                 ++measure_row_count;
                 ImGui::PopID();
@@ -2106,7 +2112,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
                 ImGui::PushID("ClipboardDistanceStrict");
-                add_measure_row_to_table(_u8L("Direct distance"), ImGuiWrapper::COL_ORANGE_LIGHT, format_double(distance) + units,
+                add_measure_row_to_table(_u8L("common_right_panel_measure_type_direct_distance"), ImGuiWrapper::COL_ORANGE_LIGHT, format_double(distance) + units,
                     ImGui::GetStyleColorVec4(ImGuiCol_Text));
                 ++measure_row_count;
                 ImGui::PopID();
@@ -2116,7 +2122,7 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
                 ImGui::PushID("ClipboardDistanceXYZ");
-                add_measure_row_to_table(_u8L("Distance XYZ"), ImGuiWrapper::COL_ORANGE_LIGHT, format_vec3(distance),
+                add_measure_row_to_table(_u8L("common_right_panel_measure_type_distance_xyz"), ImGuiWrapper::COL_ORANGE_LIGHT, format_vec3(distance),
                     ImGui::GetStyleColorVec4(ImGuiCol_Text));
                 ++measure_row_count;
                 ImGui::PopID();
@@ -2130,6 +2136,9 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
         ImGui::EndTable();
     }
 
+    ImGui::Separator();
+    //ImGui::NewLine();
+
     if (last_feature != m_curr_feature || last_mode != m_mode || last_selected_features != m_selected_features) {
         // the dialog may have changed its size, ask for an extra frame to render it properly
         last_feature = m_curr_feature;
@@ -2139,6 +2148,9 @@ void GLGizmoMeasure::on_render_input_window(float x, float y, float bottom_limit
     }
 
     m_imgui->end();
+
+    // Orca
+    ImGuiWrapper::pop_toolbar_style();
 }
 
 void GLGizmoMeasure::set_input_window_state(bool on)
@@ -2149,6 +2161,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
 
     ANKER_LOG_INFO << "GLGizmoMeasure: " << on;
 
+#ifdef ANKER_SIDEBAR_UI
     std::string panelFlag = "GLGizmoMeasure";
     if (on)
     {
@@ -2313,6 +2326,7 @@ void GLGizmoMeasure::set_input_window_state(bool on)
             wxGetApp().plater()->sidebarnew().replaceUniverseSubSizer();
         }
     }
+#endif
 }
 
 void GLGizmoMeasure::update_input_window()
@@ -2322,7 +2336,7 @@ void GLGizmoMeasure::update_input_window()
     const std::string units = use_inches ? _u8L(" in") : _u8L(" mm");
     auto format_item_text = [this, use_inches, &units](const SelectedFeatures::Item& item) {
         if (!item.feature.has_value())
-            return (_L("common_right_panel_measure_selection_none").ToStdString());
+            return (_u8L("common_right_panel_measure_selection_none"));
 
         std::string text = (item.source == item.feature) ? surface_feature_type_as_string(item.feature->get_type()) :
             item.is_center ? center_on_feature_type_as_string(item.source->get_type()) : point_on_feature_type_as_string(item.source->get_type(), m_hover_id);
@@ -2332,14 +2346,14 @@ void GLGizmoMeasure::update_input_window()
             radius = (on_circle - center).norm();
             if (use_inches)
                 radius = ObjectManipulation::mm_to_in * radius;
-            text += " (" + _L("Diameter").ToStdString() + ": " + format_double(2.0 * radius) + units + ")";
+            text += " (" + _u8L("Diameter") + ": " + format_double(2.0 * radius) + units + ")";
         }
         else if (item.feature.has_value() && item.feature->get_type() == Measure::SurfaceFeatureType::Edge) {
             auto [start, end] = item.feature->get_edge();
             double length = (end - start).norm();
             if (use_inches)
                 length = ObjectManipulation::mm_to_in * length;
-            text += " (" + (_L("common_right_panel_measure_selection_length_of_edge")).ToStdString() + ": " + format_double(length) + units + ")";
+            text += " (" + (_u8L("common_right_panel_measure_selection_length_of_edge")) + ": " + format_double(length) + units + ")";
         }
         return text;
     };
@@ -2358,7 +2372,7 @@ void GLGizmoMeasure::update_input_window()
         if (m_selected_features.second.feature.has_value()) {
             const Measure::MeasurementResult& measure = m_measurement_result;
             if (measure.angle.has_value()) {
-                measureData[(_L("common_right_panel_measure_type_angle")).ToStdString()] = format_double(Geometry::rad2deg(measure.angle->angle)) + wxT("\u00B0");
+                measureData[(_u8L("common_right_panel_measure_type_angle"))] = format_double(Geometry::rad2deg(measure.angle->angle)) + wxT("\u00B0");
             }
 
             const bool show_strict = measure.distance_strict.has_value() &&
@@ -2368,19 +2382,19 @@ void GLGizmoMeasure::update_input_window()
                 double distance = measure.distance_infinite->dist;
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
-                measureData[ show_strict ? _L("common_right_panel_measure_type_perpendicular_distance").ToStdString() : _L("common_measure_Distance").ToStdString()] = format_double(distance) + units;
+                measureData[ show_strict ? _u8L("common_right_panel_measure_type_perpendicular_distance") : _u8L("common_measure_Distance")] = format_double(distance) + units;
             }
             if (show_strict) {
                 double distance = measure.distance_strict->dist;
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
-                measureData[_L("common_right_panel_measure_type_direct_distance").ToStdString()] = format_double(distance) + units;
+                measureData[_u8L("common_right_panel_measure_type_direct_distance")] = format_double(distance) + units;
             }
             if (measure.distance_xyz.has_value() && measure.distance_xyz->norm() > EPSILON) {
                 Vec3d distance = *measure.distance_xyz;
                 if (use_inches)
                     distance = ObjectManipulation::mm_to_in * distance;
-                measureData[_L("common_right_panel_measure_type_distance_xyz").ToStdString()] = format_vec3(distance);
+                measureData[_u8L("common_right_panel_measure_type_distance_xyz")] = format_vec3(distance);
             }
             if (measureData.size() > 0)
             {
