@@ -383,7 +383,7 @@ void AnkerWebView::initUi()
 	SetSizerAndFit(m_pMainVSizer);
 }
 
-std::string AnkerWebView::getWebviewVersion()const
+std::string AnkerWebView::getBrowserVersion()const
 {
 	std::string version = "";
 	if (!m_webView)
@@ -495,7 +495,10 @@ void AnkerWebView::BuryEvent(AnkerWebView::LoginStatus status, const std::string
 	map.insert(std::make_pair(c_login_status, std::to_string((int)status)));
 	map.insert(std::make_pair(c_load_url, m_url.ToUTF8()));
 	map.insert(std::make_pair(c_status_info, statusInfo));
-	std::string version = getWebviewVersion();
+#ifdef _WIN32
+	map.insert(std::make_pair(c_login_webview2_version, Slic3r::GUI::wxGetApp().getWebview2Version()));
+#endif
+	std::string version = getBrowserVersion();
 	if(!version.empty())
 		map.insert(std::make_pair(c_browser_version, version));
 	BuryAddEvent(e_webview_event, map);

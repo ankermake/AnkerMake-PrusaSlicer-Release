@@ -136,6 +136,7 @@ private:
     void change_scale_value(int axis, double value);
     void change_size_value(int axis, double value);
     void do_scale(int axis, const Vec3d &scale) const;
+    void do_size(int axis, const Slic3r::Vec3d& scale) const;
     void reset_position_value();
     void reset_rotation_value();
     void reset_scale_value();

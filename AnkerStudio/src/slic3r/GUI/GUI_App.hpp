@@ -430,6 +430,8 @@ public:
 
     bool check_privacy_policy();
 
+    std::string getWebview2Version();
+
     ImGuiWrapper* imgui() { return m_imgui.get(); }
 
     PrintHostJobQueue& printhost_job_queue() { return *m_printhost_job_queue.get(); }

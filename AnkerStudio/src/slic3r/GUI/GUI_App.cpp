@@ -144,6 +144,11 @@
 // The default retention temp gcode file is 2 days
 #define TEMP_GCODE_SAVE_DAYS 2
 
+#ifdef _WIN32
+#define GET_WEBVIEW2_URL    "https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/?form=MA13LH"
+#define REGEDIT_URL         L"SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#endif // _WIN32
+
 using namespace std::literals;
 
 namespace Slic3r {
@@ -1340,7 +1345,48 @@ void GUI_App::init_single_instance_checker(const std::string &name, const std::s
     BOOST_LOG_TRIVIAL(debug) << "init wx instance checker " << name << " "<< path; 
     m_single_instance_checker = std::make_unique<wxSingleInstanceChecker>(boost::nowide::widen(name), boost::nowide::widen(path));
 }
+std::string GUI_App::getWebview2Version()
+{
+    std::string webviewVersion = "";
+#ifdef _WIN32
+    HKEY key = NULL;
 
+
+    auto wstringTostring = [](std::wstring wTmpStr) -> std::string {
+        std::string resStr = std::string();
+        int len = WideCharToMultiByte(CP_UTF8, 0, wTmpStr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+
+        if (len <= 0)
+            return std::string();
+        std::string desStr(len, 0);
+
+        WideCharToMultiByte(CP_UTF8, 0, wTmpStr.c_str(), -1, &desStr[0], len, nullptr, nullptr);
+
+        resStr = desStr;
+
+        return resStr;
+    };
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, REGEDIT_URL,
+        0, KEY_READ | KEY_WOW64_64KEY, &key) == ERROR_SUCCESS) {
+        wchar_t buffer[1024];
+        memset(buffer, 0, sizeof(wchar_t) * 1024);
+        DWORD size = sizeof(buffer);
+        bool queryRes = false;
+        queryRes = (RegQueryValueEx(key, L"pv", NULL, NULL, (LPBYTE)buffer, &size) == ERROR_SUCCESS);
+        RegCloseKey(key);
+        if (queryRes) {
+            webviewVersion = wstringTostring(buffer);
+            ANKER_LOG_INFO << "check webview version: " << webviewVersion;
+        }
+        else
+        {
+            ANKER_LOG_ERROR << "the pc no webview and get get version error";
+        }
+    }
+#endif
+
+    return webviewVersion;
+}
 bool GUI_App::check_privacy_policy()
 {
     std::string app_version = SLIC3R_VERSION;
@@ -1583,6 +1629,16 @@ bool GUI_App::on_init_inner()
     init_ui_colours();
     init_fonts();
     AnkerFontSingleton::getInstance().initSysFont();
+
+#ifdef _WIN32
+    //only win process soft start up and report to server
+    std::string webviewVersion = getWebview2Version();
+    
+    std::map<std::string, std::string> map;
+    map.insert(std::make_pair(c_rwv_webview2_version, webviewVersion));    
+    reportBuryEvent(e_report_webview2_version, map, true);
+    
+#endif
 
     std::string older_data_dir_path;
     if (m_app_conf_exists) {

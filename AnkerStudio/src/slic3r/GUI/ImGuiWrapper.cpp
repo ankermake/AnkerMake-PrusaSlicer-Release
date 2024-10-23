@@ -2340,7 +2340,7 @@ void ImGuiWrapper::init_font(bool compress)
     builder.AddRanges(ImGui::GetIO().Fonts->GetGlyphRangesChineseFull());
     m_font_cjk = true;
 
-    builder.AddChar(ImWchar(0x2026)); // бн
+    builder.AddChar(ImWchar(0x2026)); // 
 
     if (m_font_cjk) {
         // This is a temporary fix of https://github.com/prusa3d/PrusaSlicer/issues/8171. The translation
@@ -2367,19 +2367,19 @@ void ImGuiWrapper::init_font(bool compress)
         }
     }
 
-#ifdef _WIN32
-    bold_font = io.Fonts->AddFontFromFileTTF((Slic3r::resources_dir() + "/fonts/" + "HarmonyOS_Sans_SC_Bold.ttf").c_str(), m_font_size, nullptr, ranges.Data);
-    if (bold_font == nullptr) {
-        bold_font = io.Fonts->AddFontDefault();
-        if (bold_font == nullptr) { throw Slic3r::RuntimeError("ImGui: Could not load deafult font"); }
-    }
-
-    // Render the text a bit larger (see GLCanvas3D::_resize() and issue #3401), but only if the scale factor
-    // for the Display is greater than 300%.
-    if (wxGetApp().em_unit() > 30) {
-        bold_font->Scale    = 1.5f;
-    }
-#endif
+//#ifdef _WIN32
+//    bold_font = io.Fonts->AddFontFromFileTTF((Slic3r::resources_dir() + "/fonts/" + "HarmonyOS_Sans_SC_Bold.ttf").c_str(), m_font_size, nullptr, ranges.Data);
+//    if (bold_font == nullptr) {
+//        bold_font = io.Fonts->AddFontDefault();
+//        if (bold_font == nullptr) { throw Slic3r::RuntimeError("ImGui: Could not load deafult font"); }
+//    }
+//
+//    // Render the text a bit larger (see GLCanvas3D::_resize() and issue #3401), but only if the scale factor
+//    // for the Display is greater than 300%.
+//    if (wxGetApp().em_unit() > 30) {
+//        bold_font->Scale    = 1.5f;
+//    }
+//#endif
 
 #ifdef __APPLE__
     ImFontConfig config;
@@ -2825,7 +2825,7 @@ void ImGuiWrapper::clipboard_set(void* /* user_data */, const char* text)
 
 bool IMTexture::load_from_svg_file(const std::string& filename, unsigned width, unsigned height, ImTextureID& texture_id)
 {
-    NSVGimage* image = nsvgParseFromFile(filename.c_str(), "px", 96.0f);
+    NSVGimage* image = BitmapCache::nsvgParseFromFileWithReplace(filename.c_str(), "px", 96.0f, {});
     if (image == nullptr) {
         return false;
     }
