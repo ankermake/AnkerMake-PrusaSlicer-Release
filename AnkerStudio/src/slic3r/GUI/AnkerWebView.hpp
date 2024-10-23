@@ -50,7 +50,7 @@ public:
 	void OnScriptMessage(wxWebViewEvent& evt);
 	void OnError(wxWebViewEvent& evt);
 	void SetForceClose(bool close);
-	std::string getWebviewVersion()const;
+	std::string getBrowserVersion()const;
 protected:
 	void initUi();	
 	std::string getSysVersion();

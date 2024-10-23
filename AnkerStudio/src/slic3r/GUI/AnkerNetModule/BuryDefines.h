@@ -35,6 +35,7 @@
 #define c_status_info "status_info"
 #define c_browser_version "browser_version"
 #define c_load_url "load_url"
+#define c_login_webview2_version "webview2_version"
 
 #define e_print_start "print_start"
 #define c_print_type "print_type"
@@ -112,5 +113,10 @@
 #define e_crash_report "crash_report"
 #define c_cr_error_code "error_code"
 #define c_cr_error_msg "error_msg"
+
+//2024/8/8 only for win
+#define e_report_webview2_version "report_webview2_version"
+#define c_rwv_webview2_version "webview2_version"
+#define c_rwv_user_behavior "user_behavior"
 
 #endif

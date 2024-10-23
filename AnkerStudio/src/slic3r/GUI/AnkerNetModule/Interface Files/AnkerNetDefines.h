@@ -15,7 +15,7 @@
 #include <list>
 #include <map>
 
-#define MappingVersion 1052306
+#define MappingVersion 1052402
 
 #define DEF_PTR(className) class className; typedef std::shared_ptr<className> className##Ptr;
 

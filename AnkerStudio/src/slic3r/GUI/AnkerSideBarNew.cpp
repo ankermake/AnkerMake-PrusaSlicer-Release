@@ -853,7 +853,9 @@ namespace Slic3r {
                     wxCommandEvent evt = wxCommandEvent(wxEVT_COMBOBOX);
                     evt.SetInt(index);
                     evt.SetEventObject(p->m_comboPrinter);
-                    ProcessEvent(evt);
+                    // Warning: you must choose wxQueueEvent or wxPostEvent(not thread-safe), 
+                    // to prevent move's World coordinates - Position  cannot input or etc.
+                    wxQueueEvent(p->m_comboPrinter, evt.Clone());
                     curSelectDeletedFlag = false;
                     break;
                 }
@@ -870,7 +872,9 @@ namespace Slic3r {
                 auto selectTopNozzleItem = p->GetTopNozzle();
                 evt.SetInt(std::get<1>(selectTopNozzleItem));
                 evt.SetEventObject(p->m_comboPrinter);
-                ProcessEvent(evt);
+                // Warning: you must choose wxQueueEvent or wxPostEvent(not thread-safe), 
+                // to prevent move's World coordinates - Position  cannot input or etc.
+                wxQueueEvent(p->m_comboPrinter, evt.Clone());
                 std::string topPrinter = std::get<0>(selectTopNozzleItem);
                 Slic3r::GUI::wxGetApp().plater()->HintFor02mmPrinter(topPrinter);
                 // memorize the last_printer in config
