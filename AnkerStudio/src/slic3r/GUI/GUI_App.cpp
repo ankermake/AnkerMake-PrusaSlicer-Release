@@ -162,6 +162,7 @@ extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& 
 	//if (currentLanguage<= wxLANGUAGE_ENGLISH_ZIMBABWE && currentLanguage>= wxLANGUAGE_ENGLISH)
 	//	return str;
 
+
 	wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
 	dc.SetFont(font);
 	wxSize size = dc.GetTextExtent(str);
