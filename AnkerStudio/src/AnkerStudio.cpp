@@ -863,12 +863,18 @@ void boostLogInit() {
 bool CLI::setup(int argc, char **argv)
 {
     {
-        Slic3r::set_logging_level(3);
+	    Slic3r::set_logging_level(3);         
                 
         try
         {
-            boostLogInit();
-            ANKER_LOG_INFO << "boostLogInit success";
+        boostLogInit();        
+        ANKER_LOG_INFO << "boostLogInit success";  
+        ANKER_LOG_INFO << "=====================================";
+        ANKER_LOG_INFO << "App Name: " << std::string(SLIC3R_APP_NAME);
+        ANKER_LOG_INFO << "Version: " << std::string(SLIC3R_VERSION);
+        ANKER_LOG_INFO << "Build Time: " << __DATE__ << " " << __TIME__;
+        ANKER_LOG_INFO << "PID: " << std::this_thread::get_id();
+        ANKER_LOG_INFO << "=====================================";
             //throw std::exception();
         }
         catch (...)
