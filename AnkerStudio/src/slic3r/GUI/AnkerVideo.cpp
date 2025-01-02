@@ -879,6 +879,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		errorMsg = std::string("could not connect video:device obj is null");
 		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
 		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		ANKER_LOG_INFO << "Report bury event is " << e_play_video;
 		reportBuryEvent(e_play_video, buryMap);
 		
         return;
@@ -890,6 +891,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		errorMsg = std::string("could not connect video:device is offline");
 		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
 		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		ANKER_LOG_INFO << "Report bury event is " << e_play_video;
 		reportBuryEvent(e_play_video, buryMap);
 		
         return;
@@ -906,6 +908,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		errorMsg = std::string("could not connect video:v6 uninited");
 		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
 		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		ANKER_LOG_INFO << "Report bury event is " << e_play_video;
 		reportBuryEvent(e_play_video, buryMap);
 		
 		return;
@@ -916,6 +919,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		errorMsg = std::string("no net module to play video");
 		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
 		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		ANKER_LOG_INFO << "Report bury event is " << e_play_video;
 		reportBuryEvent(e_play_video, buryMap);
 		
 		return;
@@ -927,6 +931,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 		errorMsg = std::string("could not connect video:no camera permission");
 		buryMap.insert(std::make_pair(c_pv_error_code, errorCode));
 		buryMap.insert(std::make_pair(c_pv_error_msg, errorMsg));
+		ANKER_LOG_INFO << "Report bury event is " << e_play_video;
 		reportBuryEvent(e_play_video, buryMap);
 		
         currVideoState = Video_State_ConectingVideo_Fail;
@@ -950,7 +955,7 @@ void AnkerVideo::OnPlayBtnClicked(wxCommandEvent& event)
 	else {
 		ANKER_LOG_ERROR << ("===> ignore, currstate:"+ getVideoStateStr(currVideoState));
 	}
-
+	ANKER_LOG_INFO << "Report bury event is " << e_play_video;
 	reportBuryEvent(e_play_video, buryMap);
 	
 }

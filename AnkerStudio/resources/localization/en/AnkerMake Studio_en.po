@@ -22678,6 +22678,27 @@ msgstr "Start Slice"
 msgid "common_menu_help_copyright"
 msgstr "Copyright Information"
 
+msgid "user_experience_program"
+msgstr "User Experience Program"
+
+msgid "share_analytics"
+msgstr "Share App Analytics"
+
+msgid "share_analytics_description"
+msgstr "When enabled, we collect and process diagnostics, statistical, and crash data related to the application and "
+"devices to address errors and enhance performance for a better user experience. To disable, tap to turn off "
+"\"Share App Analytics\". For more information, please refer to our Privacy Notice. "
+
+msgid "privacy_notice"
+msgstr "Privacy Notice"
+
+msgid "share_analytics_ensure"
+msgstr "To ensure optimal functionality, make sure your Application and device are updated to the latest version. "
+
+msgid "share_analytics_tips"
+msgstr "Failed to change settings"
+
+
 msgid "common_menu_help_feedback"
 msgstr "Feedback"
 

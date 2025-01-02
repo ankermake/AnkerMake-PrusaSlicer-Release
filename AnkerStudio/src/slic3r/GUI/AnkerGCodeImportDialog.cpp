@@ -1396,7 +1396,7 @@ void AnkerGCodeImportDialog::OnStorageBtn(wxCommandEvent& event)
 
 	setLoadingVisible(true);
 	m_fileListUpdateReq = true;
-	
+	ANKER_LOG_INFO << "Report bury event is " << e_read_printer_file;
 	reportBuryEvent(e_read_printer_file, buryMap);
 	
 }
@@ -1434,7 +1434,7 @@ void AnkerGCodeImportDialog::OnUSBBtn(wxCommandEvent& event)
 
 	setLoadingVisible(true);
 	m_fileListUpdateReq = true;
-
+	ANKER_LOG_INFO << "Report bury event is " << e_read_printer_file;
 	reportBuryEvent(e_read_printer_file, buryMap);
 	
 }
@@ -1559,7 +1559,7 @@ void AnkerGCodeImportDialog::OnLoadingTimeout(wxCommandEvent& event)
 	std::string levelReminder = /*"Failed to connect to the machine"*/_("common_print_filepathnotice_loadingfail").ToStdString(wxConvUTF8);
 	std::string title = /*"Error"*/_("common_print_taskpannelfinished_failed").ToStdString(wxConvUTF8);
 	AnkerMsgDialog::MsgResult result = AnkerMessageBox(nullptr, levelReminder, title, false);
-	
+	ANKER_LOG_INFO << "Report bury event is " << e_read_printer_file;
 	reportBuryEvent(e_read_printer_file, buryMap);
 	
 }

@@ -836,7 +836,7 @@ void AnkerNetModuleManager::BuryDownloadResult(DownloadResult reason)
 	
 	buryMap.insert(std::make_pair("result", std::to_string((int)reason)));
 	buryMap.insert(std::make_pair("error_msg", errorMsg));
-	ANKER_LOG_INFO << "bury msg: " << errorMsg;
+	ANKER_LOG_INFO << "Report bury event is "<< netplugin_download << ",bury msg : " << errorMsg;
 
 	reportBuryEvent(netplugin_download, buryMap);
 }

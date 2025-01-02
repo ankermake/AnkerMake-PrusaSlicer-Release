@@ -21894,6 +21894,25 @@ msgstr "プライバシーポリシー"
 msgid "common_menu_help_privacychoices"
 msgstr "Your Privacy Choices"
 
+msgid "user_experience_program"
+msgstr "ユーザーエクスペリエンスプログラム"
+
+msgid "share_analytics"
+msgstr "アプリ分析の共有"
+
+msgid "share_analytics_description"
+msgstr "これを有効にすると、アプリケーションとデバイスに関連する診断、統計、クラッシュデータを収集して処理し、エラーに対処してパフォーマンスを改善させ、ユーザーエクスペリエンスを向上させます。"
+"無効にするには、「アプリ分析の共有」をオフにしてください。詳細については、プライバシーポリシーを参照してください。"
+
+msgid "privacy_notice"
+msgstr "プライバシーポリシー"
+
+msgid "share_analytics_ensure"
+msgstr "最適な機能を保証するために、アプリケーションとデバイスを最新バージョンに更新してください。"
+
+msgid "share_analytics_tips"
+msgstr "設定の変更に失敗しました。"
+
 msgid "common_menu_help_termsofuse"
 msgstr "利用規約"
 

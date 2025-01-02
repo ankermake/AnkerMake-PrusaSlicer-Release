@@ -144,6 +144,11 @@
 // The default retention temp gcode file is 2 days
 #define TEMP_GCODE_SAVE_DAYS 2
 
+//-1 donot want to get webview2,1 get the webview2¡ê?0 webview2 work well
+#define USER_BEHAVIOR_NORMAL   "0"
+#define USER_BEHAVIOR_CANCEL   "-1"
+#define USER_BEHAVIOR_GET       "1"
+
 #ifdef _WIN32
 #define GET_WEBVIEW2_URL    "https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/?form=MA13LH"
 #define REGEDIT_URL         L"SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
@@ -1442,9 +1447,9 @@ bool GUI_App::check_privacy_policy()
                 
                
                 TermsOfUse->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
-                    wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.en.html";
+                    wxString URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_en.html";
                     if (MainFrame::languageIsJapanese())
-                        URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.ja.html";
+                        URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_jp.html";
                     //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
                     wxLaunchDefaultBrowser(URL);
                     }
@@ -1463,9 +1468,9 @@ bool GUI_App::check_privacy_policy()
                 PrivacyPolicy->SetLabel(_L("common_launch_policy_content5"));
                 PrivacyPolicy->SetFont(ANKER_FONT_NO_1);
                 PrivacyPolicy->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
-                    wxString URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.en.html";
+                    wxString URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_en.html";
                     if (MainFrame::languageIsJapanese())
-                        URL = "https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.ja.html";
+                        URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_jp.html";
                     //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
                     wxLaunchDefaultBrowser(URL);
                     }
@@ -1637,6 +1642,7 @@ bool GUI_App::on_init_inner()
     
     std::map<std::string, std::string> map;
     map.insert(std::make_pair(c_rwv_webview2_version, webviewVersion));    
+    ANKER_LOG_INFO << "Report bury event is " << e_report_webview2_version;
     reportBuryEvent(e_report_webview2_version, map, true);
     
 #endif
@@ -1873,11 +1879,19 @@ bool GUI_App::on_init_inner()
 
     mainframe->buryTime();
     mainframe->Show(true);
+    QueryDataShared(nullptr);
+    bool burypointSwitch = wxGetApp().app_config->get_bool("burypoint_switch");
+    ANKER_LOG_INFO << "App burypoint switch is " << burypointSwitch;
+    if (!burypointSwitch) {
+        DataSharedReport(false);
+    }else {
+        DataSharedReport(true);
+    }
 
     //report: start soft    
     std::string errorCode = std::string("0");
     std::string errorMsg = std::string("start soft");
-
+    SetBuryPointSwitch();
     std::map<std::string, std::string> buryMap;
     auto now = std::chrono::system_clock::now();    
     auto duration = now.time_since_epoch();        
@@ -1918,8 +1932,10 @@ bool GUI_App::on_init_inner()
         envir = "CI";
 
     setPluginParameter("", envir,"", para.Openudid);
-
-    reportBuryEvent(e_start_soft, buryMap);
+    ANKER_LOG_INFO << "Report bury event is " << e_start_soft;
+    if (burypointSwitch) {
+        reportBuryEvent(e_start_soft, buryMap);
+    }
     // the position of mainframe is not correct
     /*if (mainframe->IsMaximized()) {
         mainframe->SetSize(wxGetApp().get_min_size());

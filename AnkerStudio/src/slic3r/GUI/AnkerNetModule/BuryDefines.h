@@ -119,4 +119,12 @@
 #define c_rwv_webview2_version "webview2_version"
 #define c_rwv_user_behavior "user_behavior"
 
+#define e_opengl_version "opengl_version"
+#define c_major_version "major"
+#define c_minor_version "minor"
+
+#define e_context_version "context_version"
+
+#define e_report_bury_shared    "report_bury_shared"
+#define c_current_bury_shared    "current_bury_shared"
 #endif

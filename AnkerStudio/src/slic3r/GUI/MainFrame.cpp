@@ -348,6 +348,8 @@ void MainFrame::loginFinishHandle()
 
 
     HintDatabase::get_instance().reinit();
+
+    QueryDataShared(nullptr);
     ANKER_LOG_INFO << "loginFinishHandle leave";
 }
 
@@ -890,7 +892,7 @@ void MainFrame::initTabPanel() {
             map.insert(std::make_pair(c_es_error_code, errorCode));
             map.insert(std::make_pair(c_es_error_msg, errorMsg));
             map.insert(std::make_pair(c_exit_startup_duration, durationStr));
-
+            ANKER_LOG_INFO << "Report bury event is " << e_exit_soft;
             reportBuryEvent(e_exit_soft, map, true);
             
             this->shutdown();
@@ -3169,6 +3171,302 @@ static const wxString sep = " - ";
 static const wxString sep_space = "";
 #endif
 
+void DataSharedReport(bool isShareBuryPoint)
+{
+    std::map<std::string, std::string> buryMap;
+    if (isShareBuryPoint) {
+        buryMap.insert(std::make_pair(c_current_bury_shared, "1"));
+    }
+    else {
+        buryMap.insert(std::make_pair(c_current_bury_shared, "0"));
+    }
+    ANKER_LOG_INFO << "Report bury event is " << e_report_bury_shared;
+    reportBuryEvent(e_report_bury_shared, buryMap);
+}
+
+void SetBuryPointSwitch()
+{
+    bool burypointSwitch = wxGetApp().app_config->get_bool("burypoint_switch");
+    auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
+    if (obj) {
+        if (!burypointSwitch) {
+            obj->PostSetBuryPointSwitch(true);
+        } else {
+            obj->PostSetBuryPointSwitch(false);
+        }
+    }
+}
+
+
+void QueryDataShared(AnkerToggleBtn* dataSharedButton)
+{
+    auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
+    if (obj) {
+        std::vector<int> paramTypeList = { static_cast<int>(AnkerNet::eUserParams::DATA_SHARE_SWITCH) };
+        auto result = obj->PostQueryDataShared(paramTypeList);
+ 
+        if (result.empty()) {
+           
+            bool burypointSwitch = wxGetApp().app_config->get_bool("burypoint_switch");
+            ANKER_LOG_INFO << "The query result is empty, "<< "burypoint switch is "<< burypointSwitch;
+            if (!burypointSwitch) {
+                DataSharedReport(false);
+                if (dataSharedButton != nullptr) {
+                    dataSharedButton->SetState(false);
+                }
+            } else {
+                DataSharedReport(true);
+                if (dataSharedButton != nullptr) {
+                    dataSharedButton->SetState(true);
+                }
+            }
+
+            return;
+        }
+
+        for (int i = 0; i < result.size(); ++i) {
+            auto [paramType, paramValue] = result[i];
+            ANKER_LOG_INFO << "Query burypoint switch is " << paramValue;
+            if (paramValue == "0") {  
+                wxGetApp().app_config->set("burypoint_switch", "0");
+                DataSharedReport(false);
+            }else {
+                wxGetApp().app_config->set("burypoint_switch", "1");
+                DataSharedReport(true);
+            }
+            SetBuryPointSwitch();
+            if (dataSharedButton == nullptr) {
+                return;
+            }
+            if (paramType == static_cast<int>(AnkerNet::eUserParams::DATA_SHARE_SWITCH)) {
+                if (paramValue == "0") {
+                    dataSharedButton->SetState(false);
+                    return;
+                }
+                else {
+                    dataSharedButton->SetState(true);
+                    return;
+                }
+            }
+        }
+    }
+    if (dataSharedButton != nullptr) {
+        dataSharedButton->SetState(true);
+    }
+}
+
+static std::tuple<int, std::string> PreHandleUpdateDataShared(AnkerToggleBtn* shareBuryPointButton)
+{
+    auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
+    if (obj) {
+        std::vector<std::tuple<std::string, int>> memberVec = obj->PostGetMemberType();
+        for (int i = 0; i < memberVec.size(); ++i) {
+            auto [stationSn, memberType] = memberVec[i];
+            // memberType: 1 is sharer, 2 is owner
+            if (memberType == 1) {
+                continue;
+            }
+
+            std::vector<std::pair<int, std::string>> paramTypeList;
+            if (shareBuryPointButton == nullptr) { 
+                return std::make_tuple(-1, "-1"); 
+            }
+            bool btnState = shareBuryPointButton->GetState();
+            if (btnState) {
+                paramTypeList = { {static_cast<int>(AnkerNet::eUserParams::DATA_SHARE_SWITCH),"1"} };
+            } else {
+                paramTypeList = { {static_cast<int>(AnkerNet::eUserParams::DATA_SHARE_SWITCH),"0"} };
+            }
+            auto [code, _1] = obj->PostUpdateDataShared(paramTypeList);
+            return std::make_tuple(code, stationSn);
+        }
+    }
+    return std::make_tuple(-1, "-1");
+}
+
+static void OnShareBuryPointButtonClick(AnkerToggleBtn* shareBuryPointButton, int code, const std::string& stationSn)
+{
+    auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
+    if (obj) {
+        if (code == 0) {
+            bool shareBuryPointButtonStatus = shareBuryPointButton->GetState();
+            ANKER_LOG_INFO << "Update burypoint switch is " << shareBuryPointButtonStatus;
+            shareBuryPointButton->SetState(shareBuryPointButtonStatus);
+            DataSharedReport(shareBuryPointButtonStatus);
+            DeviceObjectBasePtr deviceObjectPtr = obj->getDeviceObjectFromSn(stationSn);
+            if (deviceObjectPtr) {
+                bool state = shareBuryPointButtonStatus;
+                deviceObjectPtr->SendSwitchInfoToDevice("shareAnalytics", state);
+            }
+
+            if (shareBuryPointButtonStatus) {
+                wxGetApp().app_config->set("burypoint_switch", "1");
+            }
+            else {
+                wxGetApp().app_config->set("burypoint_switch", "0");
+            }
+            SetBuryPointSwitch();
+        }
+        else {
+            wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+            wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+            wxSize dialogSize = AnkerSize(380, 100);
+            wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2,
+                mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+            AnkerDialog dialog(nullptr, wxID_ANY, _L("share_analytics_tips"), "", center, dialogSize);
+            int result = dialog.ShowAnkerModal(AnkerDialogType_DisplayTextOkDialog);
+            ANKER_LOG_INFO << "result: " << result;
+
+            bool state = !shareBuryPointButton->GetState();
+            if (state) {
+                wxGetApp().app_config->set("burypoint_switch", "1");
+            }
+            else {
+                wxGetApp().app_config->set("burypoint_switch", "0");
+            }
+            ANKER_LOG_INFO << "Update burypoint switch is " << state;
+            SetBuryPointSwitch();
+            shareBuryPointButton->SetState(state);
+            DataSharedReport(state);
+        }
+    }
+#ifdef OldOnShareBuryPointButtonClick
+    auto obj = DatamangerUi::GetInstance().getAnkerNetBase();
+    if (obj) {
+        std::vector<std::tuple<std::string, int>> memberVec = obj->PostGetMemberType();
+        for (int i = 0; i < memberVec.size(); ++i) {
+            auto [stationSn, memberType] = memberVec[i];
+            if (memberType == 1) {
+                bool btnState = !shareBuryPointButton->GetState();
+                shareBuryPointButton->SetState(btnState);
+                continue;
+            }
+
+            std::vector<std::pair<int, std::string>> paramTypeList;
+            if (shareBuryPointButton->GetState()) {
+                paramTypeList = { {static_cast<int>(AnkerNet::eUserParams::DATA_SHARE_SWITCH),"1"} };
+            }
+            else {
+                paramTypeList = { {static_cast<int>(AnkerNet::eUserParams::DATA_SHARE_SWITCH),"0"} };
+            }
+            auto [code, _1] = obj->PostUpdateDataShared(paramTypeList);
+            if (code == 0) {
+                bool shareBuryPointButtonStatus = shareBuryPointButton->GetState();
+                ANKER_LOG_INFO << "Update burypoint switch is " << shareBuryPointButtonStatus;
+                shareBuryPointButton->SetState(shareBuryPointButtonStatus);
+                DataSharedReport(shareBuryPointButtonStatus);
+                DeviceObjectBasePtr deviceObjectPtr = obj->getDeviceObjectFromSn(stationSn);
+                if (deviceObjectPtr) {
+                    bool state = shareBuryPointButtonStatus;
+                    deviceObjectPtr->SendSwitchInfoToDevice("shareAnalytics", state);
+                }
+
+                if (shareBuryPointButtonStatus) {
+                    wxGetApp().app_config->set("burypoint_switch", "1");
+                }
+                else {
+                    wxGetApp().app_config->set("burypoint_switch", "0");
+                }
+            }
+            else {
+                wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+                wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+                wxSize dialogSize = AnkerSize(380, 100);
+                wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2,
+                    mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+                AnkerDialog dialog(nullptr, wxID_ANY, _L("share_analytics_tips"), "", center, dialogSize);
+                int result = dialog.ShowAnkerModal(AnkerDialogType_DisplayTextOkDialog);
+                ANKER_LOG_INFO << "result: " << result;
+
+                bool state = !shareBuryPointButton->GetState();
+                if (state) {
+                    wxGetApp().app_config->set("burypoint_switch", "1");
+                }
+                else {
+                    wxGetApp().app_config->set("burypoint_switch", "0");
+                }
+                ANKER_LOG_INFO << "Update burypoint switch is " << state;
+                shareBuryPointButton->SetState(state);
+                DataSharedReport(state);
+            }
+        }
+    }
+#endif // OldOnShareBuryPointButtonClick
+
+}
+
+static void CreateUserExperienceDialog() 
+{
+    wxPoint mfPoint = wxGetApp().mainframe->GetPosition();
+    wxSize mfSize = wxGetApp().mainframe->GetClientSize();
+    wxSize dialogSize = AnkerSize(400, 313);
+    wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2, mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
+    wxString title = _AnkerL("user_experience_program");
+    AnkerDialog dialog(nullptr, wxID_ANY, title, "", center, dialogSize);
+
+    wxPanel* contentPanel = new wxPanel(&dialog);
+    wxBoxSizer* contenSizer = new wxBoxSizer(wxVERTICAL);
+    contentPanel->SetSizer(contenSizer);
+    contenSizer->AddSpacer(AnkerLength(42));
+    wxBoxSizer* shareBuryPointSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxStaticText* shareBuryPointLabel = new wxStaticText(contentPanel, wxID_ANY, _L("share_analytics"));
+    shareBuryPointLabel->SetForegroundColour(wxColour("#ffffff"));
+    shareBuryPointLabel->SetFont(AnkerFontSingleton::getInstance().Font_Head_14);
+
+    AnkerToggleBtn* shareBuryPointButton = new AnkerToggleBtn(contentPanel);
+    shareBuryPointButton->SetMinSize(AnkerSize(51, 27));
+    shareBuryPointButton->SetMaxSize(AnkerSize(51, 27));
+    shareBuryPointButton->SetSize(AnkerSize(51, 27));
+    shareBuryPointButton->SetBackgroundColour(wxColour("#333438"));
+    shareBuryPointButton->SetStateColours(true, wxColour(129, 220, 129), wxColour(250, 250, 250));
+    shareBuryPointButton->SetStateColours(false, wxColour(83, 83, 83), wxColour(219, 219, 219));
+
+    QueryDataShared(shareBuryPointButton);
+    shareBuryPointButton->Bind(wxCUSTOMEVT_ANKER_BTN_CLICKED, [shareBuryPointButton, contentPanel](wxCommandEvent& event) {
+        auto futureResult = std::async(std::launch::async, [shareBuryPointButton]() {
+            return PreHandleUpdateDataShared(shareBuryPointButton);
+        });
+        if (futureResult.wait_for(std::chrono::seconds(3)) == std::future_status::ready) {
+            auto [code, sn] = futureResult.get();
+            ANKER_LOG_INFO << "code is "<<code<<", sn  is" << sn;
+            OnShareBuryPointButtonClick(shareBuryPointButton, code, sn);
+        } else {
+            ANKER_LOG_INFO << "PreHandleUpdate handle timeout!";
+            OnShareBuryPointButtonClick(shareBuryPointButton, -1, "");
+        }
+        
+        contentPanel->Layout();
+        });
+    shareBuryPointSizer->AddSpacer(AnkerLength(42));
+    shareBuryPointSizer->Add(shareBuryPointLabel, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+    shareBuryPointSizer->AddStretchSpacer();
+    shareBuryPointSizer->Add(shareBuryPointButton, 0, wxALL | wxALIGN_CENTER_VERTICAL, 0);
+    shareBuryPointSizer->AddSpacer(AnkerLength(42));
+    contenSizer->Add(shareBuryPointSizer, 0, wxALL | wxEXPAND, 0);
+    contenSizer->AddSpacer(AnkerLength(12));
+
+    MultipleLinesStaticText* contentText = new MultipleLinesStaticText(contentPanel);
+    contentText->SetControlSize(AnkerSize(360, 160));
+    contentText->SetControlColour(wxColour("#A8A8A8"), wxColour("#333438"));
+    contentText->SetTextFont(Body_13);
+    wxString contentString = _L("share_analytics_description") + _L("share_analytics_ensure");
+    contentText->WriteText(contentString);
+    wxString url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_en.html");
+    if (MainFrame::currentSoftwareLanguageIsJapanese()) {
+        url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_jp.html");
+    }
+
+    wxURI uri(url);
+    url = uri.BuildURI();
+    std::string stdUrl = url.ToStdString();
+    contentText->ChangeTextToLink(_L("privacy_notice"), stdUrl, wxColour("#62D361"), false);
+
+    contenSizer->Add(contentText, 0, wxLEFT | wxRIGHT | wxEXPAND, AnkerLength(42));
+    dialog.SetCustomContent(contentPanel);
+    int result = dialog.ShowAnkerModal(AnkerDialogType_CustomContent);
+    ANKER_LOG_INFO << "result: " << result;
+}
+
 static wxMenu* generate_help_menu()
 {
     wxMenu* helpMenu = new wxMenu();
@@ -3217,9 +3515,9 @@ static wxMenu* generate_help_menu()
     
     append_menu_item(helpMenu, wxID_ANY, _L("common_menu_help_privacy"), _L("Show privacy policy"),
         [](wxCommandEvent&) {
-            wxString url = wxString("https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.en.html");
-            if (MainFrame::languageIsJapanese()) {
-                url = wxString("https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-privacy.ja.html");
+            wxString url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_en.html");
+            if (MainFrame::currentSoftwareLanguageIsJapanese()) {
+                url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_jp.html");
             }
 
             wxURI uri(url);
@@ -3234,9 +3532,9 @@ static wxMenu* generate_help_menu()
             });
     append_menu_item(helpMenu, wxID_ANY, _L("common_menu_help_termsofuse"), _L("Show terms of use"),
         [](wxCommandEvent&) {
-            wxString url = wxString("https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.en.html");
-            if (MainFrame::languageIsJapanese()) {
-                url = wxString("https://public-make-moat-us.s3.us-east-2.amazonaws.com/overall/AnkerMake-terms-of-service.ja.html");
+            wxString url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_en.html");
+            if (MainFrame::currentSoftwareLanguageIsJapanese()) {
+                url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_jp.html");
             }
 
             wxURI uri(url);
@@ -3264,6 +3562,10 @@ static wxMenu* generate_help_menu()
             wxString title = _AnkerL("common_popup_copyright_title");                            
             AnkerCopyrightDialog dialog(nullptr, wxID_ANY, title, "", center, dialogSize);
             dialog.ShowAnkerModal();
+        });
+        append_menu_item(helpMenu, wxID_ANY, _L("user_experience_program"), _L("user_experience_program"),
+        [](wxCommandEvent&) {
+            CreateUserExperienceDialog();
         });
 
     return helpMenu;
@@ -3848,6 +4150,19 @@ void MainFrame::selectLanguage(GUI_App::AnkerLanguageType language)
     }
 }
 
+bool MainFrame::currentSoftwareLanguageIsJapanese()
+{
+    // wxLanguage::wxLANGUAGE_CHINESE_CHINA = 130
+    // wxLanguage::wxLANGUAGE_ENGLISH = 175
+    // wxLanguage::wxLANGUAGE_JAPANESE = 428
+    int type = wxGetApp().getCurrentLanguageType();
+    ANKER_LOG_INFO << "The current software language type is " << type;
+    if (type == wxLanguage::wxLANGUAGE_JAPANESE) {
+        return true;
+    }
+    return false;
+}
+
 bool MainFrame::languageIsJapanese()
 {
 #ifdef _WIN32
@@ -4136,7 +4451,7 @@ void MainFrame::quick_slice(const int qs)
 //     auto sprint = new Slic3r::Print::Simple(
 //         print_center = > print_center,
 //         status_cb = > [](int percent, const wxString& msg) {
-//         m_progress_dialog->Update(percent, msg+"…");
+//         m_progress_dialog->Update(percent, msg+"...");
 //     });
 
     // keep model around

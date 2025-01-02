@@ -23168,6 +23168,25 @@ msgstr "隐私政策"
 msgid "common_menu_help_privacychoices"
 msgstr "Your Privacy Choices"
 
+msgid "user_experience_program"
+msgstr "用户体验计划"
+
+msgid "share_analytics"
+msgstr "共享应用分析"
+
+msgid "share_analytics_description"
+msgstr "启用后，我们会收集并处理与应用程序及设备相关的诊断、统计和崩溃数据，以解决错误并提升性能，从而为您提供更好的用户体验。"
+"若要停用，请轻点以关闭“共享应用分析数据”。欲了解更多信息，请参阅我们的《隐私声明》。"
+
+msgid "share_analytics_tips"
+msgstr "更改设置失败"
+
+msgid "share_analytics_ensure"
+msgstr "为确保最佳功能，请确保您的应用程序和设备已更新至最新版本。"
+
+msgid "privacy_notice"
+msgstr "《隐私声明》"
+
 msgid "common_menu_help_termsofuse"
 msgstr "使用条款"
 

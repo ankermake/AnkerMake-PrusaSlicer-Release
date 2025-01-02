@@ -501,7 +501,15 @@ void AnkerWebView::BuryEvent(AnkerWebView::LoginStatus status, const std::string
 	std::string version = getBrowserVersion();
 	if(!version.empty())
 		map.insert(std::make_pair(c_browser_version, version));
-	BuryAddEvent(e_webview_event, map);
+	auto appConfig = Slic3r::GUI::wxGetApp().app_config;
+	if (appConfig == nullptr) {
+		return;
+	}
+	bool burypointSwitch = appConfig->get_bool("burypoint_switch");
+	ANKER_LOG_INFO << "Webview burypoint switch is " << burypointSwitch;
+	if (burypointSwitch) {
+		BuryAddEvent(e_webview_event, map);
+	}
 }
 
 #ifdef WIN32
