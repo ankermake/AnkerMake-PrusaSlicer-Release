@@ -1172,7 +1172,7 @@ int main(int argc, char **argv)
     buryMap.insert(std::make_pair(c_ss_time, strDuration));
     buryMap.insert(std::make_pair(c_ss_error_code, errorCode));
     buryMap.insert(std::make_pair(c_ss_error_msg, errorMsg));
-
+    ANKER_LOG_INFO << "Report bury event is " << e_start_soft;
     reportBuryEvent(e_start_soft, buryMap);
 #endif
     return CLI().run(argc, argv);

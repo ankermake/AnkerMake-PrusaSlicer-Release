@@ -1772,7 +1772,7 @@ namespace Slic3r {
 
                 std::string errorMsg = "drag file to device panel is not allow";
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                 reportBuryEvent(e_hanlde_model, buryMap);
                 return false;
             } else { //drag file to slice panel is allow
@@ -5332,6 +5332,7 @@ namespace Slic3r {
             buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
             buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
             buryMap.insert(std::make_pair(c_sm_unique_id, std::to_string(g_RandNumber)));
+            ANKER_LOG_INFO << "Report bury event is " << e_slice_model;
             reportBuryEvent(e_slice_model, buryMap);       
         }
 
@@ -6761,7 +6762,7 @@ namespace Slic3r {
                 std::map<std::string, std::string> buryMap;
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                 reportBuryEvent(e_hanlde_model, buryMap);
                 return;
             }
@@ -6804,7 +6805,7 @@ namespace Slic3r {
             buryMap.insert(std::make_pair(c_hm_file_name, model_name));            
             buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
             buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
-
+            ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
             reportBuryEvent(e_hanlde_model, buryMap);
 
             wxString snapshot_label;
@@ -7844,7 +7845,7 @@ namespace Slic3r {
                             buryMap.insert(std::make_pair(c_ag_handle_duration, "0"));
                             buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                             buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                            ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                             reportBuryEvent(e_ag_handle, buryMap);
 
                             return false;
@@ -7878,7 +7879,7 @@ namespace Slic3r {
                     buryMap.insert(std::make_pair(c_ag_handle_duration, "0"));
                     buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                     buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                    ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                     reportBuryEvent(e_ag_handle, buryMap);
                     return true;
                 }
@@ -7922,7 +7923,7 @@ namespace Slic3r {
                                 buryMap.insert(std::make_pair(c_ag_handle_duration, "0"));
                                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-                                
+                                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                                 reportBuryEvent(e_ag_handle, buryMap);
 
                                 return false;
@@ -7976,7 +7977,7 @@ namespace Slic3r {
                 buryMap.insert(std::make_pair(c_ag_handle_duration, handleDuration));
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
                 
                 return false;
@@ -8035,7 +8036,7 @@ namespace Slic3r {
                         buryMap.insert(std::make_pair(c_hm_type, handleType));
                         buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                         buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
-
+                        ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                         reportBuryEvent(e_hanlde_model, buryMap);
                         return false; // did not load anything to this instance
                     }
@@ -8052,7 +8053,7 @@ namespace Slic3r {
                     buryMap.insert(std::make_pair(c_hm_type, handleType));
                     buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                     buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
-
+                    ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                     reportBuryEvent(e_hanlde_model, buryMap);
                     return true;
                 }
@@ -8087,7 +8088,7 @@ namespace Slic3r {
             buryMap.insert(std::make_pair(c_hm_type, handleType));
             buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
             buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
-
+            ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
             reportBuryEvent(e_hanlde_model, buryMap);
 
             return true;
@@ -8785,7 +8786,7 @@ namespace Slic3r {
                              
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
 
                 return;
@@ -8798,7 +8799,7 @@ namespace Slic3r {
                  
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
                 
                 return;
@@ -8812,7 +8813,7 @@ namespace Slic3r {
                    
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
 
                 return;
@@ -8831,7 +8832,7 @@ namespace Slic3r {
                     errorMsg = "UPDATE_BACKGROUND_PROCESS_INVALID";                    
                     buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                     buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-                                            
+                    ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                     reportBuryEvent(e_ag_handle, buryMap);
                     return;
                 }
@@ -8847,7 +8848,7 @@ namespace Slic3r {
                 errorMsg = errorInfo;
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
                 
                 show_error(this, ex.what(), true);
@@ -8862,7 +8863,7 @@ namespace Slic3r {
                 errorMsg = errorInfo;
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
                 
                 show_error(this, ex.what(), false);
@@ -8965,7 +8966,7 @@ namespace Slic3r {
                 buryMap.insert(std::make_pair(c_ag_handle_duration, handleDuration));
                 buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
-
+                ANKER_LOG_INFO << "Report bury event is " << e_ag_handle;
                 reportBuryEvent(e_ag_handle, buryMap);
             }
         }
@@ -8984,6 +8985,7 @@ namespace Slic3r {
                 errorMsg = "model objects is null";
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+                ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                 reportBuryEvent(e_hanlde_model, buryMap);
                 return; 
             }
@@ -8996,6 +8998,7 @@ namespace Slic3r {
                 buryMap.insert(std::make_pair(c_hm_file_name, path_u8));
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
+                ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                 reportBuryEvent(e_hanlde_model, buryMap);
                 return; 
             }
@@ -9011,6 +9014,7 @@ namespace Slic3r {
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
                 buryMap.insert(std::make_pair(c_hm_file_name, path_u8));
+                ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
                 reportBuryEvent(e_hanlde_model, buryMap);       
                 return;
             }
@@ -9168,7 +9172,8 @@ namespace Slic3r {
             errorMsg = "export success";
             buryMap.insert(std::make_pair(c_hm_file_name, path_u8));
             buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
-            buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));        
+            buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));   
+            ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
             reportBuryEvent(e_hanlde_model, buryMap);
             //    p->statusbar()->set_status_text(format_wxstr(_L("STL file exported to %s"), path));
         }

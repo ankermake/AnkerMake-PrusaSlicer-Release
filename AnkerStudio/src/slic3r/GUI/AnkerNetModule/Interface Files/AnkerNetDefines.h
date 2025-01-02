@@ -79,6 +79,13 @@ typedef enum
     VIDEO_CLOSE_BY_OFF_LINE = 6
 } VideoCloseReasonType;
 
+enum class eUserParams {
+    DEVICE_SORT = 10000,
+    DEVICE_SORT_LASTTIME = 100001,
+    DATA_SHARE_SWITCH = 20001,
+    USERS_EXPER_IMPROVE_SWITCH = 20002
+};
+
 
 enum class AKNMT_LOG_LEVEL {
     MAX = 1,

@@ -729,5 +729,6 @@ void CloseVideoStream(int reason)
 
 void BuryAddEvent(const std::string& eventName, const std::map<std::string, std::string>& eventMap)
 {
+	ANKER_LOG_INFO << "Report bury event is " << eventName;
 	reportBuryEvent(eventName, eventMap);
 }

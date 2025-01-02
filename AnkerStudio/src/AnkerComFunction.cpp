@@ -47,6 +47,8 @@ void* pInstancPlugin = nullptr;
 typedef AnkerPlugin* (*AnkerPluginInstanse)();
 
 
+std::atomic<bool> gIsforbidShareBuryPoint = true;
+
 void loadThePlugin()
 {
 #ifdef OPEN_SOURCE_MODE
@@ -269,6 +271,21 @@ void getSentryDsn(std::string &dsn)
 
 void reportBuryEvent(std::string eventStr, std::map<std::string, std::string> infoMap,bool isBlock)
 {
+    // reporting mode is just for  e_report_bury_shared
+    if (eventStr == e_report_bury_shared) {
+        if (infoMap[c_current_bury_shared] == "0") {
+            gIsforbidShareBuryPoint.store(true);
+        }
+        else {
+            gIsforbidShareBuryPoint.store(false);
+        }
+        return;
+    }
+
+    if (gIsforbidShareBuryPoint.load()) {
+        return;
+    }
+
     loadThePlugin();
     if (pAnkerPlugin)
     {    
@@ -305,6 +322,9 @@ std::string getPcName()
 std::string getMacAddress()
 {
     std::string macAddress = std::string();
+    if (gIsforbidShareBuryPoint) {
+        return macAddress;
+    }
 #ifndef __APPLE__
     ULONG ulBufferSize = 0;
     DWORD dwResult = ::GetAdaptersInfo(NULL, &ulBufferSize);

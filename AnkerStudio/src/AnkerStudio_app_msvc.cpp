@@ -210,6 +210,12 @@ public:
         if (numbers.size() > 1)
             gl_minor = ::atoi(numbers[1].c_str());
         // printf("Major: %d, minor: %d\n", gl_major, gl_minor);
+
+        std::map<std::string, std::string> map;
+        map.insert(std::make_pair(c_major_version, std::to_string(gl_major)));
+        map.insert(std::make_pair(c_minor_version, std::to_string(gl_minor)));
+        reportBuryEvent(e_opengl_version, map);
+
         if (gl_major < major)
             return false;
         else if (gl_major > major)

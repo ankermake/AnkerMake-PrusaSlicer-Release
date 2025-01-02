@@ -245,6 +245,7 @@ public:
     void buryTime();
     std::string getWorkDuration();
     void        selectLanguage(GUI_App::AnkerLanguageType language);
+    static bool currentSoftwareLanguageIsJapanese();
     static bool        languageIsJapanese();
     static std::string GetTranslateLanguage();
 
@@ -381,7 +382,9 @@ public:
     bool m_normalExit { false };
     wxDateTime m_buryTime;
 };
-
+void SetBuryPointSwitch();
+void DataSharedReport(bool isShareBuryPoint);
+void QueryDataShared(AnkerToggleBtn* dataSharedButton);
 } // GUI
 } //Slic3r
 

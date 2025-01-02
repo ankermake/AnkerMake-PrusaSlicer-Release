@@ -1267,6 +1267,7 @@ void AnkerTaskPanel::startPrint()
                     errorMsg = "user cancel start to print";
                     buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                     buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+                    ANKER_LOG_INFO << "Report bury event is " << e_start_print;
                     reportBuryEvent(e_start_print, buryMap);
                     return;
                 }
@@ -1294,6 +1295,7 @@ void AnkerTaskPanel::startPrint()
                     errorMsg = "user cancel start to print";
                     buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
                     buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+                    ANKER_LOG_INFO << "Report bury event is " << e_start_print;
                     reportBuryEvent(e_start_print, buryMap);
                     return;
                 }
@@ -1313,6 +1315,7 @@ void AnkerTaskPanel::startPrint()
     
     buryMap.insert(std::make_pair(c_ag_error_code, errorCode));
     buryMap.insert(std::make_pair(c_ag_error_msg, errorMsg));
+    ANKER_LOG_INFO << "Report bury event is " << e_start_print;
     reportBuryEvent(e_start_print, buryMap);
     m_toPrinting = true;
     m_pToPrintingTimer->Stop();

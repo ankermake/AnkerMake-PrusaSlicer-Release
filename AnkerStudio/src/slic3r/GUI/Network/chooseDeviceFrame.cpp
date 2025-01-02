@@ -831,7 +831,7 @@ void AnkerChooseDevicePanel::OnOkBtnClicked(wxCommandEvent& event)
 			map.insert(std::make_pair(c_pft_error_code, errorCode));
 			map.insert(std::make_pair(c_pft_error_msg, errorMsg));
 			reportBuryEvent(e_print_file_transport, map);
-
+			ANKER_LOG_INFO << "Report bury event is " << e_print_file_transport;
 			ankerNet->StartP2pOperator(P2P_TRANSFER_PREVIEW_FILE, sn, "");
 		}
 	} else {
@@ -843,6 +843,7 @@ void AnkerChooseDevicePanel::OnOkBtnClicked(wxCommandEvent& event)
 		buryMap.insert(std::make_pair(c_pft_device_sn, sn));
 		buryMap.insert(std::make_pair(c_pft_error_code, errorCode));
 		buryMap.insert(std::make_pair(c_pft_error_msg, errorMsg));
+		ANKER_LOG_INFO << "Report bury event is " << e_print_file_transport;
 		reportBuryEvent(e_print_file_transport, buryMap);
 
 		// TODO KEY replace

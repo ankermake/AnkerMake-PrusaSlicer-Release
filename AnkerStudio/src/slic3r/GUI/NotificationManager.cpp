@@ -1859,8 +1859,10 @@ void NotificationManager::SlicingProgressNotification::set_status_text(const std
 	buryMap.insert(std::make_pair(c_sm_status, status));
 	buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
 	buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-	if(m_sp_state != SlicingProgressState::SP_PROGRESS)
+	if (m_sp_state != SlicingProgressState::SP_PROGRESS) {
+		ANKER_LOG_INFO << "Report bury event is " << e_slice_model;
 		reportBuryEvent(e_slice_model, buryMap);
+	}
 
 }
 void NotificationManager::SlicingProgressNotification::set_print_info(const std::string& info)
