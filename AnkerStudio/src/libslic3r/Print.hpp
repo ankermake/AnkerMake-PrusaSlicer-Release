@@ -708,16 +708,12 @@ public:
     // plate's origin related functions
     void set_plate_origin(Vec3d origin) { m_origin = origin; }
     const Vec3d get_plate_origin() const { return m_origin; }
-<<<<<<< HEAD
     //SoftFever
     CalibMode& calib_mode() { return m_calib_params.mode; }
     const CalibMode calib_mode() const { return m_calib_params.mode; }
     void set_calib_params(const Calib_Params& params);
     const Calib_Params& calib_params() const { return m_calib_params; }
     void set_plates_custom_gcodes(const CustomGCode::Info & custom_gcodes);
-=======
-
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 
     static bool sequential_print_horizontal_clearance_valid(const Print& print, Polygons* polygons = nullptr);
     void setCreatAiFile(bool val) { isCreatAiFile = val; }
@@ -778,11 +774,8 @@ private:
     // ConflictResultOpt m_conflict_result;
     // FakeWipeTower     m_fake_wipe_tower;
 
-<<<<<<< HEAD
         //SoftFever: calibration
     Calib_Params m_calib_params;
-=======
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 
     // friva change for acode export
     bool isCreatAiFile = false;

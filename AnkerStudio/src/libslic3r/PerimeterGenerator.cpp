@@ -1161,12 +1161,8 @@ void PerimeterGenerator::process_arachne(
             Polygons   last_p = to_polygons(last);
             Arachne::WallToolPaths wallToolPaths(last_p, ext_perimeter_spacing, perimeter_spacing, (std::min)(1, coord_t(loop_number + 1)), 0, params.layer_height, params.object_config, params.print_config);
             std::vector<Arachne::VariableWidthLines> perimeters_0 = wallToolPaths.getToolPaths();
-<<<<<<< HEAD
             if (!perimeters_0.empty())
                 perimeters.emplace_back(perimeters_0.front());
-=======
-            perimeters.emplace_back(perimeters_0.front());
->>>>>>> 84b4984 (feat: 1.5.21 open source)
             perimeter_infill_area = union_ex(wallToolPaths.getInnerContour());
         }
 
@@ -1549,11 +1545,8 @@ void PerimeterGenerator::process_classic(
 
     ExPolygons gaps;
     bool       has_bridge  = false;
-<<<<<<< HEAD
     if (params.layer_id == 0 && params.config.only_one_wall_first_layer)
         loop_number = 0;
-=======
->>>>>>> 84b4984 (feat: 1.5.21 open source)
     if (loop_number >= 0) {
         // In case no perimeters are to be generated, loop_number will equal to -1.
         std::vector<PerimeterGeneratorLoops> contours(loop_number+1);    // depth => loops
@@ -1803,7 +1796,6 @@ void PerimeterGenerator::process_classic(
                             if (!(outer + 1 < entities.entities.size() && entities.entities[outer + 1]->role().is_external_perimeter()))
                                 last_outer = outer;
                         }
-<<<<<<< HEAD
                     
                         float overhang_flow_ratio = params.config.overhangPerimeters_flow_ratio;
                             for (size_t i = 0; i < loop->paths.size(); i++)
@@ -1813,16 +1805,6 @@ void PerimeterGenerator::process_classic(
                                     (loop->paths)[i].mm3_per_mm = params.mm3_per_mm * overhang_flow_ratio;
                                 }
                             }
-=======
-                        if ((!loop->polygon().is_counter_clockwise()) &&
-                            loop->role().is_perimeter() && outer - last_outer > 0 && !is_contain_bridge && loop->depth == 1)
-                        {
-                            for (size_t i = 0; i < loop->paths.size(); ++i) {
-                                loop->paths[i].mm3_per_mm = params.mm3_per_mm * 1.2;
-                            }
-
-                        }
->>>>>>> 84b4984 (feat: 1.5.21 open source)
                     }
                 }
             }
@@ -1857,14 +1839,11 @@ void PerimeterGenerator::process_classic(
             generate_variable_width_paths(gaps_ex, polylines);
         }
 #endif
-<<<<<<< HEAD
         // SoftFever: filter out tiny gap fills
         polylines.erase(std::remove_if(polylines.begin(), polylines.end(),
             [&](const ThickPolyline& p) {
                 return p.length() < scale_(params.config.filter_out_gap_fill.value);
             }), polylines.end());
-=======
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 
         if (! polylines.empty()) {
 			ExtrusionEntityCollection gap_fill;

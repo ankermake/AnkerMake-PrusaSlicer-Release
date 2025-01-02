@@ -303,6 +303,7 @@ wxWindow* AnkerPrintParaItem::createItem(const wxString configOptionKey, Control
 			//	auto tempStrData = printConfig.opt_serialize(configOptionKey.ToStdString());
 			//	std::locale loc;
 			//	tempStrData[0] = std::toupper(tempStrData[0], loc);
+
 			//	auto realData = m_parameterData.m_fillPatternData[tempStrData];
 			//	if (cboxText != realData)
 			//	{

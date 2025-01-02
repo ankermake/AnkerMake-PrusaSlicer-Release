@@ -156,23 +156,15 @@ namespace Slic3r {
 
 		std::vector<Vec2d> wipe_path;
 		double wipe_length = 2.0;
-<<<<<<< HEAD
 		double _wipe_speed = gcodegen.config().role_based_wipe_speed ?
 			gcodegen.config().wipe_speed.get_abs_value(gcodegen.writer().get_current_speed() / 60.):
 			gcodegen.config().wipe_speed.get_abs_value(gcodegen.writer().config.travel_speed);
-=======
-		double _wipe_speed = gcodegen.config().wipe_speed.get_abs_value(gcodegen.writer().get_current_speed() / 60.);
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 		// Remaining quantized retraction length.
 		if (double retract_length = toolchange ? extruder.retract_to_go(extruder.retract_length_toolchange()) : std::min(0.25 * extruder.retract_length(), extruder.retract_to_go(extruder.retract_length()));
 			retract_length > 0 && this->path.size() >= 2) {
 			// Reduce feedrate a bit; travel speed is often too high to move on existing material.
 			// Too fast = ripping of existing material; too slow = short wipe path, thus more blob.
-<<<<<<< HEAD
 			const double wipe_speed = std::max(10., _wipe_speed);
-=======
-			const double wipe_speed = std::max(10., _wipe_speed);// gcodegen.writer().config.travel_speed.value * 0.8;
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 			// Reduce retraction length a bit to avoid effective retraction speed to be greater than the configured one
 			// due to rounding (TODO: test and/or better math for this).
 			const double xy_to_e = retract_length / wipe_length;  //0.95 * extruder.retract_speed() / wipe_speed;
@@ -2612,11 +2604,7 @@ namespace Slic3r {
 				int temperature = print.config().temperature.get_at(extruder.id());
 				//add by friva, it just need set temperature for first extruder when printing with  multi extruder
 				bool set_temperature_single_only = (print.config().printer_model.value.find("V6") != std::string::npos) && extruder.id() == first_extruder_id || (print.config().printer_model.value.find("V6") == std::string::npos);
-<<<<<<< HEAD
 				if (temperature > 0 && set_temperature_single_only &&(temperature != print.config().first_layer_temperature.get_at(extruder.id())) && !calib_temp)
-=======
-				if (temperature > 0 && set_temperature_single_only &&(temperature != print.config().first_layer_temperature.get_at(extruder.id())))
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 					gcode += m_writer.set_temperature(temperature, false, extruder.id());
 			}
 			gcode += m_writer.set_bed_temperature(print.config().bed_temperature.get_at(first_extruder_id));
@@ -3242,11 +3230,7 @@ namespace Slic3r {
 		}
 		
 		// make a little move inwards before leaving loop
-<<<<<<< HEAD
 		if (!m_wipe.enable && m_config.wipe_on_loops.value && paths.back().role().is_external_perimeter() && m_layer != NULL
-=======
-		if (m_config.move_inward.value && paths.back().role().is_external_perimeter() && m_layer != NULL
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 			/* && m_config.perimeters.value > 1 */&& paths.front().size() >= 2 && paths.back().polyline.points.size() >= 2) {
 			// detect angle between last and first segment
 			// the side depends on the original winding order of the polygon (left for contours, right for holes)
@@ -3497,28 +3481,20 @@ namespace Slic3r {
 		auto write_jerk_e = [&](double jerk)->std::string{
 			return m_config.jerk_e_enable.value ? write_jerk_xyze(Axis::E, jerk) : "";
 		};
-<<<<<<< HEAD
 		if (this->on_first_layer() && m_config.jerk_first_layer > 0)
 		{
 			return write_jerk_xyze(Axis::X, m_config.jerk_first_layer.value) + write_jerk_e(m_config.jerk_e_skin.value);
 		}
 		else if (role.is_external_perimeter()) {
-=======
-
-		if (role.is_external_perimeter()) {
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 			return write_jerk_xyze(Axis::X, m_config.jerk_outer_wall.value) + write_jerk_e(m_config.jerk_e_outer_wall.value);
 		}
 		else if (role.is_perimeter()) {
 			return write_jerk_xyze(Axis::X, m_config.jerk_inner_wall.value) + write_jerk_e(m_config.jerk_e_inner_wall.value);
 		}
-<<<<<<< HEAD
 		else if (role == ExtrusionRole::TopSolidInfill && m_config.jerk_top_surface > 0)
 		{
 			return write_jerk_xyze(Axis::X, m_config.jerk_top_surface.value) + write_jerk_e(m_config.jerk_e_skin.value);
 		}
-=======
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 		else if (role.is_solid_infill() || role.is_external()) {
 			return write_jerk_xyze(Axis::X, m_config.jerk_top_bottom.value) + write_jerk_e(m_config.jerk_e_skin.value);
 		}
@@ -3726,16 +3702,12 @@ namespace Slic3r {
 				}
 			}
 		}
-<<<<<<< HEAD
 		// Override skirt speed if set
 		if (path.role() == ExtrusionRole::Skirt) {
 			const double skirt_speed = m_config.get_abs_value("skirt_speed");
 			if (skirt_speed > 0.0)
 				speed = skirt_speed;
 		}
-=======
-
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 		bool                        variable_speed_or_fan_speed = false;
 		std::vector<ProcessedPoint> new_points{};
 		if ((this->m_config.enable_dynamic_overhang_speeds || this->config().enable_dynamic_fan_speeds.get_at(m_writer.extruder()->id())) &&
