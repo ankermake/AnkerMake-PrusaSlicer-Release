@@ -39,6 +39,7 @@
 #endif // _WIN32
 
 #include "libslic3r_version.h"
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 using namespace boost;
 using namespace boost::asio;
 
@@ -196,7 +197,7 @@ void initBuryPoint()
     std::string appLanguage = "";
     std::string machinId = getMachineId();
 
-    headerList.push_back(std::string("App_name: ") + "AnkerMake Studio");
+    headerList.push_back(std::string("App_name: ") + Slic3r::ServerConfig::AppName);
 
     headerList.push_back("Model_type: " + appModelType);
     headerList.push_back("App_version: V" + appVersion);

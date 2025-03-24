@@ -2614,7 +2614,7 @@ void AnkerTabPrinter::build_print_host_upload_group(AnkerPage* page)
         "A new Physical Printer profile is created by clicking on the \"cog\" icon right of the Printer profiles combo box, "
         "by selecting the \"Add physical printer\" item in the Printer combo box. The Physical Printer profile editor opens "
         "also when clicking on the \"cog\" icon in the Printer settings tab. The Physical Printer profiles are being stored "
-        "into AnkerMake Studio/physical_printer directory.");
+        "into eufyMake Studio/physical_printer directory.");
 
     AnkerLine line = { "", "" };
     line.full_width = 1;

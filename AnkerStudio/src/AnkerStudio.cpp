@@ -69,11 +69,12 @@
 #include "libslic3r/Utils.hpp"
 #include "libslic3r/Thread.hpp"
 #include "libslic3r/BlacklistedLibraryCheck.hpp"
-
 #include <format>
 #include "AnkerStudio.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "AnkerComFunction.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
+
 #ifdef _WIN32
 #include "exception_handle/AnkerStackWalker.hpp"
 #else
@@ -152,7 +153,7 @@ int CLI::run(int argc, char **argv)
 #ifdef _WIN32
             false;
 #else
-            // On Unix systems, the ankermake studio binary may be symlinked to give the application a different meaning.
+            // On Unix systems, the binary may be symlinked to give the application a different meaning.
             boost::algorithm::iends_with(boost::filesystem::path(argv[0]).filename().string(), "gcodeviewer");
 #endif // _WIN32
 #if ENABLE_GL_CORE_PROFILE
@@ -263,7 +264,7 @@ int CLI::run(int argc, char **argv)
     }
     if (!start_as_gcodeviewer) {
         for (const std::string& file : m_input_files) {
-            if (boost::starts_with(file, "ankerstudio://")) {
+            if (boost::starts_with(file, Slic3r::WebConfig::UrlProtocol)) {
                 start_downloader = true;
                 download_url = file;
                 continue;
@@ -804,13 +805,13 @@ void boostLogInit() {
 #endif
 
     boost::filesystem::path logPath = getLogDirPath();
-    logPath += "/AnkerMake_%Y-%m-%d_%H-%M-%S_" + pidStr + ".%N.log";
+    logPath += "/EufyMake_%Y-%m-%d_%H-%M-%S_" + pidStr + ".%N.log";
 
     auto fileSink = logging::add_file_log(
         keywords::auto_flush = true,
         keywords::open_mode = std::ios_base::binary,
         keywords::auto_newline_mode = boost::log::sinks::disabled_auto_newline,        
-        // Using AnkerMaker_%Y-%m-%d_%H-%M-%S.N as a template N is incremented from 0 and used with the following rotation
+        // Using EufyMake_%Y-%m-%d_%H-%M-%S.N as a template N is incremented from 0 and used with the following rotation
         keywords::file_name = logPath,
         //keywords::rotation_size = 50 * 1024 * 1024,  // Archive every 50M and generate a log file
         //keywords::time_based_rotation = sinks::file::rotation_at_time_point(0, 0, 0),  // Generate an archive every 00:00:00 (time point)
@@ -881,6 +882,7 @@ bool CLI::setup(int argc, char **argv)
         ANKER_LOG_INFO << "Version: " << std::string(SLIC3R_VERSION);
         ANKER_LOG_INFO << "Build Time: " << __DATE__ << " " << __TIME__;
         ANKER_LOG_INFO << "PID: " << std::this_thread::get_id();
+        ANKER_LOG_INFO << "net version: " << MappingVersion;
         ANKER_LOG_INFO << "=====================================";
 
         const char *loglevel = boost::nowide::getenv("SLIC3R_LOGLEVEL");
@@ -900,19 +902,19 @@ bool CLI::setup(int argc, char **argv)
     // We hope that if a DLL is being injected into a AnkerStudio process, it happens at the very start of the application,
     // thus we shall detect them now.
     if (BlacklistedLibraryCheck::get_instance().perform_check()) {
-        std::wstring text = L"Following DLLs have been injected into the AnkerMake Studio process:\n\n";
+        std::wstring text = L"Following DLLs have been injected into the eufyMake Studio process:\n\n";
         text += BlacklistedLibraryCheck::get_instance().get_blacklisted_string();
         text += L"\n\n"
-                L"AnkerMake Studio is known to not run correctly with these DLLs injected. "
+                L"eufyMake Studio is known to not run correctly with these DLLs injected. "
                 L"We suggest stopping or uninstalling these services if you experience "
-                L"crashes or unexpected behaviour while using AnkerMake Studio.\n"
-                L"For example, ASUS Sonic Studio injects a Nahimic driver, which makes AnkerMake Studio "
-                L"to crash on a secondary monitor, see AnkerMake Studio github issue #5573";
+                L"crashes or unexpected behaviour while using eufyMake Studio.\n"
+                L"For example, ASUS Sonic Studio injects a Nahimic driver, which makes eufyMake Studio "
+                L"to crash on a secondary monitor, see eufyMake Studio github issue #5573";
         MessageBoxW(NULL, text.c_str(), L"Warning"/*L"Incopatible library found"*/, MB_OK);
     }
 #endif
 
-    // See Invoking ankermake studio from $PATH environment variable crashes #5542
+    // See Invoking studio from $PATH environment variable crashes #5542
     // boost::filesystem::path path_to_binary = boost::filesystem::system_complete(argv[0]);
     boost::filesystem::path path_to_binary = boost::dll::program_location();
 
@@ -996,7 +998,7 @@ void CLI::print_help(bool include_print_options, PrinterTechnology printer_techn
 #endif /* SLIC3R_GUI */
         << std::endl
         << "https://github.com/prusa/AnkerStudio" << std::endl << std::endl
-        << "Usage: ankermake studio [ ACTIONS ] [ TRANSFORM ] [ OPTIONS ] [ file.stl ... ]" << std::endl
+        << "Usage: eufyMake studio [ ACTIONS ] [ TRANSFORM ] [ OPTIONS ] [ file.stl ... ]" << std::endl
         << std::endl
         << "Actions:" << std::endl;
     cli_actions_config_def.print_cli_help(boost::nowide::cout, false);
@@ -1126,7 +1128,7 @@ extern "C" {
 
     __declspec(dllexport) LONG __stdcall AnkerExceptionHandler(EXCEPTION_POINTERS* pException)
     {
-        ANKER_LOG_FATAL << "AnkerMake crashed, and the stack information is as follows:";
+        ANKER_LOG_FATAL << "eufyMake crashed, and the stack information is as follows:";
        // AnkerStackWalker sw;
        // sw.Walk();
 

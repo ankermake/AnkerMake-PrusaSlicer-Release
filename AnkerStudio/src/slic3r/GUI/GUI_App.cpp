@@ -71,6 +71,7 @@
 #include "../Utils/AppUpdater.hpp"
 #include "../Utils/WinRegistry.hpp"
 #include "slic3r/Config/Snapshot.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
 #include "ConfigSnapshotDialog.hpp"
 #include "FirmwareDialog.hpp"
 #include "Preferences.hpp"
@@ -136,6 +137,8 @@
 #include "AnkerNetBase.h"
 #include <slic3r/GUI/AnkerNetModule/AnkerNetDownloadDialog.h>
 #include "HintNotification.hpp"
+#include <slic3r/Config/AnkerCommonConfig.hpp>
+#include <slic3r/Utils/wxFileTool.hpp>
 
 // The default retention log is 7 days
 #define LOG_SAVE_DAYS  7
@@ -144,7 +147,7 @@
 // The default retention temp gcode file is 2 days
 #define TEMP_GCODE_SAVE_DAYS 2
 
-//-1 donot want to get webview2,1 get the webview2¡ê?0 webview2 work well
+//-1 donot want to get webview2,1 get the webview2<A3><AC>0 webview2 work well
 #define USER_BEHAVIOR_NORMAL   "0"
 #define USER_BEHAVIOR_CANCEL   "-1"
 #define USER_BEHAVIOR_GET       "1"
@@ -166,7 +169,6 @@ extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& 
     //auto currentLanguage = Slic3r::GUI::wxGetApp().getCurrentLanguageType();
 	//if (currentLanguage<= wxLANGUAGE_ENGLISH_ZIMBABWE && currentLanguage>= wxLANGUAGE_ENGLISH)
 	//	return str;
-
 
 	wxClientDC dc(Slic3r::GUI::wxGetApp().plater());
 	dc.SetFont(font);
@@ -505,8 +507,13 @@ private:
         void init(wxFont init_font)
         {
             // title
-            title = wxGetApp().is_editor() ? SLIC3R_APP_NAME : GCODEVIEWER_APP_NAME;
-
+#ifdef JAPAN_OPEN
+            ANKER_LOG_INFO << "JAPAN_OPEN";
+            title = wxGetApp().is_editor() ? "EufyMake Studio" : "EufyMake Studio G-code Viewer";
+#else
+            ANKER_LOG_INFO << "not JAPAN_OPEN";
+            title = wxGetApp().is_editor() ? "eufyMake Studio" : "eufyMake Studio G-code Viewer";
+#endif
             // dynamically get the version to display
             version = _L("Version") + " " + std::string(SLIC3R_VERSION) + std::string(SLIC3R_MIN_VER);
 
@@ -967,21 +974,9 @@ static void generic_exception_handle()
     } catch (const std::bad_alloc& ex) {
         // bad_alloc in main thread is most likely fatal. Report immediately to the user (wxLogError would be delayed)
         // and terminate the app so it is at least certain to happen now.
-       /* wxString errmsg = wxString::Format(_L("%s has encountered an error. It was likely caused by running out of memory. "
-                              "If you are sure you have enough RAM on your system, this may also be a bug and we would "
-                              "be glad if you reported it.\n\nThe application will now terminate."), SLIC3R_APP_NAME);
-        wxMessageBox(errmsg + "\n\n" + wxString(ex.what()), _L("Fatal error"), wxOK | wxICON_ERROR);
-        BOOST_LOG_TRIVIAL(error) << boost::format("std::bad_alloc exception: %1%") % ex.what();
-        std::terminate();*/
         ANKER_LOG_ERROR << boost::format("std::bad_alloc exception: %1%") % ex.what();
         throw;
     } catch (const boost::io::bad_format_string& ex) {
-     /*   wxString errmsg = _L("AnkerMake_alpha has encountered a localization error. "
-                             "Please report to AnkerMake_alpha team, what language was active and in which scenario "
-                             "this issue happened. Thank you.\n\nThe application will now terminate.");
-        wxMessageBox(errmsg + "\n\n" + wxString(ex.what()), _L("Critical error"), wxOK | wxICON_ERROR);
-        BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();
-        std::terminate();*/
         ANKER_LOG_ERROR << boost::format("std::bad_alloc exception: %1%") % ex.what();
         throw;
     } catch (const std::exception& ex) {
@@ -1185,16 +1180,140 @@ static boost::optional<Semver> parse_semver_from_ini(std::string path)
     return Semver::parse(body);
 }
 
+void GUI_App::CompatibleProcess()
+{
+    WebviewCompatibleProcess();
+    for (int i = 0; i < 3; i++) {
+        if (ProfileCompatibleProcess()) {
+            break;
+        }
+    }
+}
+
+void GUI_App::WebviewCompatibleProcess()
+{
+    using namespace Slic3r::WebConfig;
+    using namespace Slic3r::ProfileConfig;
+    using bf_path = boost::filesystem::path;
+
+    wxStandardPaths& stdPaths = wxStandardPaths::Get();
+    wxString userDataDir = stdPaths.GetUserDataDir();
+    wxString userLocalDataDir = stdPaths.GetUserLocalDataDir(); // local path
+    wxString userConfigDir = stdPaths.GetUserConfigDir();
+
+    auto userdataPath = bf_path(userLocalDataDir.ToStdWstring()).parent_path();
+    auto userconfigPath = bf_path(userConfigDir.ToStdWstring()).parent_path();
+
+    // set the Webconfig path
+    auto newEBWebViewCacheDir = EBWebViewCacheDir = (bf_path(userLocalDataDir.ToStdWstring()) / EBWebViewCacheName);
+    auto oldEBWebViewCacheDir = (bf_path(userdataPath) / bf_path(OldProfileDirName) / EBWebViewCacheName);
+
+    // for mac
+    auto cachePath = userconfigPath / "Caches";
+    auto webkitPath = userconfigPath / "WebKit";
+    auto newMacWebViewCacheDir = Slic3r::WebConfig::MacWebViewCacheDir = 
+        (cachePath / Slic3r::WebConfig::MacWebViewCacheName);
+    auto newMacWebViewDataDir = Slic3r::WebConfig::MacWebViewDataDir =
+        (webkitPath / Slic3r::WebConfig::MacWebViewCacheName);
+
+    auto oldMacWebViewCacheDir = (cachePath / Slic3r::WebConfig::oldMacWebViewCacheName);
+    auto oldMacWebViewDataDir = (webkitPath / Slic3r::WebConfig::oldMacWebViewCacheName);
+
+    auto CopyProcess = [](const bf_path& oldDir, const bf_path& newDir) {
+        if (!boost::filesystem::exists(oldDir)) {
+            ANKER_LOG_INFO << "no need compatible for no old ebwebview cache dir, " << oldDir;
+            return;
+        }
+
+        if (boost::filesystem::exists(newDir)) {
+            ANKER_LOG_INFO << "no need compatible for already have new ebwebview cache dir";
+            return;
+        }
+        // create and copy
+        ANKER_LOG_INFO << "copy start";
+        bool createRet = boost::filesystem::create_directories(newDir);
+        bool copyRet = Slic3r::Utils::wxFileTool::CopyDirRecursively(wxString::FromUTF8(oldDir.string()), 
+            wxString::FromUTF8(newDir.string()));
+
+        ANKER_LOG_INFO << "copy " << oldDir << " to " << newDir << " over, ret: " << createRet << ", " << copyRet; 
+        };
+
+
+    try {
+#ifdef _WIN32
+        CopyProcess(oldEBWebViewCacheDir, newEBWebViewCacheDir);
+#else
+        // for mac. mac should't copy for can't open the exe
+//        CopyProcess(oldMacWebViewCacheDir, newMacWebViewCacheDir);
+//        CopyProcess(oldMacWebViewDataDir, newMacWebViewDataDir);
+#endif
+    }
+    catch (const boost::filesystem::filesystem_error& ex) {
+        ANKER_LOG_ERROR << "file system error: " << ex.what();
+        return;
+    }
+    catch (const std::system_error& e) {
+        ANKER_LOG_ERROR << "system error: " << e.what();
+        return;
+    }
+
+    return;
+}
+
+bool GUI_App::ProfileCompatibleProcess()
+{
+    try {
+        using bf_path = boost::filesystem::path;
+        wxStandardPaths& stdPaths = wxStandardPaths::Get();
+        wxString userDataDir = stdPaths.GetUserDataDir();
+        wxString userConfigDir = stdPaths.GetUserConfigDir();
+        
+#ifdef _WIN32        
+        auto configPath = bf_path(userConfigDir.ToStdWstring());
+#else
+        auto configPath = bf_path(userDataDir.ToStdWstring()).parent_path();
+#endif
+
+        auto newPath = (configPath / bf_path(GetAppName().ToStdWstring()));
+        bool pathExist = boost::filesystem::exists(newPath);
+        if (pathExist) {
+            ANKER_LOG_INFO << "no need compatible for already have the new profile dir, " << newPath;
+            return true;
+        }
+        ANKER_LOG_INFO << "create profile dir, " << newPath;
+        if (!boost::filesystem::create_directory(newPath)) {
+            ANKER_LOG_ERROR << "create profile dir failed, " << newPath;
+            return false;
+        }       
+
+        auto oldPath = (configPath / bf_path(Slic3r::ProfileConfig::OldProfileDirName));
+        if (!boost::filesystem::exists(oldPath)) {
+            ANKER_LOG_INFO << "no need compatible for no old profile dir, " << oldPath;
+            return true;
+        }
+        
+        // copy
+        ANKER_LOG_INFO << "copy start";
+        bool copyRet = Slic3r::Utils::wxFileTool::CopyDirRecursively(wxString::FromUTF8(oldPath.string()), wxString::FromUTF8(newPath.string()));
+        ANKER_LOG_INFO << "copy " << oldPath << " to " << newPath << " over, ret: " << copyRet << ", ProfileConfig::iniName: " << ProfileConfig::iniName;
+
+        return copyRet;
+    }
+    catch (const boost::filesystem::filesystem_error& ex) {
+        ANKER_LOG_ERROR << "file system error: " << ex.what();
+    }
+    catch (const std::system_error& e) {
+        ANKER_LOG_ERROR << "system error: " << e.what();
+    }
+
+    ProfileConfig::iniName = ProfileConfig::OldIniName;
+    ANKER_LOG_INFO << "ProfileConfig::iniName: " << ProfileConfig::iniName;
+    return false;
+}
+
 void GUI_App::init_app_config()
 {
-	// Profiles for the alpha are stored into the AnkerMake Studio Profile directory to not mix with the current release.
-
-//  SetAppName(SLIC3R_APP_KEY);
 	SetAppName(SLIC3R_APP_KEY " Profile");
-//  SetAppName(SLIC3R_APP_KEY "-beta");
-
-
-//	SetAppDisplayName(SLIC3R_APP_NAME);
 
 	// Set the Slic3r data directory at the Slic3r XS module.
 	// Unix: ~/ .Slic3r
@@ -1216,6 +1335,8 @@ void GUI_App::init_app_config()
         m_datadir_redefined = true;
     }
 
+    CompatibleProcess();
+
 	if (!app_config)
         app_config = new AppConfig(is_editor() ? AppConfig::EAppMode::Editor : AppConfig::EAppMode::GCodeViewer);
 
@@ -1227,7 +1348,7 @@ void GUI_App::init_app_config()
             // Error while parsing config file. We'll customize the error message and rethrow to be displayed.
             if (is_editor()) {
                 throw Slic3r::RuntimeError(
-                    _u8L("Error parsing AnkerMake Studio config file, it is probably corrupted. "
+                    _u8L("Error parsing eufyMake Studio config file, it is probably corrupted. "
                         "Try to manually delete the file to recover from the error. Your user profiles will not be affected.") +
                     "\n\n" + app_config->config_path() + "\n\n" + error);
             }
@@ -1327,7 +1448,7 @@ std::string GUI_App::check_older_app_config(Semver current_version, bool backup)
             // Error while parsing config file. We'll customize the error message and rethrow to be displayed.
             if (is_editor()) {
                 throw Slic3r::RuntimeError(
-                    _u8L("Error parsing AnkerMake Studio config file, it is probably corrupted. "
+                    _u8L("Error parsing eufyMake Studio config file, it is probably corrupted. "
                         "Try to manually delete the file to recover from the error. Your user profiles will not be affected.") +
                     "\n\n" + app_config->config_path() + "\n\n" + error);
             }
@@ -1447,9 +1568,9 @@ bool GUI_App::check_privacy_policy()
                 
                
                 TermsOfUse->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
-                    wxString URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_en.html";
+                    wxString URL = wxString(Slic3r::UrlConfig::TermsOfServiceEnUrl);
                     if (MainFrame::languageIsJapanese())
-                        URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_jp.html";
+                        URL = wxString(Slic3r::UrlConfig::TermsOfServiceJaUrl);
                     //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
                     wxLaunchDefaultBrowser(URL);
                     }
@@ -1468,9 +1589,9 @@ bool GUI_App::check_privacy_policy()
                 PrivacyPolicy->SetLabel(_L("common_launch_policy_content5"));
                 PrivacyPolicy->SetFont(ANKER_FONT_NO_1);
                 PrivacyPolicy->Bind(wxEVT_BUTTON, [&](wxCommandEvent& event) {
-                    wxString URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_en.html";
+                    wxString URL = wxString(Slic3r::UrlConfig::PrivacyNoticeEn);
                     if (MainFrame::languageIsJapanese())
-                        URL = "https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_jp.html";
+                        URL = wxString(Slic3r::UrlConfig::PrivacyNoticeJa);
                     //Slic3r::GUI::wxGetApp().open_browser_with_warning_dialog(URL, &dialog);
                     wxLaunchDefaultBrowser(URL);
                     }
@@ -1573,11 +1694,11 @@ bool GUI_App::on_init_inner()
     // Win32 32bit build.
     if (wxPlatformInfo::Get().GetArchName().substr(0, 2) == "64") {
         RichMessageDialog dlg(nullptr,
-            _L("You are running a 32 bit build of AnkerMake Studio on 64-bit Windows."
-                "\n32 bit build of AnkerMake Studio will likely not be able to utilize all the RAM available in the system."
-                "\nPlease download and install a 64 bit build of AnkerMake Studio from https://www.xxx.xxx/xxx/."
+            _L("You are running a 32 bit build of eufyMake Studio on 64-bit Windows."
+                "\n32 bit build of eufyMake Studio will likely not be able to utilize all the RAM available in the system."
+                "\nPlease download and install a 64 bit build of eufyMake Studio from https://www.xxx.xxx/xxx/."
                 "\nDo you wish to continue?"),
-            "AnkerMake Studio", wxICON_QUESTION | wxYES_NO);
+            "eufyMake Studio", wxICON_QUESTION | wxYES_NO);
         if (dlg.ShowModal() != wxID_YES)
             return false;
     }
@@ -1602,17 +1723,6 @@ bool GUI_App::on_init_inner()
         return false;
     }
 #endif
-
-    // Enable this to get the default Win32 COMCTRL32 behavior of static boxes.
-//    wxSystemOptions::SetOption("msw.staticbox.optimized-paint", 0);
-    // Enable this to disable Windows Vista themes for all wxNotebooks. The themes seem to lead to terrible
-    // performance when working on high resolution multi-display setups.
-//    wxSystemOptions::SetOption("msw.notebook.themed-background", 0);
-
-//     Slic3r::debugf "wxWidgets version %s, Wx version %s\n", wxVERSION_STRING, wxVERSION;
-
-    // !!! Initialization of UI settings as a language, application color mode, fonts... have to be done before first UI action.
-    // Like here, before the show InfoDialog in check_older_app_config()
 
     // If load_language() fails, the application closes.
     ANKER_LOG_INFO << "load languages";
@@ -1683,7 +1793,7 @@ bool GUI_App::on_init_inner()
             RichMessageDialog
                 dlg(nullptr,
                     wxString::Format(_L("%s\nDo you want to continue?"), msg),
-                    "AnkerMake Studio", wxICON_QUESTION | wxYES_NO);
+                    "eufyMake Studio", wxICON_QUESTION | wxYES_NO);
             dlg.ShowCheckBox(_L("Remember my choice"));
             if (dlg.ShowModal() != wxID_YES) return false;
 
@@ -1994,34 +2104,6 @@ bool GUI_App::on_init_inner()
 
     m_initialized = true;
 
-    // Anker: hide the prusa info
-    //if (const std::string& crash_reason = app_config->get("restore_win_position");
-    //    boost::starts_with(crash_reason,"crashed"))
-    //{
-    //    wxString preferences_item = _L("Restore window position on start");
-    //    InfoDialog dialog(nullptr,
-    //        _L("AnkerMake Studio started after a crash"),
-    //        format_wxstr(_L("AnkerMake Studio crashed last time when attempting to set window position.\n"
-    //            "We are sorry for the inconvenience, it unfortunately happens with certain multiple-monitor setups.\n"
-    //            "More precise reason for the crash: \"%1%\".\n"
-    //            "For more information see our GitHub issue tracker: \"%2%\" and \"%3%\"\n\n"
-    //            "To avoid this problem, consider disabling \"%4%\" in \"Preferences\". "
-    //            "Otherwise, the application will most likely crash again next time."),
-    //            "<b>" + from_u8(crash_reason) + "</b>",
-    //            "<a href=http://github.com/prusa3d/PrusaSlicer/issues/2939>#2939</a>",
-    //            "<a href=http://github.com/prusa3d/PrusaSlicer/issues/5573>#5573</a>",
-    //            "<b>" + preferences_item + "</b>"),
-    //        true, wxYES_NO);
-
-    //    dialog.SetButtonLabel(wxID_YES, format_wxstr(_L("Disable \"%1%\""), preferences_item));
-    //    dialog.SetButtonLabel(wxID_NO,  format_wxstr(_L("Leave \"%1%\" enabled") , preferences_item));
-    //    
-    //    auto answer = dialog.ShowModal();
-    //    if (answer == wxID_YES)
-    //        app_config->set("restore_win_position", "0");
-    //    else if (answer == wxID_NO)
-    //        app_config->set("restore_win_position", "1");
-    //}
     return true;
 }
 
@@ -2432,7 +2514,7 @@ void GUI_App::check_printer_presets()
     for (const std::string& preset_name : preset_names)
         msg_text += "\n    \"" + from_u8(preset_name) + "\",";
     msg_text.RemoveLast();
-    msg_text += "\n\n" + _L("But since this version of AnkerMake Studio we don't show this information in Printer Settings anymore.\n"
+    msg_text += "\n\n" + _L("But since this version of eufyMake Studio we don't show this information in Printer Settings anymore.\n"
                             "Settings will be available in physical printers settings.") + "\n\n" +
                          _L("By default new Printer devices will be named as \"Printer N\" during its creation.\n"
                             "Note: This name can be changed later from the physical printers settings");
@@ -2945,7 +3027,7 @@ bool GUI_App::load_language(wxString language, bool initial)
             language = MainFrame::GetTranslateLanguage();
 
         if (! language.empty())
-        	BOOST_LOG_TRIVIAL(trace) << boost::format("translation_language provided by AnkerStudio.ini: %1%") % language;
+        	BOOST_LOG_TRIVIAL(trace) << boost::format("translation_language provided by studio.ini: %1%") % language;
 
         // Get the system language.
         {
@@ -2998,7 +3080,7 @@ bool GUI_App::load_language(wxString language, bool initial)
 	}
 
 	if (language_info != nullptr && language_info->LayoutDirection == wxLayout_RightToLeft) {
-    	BOOST_LOG_TRIVIAL(trace) << boost::format("The following language code requires right to left layout, which is not supported by AnkerMake Studio: %1%") % language_info->CanonicalName.ToUTF8().data();
+    	BOOST_LOG_TRIVIAL(trace) << boost::format("The following language code requires right to left layout, which is not supported by eufyMake Studio: %1%") % language_info->CanonicalName.ToUTF8().data();
 		language_info = nullptr;
 	}
 
@@ -3052,14 +3134,14 @@ bool GUI_App::load_language(wxString language, bool initial)
     if (! wxLocale::IsAvailable(language_info->Language)) {
 #endif
     	// Loading the language dictionary failed.
-    	wxString message = "Switching AnkerMake Studio to language " + language_info->CanonicalName + " failed.";
+    	wxString message = "Switching eufyMake Studio to language " + language_info->CanonicalName + " failed.";
 #if !defined(_WIN32) && !defined(__APPLE__)
         // likely some linux system
         message += "\nYou may need to reconfigure the missing locales, likely by running the \"locale-gen\" and \"dpkg-reconfigure locales\" commands.\n";
 #endif
         if (initial)
         	message + "\n\nApplication will close.";
-        wxMessageBox(message, "AnkerMake Studio - Switching language failed", wxOK | wxICON_ERROR);
+        wxMessageBox(message, "eufyMake Studio - Switching language failed", wxOK | wxICON_ERROR);
         if (initial)
 			std::exit(EXIT_FAILURE);
 		else
@@ -4259,18 +4341,18 @@ bool GUI_App::open_browser_with_warning_dialog(const wxString& url, wxWindow* pa
     std::string option_key = "suppress_hyperlinks";
     if (force_remember_choice || app_config->get(option_key).empty()) {
         if (app_config->get(option_key).empty()) {
-            RichMessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("AnkerMake Studio: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
+            RichMessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("eufyMake Studio: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
             dialog.ShowCheckBox(_L("Remember my choice"));
             auto answer = dialog.ShowModal();
             launch = answer == wxID_YES;
             if (dialog.IsCheckBoxChecked()) {
                 wxString preferences_item = _L("Suppress to open hyperlink in browser");
                 wxString msg =
-                    _L("AnkerMake Studio will remember your choice.") + "\n\n" +
+                    _L("eufyMake Studio will remember your choice.") + "\n\n" +
                     _L("You will not be asked about it again on hyperlinks hovering.") + "\n\n" +
                     format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto changes your choice."), preferences_item);
 
-                MessageDialog msg_dlg(parent, msg, _L("AnkerMake Studio: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
+                MessageDialog msg_dlg(parent, msg, _L("eufyMake Studio: Don't ask me again"), wxOK | wxCANCEL | wxICON_INFORMATION);
                 if (msg_dlg.ShowModal() == wxID_CANCEL)
                     return false;
                 app_config->set(option_key, answer == wxID_NO ? "1" : "0");
@@ -4282,7 +4364,7 @@ bool GUI_App::open_browser_with_warning_dialog(const wxString& url, wxWindow* pa
     // warning dialog doesn't containe a "Remember my choice" checkbox
     // and will be shown only when "Suppress to open hyperlink in browser" is ON.
     else if (app_config->get_bool(option_key)) {
-        MessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("AnkerMake Studio: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
+        MessageDialog dialog(parent, _L("Open hyperlink in default browser?"), _L("eufyMake Studio: Open hyperlink"), wxICON_QUESTION | wxYES_NO);
         launch = dialog.ShowModal() == wxID_YES;
     }
 
@@ -4318,12 +4400,14 @@ bool GUI_App::open_browser_with_warning_dialog(const wxString& url, wxWindow* pa
 #ifdef __WXMSW__
 void GUI_App::associate_3mf_files()
 {
-    associate_file_type(L".3mf", L"Anker.Studio.1", L"AnkerStudio", true);
+    associate_file_type(L".3mf", L"eufy.Studio.1", L"eufyStudio", true);
+    //associate_file_type(L".3mf", L"Anker.Studio.1", L"AnkerStudio", true);
 }
 
 void GUI_App::associate_stl_files()
 {
-    associate_file_type(L".stl", L"Anker.Studio.1", L"AnkerStudio", true);
+    associate_file_type(L".stl", L"eufy.Studio.1", L"eufyStudio", true);
+    //associate_file_type(L".stl", L"Anker.Studio.1", L"AnkerStudio", true);
 }
 
 void GUI_App::associate_gcode_files()
@@ -4437,8 +4521,13 @@ void GUI_App::start_download(std::string url)
         return; 
     }
 
-    if (boost::starts_with(url, "ankerstudio://open")) {
+    if (boost::starts_with(url, Slic3r::WebConfig::UrlProtocol)) 
+    {
+        ANKER_LOG_DEBUG << "Execute the external browser launch process.";
         request_model_download(url);
+    } else {
+        auto value = "url is not " + Slic3r::WebConfig::UrlProtocol;
+        ANKER_LOG_DEBUG << value;
     }
 }
 

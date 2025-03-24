@@ -1,12 +1,12 @@
-# AnkerMake Studio
+# eufyMake Studio
 ![image](AnkerStudio/resources/icons/AnkerStudio.png)
 
 ## Overview
-AnkerMake Studio offers remote printing control and real-time streaming, giving you full control wherever you are, from any device.
+eufyMake Studio offers remote printing control and real-time streaming, giving you full control wherever you are, from any device.
 
-AnkerMake Studio is based on [PrusaSlicer](https://github.com/prusa3d/PrusaSlicer) by Prusa Research, which is from [Slic3r](https://github.com/Slic3r/Slic3r) by Alessandro Ranellucci and the RepRap community.
+eufyMake Studio is based on [PrusaSlicer](https://github.com/prusa3d/PrusaSlicer) by Prusa Research, which is from [Slic3r](https://github.com/Slic3r/Slic3r) by Alessandro Ranellucci and the RepRap community.
 
-## What are AnkerMake Studio's main features?
+## What are eufyMake Studio's main features?
 
 Key features are:
 
@@ -26,7 +26,7 @@ You can add an issue to the [github tracker](https://github.com/ankermake/AnkerM
 
 ## License
 	
-AnkerMake Studio is licensed under the GNU Affero General Public License, version 3. AnkerMake Studio is based on PrusaSlicer by PrusaResearch.
+eufyMake Studio is licensed under the GNU Affero General Public License, version 3. eufyMake Studio is based on PrusaSlicer by PrusaResearch.
 
 PrusaSlicer is licensed under the GNU Affero General Public License, version 3. PrusaSlicer is owned by Prusa Research. PrusaSlicer is originally based on Slic3r by Alessandro Ranellucci.
 

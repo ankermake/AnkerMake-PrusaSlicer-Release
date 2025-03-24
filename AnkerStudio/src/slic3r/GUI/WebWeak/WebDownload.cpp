@@ -7,6 +7,7 @@
 
 #include <curl/curl.h>
 #include <thread>
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 namespace Slic3r {
 namespace GUI {
@@ -221,7 +222,7 @@ bool WebDownload::OnDownReady()
         return false;
     }
 
-    if (boost::starts_with(m_strDownInfo, "ankerstudio://open")) {
+    if (boost::starts_with(m_strDownInfo, Slic3r::WebConfig::UrlProtocol)) {
         std::string download_params_url = url_decode(m_strDownInfo);
         auto input_str_arr = split_str_(download_params_url, "file=");
         std::string download_url;

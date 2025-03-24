@@ -219,6 +219,7 @@ set(SLIC3R_GUI_SOURCES
     Config/Snapshot.hpp
     Config/Version.cpp
     Config/Version.hpp  
+	Config/AnkerCommonConfig.hpp
 	Config/AnkerGlobalConfig.hpp
     Utils/ASCIIFolding.cpp
     Utils/ASCIIFolding.hpp

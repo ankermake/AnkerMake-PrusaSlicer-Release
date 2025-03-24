@@ -470,6 +470,9 @@ public:
 
 private:
     bool            on_init_inner();
+    void            CompatibleProcess();
+    void            WebviewCompatibleProcess();
+    bool            ProfileCompatibleProcess();
 	void            init_app_config();
     // returns old config path to copy from if such exists,
     // returns an empty string if such config path does not exists or if it cannot be loaded.

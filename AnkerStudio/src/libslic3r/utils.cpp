@@ -930,6 +930,7 @@ bool is_shapes_dir(const std::string& dir)
     #endif
     #include <windows.h>
 #endif /* WIN32 */
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 namespace Slic3r {
 
@@ -1051,12 +1052,12 @@ boost::filesystem::path getLogDirPath() {
     const char* home_dir = std::getenv("HOME");
     if (home_dir) {
         boost::filesystem::path homePath(home_dir);
-        boost::filesystem::path suffixPath("/Library/Logs/AnkerMake");
+        boost::filesystem::path suffixPath(Slic3r::LogConfig::MacLogPathPrefix);
         return homePath / suffixPath;
     }
     else {
         // if HOME is not find
-        return boost::filesystem::path("/Users/AnkerMake/Logs");
+        return boost::filesystem::path(Slic3r::LogConfig::MacLogPath);
     }
 #else
 	boost::filesystem::path executablePath = boost::dll::program_location();

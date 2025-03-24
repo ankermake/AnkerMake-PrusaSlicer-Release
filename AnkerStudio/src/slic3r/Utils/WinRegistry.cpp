@@ -536,8 +536,8 @@ void associate_files()
     ::GetModuleFileNameW(nullptr, app_path, sizeof(app_path));
 
     std::wstring prog_path = L"\"" + std::wstring(app_path) + L"\"";
-    std::wstring prog_id = L"AnkerStudio";
-    std::wstring prog_desc = L"AnkerStudio";
+    std::wstring prog_id = L"eufyStudio";
+    std::wstring prog_desc = L"eufyStudio";
     std::wstring prog_command = prog_path + L" \"%1\"";
     std::wstring reg_base = L"Software\\Classes";
     std::wstring reg_prog_id = reg_base + L"\\" + prog_id;

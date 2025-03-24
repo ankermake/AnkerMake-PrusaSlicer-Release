@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(AnkerStudio-native)
+project(eufyStudio-native)
 
 add_subdirectory(build-utils)
 add_subdirectory(admesh)
@@ -156,14 +156,14 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/msw/AnkerStudio-gcodeviewer.
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/msw/AnkerStudio.manifest.in ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.manifest @ONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/osx/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/Info.plist @ONLY)
 if (WIN32)
-    add_library(AnkerStudio SHARED AnkerStudio.cpp AnkerStudio.hpp AnkerComFunction.hpp AnkerComFunction.cpp exception_handle/AnkerStackWalker.hpp)
+    add_library(eufyStudio SHARED AnkerStudio.cpp AnkerStudio.hpp AnkerComFunction.hpp AnkerComFunction.cpp exception_handle/AnkerStackWalker.hpp)
 else ()
-    add_executable(AnkerStudio AnkerStudio.cpp AnkerStudio.hpp AnkerComFunction.hpp AnkerComFunction.cpp)
+    add_executable(eufyStudio AnkerStudio.cpp AnkerStudio.hpp AnkerComFunction.hpp AnkerComFunction.cpp)
 endif ()
 
 if(FORCE_FETCH_ANKERNET)
 add_custom_command(
-    TARGET AnkerStudio
+    TARGET eufyStudio
     PRE_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo "Force get the latest code for AnkerNet"
     COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_SOURCE_DIR}/CMakeLists.txt
@@ -172,7 +172,7 @@ endif()
 
 if (MSVC)
     message("--------------------anker net copy file , path = ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}")
-    add_custom_command(TARGET AnkerStudio POST_BUILD
+    add_custom_command(TARGET eufyStudio POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
 		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/libcrypto-1_1-x64.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
 		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_PREFIX_PATH}/bin/libssl-1_1-x64.dll ${PROJECT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
@@ -192,56 +192,53 @@ if (MSVC)
 endif()
 
 if (MINGW)
-    target_link_options(AnkerStudio PUBLIC "-Wl,-allow-multiple-definition")
-    set_target_properties(AnkerStudio PROPERTIES PREFIX "")
+    target_link_options(eufyStudio PUBLIC "-Wl,-allow-multiple-definition")
+    set_target_properties(eufyStudio PROPERTIES PREFIX "")
 endif (MINGW)
 
 if (NOT WIN32 AND NOT APPLE)
     # Binary name on unix like systems (Linux, Unix)
-    set_target_properties(AnkerStudio PROPERTIES OUTPUT_NAME "ankermake studio")
+    set_target_properties(eufyStudio PROPERTIES OUTPUT_NAME "eufymake studio")
 endif ()
 
-target_link_libraries(AnkerStudio libslic3r libcereal)
+target_link_libraries(eufyStudio libslic3r libcereal)
 
 
 if(NOT OPEN_SOURCE)
-    add_dependencies(AnkerStudio AnkerNet)
+    add_dependencies(eufyStudio AnkerNet)
 endif()
 
 if (APPLE)
 #    add_compile_options(-stdlib=libc++)
 #    add_definitions(-DBOOST_THREAD_DONT_USE_CHRONO -DBOOST_NO_CXX11_RVALUE_REFERENCES -DBOOST_THREAD_USES_MOVE)
     # -liconv: boost links to libiconv by default
-    target_link_libraries(AnkerStudio "-liconv -framework IOKit" "-framework CoreFoundation" -lc++)
+    target_link_libraries(eufyStudio "-liconv -framework IOKit" "-framework CoreFoundation" -lc++)
 elseif (MSVC)
-    # Manifest is provided through AnkerStudio.rc, don't generate your own.
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
 else ()
     # Boost on Raspberry-Pi does not link to pthreads explicitely.
-    target_link_libraries(AnkerStudio ${CMAKE_DL_LIBS} -lstdc++ Threads::Threads)
+    target_link_libraries(eufyStudio ${CMAKE_DL_LIBS} -lstdc++ Threads::Threads)
 endif ()
-
 
 
 # Add the Slic3r GUI library, libcurl, OpenGL and GLU libraries.
 if (SLIC3R_GUI)
-#    target_link_libraries(AnkerStudio ws2_32 uxtheme setupapi libslic3r_gui ${wxWidgets_LIBRARIES})
-target_link_libraries(AnkerStudio libslic3r_gui)
+    target_link_libraries(eufyStudio libslic3r_gui)
     if (MSVC)
         # Generate debug symbols even in release mode.
-        target_link_options(AnkerStudio PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
-        target_link_libraries(AnkerStudio user32.lib Setupapi.lib)
+        target_link_options(eufyStudio PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
+        target_link_libraries(eufyStudio user32.lib Setupapi.lib)
     elseif (MINGW)
-        target_link_libraries(AnkerStudio ws2_32 uxtheme setupapi)
+        target_link_libraries(eufyStudio ws2_32 uxtheme setupapi)
     elseif (APPLE)
-        target_link_libraries(AnkerStudio "-framework OpenGL")
+        target_link_libraries(eufyStudio "-framework OpenGL")
     else ()
-        target_link_libraries(AnkerStudio -ldl)
+        target_link_libraries(eufyStudio -ldl)
     endif ()
     if (WIN32)
         find_library(PSAPI_LIB NAMES Psapi)
 		if(PSAPI_LIB_FOUND)
-            target_link_libraries(AnkerStudio ${PSAPI_LIB})
+            target_link_libraries(eufyStudio ${PSAPI_LIB})
 		endif()
     endif ()
 endif ()
@@ -253,44 +250,44 @@ if (WIN32)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -municode")
     endif()
 
-    add_executable(AnkerStudio_app_gui WIN32 AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
+    add_executable(eufyStudio_app_gui WIN32 AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
     # Generate debug symbols even in release mode.
     if(MSVC)
-        target_link_options(AnkerStudio_app_gui PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
+        target_link_options(eufyStudio_app_gui PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
     endif()
-    target_compile_definitions(AnkerStudio_app_gui PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE)
-    add_dependencies(AnkerStudio_app_gui AnkerStudio)
-    set_target_properties(AnkerStudio_app_gui PROPERTIES OUTPUT_NAME "ankermake studio")
-    target_link_libraries(AnkerStudio_app_gui PRIVATE boost_headeronly)
+    target_compile_definitions(eufyStudio_app_gui PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE)
+    add_dependencies(eufyStudio_app_gui eufyStudio)
+    set_target_properties(eufyStudio_app_gui PROPERTIES OUTPUT_NAME "eufymake studio")
+    target_link_libraries(eufyStudio_app_gui PRIVATE boost_headeronly)
 	
 if(NOT OPEN_SOURCE)
-	target_link_libraries(AnkerStudio_app_gui PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+	target_link_libraries(eufyStudio_app_gui PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
 endif ()
 	
-    add_executable(AnkerStudio_app_console AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
+    add_executable(eufyStudio_app_console AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio.rc)
     # Generate debug symbols even in release mode.
     if (MSVC)
-        target_link_options(AnkerStudio_app_console PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
+        target_link_options(eufyStudio_app_console PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
     endif ()
-    target_compile_definitions(AnkerStudio_app_console PRIVATE -DSLIC3R_WRAPPER_CONSOLE)
-    add_dependencies(AnkerStudio_app_console AnkerStudio)
-    set_target_properties(AnkerStudio_app_console PROPERTIES OUTPUT_NAME "ankermake studio-console")
+    target_compile_definitions(eufyStudio_app_console PRIVATE -DSLIC3R_WRAPPER_CONSOLE)
+    add_dependencies(eufyStudio_app_console eufyStudio)
+    set_target_properties(eufyStudio_app_console PROPERTIES OUTPUT_NAME "eufymake studio-console")
 if(NOT OPEN_SOURCE)	
-	target_link_libraries(AnkerStudio_app_console PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+	target_link_libraries(eufyStudio_app_console PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
 endif ()	
-    target_link_libraries(AnkerStudio_app_console PRIVATE boost_headeronly)
+    target_link_libraries(eufyStudio_app_console PRIVATE boost_headeronly)
 
-    add_executable(AnkerStudio_app_gcodeviewer WIN32 AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio-gcodeviewer.rc)
+    add_executable(eufyStudio_app_gcodeviewer WIN32 AnkerStudio_app_msvc.cpp AnkerComFunction.hpp AnkerComFunction.cpp ${CMAKE_CURRENT_BINARY_DIR}/AnkerStudio-gcodeviewer.rc)
     # Generate debug symbols even in release mode.
     if (MSVC)
-        target_link_options(AnkerStudio_app_gcodeviewer PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
+        target_link_options(eufyStudio_app_gcodeviewer PUBLIC "$<$<CONFIG:RELEASE>:/DEBUG>")
     endif ()
-    target_compile_definitions(AnkerStudio_app_gcodeviewer PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE -DSLIC3R_WRAPPER_GCODEVIEWER)
-    add_dependencies(AnkerStudio_app_gcodeviewer AnkerStudio)
-    set_target_properties(AnkerStudio_app_gcodeviewer PROPERTIES OUTPUT_NAME "anker-gcodeviewer")
-    target_link_libraries(AnkerStudio_app_gcodeviewer PRIVATE boost_headeronly)
+    target_compile_definitions(eufyStudio_app_gcodeviewer PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE -DSLIC3R_WRAPPER_GCODEVIEWER)
+    add_dependencies(eufyStudio_app_gcodeviewer eufyStudio)
+    set_target_properties(eufyStudio_app_gcodeviewer PROPERTIES OUTPUT_NAME "anker-gcodeviewer")
+    target_link_libraries(eufyStudio_app_gcodeviewer PRIVATE boost_headeronly)
 if(NOT OPEN_SOURCE)		
-	target_link_libraries(AnkerStudio_app_gcodeviewer PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+	target_link_libraries(eufyStudio_app_gcodeviewer PUBLIC $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
 endif ()	
 endif ()
 
@@ -300,7 +297,7 @@ if (WIN32)
         foreach (CONF ${CMAKE_CONFIGURATION_TYPES})
             file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/${CONF}" WIN_CONF_OUTPUT_DIR)
             file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/${CONF}/resources" WIN_RESOURCES_SYMLINK)
-            add_custom_command(TARGET AnkerStudio POST_BUILD
+            add_custom_command(TARGET eufyStudio POST_BUILD
                 COMMAND if exist "${WIN_CONF_OUTPUT_DIR}" "("
                         if not exist "${WIN_RESOURCES_SYMLINK}" "("
                             mklink /J "${WIN_RESOURCES_SYMLINK}" "${SLIC3R_RESOURCES_DIR_WIN}"
@@ -312,7 +309,7 @@ if (WIN32)
         endforeach ()
     else ()
         file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/resources" WIN_RESOURCES_SYMLINK)
-        add_custom_command(TARGET AnkerStudio POST_BUILD
+        add_custom_command(TARGET eufyStudio POST_BUILD
             COMMAND if not exist "${WIN_RESOURCES_SYMLINK}" "(" mklink /J "${WIN_RESOURCES_SYMLINK}" "${SLIC3R_RESOURCES_DIR_WIN}" ")"
             COMMENT "Symlinking the resources directory into the build tree"
             VERBATIM
@@ -322,23 +319,23 @@ if (WIN32)
     # This has to be a separate target due to the windows command line lenght limits
     add_custom_target(AnkerStudioDllsCopy)
     AnkerStudio_copy_dlls(AnkerStudioDllsCopy)
-    add_dependencies(AnkerStudio AnkerStudioDllsCopy)
+    add_dependencies(eufyStudio AnkerStudioDllsCopy)
 
 else ()
     if (APPLE)
         # On OSX, the name of the binary matches the name of the Application.
-        add_custom_command(TARGET AnkerStudio POST_BUILD
-            COMMAND ln -sf AnkerStudio "ankermake studio"
-            COMMAND ln -sf AnkerStudio anker-gcodeviewer
-            COMMAND ln -sf AnkerStudio AnkerGCodeViewer
-            WORKING_DIRECTORY "$<TARGET_FILE_DIR:AnkerStudio>"
-            COMMENT "Symlinking the G-code viewer to AnkerStudio, symlinking to ankermake studio and anker-gcodeviewer"
+        add_custom_command(TARGET eufyStudio POST_BUILD
+            COMMAND ln -sf eufyStudio "eufymake studio"
+            COMMAND ln -sf eufyStudio anker-gcodeviewer
+            COMMAND ln -sf eufyStudio AnkerGCodeViewer
+            WORKING_DIRECTORY "$<TARGET_FILE_DIR:eufyStudio>"
+            COMMENT "Symlinking the G-code viewer to eufyStudio, symlinking to eufymake studio and anker-gcodeviewer"
             VERBATIM)
     else ()
-        add_custom_command(TARGET AnkerStudio POST_BUILD
-            COMMAND ln -sf "ankermake studio" anker-gcodeviewer
-            WORKING_DIRECTORY "$<TARGET_FILE_DIR:AnkerStudio>"
-            COMMENT "Symlinking the G-code viewer to AnkerStudio"
+        add_custom_command(TARGET eufyStudio POST_BUILD
+            COMMAND ln -sf "eufymake studio" anker-gcodeviewer
+            WORKING_DIRECTORY "$<TARGET_FILE_DIR:eufyStudio>"
+            COMMENT "Symlinking the G-code viewer to eufyStudio"
             VERBATIM)
     endif ()
     if (XCODE)
@@ -347,7 +344,7 @@ else ()
     else ()
         set(BIN_RESOURCES_DIR "${CMAKE_CURRENT_BINARY_DIR}/../resources")
     endif ()
-    add_custom_command(TARGET AnkerStudio POST_BUILD
+    add_custom_command(TARGET eufyStudio POST_BUILD
         COMMAND ln -sfn "${SLIC3R_RESOURCES_DIR}" "${BIN_RESOURCES_DIR}"
         COMMENT "Symlinking the resources directory into the build tree"
         VERBATIM)
@@ -355,17 +352,17 @@ endif ()
 
 # Slic3r binary install target
 if (WIN32)
-    install(TARGETS AnkerStudio RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
+    install(TARGETS eufyStudio RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
     if (MSVC)
-        install(TARGETS AnkerStudio_app_gui RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
-        install(TARGETS AnkerStudio_app_console RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
-        install(TARGETS AnkerStudio_app_gcodeviewer RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
+        install(TARGETS eufyStudio_app_gui RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
+        install(TARGETS eufyStudio_app_console RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
+        install(TARGETS eufyStudio_app_gcodeviewer RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}")
     endif ()
 else ()
-    install(TARGETS AnkerStudio RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    install(TARGETS eufyStudio RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
     # Install the symlink for gcodeviewer
-    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ankermake studio anker-gcodeviewer WORKING_DIRECTORY \$ENV{DESTDIR}/${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})")
+    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink eufymake studio anker-gcodeviewer WORKING_DIRECTORY \$ENV{DESTDIR}/${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})")
 endif ()
 
 

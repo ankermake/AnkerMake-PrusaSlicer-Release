@@ -81,8 +81,8 @@ std::pair<std::string, bool> SlicingProcessCompletedEvent::format_error_message(
                               "be glad if you reported it."), SLIC3R_APP_NAME);
         error += "\n\n" + std::string(ex.what());
     } catch (const HardCrash &ex) {
-        error = GUI::format(_L("AnkerMake Studio has encountered a fatal error: \"%1%\""), ex.what()) + "\n\n" +
-        		_u8L("Please save your project and restart AnkerMake Studio. "
+        error = GUI::format(_L("eufyMake Studio has encountered a fatal error: \"%1%\""), ex.what()) + "\n\n" +
+        		_u8L("Please save your project and restart eufyMake Studio. "
                      "We would be glad if you reported the issue.");
     } catch (PlaceholderParserError &ex) {
 		error = ex.what();

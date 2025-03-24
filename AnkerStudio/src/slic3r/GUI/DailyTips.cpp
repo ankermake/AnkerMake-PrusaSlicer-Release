@@ -4,6 +4,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include <imgui/imgui_internal.h>
+#include <boost/filesystem.hpp>
 
 namespace Slic3r { namespace GUI {
 
@@ -12,7 +13,7 @@ struct DailyTipsData {
     std::string title;
     std::string main_text;
     std::string wiki_url;
-    std::string img_path;
+    std::string img_name;
     std::string additional_text;                  // currently not used
     std::string hyper_text;                       // currently not used
     std::function<void(void)> hypertext_callback; // currently not used
@@ -61,7 +62,8 @@ DailyTipsDataRenderer::~DailyTipsDataRenderer() {
 void DailyTipsDataRenderer::update_data(const DailyTipsData& data)
 {
     m_data = data;
-    load_texture_from_img_url(m_data.img_path);
+    auto imgPath = boost::filesystem::path(data_dir()) / "cache" / m_data.img_name;
+    load_texture_from_img_url(imgPath.string());
 }
 
 void DailyTipsDataRenderer::load_texture_from_img_url(const std::string url)
@@ -72,7 +74,7 @@ void DailyTipsDataRenderer::load_texture_from_img_url(const std::string url)
     }
     if (!url.empty()) {
         m_texture = new GLTexture();
-        m_texture->load_from_file(Slic3r::resources_dir() + "/" + url, true, GLTexture::None, false);
+        m_texture->load_from_file(url, true, GLTexture::None, false);
     }
     else {
         if (!m_placeholder_texture) {
@@ -120,7 +122,7 @@ void DailyTipsDataRenderer::render(const ImVec2& pos, const ImVec2& size) const
 
 bool DailyTipsDataRenderer::has_image() const
 {
-    return !m_data.img_path.empty();
+    return !m_data.img_name.empty();
 }
 
 void DailyTipsDataRenderer::on_change_color_mode(bool is_dark)

@@ -7,6 +7,7 @@
 #include "AnkerNetBase.h"
 #include "DeviceObjectBase.h"
 #include "../AnkerComFunction.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
 
 
 extern AnkerPlugin* pAnkerPlugin;
@@ -681,7 +682,7 @@ void AnkerVideo::InitGUI()
 
 			wxString helpText = _L("common_print_statusnotice_disconnected2"); // "please click to see more help >>"
 			wxSize textSize = videoImgDisplayer->GetTextExtent(helpText);
-			m_offlineHelpLink = new AnkerHyperlink(videoImgDisplayer, wxID_ANY, helpText, "https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue", wxColour("#000000"), wxDefaultPosition,wxDefaultSize ,ALIGN_CENTER);
+			m_offlineHelpLink = new AnkerHyperlink(videoImgDisplayer, wxID_ANY, helpText, Slic3r::UrlConfig::PreviewData, wxColour("#000000"), wxDefaultPosition,wxDefaultSize ,ALIGN_CENTER);
 			m_offlineHelpLink->SetMinSize(AnkerSize(textSize.x+20, textSize.y + 10));
 			m_offlineHelpLink->SetSize(AnkerSize(textSize.x + 20, textSize.y + 10));
 			sizer->Add(m_offlineHelpLink, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL | wxALL, 0);

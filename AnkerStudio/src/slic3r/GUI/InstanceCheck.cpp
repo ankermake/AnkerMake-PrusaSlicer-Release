@@ -26,6 +26,7 @@
 #if __linux__
 #include <dbus/dbus.h> /* Pull in all of D-Bus headers. */
 #endif //__linux__
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 
 namespace Slic3r {
@@ -90,7 +91,7 @@ namespace instance_check_internal
 	static HWND l_anker_studio_hwnd;
 	static BOOL CALLBACK EnumWindowsProc(_In_ HWND   hwnd, _In_ LPARAM lParam)
 	{
-		//checks for other instances of ankerstudio, if found brings it to front and return false to stop enumeration and quit this instance
+		//checks for other instances of studio, if found brings it to front and return false to stop enumeration and quit this instance
 		//search is done by classname(wxWindowNR is wxwidgets thing, so probably not unique) and name in window upper panel
 		//other option would be do a mutex and check for its existence
 		//BOOST_LOG_TRIVIAL(error) << "ewp: version: " << l_version_wstring;
@@ -105,7 +106,7 @@ namespace instance_check_internal
 			return TRUE;
 		std::wstring classNameString(className);
 		std::wstring wndTextString(wndText);
-		if (wndTextString.find(L"AnkerMake") != std::wstring::npos && classNameString == L"wxWindowNR") {
+		if (wndTextString.find(Slic3r::BrandConfig::OldStudioRunName) != std::wstring::npos && classNameString == L"wxWindowNR") {
 			//check if other instances has same instance hash
 			//if not it is not same version(binary) as this version 
 			HANDLE   handle = GetProp(hwnd, L"Instance_Hash_Minor");
@@ -118,13 +119,15 @@ namespace instance_check_internal
 			other_instance_hash += other_instance_hash_major;
 			if(my_instance_hash == other_instance_hash)
 			{
-				BOOST_LOG_TRIVIAL(debug) << "win enum - found correct instance";
+				ANKER_LOG_INFO << "win enum - found correct instance";
 				l_anker_studio_hwnd = hwnd;
 				ShowWindow(hwnd, SW_SHOWMAXIMIZED);
 				SetForegroundWindow(hwnd);
 				return FALSE;
 			}
-			BOOST_LOG_TRIVIAL(debug) << "win enum - found wrong instance";
+
+			ANKER_LOG_DEBUG << "handle is : " << hwnd;
+			ANKER_LOG_DEBUG << "win enum - found wrong instance"<<",my instance is: "<< my_instance_hash<<",other instance is: "<< other_instance_hash;
 		}
 		return TRUE;
 	}
@@ -315,7 +318,11 @@ bool instance_check(int argc, char** argv, bool app_config_single_instance)
 {
 	std::size_t hashed_path;
 #ifdef _WIN32
-	hashed_path = std::hash<std::string>{}(boost::filesystem::system_complete(argv[0]).string());
+	//std::string strPath = boost::filesystem::system_complete(argv[0]).string();
+
+	// this num is add by random, should use a string instead. 
+	// to slove std::hash<std::string> function in some computer not euqal in same path
+	hashed_path = 10178460989758214146;// std::hash<std::string>{}(boost::filesystem::system_complete(argv[0]).string());
 #else
 	boost::system::error_code ec;
 #ifdef __linux__
@@ -350,20 +357,25 @@ bool instance_check(int argc, char** argv, bool app_config_single_instance)
 #endif // _WIN32
 
 	std::string lock_name 	= std::to_string(hashed_path);
-	GUI::wxGetApp().set_instance_hash(hashed_path);
-	BOOST_LOG_TRIVIAL(debug) <<"full path: "<< lock_name;
+	GUI::wxGetApp().set_instance_hash(hashed_path);	
 	instance_check_internal::CommandLineAnalysis cla = instance_check_internal::process_command_line(argc, argv);
 	if (! cla.should_send.has_value())
 		cla.should_send = app_config_single_instance;
+
 #ifdef _WIN32
 	GUI::wxGetApp().init_single_instance_checker(lock_name + ".lock", data_dir() + "\\cache\\");
-	if (cla.should_send.value() && GUI::wxGetApp().single_instance_checker()->IsAnotherRunning()) {
+	auto shouldSend = cla.should_send.value();
+	auto anotherRun = GUI::wxGetApp().single_instance_checker()->IsAnotherRunning();
+	ANKER_LOG_INFO << "shouldSend: " << shouldSend << ", anotherRun: " << anotherRun << 
+		", full path : " << lock_name /*<< ", strPath: " << strPath*/;
+
+	if (shouldSend && anotherRun) {
 #else // mac & linx
 	// get_lock() creates the lockfile therefore *cla.should_send is checked after
 	if (instance_check_internal::get_lock(lock_name + ".lock", data_dir() + "/cache/") && *cla.should_send) {
 #endif
 		instance_check_internal::send_message(cla.cl_string, lock_name);
-		BOOST_LOG_TRIVIAL(error) << "Instance check: Another instance found. This instance will terminate. Lock file of current running instance is located at " << data_dir() << 
+		ANKER_LOG_WARNING << "Instance check: Another instance found. This instance will terminate. Lock file of current running instance is located at " << data_dir() <<
 #ifdef _WIN32
 			"\\cache\\"
 #else // mac & linx
@@ -372,7 +384,7 @@ bool instance_check(int argc, char** argv, bool app_config_single_instance)
 			<< lock_name << ".lock";
 		return true;
 	}
-	BOOST_LOG_TRIVIAL(info) << "Instance check: Another instance not found or single-instance not set.";
+	ANKER_LOG_INFO << "Instance check: Another instance not found or single-instance not set.";
 	
 	return false;
 }
@@ -517,7 +529,7 @@ void OtherInstanceMessageHandler::handle_message(const std::string& message)
 		boost::filesystem::path p = MessageHandlerInternal::get_path(*it);
 		if (! p.string().empty())
 			paths.emplace_back(p);
-		else if (it->rfind("ankerstudio://open/?file=", 0) == 0)
+		else if (it->rfind(Slic3r::WebConfig::UrlProtocol + "/?file=", 0) == 0)
 			downloads.emplace_back(*it);
 	}
 	if (! paths.empty()) {

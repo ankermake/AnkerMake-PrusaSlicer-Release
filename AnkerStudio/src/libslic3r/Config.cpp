@@ -225,7 +225,7 @@ std::vector<std::string> ConfigOptionDef::cli_args(const std::string &key) const
 	if (this->cli != ConfigOptionDef::nocli) {
         const std::string &cli = this->cli;
         //FIXME What was that for? Check the "readline" documentation.
-        // Neither '=' nor '!' is used in any of the cli parameters currently defined by AnkerStudio.
+        // Neither '=' nor '!' is used in any of the cli parameters currently defined by.
 //        std::string cli = this->cli.substr(0, this->cli.find("="));
 //        boost::trim_right_if(cli, boost::is_any_of("!"));
 		if (cli.empty()) {
@@ -957,7 +957,7 @@ ConfigSubstitutions ConfigBase::load_from_gcode_file(const std::string &file, Fo
             }
         }
         if (! header_found)
-            throw Slic3r::RuntimeError("Not a AnkerMake Studio / Slic3r PE generated g-code.");
+            throw Slic3r::RuntimeError("Not a eufyMake Studio / Slic3r PE generated g-code.");
     }
 
     auto                      header_end_pos = ifs.tellg();

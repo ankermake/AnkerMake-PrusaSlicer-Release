@@ -167,7 +167,7 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
         errorMsg = ("Unknown file format. Input file must have .stl, .obj, .amf(.xml), .akpro or .step/.stp extension.");
         buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
         buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-        
+        ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
         reportBuryEvent(e_hanlde_model, buryMap);
 
         throw Slic3r::RuntimeError("Unknown file format. Input file must have .stl, .obj, .amf(.xml), .akpro or .step/.stp extension.");
@@ -179,7 +179,7 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
         errorMsg = ("Loading of a model file failed.");
         buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
         buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-
+        ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
         reportBuryEvent(e_hanlde_model, buryMap);
         
         throw Slic3r::RuntimeError("Loading of a model file failed.");
@@ -191,7 +191,7 @@ Model Model::read_from_file(const std::string& input_file, DynamicPrintConfig* c
         errorMsg = ("The supplied file couldn't be read because it's empty");
         buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
         buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
-
+        ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
         reportBuryEvent(e_hanlde_model, buryMap);
         
         throw Slic3r::RuntimeError("The supplied file couldn't be read because it's empty");
@@ -261,6 +261,7 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         errorMsg = ("Unknown file format. Input file must have .3mf or .zip.amf extension.");
         buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
         buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+        ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
         reportBuryEvent(e_hanlde_model, buryMap);
         
         throw Slic3r::RuntimeError("Unknown file format. Input file must have .3mf or .zip.amf extension.");
@@ -272,6 +273,7 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
         errorMsg = ("Loading of a model file failed.");
         buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
         buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+        ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
         reportBuryEvent(e_hanlde_model, buryMap);
         
         throw Slic3r::RuntimeError("Loading of a model file failed.");
@@ -295,6 +297,7 @@ Model Model::read_from_archive(const std::string& input_file, DynamicPrintConfig
 
     handle_legacy_sla(*config);
     //report: import 3mf/amf success
+    ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
     reportBuryEvent(e_hanlde_model, buryMap);
     
     return model;

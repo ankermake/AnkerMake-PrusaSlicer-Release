@@ -11,6 +11,7 @@
 #endif
 #include "wx/wx.h"
 #include "libslic3r/Utils.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
 
 
 namespace AnkerConfig
@@ -101,7 +102,7 @@ std::string getankerDomainUrl()
 
 	std::map<std::string, std::string>::iterator iter = ini.find("AnkerDomainUrl");
 	if (iter == ini.end()) {
-		return std::string("https://community.ankermake.com/");
+		return Slic3r::UrlConfig::OldLoginUrl;
 	}
 
 	std::string strValue = iter->second;
@@ -112,8 +113,8 @@ std::vector<std::string> GetAnkerNetUrls()
 {
 	auto ini = AnkerConfig::GetAnkerConfigIni();
 	std::vector<std::string> defaultUrls = {
-		"https://make-app.ankermake.com/v1/slicer/get_net",
-		//"https://make-app-eu.ankermake.com/v1/slicer/get_net",
+		Slic3r::UrlConfig::NetUrl,
+		//Slic3r::UrlConfig::NetUrl_EU,
 	};
 
 	std::map<std::string, std::string>::iterator iter = ini.find("NetPluginDomain");
@@ -123,7 +124,7 @@ std::vector<std::string> GetAnkerNetUrls()
 	std::string strValue = iter->second;
 	if (strValue == "QA") {
 		defaultUrls.clear();
-		defaultUrls.push_back("https://make-app-us-qa.eufylife.com/v1/slicer/get_net");
+		defaultUrls.push_back(Slic3r::UrlConfig::NetUrl_QA);
 	}
 	
 	return defaultUrls;

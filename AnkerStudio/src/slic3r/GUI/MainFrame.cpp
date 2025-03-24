@@ -89,9 +89,11 @@
 #include "slic3r/GUI/Calibration/CalibrationTempDialog.hpp"
 #include "slic3r/GUI/Calibration/CalibrationRetractionDialog.hpp"
 #include "slic3r/GUI/Calibration/CalibrationVfaDialog.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
 #include "../AnkerComFunction.hpp"
 #include "AnkerConfig.hpp"
 #include "HintNotification.hpp"
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 extern AnkerPlugin* pAnkerPlugin;
 
 wxDEFINE_EVENT(wxCUSTOMEVT_ANKER_MAINWIN_MOVE, wxCommandEvent);
@@ -123,7 +125,7 @@ public:
         if(wxGetApp().app_config->get("single_instance") == "0") {
             // Only allow opening a new AnkerStudio instance on OSX if "single_instance" is disabled, 
             // as starting new instances would interfere with the locking mechanism of "single_instance" support.
-            append_menu_item(menu, wxID_ANY, _L("Open new instance"), _L("Open a new AnkerMake Studio instance"),
+            append_menu_item(menu, wxID_ANY, _L("Open new instance"), _L("Open a new eufyMake Studio instance"),
             [](wxCommandEvent&) { start_new_slicer(); }, "", nullptr);
         }
         append_menu_item(menu, wxID_ANY, _L("G-code preview") + dots, _L("Open G-code viewer"),
@@ -137,7 +139,7 @@ public:
     GCodeViewerTaskBarIcon(wxTaskBarIconType iconType = wxTBI_DEFAULT_TYPE) : wxTaskBarIcon(iconType) {}
     wxMenu *CreatePopupMenu() override {
         wxMenu *menu = new wxMenu;
-        append_menu_item(menu, wxID_ANY, _L("Open AnkerMake Studio"), _L("Open a new AnkerMake Studio instance"),
+        append_menu_item(menu, wxID_ANY, _L("Open eufyMake Studio"), _L("Open a new eufyMake Studio instance"),
             [](wxCommandEvent&) { start_new_slicer(nullptr, true); }, "", nullptr);
         append_menu_item(menu, wxID_ANY, _L("G-code preview") + dots, _L("Open new G-code viewer"),
             [](wxCommandEvent&) { start_new_gcodeviewer_open_file(); }, "", nullptr);
@@ -157,10 +159,11 @@ static wxIcon main_frame_icon(GUI_App::EAppMode app_mode)
         if (app_mode == GUI_App::EAppMode::GCodeViewer) {
             // Only in case the slicer was started with --gcodeviewer parameter try to load the icon from anker-gcodeviewer.exe
             // Otherwise load it from the exe.
-            for (const std::wstring_view exe_name : { std::wstring_view(L"ankermake studio.exe"), std::wstring_view(L"ankermake studio-console.exe") })
+            using namespace Slic3r::BrandConfig;
+            for (const std::wstring_view exe_name : { std::wstring_view(StudioExeName), std::wstring_view(StudioConsoleExeName) })
                 if (boost::iends_with(path, exe_name)) {
                     path.erase(path.end() - exe_name.size(), path.end());
-                    path += L"anker-gcodeviewer.exe";
+                    path += GcodeViewerExeName;
                     break;
                 }
         }
@@ -170,7 +173,6 @@ static wxIcon main_frame_icon(GUI_App::EAppMode app_mode)
     return wxIcon(Slic3r::var(app_mode == GUI_App::EAppMode::Editor ? "AnkerStudio_128px.png" : "AnkerStudio-gcodeviewer_128px.png"), wxBITMAP_TYPE_PNG);
 #endif // _WIN32
 }
-
 
 void MainFrame::ShowLoginedMenu()
 {
@@ -228,7 +230,7 @@ void MainFrame::ShowLoginedMenu()
 	append_menu_item(m_pLoginMenu,
 		wxID_ANY,
 		_L("common_toptable_logout"),
-		_L("Log Out AnkerMake"),
+		_L("Log Out eufyMake"),
 		[=](wxCommandEvent&) {
             ANKER_LOG_INFO << "use log out click";
             auto* ankerNet = AnkerNetInst();
@@ -382,7 +384,7 @@ void MainFrame::ShowUnLoginMenu()
 	append_menu_item(m_pLoginMenu,
 		wxID_ANY,
 		_L("common_toptable_login"),
-		_L("Sign In AnkerMake"),
+		_L("Sign In eufyMake"),
 		[=](wxCommandEvent&) {                     
             ShowAnkerWebView("login menu button clicked");
 		});
@@ -465,7 +467,7 @@ void MainFrame::DealPrivacyChoices(const wxCommandEvent& event)
         const int privacyChoicesItemPos = 2;
         append_menu_item(helpMenu, ID_PRIVACY_CHOICES_ITEM, _L("common_menu_help_privacychoices"), "",
             [](wxCommandEvent&) {
-                wxString url = wxString("https://passport.ankermake.com/privacy-request?app=ankermake-us");
+                wxString url = wxString(Slic3r::UrlConfig::PrivacyRequestUrl);
                 wxURI uri(url);
                 url = uri.BuildURI();
                 bool success = wxLaunchDefaultBrowser(url);
@@ -750,8 +752,7 @@ void MainFrame::initTabPanel() {
             //wxLaunchDefaultBrowser(realUrl.c_str());
             });
         m_pFunctionPanel->Bind(wxCUSTOMEVT_RELEASE_NOTE, [this](wxCommandEvent& event) {
-            std::string realUrl = "https://github.com/ankermake/AnkerMake-PrusaSlicer-Release/releases";
-            wxLaunchDefaultBrowser(realUrl.c_str());
+            wxLaunchDefaultBrowser(Slic3r::UrlConfig::ReleaseUrl.c_str());
             });
 
         m_pFunctionPanel->SetMinSize(AnkerSize(0, 36));
@@ -858,14 +859,14 @@ void MainFrame::initTabPanel() {
         }
 
         if (m_plater != nullptr) {
-            int saved_project = m_plater->save_project_if_dirty(_L("Closing AnkerMake Studio. Current project is modified."));
+            int saved_project = m_plater->save_project_if_dirty(_L("Closing eufyMake Studio. Current project is modified."));
             if (saved_project == wxID_CANCEL) {
                 event.Veto();
                 return;
             }
             // check unsaved changes only if project wasn't saved
             else if (plater()->is_project_dirty() && saved_project == wxID_NO && event.CanVeto() &&
-                (plater()->is_presets_dirty() && !wxGetApp().check_and_save_current_preset_changes(_L("AnkerMake Studio is closing"), _L("Closing AnkerMake Studio while some presets are modified.")))) {
+                (plater()->is_presets_dirty() && !wxGetApp().check_and_save_current_preset_changes(_L("eufyMake Studio is closing"), _L("Closing eufyMake Studio while some presets are modified.")))) {
                 event.Veto();
                 return;
             }
@@ -1641,9 +1642,13 @@ void MainFrame::update_title()
         }
     }
 
-    std::string build_id = SLIC3R_BUILD_ID;
-    if (! wxGetApp().is_editor())
-        boost::replace_first(build_id, SLIC3R_APP_NAME, GCODEVIEWER_APP_NAME);
+    std::string build_id;
+#ifdef JAPAN_OPEN
+    build_id = wxGetApp().is_editor() ? "EufyMake Studio" : "EufyMake Studio G-code Viewer";
+#else
+    build_id = wxGetApp().is_editor() ? "eufyMake Studio" : "eufyMake Studio G-code Viewer";
+#endif
+
     size_t 		idx_plus = build_id.find('+');
     if (idx_plus != build_id.npos) {
     	// Parse what is behind the '+'. If there is a number, then it is a build number after the label, and full build ID is shown.
@@ -2729,7 +2734,7 @@ void MainFrame::create_preset_tabs()
                     }
                 }
 
-                wxSize dialogSize = AnkerSize(500, 300);
+                wxSize dialogSize = AnkerSize(500, 330);
                 wxPoint center = wxPoint(mfPoint.x + mfSize.GetWidth() / 2 - dialogSize.GetWidth() / 2,
                     mfPoint.y + mfSize.GetHeight() / 2 - dialogSize.GetHeight() / 2);
 
@@ -3451,9 +3456,9 @@ static void CreateUserExperienceDialog()
     contentText->SetTextFont(Body_13);
     wxString contentString = _L("share_analytics_description") + _L("share_analytics_ensure");
     contentText->WriteText(contentString);
-    wxString url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_en.html");
+    wxString url = wxString(Slic3r::UrlConfig::PrivacyNoticeEn);
     if (MainFrame::currentSoftwareLanguageIsJapanese()) {
-        url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_jp.html");
+        url = wxString(Slic3r::UrlConfig::PrivacyNoticeJa);
     }
 
     wxURI uri(url);
@@ -3515,9 +3520,9 @@ static wxMenu* generate_help_menu()
     
     append_menu_item(helpMenu, wxID_ANY, _L("common_menu_help_privacy"), _L("Show privacy policy"),
         [](wxCommandEvent&) {
-            wxString url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_en.html");
+            wxString url = wxString(Slic3r::UrlConfig::PrivacyNoticeEn);
             if (MainFrame::currentSoftwareLanguageIsJapanese()) {
-                url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/privacy_notice_jp.html");
+                url = wxString(Slic3r::UrlConfig::PrivacyNoticeJa);
             }
 
             wxURI uri(url);
@@ -3532,9 +3537,9 @@ static wxMenu* generate_help_menu()
             });
     append_menu_item(helpMenu, wxID_ANY, _L("common_menu_help_termsofuse"), _L("Show terms of use"),
         [](wxCommandEvent&) {
-            wxString url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_en.html");
+            wxString url = wxString(Slic3r::UrlConfig::TermsOfServiceEnUrl);
             if (MainFrame::currentSoftwareLanguageIsJapanese()) {
-                url = wxString("https://d7p3a6aivdrwg.cloudfront.net/anker_general/public/agreement/2024/12/13/terms_of_use_jp.html");
+                url = wxString(Slic3r::UrlConfig::TermsOfServiceJaUrl);
             }
 
             wxURI uri(url);
@@ -3550,8 +3555,7 @@ static wxMenu* generate_help_menu()
             });
     append_menu_item(helpMenu, wxID_ANY, _L("common_tab_documentation_entrance"), _L("common_tab_documentation_entrance"),
         [](wxCommandEvent&) {
-            std::string realUrl = "https://support.ankermake.com/s/article/Ankermake-Studio-Guide-for-printer#content6";
-            wxLaunchDefaultBrowser(realUrl.c_str());
+            wxLaunchDefaultBrowser(Slic3r::UrlConfig::StudioGuideUrl.c_str());
         });
     append_menu_item(helpMenu, wxID_ANY, _L("common_menu_help_copyright"), _L("Show copyright information"),
         [](wxCommandEvent&) {
@@ -3880,7 +3884,7 @@ void MainFrame::init_menubar_as_editor()
             [this](wxCommandEvent&) { m_printhost_queue_dlg->Show(); }, ""/*"upload_queue"*/, nullptr, []() {return true; }, this);
         
         windowMenu->AppendSeparator();
-        append_menu_item(windowMenu, wxID_ANY, _L("Open New Instance") + "\tCtrl+Shift+I", _L("Open a new AnkerMake Studios instance"),
+        append_menu_item(windowMenu, wxID_ANY, _L("Open New Instance") + "\tCtrl+Shift+I", _L("Open a new eufyMake Studios instance"),
             [](wxCommandEvent&) { start_new_slicer(); }, "", nullptr, [this]() {return m_plater != nullptr && !wxGetApp().app_config->get_bool("single_instance"); }, this);
 
         windowMenu->AppendSeparator();
@@ -4333,7 +4337,7 @@ void MainFrame::init_menubar_as_gcodeviewer()
         append_menu_item(fileMenu, wxID_ANY, _L("Export &Toolpaths as OBJ") + dots, _L("Export toolpaths as OBJ"),
             [this](wxCommandEvent&) { if (m_plater != nullptr) m_plater->export_toolpaths_to_obj(); }, "export_plater", nullptr,
             [this]() {return can_export_toolpaths(); }, this);
-        append_menu_item(fileMenu, wxID_ANY, _L("Open &AnkerMake Studio") + dots, _L("Open AnkerMake Studio"),
+        append_menu_item(fileMenu, wxID_ANY, _L("Open &eufyMake Studio") + dots, _L("Open eufyMake Studio"),
             [](wxCommandEvent&) { start_new_slicer(); }, "", nullptr,
             []() {return true; }, this);
         fileMenu->AppendSeparator();
@@ -4451,7 +4455,7 @@ void MainFrame::quick_slice(const int qs)
 //     auto sprint = new Slic3r::Print::Simple(
 //         print_center = > print_center,
 //         status_cb = > [](int percent, const wxString& msg) {
-//         m_progress_dialog->Update(percent, msg+"...");
+//         m_progress_dialog->Update(percent, msg+"…");
 //     });
 
     // keep model around

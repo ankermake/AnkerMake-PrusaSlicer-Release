@@ -133,10 +133,10 @@ int GUI_Run(GUI_InitParams &params)
 
     } catch (const Slic3r::Exception &ex) {
         boost::nowide::cerr << ex.what() << std::endl;
-        wxMessageBox(boost::nowide::widen(ex.what()), _L("AnkerMake Studio GUI initialization failed"), wxICON_STOP);
+        wxMessageBox(boost::nowide::widen(ex.what()), _L("eufyMake Studio GUI initialization failed"), wxICON_STOP);
     } catch (const std::exception &ex) {
-        boost::nowide::cerr << "AnkerMake Studio GUI initialization failed: " << ex.what() << std::endl;
-        wxMessageBox(format_wxstr(_L("Fatal error, exception catched: %1%"), ex.what()), _L("AnkerMake Studio GUI initialization failed"), wxICON_STOP);
+        boost::nowide::cerr << "eufyMake Studio GUI initialization failed: " << ex.what() << std::endl;
+        wxMessageBox(format_wxstr(_L("Fatal error, exception catched: %1%"), ex.what()), _L("eufyMake Studio GUI initialization failed"), wxICON_STOP);
     }
 
     // error

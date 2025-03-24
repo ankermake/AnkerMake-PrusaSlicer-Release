@@ -25,6 +25,7 @@
 #include <boost/uuid/detail/md5.hpp>
 #include <boost/algorithm/hex.hpp>
 #endif
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 namespace Slic3r {
 
@@ -870,12 +871,11 @@ void AppConfig::reset_selections()
 }
 
 // Only for the compatibility of version 23 with version 22, regarding the addition of nozzles
-#define SLIC3R_APP_KEY_23 "AnkerMake Studio_23"
 std::string AppConfig::config_path() const
 {
     std::string path = (m_mode == EAppMode::Editor) ?
-        (boost::filesystem::path(Slic3r::data_dir()) / (SLIC3R_APP_KEY_23 ".ini")).make_preferred().string() :
-        (boost::filesystem::path(Slic3r::data_dir()) / (GCODEVIEWER_APP_KEY ".ini")).make_preferred().string();
+        (boost::filesystem::path(Slic3r::data_dir()) / (Slic3r::ProfileConfig::iniName)).make_preferred().string() :
+        (boost::filesystem::path(Slic3r::data_dir()) / (Slic3r::ProfileConfig::gcodeViewerIniName)).make_preferred().string();
 
     return path;
 }
