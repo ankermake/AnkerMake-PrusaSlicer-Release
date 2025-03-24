@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(AnkerStudio)
+project(eufyStudio)
 
 include("version.inc")
 include(GNUInstallDirs)
@@ -8,7 +8,7 @@ include(CMakeDependentOption)
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 # include(ConfigureAllModules)
 
-set(OPEN_SOURCE ON)
+set(OPEN_SOURCE OFF)
 
 set(SLIC3R_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 file(TO_NATIVE_PATH "${SLIC3R_RESOURCES_DIR}" SLIC3R_RESOURCES_DIR_WIN)
@@ -44,11 +44,11 @@ endif()
 
 #add_definitions(-DNET_TEST=1)
 
-option(SLIC3R_STATIC 			"Compile AnkerStudio with static libraries (Boost, TBB, glew)" ${SLIC3R_STATIC_INITIAL})
-option(SLIC3R_GUI    			"Compile AnkerStudio with GUI components (OpenGL, wxWidgets)" 1)
-option(SLIC3R_FHS               "Assume AnkerStudio is to be installed in a FHS directory structure" 0)
+option(SLIC3R_STATIC 			"Compile eufyStudio with static libraries (Boost, TBB, glew)" ${SLIC3R_STATIC_INITIAL})
+option(SLIC3R_GUI    			"Compile eufyStudio with GUI components (OpenGL, wxWidgets)" 1)
+option(SLIC3R_FHS               "Assume eufyStudio is to be installed in a FHS directory structure" 0)
 option(SLIC3R_WX_STABLE         "Build against wxWidgets stable (3.0) as oppsed to dev (3.1) on Linux" 0)
-option(SLIC3R_PROFILE 			"Compile AnkerStudio with an invasive Shiny profiler" 0)
+option(SLIC3R_PROFILE 			"Compile eufyStudio with an invasive Shiny profiler" 0)
 option(SLIC3R_PCH               "Use precompiled headers" 1)
 option(SLIC3R_MSVC_COMPILE_PARALLEL "Compile on Visual Studio in parallel" 1)
 option(SLIC3R_MSVC_PDB          "Generate PDB files on MSVC in Release mode" 1)
@@ -157,7 +157,7 @@ if (MINGW)
 endif ()
 
 if (NOT MSVC)
-    # ARMs (Raspberry PI) use an unsigned char by default. Let's make it consistent for AnkerStudio on all platforms.
+    # ARMs (Raspberry PI) use an unsigned char by default. Let's make it consistent for eufyStudio on all platforms.
     add_compile_options(-fsigned-char)
 endif ()
 
@@ -320,8 +320,6 @@ if (SLIC3R_ASAN)
 endif ()
 
 if (SLIC3R_UBSAN)
-    # Stacktrace for every report is enabled by default. It can be disabled by running AnkerStudio with "UBSAN_OPTIONS=print_stacktrace=0".
-
     # Define macro SLIC3R_UBSAN to allow detection in the source code if this sanitizer is enabled.
     add_compile_definitions(SLIC3R_UBSAN)
 
@@ -363,7 +361,7 @@ if(WIN32)
     if(MSVC)
         # BOOST_ALL_NO_LIB: Avoid the automatic linking of Boost libraries on Windows. Rather rely on explicit linking.
         add_definitions(-DBOOST_ALL_NO_LIB -DBOOST_USE_WINAPI_VERSION=0x601 -DBOOST_SYSTEM_USE_UTF8 )
-        # Force the source code encoding to UTF-8. See AnkerStudio GH pull request #5583
+        # Force the source code encoding to UTF-8.
         add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
         add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
     endif(MSVC)
@@ -560,7 +558,6 @@ foreach(po_file ${L10N_PO_FILES})
     GET_FILENAME_COMPONENT(po_dir "${po_file}" DIRECTORY)
     GET_FILENAME_COMPONENT(po_dir_name "${po_dir}" NAME)
     SET(wx_po_file "${L10N_DIR}/wx_locale/${po_dir_name}.po")
-    #SET(po_new_file "${po_dir}/AnkerStudio_.po")
     add_custom_command(
         TARGET gettext_concat_wx_po_with_po PRE_BUILD
         COMMAND msgcat --use-first -o ${po_file} ${po_file} ${wx_po_file}
@@ -669,9 +666,9 @@ endif()
 endfunction()
 
 
-# libslic3r, AnkerStudio GUI and the AnkerStudio executable.
+# libslic3r, eufyStudio GUI and the eufyStudio executable.
 add_subdirectory(src)
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT AnkerStudio_app_console)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT eufyStudio_app_console)
 
 add_dependencies(gettext_make_pot hintsToPot)
 

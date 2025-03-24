@@ -10,7 +10,6 @@
 #include "format.hpp"
 
 #include "libslic3r/Platform.hpp"
-
 #include <GL/glew.h>
 
 #include <boost/algorithm/string/split.hpp>
@@ -374,22 +373,22 @@ bool OpenGLManager::init_gl()
             // Complain about the OpenGL version.
             wxString message = format_wxstr(
 #if ENABLE_OPENGL_ES
-                _L("AnkerMake Studio requires OpenGL ES 2.0 capable graphics driver to run correctly, \n"
+                _L("eufyMake Studio requires OpenGL ES 2.0 capable graphics driver to run correctly, \n"
                     "while OpenGL version %s, render %s, vendor %s was detected."), s_gl_info.get_version_string(), s_gl_info.get_renderer(), s_gl_info.get_vendor());
 #elif ENABLE_GL_CORE_PROFILE
-                _L("AnkerMake Studio requires OpenGL %s capable graphics driver to run correctly, \n"
+                _L("eufyMake Studio requires OpenGL %s capable graphics driver to run correctly, \n"
                     "while OpenGL version %s, render %s, vendor %s was detected."), (s_gl_info.is_core_profile() ? "3.3" : "2.0"), s_gl_info.get_version_string(), s_gl_info.get_renderer(), s_gl_info.get_vendor());
 #else
-                _L("AnkerMake Studio requires OpenGL 2.0 capable graphics driver to run correctly, \n"
+                _L("eufyMake Studio requires OpenGL 2.0 capable graphics driver to run correctly, \n"
                     "while OpenGL version %s, render %s, vendor %s was detected."), s_gl_info.get_version_string(), s_gl_info.get_renderer(), s_gl_info.get_vendor());
 #endif // ENABLE_OPENGL_ES
             message += "\n";
         	message += _L("You may need to update your graphics card driver.");
 #ifdef _WIN32
             message += "\n";
-            message += _L("As a workaround, you may run AnkerMake Studio with a software rendered 3D graphics by running anker-studio.exe with the --sw-renderer parameter.");
+            message += _L("As a workaround, you may run eufyMake Studio with a software rendered 3D graphics by running anker-studio.exe with the --sw-renderer parameter.");
 #endif
-        	wxMessageBox(message, wxString("AnkerMake Studio - ") + _L("Unsupported OpenGL version"), wxOK | wxICON_ERROR);
+        	wxMessageBox(message, wxString("eufyMake Studio - ") + _L("Unsupported OpenGL version"), wxOK | wxICON_ERROR);
         }
 
         if (valid_version) {
@@ -397,7 +396,7 @@ bool OpenGLManager::init_gl()
             auto [result, error] = m_shaders_manager.init();
             if (!result) {
                 wxString message = format_wxstr(_L("Unable to load the following shaders:\n%s"), error);
-                wxMessageBox(message, wxString("AnkerMake Studio - ") + _L("Error loading shaders"), wxOK | wxICON_ERROR);
+                wxMessageBox(message, wxString("eufyMake Studio - ") + _L("Error loading shaders"), wxOK | wxICON_ERROR);
             }
 #if ENABLE_OPENGL_DEBUG_OPTION
             if (m_debug_enabled && GLEW_KHR_debug) {
@@ -469,6 +468,10 @@ wxGLContext* OpenGLManager::init_glcontext(wxGLCanvas& canvas)
 #endif // ENABLE_OPENGL_DEBUG_OPTION
                 m_context = new wxGLContext(&canvas, nullptr, &attrs);
                 if (m_context->IsOK()) {
+                    std::map<std::string, std::string> map;
+                    map.insert(std::make_pair(c_major_version, std::to_string(v->first)));
+                    map.insert(std::make_pair(c_minor_version, std::to_string(v->second)));
+                    reportBuryEvent(e_context_version, map);
                     s_gl_info.set_core_profile(true);
                     break;
                 }

@@ -61,6 +61,7 @@ public:
 
     virtual CustomDeviceStatus getCustomDeviceStatus() = 0;
 
+
     // Printing notice.
     virtual PrintNoticeInfo GetPrintNoticeInfo() = 0;
 

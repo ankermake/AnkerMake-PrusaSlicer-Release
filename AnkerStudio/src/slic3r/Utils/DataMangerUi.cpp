@@ -14,6 +14,7 @@
 #include "AnkerNetBase.h"
 #include <boost/bind.hpp>
 #include "DeviceVersionUtil.hpp"
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 wxDEFINE_EVENT(wxCUSTOMEVT_DEVICE_LIST_UPDATE, wxCommandEvent);
 wxDEFINE_EVENT(wxCUSTOMEVT_UPDATE_MACHINE, wxCommandEvent);
@@ -49,8 +50,6 @@ using namespace AnkerNet;
 typedef AnkerNet::AnkerNetBase* (*AnkerNetInstance)();
 
 using namespace NetworkMsgText;
-
-#define ANKER_MAKE_NAME "AnkerMake Studio"
 
 DatamangerUi::DatamangerUi() 
 {
@@ -137,7 +136,7 @@ AnkerNetInitPara DatamangerUi::GetNetPara()
 	wxString languageCode = Slic3r::GUI::wxGetApp().current_language_code_safe();
 	int index = languageCode.find('_');
 
-	para.App_name = std::string(ANKER_MAKE_NAME);
+	para.App_name = std::string(Slic3r::ServerConfig::AppName);
 	para.Model_type = "PC";
 	para.App_version_V = std::string("V") + std::string(SLIC3R_VERSION);
 	para.App_version = std::string(SLIC3R_VERSION);

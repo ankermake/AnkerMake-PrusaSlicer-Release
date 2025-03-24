@@ -61,6 +61,7 @@ public:
 
     virtual CustomDeviceStatus getCustomDeviceStatus() = 0;
 
+
     // Printing notice.
     virtual PrintNoticeInfo GetPrintNoticeInfo() = 0;
 
@@ -132,6 +133,8 @@ public:
 
     virtual void SetDeviceFunctions() = 0;
     virtual bool GetPreheatFunction() const = 0;
+    virtual void SendSwitchInfoToDevice(const std::string& cmd, bool isOpen) = 0;
+    virtual std::tuple<bool, std::string> RecvSwitchInfoFromDevice() = 0;
 };
 
 }

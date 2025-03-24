@@ -434,32 +434,38 @@ void HintDatabase::download_hints_image(const std::string& img_url, std::string&
 		return boost::filesystem::exists(path);
 	};
 
-	auto get_image_path = [](const std::string& url) {
+	auto get_image_name = [](const std::string& url) {
 		auto get_image_name = [](const std::string& url) {
 			std::size_t lastSlashPos = url.find_last_of('/');
 			return url.substr(lastSlashPos + 1);
 		};
 
 		std::string image_name = get_image_name(url);
-		return "images/" + image_name;
+		return image_name;
 	};
 
 	auto director_exist = [](const std::string& path) {
 		bool dir_exist = false;
 		boost::filesystem::path file_path = path;
 		boost::filesystem::path directory = file_path.parent_path();
-		if (!boost::filesystem::exists(directory)) {
-			if (boost::filesystem::create_directories(directory)) {
-				dir_exist = true;
-				ANKER_LOG_ERROR << "Directory created: " << directory;
+		try {
+			if (!boost::filesystem::exists(directory)) {
+				if (boost::filesystem::create_directories(directory)) {
+					dir_exist = true;
+					ANKER_LOG_ERROR << "Directory created: " << directory;
+				}
+				else {
+					ANKER_LOG_ERROR << "Failed to create directory: " << directory;
+				}
 			}
-			else {
-				ANKER_LOG_ERROR << "Failed to create directory: " << directory;
+			else
+			{
+				dir_exist = true;
 			}
 		}
-		else
-		{
-			dir_exist = true;
+
+		catch (...) {
+			ANKER_LOG_ERROR << "exception: Unable to create directory. ";
 		}
 
 		return dir_exist;
@@ -470,15 +476,15 @@ void HintDatabase::download_hints_image(const std::string& img_url, std::string&
 		   ANKER_LOG_ERROR << " down_error_img_url:" << img_url;
 		})
 		.on_complete([&](std::string data, unsigned  http_status) {
-				std::string image_path = get_image_path(img_url);
-				std::string full_path = resources_dir() + "/" + image_path;
-				if (!director_exist(full_path))
+				std::string image_name = get_image_name(img_url);
+				boost::filesystem::path full_path = boost::filesystem::path(data_dir()) /"cache"/ image_name;
+				if (!director_exist(full_path.string()))
 					return ;
 
-				if (!save_file(data, full_path))
+				if (!save_file(data, full_path.string()))
 					return ;
 
-				img = std::move(image_path);
+				img = std::move(image_name);
 
 			}).perform_sync();
 }
@@ -486,7 +492,7 @@ void HintDatabase::download_hints_image(const std::string& img_url, std::string&
 void HintDatabase::download_hints_finish()
 {
 	auto init = [&]() {
-		auto srv_hints_config = boost::filesystem::path(resources_dir()) / "data" / "srv_hints.ini";
+		auto srv_hints_config = boost::filesystem::path(data_dir()) / "cache" / "srv_hints.ini";
 		if (get_valid_hint_count()) {
 			save_server_hints(std::move(srv_hints_config));
 			return true;
@@ -519,7 +525,7 @@ void HintDatabase::check_hint_imgage()
 	m_loaded_hints.erase(
 		std::remove_if(m_loaded_hints.begin(), m_loaded_hints.end(), [](const HintData& hint) {
 			bool remove_item = false;
-			if (hint.image.empty() || !boost::filesystem::exists(resources_dir() + "/" + hint.image)) {
+			if (hint.image.empty() || !boost::filesystem::exists(boost::filesystem::path(data_dir()) / "cache" / hint.image)) {
 				ANKER_LOG_INFO << "hint item have not image, remove. title=" << hint.title ;
 				remove_item = true;
 			}
@@ -704,7 +710,7 @@ bool HintDatabase::load_hints_from_file(const boost::filesystem::path& path)
 
 			if (dict.find("image") != dict.end()) {
 				img = dict["image"];
-				auto img_full_path = resources_dir() + "/" + img;
+				auto img_full_path = boost::filesystem::path(data_dir()) / "cache" / img; 
 				if (!boost::filesystem::exists(img_full_path))
 					img = "";
 			}

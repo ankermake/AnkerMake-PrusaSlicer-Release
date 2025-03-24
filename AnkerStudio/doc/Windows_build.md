@@ -1,4 +1,4 @@
-# Building AnkerMake Studio on Windows
+# Building eufyMake Studio on Windows
 
 
 ## 0. Prerequisities
@@ -37,7 +37,7 @@ git clone git@github.com:ankermake/AnkerMake-PrusaSlicer-Release.git
 Note that `THIRD_PART_ROOT` must be absolute path. A relative path will not work.
 The library and include path for dependencies should reference `src\AnkerMake-PrusaSlicer-Release\AnkerStudio\src\slic3r\CMakeLists.txt`
 
-### Generate Visual Studio project file for AnkerMake Studio.
+### Generate Visual Studio project file for eufyMake Studio.
 
 ```
 mkdir src\AnkerMake-PrusaSlicer-Release\AnkerStudio\build
@@ -47,7 +47,7 @@ cmake -DCMAKE_BUILD_TYPE=Debug -S .. -G "Visual Studio 16 2019"
 ```
 Note that `mkdir src\AnkerMake-PrusaSlicer-Release\AnkerStudio\build\src\Debug` change to `mkdir src\AnkerMake-PrusaSlicer-Release\AnkerStudio\build\src\Release` when you select release build.
 
-### Compile and Run AnkerMake Studio. 
+### Compile and Run eufyMake Studio.
 
 Copy `src\AnkerMake-PrusaSlicer-Release\AnkerStudio\resources\crt` files to `src\AnkerMake-PrusaSlicer-Release\AnkerStudio\build\src\Debug` or `src\AnkerMake-PrusaSlicer-Release\AnkerStudio\build\src\Release`.
 
@@ -65,14 +65,14 @@ Run `Build->Rebuild` Solution once to populate all required dependency modules. 
 
 `Debug->Start Debugging` or press F5
 
-AnkerMake Studio should start. You're up and running!
+eufyMake Studio should start. You're up and running!
 
 ### Network Plugin
 If you need to use network functions or device control functions, then you need to install the network plug-in, as shown in the figure below:
 
 ![Alt text](Image/install_network_plugin.png)
 
-Note that AnkerMake Studio must use Release mode when downloading and using network plug-ins.
+Note that eufyMake Studio must use Release mode when downloading and using network plug-ins.
 
 
 

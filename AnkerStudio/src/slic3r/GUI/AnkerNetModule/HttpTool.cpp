@@ -6,6 +6,7 @@
 #include "slic3r/Utils/DataMangerUi.hpp"
 #include "slic3r/Utils/JsonHelp.hpp"
 #include "slic3r/Utils/wxFileTool.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
 #include <slic3r/GUI/AnkerConfig.hpp>
 #ifdef _WIN32
 #include <codecvt>
@@ -39,7 +40,7 @@ public:
 		auto sysInfo = DatamangerUi::GetSysInfo();
 
 		std::vector<std::string> headerList;
-		headerList.push_back(std::string("App_name: ") + "AnkerMake Studio");
+		headerList.push_back(std::string("App_name: ") + Slic3r::ServerConfig::AppName);
 		headerList.push_back(std::string("Model_type: ") + "PC");
 		headerList.push_back(std::string("App_version: ") + "V" + SLIC3R_VERSION);
 		headerList.push_back(std::string("Country: ") + languageCode.substr(index + 1, languageCode.Length() - index).ToUTF8().data());

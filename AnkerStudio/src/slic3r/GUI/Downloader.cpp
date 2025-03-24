@@ -5,6 +5,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/log/trivial.hpp>
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 namespace Slic3r {
 namespace GUI {
@@ -131,9 +132,9 @@ void Downloader::start_download(const std::string& full_url)
 	
 	// TODO: There is a misterious slash appearing in recieved msg on windows
 #ifdef _WIN32
-	if (!boost::starts_with(full_url, "ankerstudio://open/?file=")) {
+	if (!boost::starts_with(full_url, Slic3r::WebConfig::UrlProtocol + "/?file=")) {
 #else
-    if (!boost::starts_with(full_url, "ankerstudio://open?file=")) {
+    if (!boost::starts_with(full_url, Slic3r::WebConfig::UrlProtocol + "?file=")) {
 #endif
 		BOOST_LOG_TRIVIAL(error) << "Could not start download due to wrong URL: " << full_url;
 		// TODO: show error?

@@ -961,7 +961,7 @@ private:
     {NotificationType::URLNotRegistered
 		, NotificationLevel::RegularNotificationLevel
 		, 10
-		, _u8L("AnkerMake Studio recieved a download request from Printables.com, but it's not allowed. You can allow it")
+		, _u8L("eufyMake Studio recieved a download request from Printables.com, but it's not allowed. You can allow it")
 		, _u8L("here.")
 		,  [](wxEvtHandler* evnthndlr) {
 			wxGetApp().open_preferences("downloader_url_registered", "Other");

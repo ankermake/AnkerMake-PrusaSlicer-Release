@@ -15,7 +15,7 @@
 #include <list>
 #include <map>
 
-#define MappingVersion 1052402
+#define MappingVersion 1052600
 
 #define DEF_PTR(className) class className; typedef std::shared_ptr<className> className##Ptr;
 
@@ -85,7 +85,6 @@ enum class eUserParams {
     DATA_SHARE_SWITCH = 20001,
     USERS_EXPER_IMPROVE_SWITCH = 20002
 };
-
 
 enum class AKNMT_LOG_LEVEL {
     MAX = 1,
@@ -476,6 +475,7 @@ enum aknmt_command_type_e
     AKNMT_CMD_FILE_LIST_REQUEST = 1009,//1
     AKNMT_CMD_GCODE_FILE_REQUEST = 1010,//1
     AKNMT_CMD_Z_AXIS_RECOUP = 1021,//1
+    AKNMT_CMD_SWITCH_INFO = 1135,
     AKNMT_CMD_THUMBNAIL_UPLOAD_NOTICE = 1044,//1
 };
 

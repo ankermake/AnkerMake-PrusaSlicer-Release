@@ -315,7 +315,7 @@ bool OctoPrint::upload(PrintHostUpload upload_data, ProgressFn prorgess_fn, Erro
     }
     if (resolved_addr.empty()) {
         // no resolved addresses - try system resolving
-        BOOST_LOG_TRIVIAL(error) << "AnkerStudio failed to resolve hostname " << m_host << " into the IP address. Starting upload with system resolving.";
+        BOOST_LOG_TRIVIAL(error) << "eufyStudio failed to resolve hostname " << m_host << " into the IP address. Starting upload with system resolving.";
         return upload_inner_with_host(std::move(upload_data), prorgess_fn, error_fn, info_fn);
     } else if (resolved_addr.size() == 1) {
         // one address resolved - upload there

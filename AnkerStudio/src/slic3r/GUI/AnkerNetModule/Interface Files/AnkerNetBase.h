@@ -127,11 +127,10 @@ public:
 	virtual void SetGeneralExceptionMsgBox(GeneralExceptionMsgBox_T function) = 0;
 	//set callback for log out and modify status on ui , triggered when login init failed
 	virtual void SetSendSigAccountLogout(SendSigAccountLogout_T function) = 0;
-	virtual inline void PostSetBuryPointSwitch(bool isForbideenDataShared) = 0;
+	virtual inline void PostSetBuryPointSwitch(bool isForbideenDataShared)=0;
 	virtual inline std::vector<std::tuple<int, std::string>> PostQueryDataShared(const std::vector<int>& param_type) = 0;
 	virtual inline std::tuple<int, std::string> PostUpdateDataShared(const std::vector<std::pair<int, std::string>>& param_type) = 0;
 	virtual std::vector<std::tuple<std::string, int>> PostGetMemberType() = 0;
-
 
 	// p2p operator start
 	virtual void StartP2pOperator(P2POperationType type, const std::string& sn, const std::string& filePath) = 0;

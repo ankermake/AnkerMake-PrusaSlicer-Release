@@ -5,6 +5,7 @@
 #include "GUI_App.hpp"
 #include "Common/AnkerGUIConfig.hpp"
 #include "I18N.hpp"
+#include "slic3r/Config/AnkerCommonConfig.hpp"
 
 
 wxDEFINE_EVENT(wxCUSTOMEVT_LOGIN_CLCIKED, wxCommandEvent);
@@ -120,8 +121,7 @@ void AnkerOfflineDevice::initUi()
 	wxStaticText* pTipsText = new wxStaticText(this, wxID_ANY, _L("Device is disconnected, "));
 	pTipsText->SetForegroundColour(wxColour(153, 153, 153));
 
-	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("please click to see more help >>"), 
-		"https://support.ankermake.com/s/article/How-to-Fix-WiFi-Connection-Issue");
+	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("please click to see more help >>"), Slic3r::UrlConfig::PreviewData);
 	link->SetMinSize(AnkerSize(210, 25));
 	link->SetSize(AnkerSize(230, 25));
 
@@ -193,8 +193,7 @@ void AnkerUnLoginPanel::initUi()
 	m_tipsText->SetFont(ANKER_FONT_NO_1);
 	m_tipsText->SetForegroundColour(wxColour(153, 153, 153));
 
-	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("common_print_statusnotice_createaccount2"), 
-		"https://mulpass.ankermake.com/?app=ankermake&tab=register");
+	AnkerHyperlink* link = new AnkerHyperlink(this, wxID_ANY, _L("common_print_statusnotice_createaccount2"), Slic3r::UrlConfig::MulpassRegisterUrl);
 	
 	wxClientDC dc(this);
 	dc.SetFont(ANKER_FONT_NO_1);
