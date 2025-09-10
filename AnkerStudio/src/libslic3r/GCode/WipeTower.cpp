@@ -1035,7 +1035,7 @@ void WipeTower::toolchange_Wipe(
 	float dy = m_extra_spacing*m_perimeter_width;
 
     const float target_speed = is_first_layer() ? m_first_layer_speed * 60.f : 4800.f;
-    float wipe_speed = 0.33f * target_speed;
+    float wipe_speed = target_speed;
 
     // if there is less than 2.5*m_perimeter_width to the edge, advance straightaway (there is likely a blob anyway)
     if ((m_left_to_right ? xr-writer.x() : writer.x()-xl) < 2.5f*m_perimeter_width) {
@@ -1045,13 +1045,21 @@ void WipeTower::toolchange_Wipe(
     
     // now the wiping itself:
 	for (int i = 0; true; ++i)	{
+#if 0
 		if (i!=0) {
             if      (wipe_speed < 0.34f * target_speed) wipe_speed = 0.375f * target_speed;
             else if (wipe_speed < 0.377 * target_speed) wipe_speed = 0.458f * target_speed;
             else if (wipe_speed < 0.46f * target_speed) wipe_speed = 0.875f * target_speed;
             else wipe_speed = std::min(target_speed, wipe_speed + 50.f);
 		}
-
+#else
+        if (i != 0) {
+            if (wipe_speed > 0.9f * target_speed) wipe_speed = std::max(0.8f * target_speed, 1800.f);
+            else if (wipe_speed > 0.7 * target_speed) wipe_speed = std::max(0.5f * target_speed, 1800.f);
+            else if (wipe_speed > 0.4f * target_speed) wipe_speed = std::max(0.3f * target_speed, 1800.f);
+            else wipe_speed = 1800.f;
+        }
+#endif
 		float traversed_x = writer.x();
 		if (m_left_to_right)
             writer.extrude(xr - (i % 4 == 0 ? 0 : 1.5f*m_perimeter_width), writer.y(), wipe_speed);
@@ -1103,7 +1111,7 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
 
 	// Slow down on the 1st layer.
     bool first_layer = is_first_layer();
-    float feedrate = first_layer ? m_first_layer_speed * 60.f : 2900.f;
+    float feedrate = first_layer ? m_first_layer_speed * 60.f : 1800.f;
 	float current_depth = m_layer_info->depth - m_layer_info->toolchanges_depth();
     box_coordinates fill_box(Vec2f(m_perimeter_width, m_layer_info->depth-(current_depth-m_perimeter_width)),
                              m_wipe_tower_width - 2 * m_perimeter_width, current_depth-m_perimeter_width);
@@ -1316,7 +1324,7 @@ WipeTower::ToolChangeResult WipeTower::finish_layer()
     // Now prepare future wipe.
     int i = poly.closest_point_index(Point::new_scale(writer.x(), writer.y()));
     writer.add_wipe_point(writer.pos());
-    writer.add_wipe_point(unscale(poly.points[i==0 ? int(poly.points.size())-1 : i-1]).cast<float>());
+    writer.add_wipe_point(unscale(poly.points[(i + 1)%int(poly.points.size())]).cast<float>());
 
     // Ask our writer about how much material was consumed.
     // Skip this in case the layer is sparse and config option to not print sparse layers is enabled.
@@ -1424,8 +1432,26 @@ void WipeTower::plan_tower()
     for (int layer_index = int(m_plan.size()) - 1; layer_index >= 0; --layer_index)
 	{
 		float this_layer_depth = std::max(m_plan[layer_index].depth, m_plan[layer_index].toolchanges_depth());
+        //add by friva,limit the layer_depth
+        if (layer_index < 0.33 * m_plan.size()) {
+            this_layer_depth = std::max(this_layer_depth, m_wipe_tower_width * (float)0.38);
+        }
+        else if(layer_index < 0.66 * m_plan.size())
+        {
+            this_layer_depth = std::max(this_layer_depth, m_wipe_tower_width * (float)0.18);
+        }
+
 		m_plan[layer_index].depth = this_layer_depth;
-		
+        if (m_plan[layer_index].tool_changes.size() == 1 && layer_index > 1 && layer_index != int(m_plan.size()) - 1) {
+            float con_wipe_volum = 15.0;
+            //add by friva, 
+            if (m_plan[layer_index - 1].tool_changes.empty() && m_plan[layer_index].tool_changes[0].wipe_volume == con_wipe_volum) {
+                //get the wipe_volume from this_layer_depth and width
+                float depth_v = this_layer_depth / m_plan[layer_index].toolchanges_depth();
+                m_plan[layer_index].tool_changes[0].wipe_volume = depth_v * con_wipe_volum;
+            }
+        }
+
 		if (this_layer_depth > m_wipe_tower_depth - m_perimeter_width)
 			m_wipe_tower_depth = this_layer_depth + m_perimeter_width;
 
@@ -1566,6 +1592,19 @@ void WipeTower::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &
 
 		result.emplace_back(std::move(layer_result));
 	}
+}
+
+std::vector<std::pair<float, float>> WipeTower::get_z_and_depth_pairs() const
+{
+    std::vector<std::pair<float, float>> out = { {0.f, m_wipe_tower_depth} };
+    for (const WipeTowerInfo& wti : m_plan) {
+        assert(wti.depth < wti.depth + WT_EPSILON);
+        if (wti.depth < out.back().second - WT_EPSILON)
+            out.emplace_back(wti.z, wti.depth);
+    }
+    if (out.back().first < m_wipe_tower_height - WT_EPSILON)
+        out.emplace_back(m_wipe_tower_height, 0.f);
+    return out;
 }
 
 } // namespace Slic3r

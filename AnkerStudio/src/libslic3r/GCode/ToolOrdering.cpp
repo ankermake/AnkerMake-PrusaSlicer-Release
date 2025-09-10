@@ -361,11 +361,17 @@ void ToolOrdering::reorder_extruders(unsigned int last_extruder_id)
     }
 
     // Reindex the extruders, so they are zero based, not 1 based.
-    for (LayerTools &lt : m_layer_tools)
-        for (unsigned int &extruder_id : lt.extruders) {
+    for (LayerTools& lt : m_layer_tools) {
+
+        for (unsigned int& extruder_id : lt.extruders) {
             assert(extruder_id > 0);
-            -- extruder_id;
-        }    
+            --extruder_id;
+        }
+#if 1
+        if (lt.extruders.size() > 1)
+            std::sort(lt.extruders.begin(), lt.extruders.end());
+#endif
+    }
 }
 
 void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_t object_bottom_z, coordf_t max_layer_height)

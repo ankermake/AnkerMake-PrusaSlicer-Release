@@ -3,6 +3,7 @@
 #include <wx/wx.h>
 #include <wx/string.h>
 #include <wx/sizer.h>
+#include "../I18N.hpp"
 #include "AnkerRoundBaseDialog.hpp"
 #include "AnkerBaseCtls.h"
 
@@ -25,14 +26,16 @@ namespace Slic3r {
 			void SetContentPanel(AnkerBasePanel* pNewPanel) { m_pContentPanel = pNewPanel; }
 			AnkerBasePanel* GetContentPanel() { return m_pContentPanel; }
 			void SetBottomPanel(AnkerBasePanel* pNewPanel) { m_pBottomPanel = pNewPanel; }
+			AnkerBasePanel* GetBottomPanel() { return m_pBottomPanel; }
 			void SetCloseFileName(std::string strFileName) { m_strCloseImgFileName = strFileName; }
+			void OnOKButtonClicked(wxCommandEvent& event);
+			void OnCancelButtonClicked(wxCommandEvent& event);
 
 
 		private:
 			void resetWindow(wxWindow* parent);
 			void OnExitButtonClicked(wxCommandEvent& event);
-			void OnOKButtonClicked(wxCommandEvent& event);
-			void OnCancelButtonClicked(wxCommandEvent& event);
+			
 			
 
 		private:
@@ -45,8 +48,8 @@ namespace Slic3r {
 			wxString m_TitleText;
 			wxString m_ContentText;
 			std::string m_strCloseImgFileName;
-			std::string m_cancelText{"No"};
-			std::string m_okText{"Yes"};
+			wxString m_cancelText{ _L("common_button_cancel")};
+			wxString m_okText{ _L("common_button_ok")};
 			wxSizerItem* m_pBtnSpaceItem{ nullptr };
 		};
 	}

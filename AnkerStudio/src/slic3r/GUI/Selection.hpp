@@ -194,6 +194,10 @@ private:
 
     float m_scale_factor;
 
+    // BBS
+    EMode m_volume_selection_mode{ Instance };
+    bool m_volume_selection_locked{ false };
+
 public:
     Selection();
 
@@ -296,6 +300,7 @@ public:
 
     unsigned int volumes_count() const { return (unsigned int)m_list.size(); }
     const BoundingBoxf3& get_bounding_box() const;
+    Vec3d calc_dragging_center() const;
     // Bounding box of a single full instance selection, in world coordinates, with no instance scaling applied.
     // This bounding box is useful for absolute scaling of tilted objects in world coordinate space.
     // Modifiers are NOT taken in account
@@ -320,7 +325,6 @@ public:
     std::pair<BoundingBoxf3, Transform3d> get_bounding_box_in_reference_system(ECoordinatesType type) const;
 
     void setup_cache();
-
     void translate(const Vec3d& displacement, TransformationType transformation_type);
     void rotate(const Vec3d& rotation, TransformationType transformation_type);
     void flattening_rotate(const Vec3d& normal);
@@ -337,6 +341,11 @@ public:
     // 1 if no baking was needed
     int bake_transform_if_needed() const;
 
+    // BBS
+    void set_volume_selection_mode(EMode mode) { if (!m_volume_selection_locked) m_volume_selection_mode = mode; }
+    void lock_volume_selection_mode() { m_volume_selection_locked = true; }
+    void unlock_volume_selection_mode() { m_volume_selection_locked = false; }
+
     void erase();
 
     void render(float scale_factor = 1.0);
@@ -351,6 +360,7 @@ public:
     void paste_from_clipboard();
 
     const Clipboard& get_clipboard() const { return m_clipboard; }
+    void fill_color(int  extruder_id);
 
     // returns the list of idxs of the volumes contained into the object with the given idx
     std::vector<unsigned int> get_volume_idxs_from_object(unsigned int object_idx) const;

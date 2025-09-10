@@ -2,7 +2,7 @@
 #include "AnkerGUIConfig.hpp"
 
 
-AnkerProgressCtrl::AnkerProgressCtrl(wxWindow* parent)
+AnkerProgressCtrl::AnkerProgressCtrl(wxWindow* parent, bool labelBack)
     : wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
     , m_lineLenRate(0.98)
     , m_lineWidth(3)
@@ -13,9 +13,16 @@ AnkerProgressCtrl::AnkerProgressCtrl(wxWindow* parent)
     , m_currentProgress(0)
     , m_progressColor(ANKER_RGB_INT)
     , m_unProgressColor(m_progressColor.ChangeLightness(51))
+    , m_backgroudColor(wxColour(PANEL_BACK_RGB_INT))
     , m_labelVisible(true)
     , m_labelStr("0%")
+    , m_labelBack(labelBack)
 {
+    if (m_labelBack) {
+        m_lineLenRate = 0.86;
+    }
+
+    SetDoubleBuffered(true);
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     Bind(wxEVT_PAINT, &AnkerProgressCtrl::OnPaint, this);
     Bind(wxEVT_SIZE, &AnkerProgressCtrl::OnSize, this);
@@ -78,8 +85,8 @@ void AnkerProgressCtrl::OnPaint(wxPaintEvent& event)
     wxRect rect = GetClientRect();
     rect.width += 1;
     rect.height += 1;
-    wxBrush brush(wxColour(PANEL_BACK_RGB_INT));
-    wxPen pen(wxColour(PANEL_BACK_RGB_INT));
+    wxBrush brush(m_backgroudColor);
+    wxPen pen(m_backgroudColor);
     dc.SetBrush(brush);
     dc.SetPen(pen);
     dc.DrawRectangle(rect);
@@ -97,25 +104,29 @@ void AnkerProgressCtrl::OnPaint(wxPaintEvent& event)
         dc.SetFont(m_labelFont);
         dc.SetTextForeground(m_progressColor);
         wxPoint textPoint = wxPoint(lineLen - m_labelFont.GetPointSize() * 3, 0);
+        if (m_labelBack) {
+            textPoint = wxPoint(lineLen + 12, 0);
+        }        
         dc.DrawText(m_labelStr, textPoint);
     }
 
     if (lineLen > 0 && m_margin >= 0)
     {
-        int centerY = GetSize().y / 2;
         int radius = 2;
+        int progressY = GetSize().y - m_lineWidth;
+        if (m_labelBack) {
+            progressY = GetSize().y / 2 - m_lineWidth / 2;
+        }
 
         // draw unProgress line
         dc.SetBrush(wxBrush(m_unProgressColor));
-        dc.SetPen(wxPen(m_unProgressColor));
-        //dc.SetTextForeground(m_unProgressColor);
-        dc.DrawRoundedRectangle(m_margin, GetSize().y - m_lineWidth, lineLen, m_lineWidth, radius);
+        dc.SetPen(wxPen(m_unProgressColor));        
+        dc.DrawRoundedRectangle(m_margin, progressY, lineLen, m_lineWidth, radius);
 
         //  draw progress line
         dc.SetBrush(wxBrush(m_progressColor));
         dc.SetPen(wxPen(m_progressColor));
-        //dc.SetTextForeground(m_progressColor);
-        dc.DrawRoundedRectangle(m_margin, GetSize().y - m_lineWidth, progressedLineLen, m_lineWidth, radius);
+        dc.DrawRoundedRectangle(m_margin, progressY, progressedLineLen, m_lineWidth, radius);
     }
 }
 
@@ -124,3 +135,4 @@ void AnkerProgressCtrl::OnSize(wxSizeEvent& event)
     //Layout();
     Update();
 }
+

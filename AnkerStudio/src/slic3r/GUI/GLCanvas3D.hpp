@@ -19,7 +19,7 @@
 #include "Camera.hpp"
 #include "SceneRaycaster.hpp"
 #include "GUI_Utils.hpp"
-
+#include "IMToolbar.hpp"
 #include "libslic3r/Slicing.hpp"
 
 #include <float.h>
@@ -185,6 +185,8 @@ wxDECLARE_EVENT(EVT_GLCANVAS_RENDER_TIMER, wxTimerEvent/*RenderTimerEvent*/);
 wxDECLARE_EVENT(EVT_GLCANVAS_TOOLBAR_HIGHLIGHTER_TIMER, wxTimerEvent);
 wxDECLARE_EVENT(EVT_GLCANVAS_GIZMO_HIGHLIGHTER_TIMER, wxTimerEvent);
 wxDECLARE_EVENT(EVT_GLCANVAS_INITIALIZED, SimpleEvent);
+wxDECLARE_EVENT(EVT_EXPLOSION_VALUE_CHANGE, SimpleEvent);
+wxDECLARE_EVENT(EVT_AGCODE_PRINT_EVENT, SimpleEvent);
 
 class GLCanvas3D
 {
@@ -202,10 +204,12 @@ class GLCanvas3D
         };
 
         static const float THICKNESS_BAR_WIDTH;
+        static const float THICKNESS_BAR_MARGIN;
 
     private:
         bool                        m_enabled{ false };
         unsigned int                m_z_texture_id{ 0 };
+        float                            m_dialogOffsetX{ 0 };
         // Not owned by LayersEditing.
         const DynamicPrintConfig   *m_config{ nullptr };
         // ModelObject for the currently selected object (Model::objects[last_object_id]).
@@ -260,6 +264,7 @@ class GLCanvas3D
             };
             OldCanvasWidth old_canvas_width;
             std::vector<double> old_layer_height_profile;
+            double old_layer_height{ 0. };
         };
         Profile m_profile;
 
@@ -276,8 +281,11 @@ class GLCanvas3D
         bool is_enabled() const;
         void set_enabled(bool enabled);
 
+        void show_tooltip_information(const GLCanvas3D& canvas, std::map<wxString, wxString> captions_texts, float x, float y);
+        void render_variable_layer_height_dialog(const GLCanvas3D& canvas);
         void render_overlay(const GLCanvas3D& canvas);
         void render_volumes(const GLCanvas3D& canvas, const GLVolumeCollection& volumes);
+        void render_layer_height_change(GLCanvas3D& canvas);
 
 		void adjust_layer_height_profile();
 		void accept_changes(GLCanvas3D& canvas);
@@ -366,7 +374,8 @@ class GLCanvas3D
         ToolpathOutside,
         SlaSupportsOutside,
         SomethingNotShown,
-        ObjectClashed
+        ObjectClashed,
+        GCodeConflict
     };
 
     class RenderStats
@@ -471,6 +480,13 @@ public:
         int   alignment          = 0;
     };
 
+    enum ECanvasType
+    {
+        CanvasView3D = 0,
+        CanvasPreview = 1,
+        CanvasAssembleView = 2,
+    };
+
 private:
     wxGLCanvas* m_canvas;
     wxGLContext* m_context;
@@ -484,8 +500,13 @@ private:
     LayersEditing m_layers_editing;
     Mouse m_mouse;
     GLGizmosManager m_gizmos;
-    GLToolbar m_main_toolbar;
-    GLToolbar m_undoredo_toolbar;
+    mutable GLToolbar m_main_toolbar;
+    mutable GLToolbar m_undoredo_toolbar;
+
+    ///////assemble////////
+    mutable IMReturnToolbar m_return_toolbar;
+    
+    ECanvasType m_canvas_type;
     std::array<ClippingPlane, 2> m_clipping_planes;
     ClippingPlane m_camera_clipping_plane;
     bool m_use_clipping_planes;
@@ -525,6 +546,9 @@ private:
     ECursorType m_cursor_type;
     GLSelectionRectangle m_rectangle_selection;
     std::vector<int> m_hover_volume_idxs;
+
+    mutable float m_explosion_ratio = 1.0;
+    Camera camera;
 
     // Following variable is obsolete and it should be safe to remove it.
     // I just don't want to do it now before a release (Lukas Matena 24.3.2019)
@@ -665,12 +689,16 @@ public:
     bool is_initialized() const { return m_initialized; }
 
     void set_context(wxGLContext* context) { m_context = context; }
+    ///////assemble////////
+    void set_type(ECanvasType type) { m_canvas_type = type; }
+    ECanvasType get_canvas_type() { return m_canvas_type; }
 
     wxGLCanvas* get_wxglcanvas() { return m_canvas; }
 	const wxGLCanvas* get_wxglcanvas() const { return m_canvas; }
 
     bool init();
     void post_event(wxEvent &&event);
+    void reset_explosion_ratio() { m_explosion_ratio = 1.0; }
 
     std::shared_ptr<SceneRaycasterItem> add_raycaster_for_picking(SceneRaycaster::EType type, int id, const MeshRaycaster& raycaster,
         const Transform3d& trafo = Transform3d::Identity(), bool use_back_faces = false) {
@@ -698,6 +726,7 @@ public:
     const GLVolumeCollection& get_volumes() const { return m_volumes; }
     void reset_volumes();
     ModelInstanceEPrintVolumeState check_volumes_outside_state() const;
+    const float get_scale() const;
 
     void init_gcode_viewer() { m_gcode_viewer.init(); }
     void reset_gcode_toolpaths() { m_gcode_viewer.reset(); }
@@ -721,6 +750,8 @@ public:
     GLGizmosManager& get_gizmos_manager() { return m_gizmos; }
 
     void bed_shape_changed();
+
+    Camera& get_camera() { return camera; }
 
     void set_clipping_plane(unsigned int id, const ClippingPlane& plane) {
         if (id < 2) {
@@ -750,6 +781,8 @@ public:
     void reset_layer_height_profile();
     void adaptive_layer_height_profile(float quality_factor);
     void smooth_layer_height_profile(const HeightProfileSmoothingParams& smoothing_params);
+    double get_layer_height_bar_width();
+    double get_layer_height_bar_margin();
 
     bool is_reload_delayed() const;
 
@@ -764,6 +797,10 @@ public:
     void enable_dynamic_background(bool enable);
     void enable_labels(bool enable) { m_labels.enable(enable); }
     void enable_slope(bool enable) { m_slope.enable(enable); }
+
+    ///////assemble////////
+    void enable_return_toolbar(bool enable);
+
     void allow_multisample(bool allow);
 
     void zoom_to_bed();
@@ -776,7 +813,7 @@ public:
 
     bool is_dragging() const { return m_gizmos.is_dragging() || (m_moving && !m_mouse.scene_position.isApprox(m_mouse.drag.start_position_3D)); }
 
-    void render();
+    void render(bool only_init = false);
     // printable_only == false -> render also non printable volumes as grayed
     // parts_only == false -> render also sla support and pad
     void render_thumbnail(ThumbnailData& thumbnail_data, unsigned int w, unsigned int h, const ThumbnailsParams& thumbnail_params, Camera::EType camera_type);
@@ -786,6 +823,7 @@ public:
 
     void select_all();
     void deselect_all();
+    void set_selected_visible(bool visible);
     void delete_selected();
     void ensure_on_bed(unsigned int object_idx, bool allow_negative_z);
 
@@ -836,6 +874,7 @@ public:
     void on_set_focus(wxFocusEvent& evt);
 
     Size get_canvas_size() const;
+    Size get_canvas_size_with_no_scale() const;
     Vec2d get_local_mouse_position() const;
 
     // store opening position of menu
@@ -882,6 +921,7 @@ public:
         inline const Vec2d& pos() const { return m_pos; }
         inline double rotation() const { return m_rotation; }
         inline const Vec2d bb_size() const { return m_bb.size(); }
+        inline const BoundingBoxf& bounding_box() const { return m_bb; }
         
         void apply_wipe_tower() const;
     };
@@ -903,6 +943,7 @@ public:
     void schedule_extra_frame(int miliseconds);
 
     float get_main_toolbar_height() { return m_main_toolbar.get_height(); }
+    float get_main_toolbar_width() { return m_main_toolbar.get_width(); }
     int get_main_toolbar_item_id(const std::string& name) const { return m_main_toolbar.get_item_id(name); }
     void force_main_toolbar_left_action(int item_id) { m_main_toolbar.force_left_action(item_id, *this); }
     void force_main_toolbar_right_action(int item_id) { m_main_toolbar.force_right_action(item_id, *this); }
@@ -910,14 +951,18 @@ public:
     void reset_main_toolbar_toggled_state() { m_main_toolbar.reset_all_toggled_state(*this); }
     void update_main_toolbar_state() { m_main_toolbar.update_items_state(); }
     void update_tooltip_for_settings_item_in_main_toolbar();
-
+    bool get_main_toolbar_item_pos(size_t item_id, Vec2d& pos) { return m_main_toolbar.get_item_pos(item_id, pos); }
+    float get_main_toolbar_size() { return m_main_toolbar.get_main_toolbar_size(); }
     bool has_toolpaths_to_export() const;
     void export_toolpaths_to_obj(const char* filename) const;
+
+    float get_collapse_toolbar_width();
+    float get_collapse_toolbar_height();
 
     void mouse_up_cleanup();
 
     bool are_labels_shown() const { return m_labels.is_shown(); }
-    void show_labels(bool show) { m_labels.show(show); }
+    void show_labels(bool show) { m_labels.show(show); m_dirty = true;}
 
     bool is_legend_shown() const { return m_gcode_viewer.is_legend_enabled(); }
     void show_legend(bool show) { m_gcode_viewer.enable_legend(show); m_dirty = true; }
@@ -973,6 +1018,9 @@ public:
 
     inline void set_force_on_screen(bool force) { m_force_on_screen = force; };
     bool m_force_on_screen = false;
+
+    int get_object_idx(const ModelObject* mo);
+
 private:
     bool _is_shown_on_screen() const;
 
@@ -981,6 +1029,9 @@ private:
     bool _init_undoredo_toolbar();
     bool _init_view_toolbar();
     bool _init_collapse_toolbar();
+
+    ///////assemble////////
+    bool _init_return_toolbar();
 
     bool _set_current();
     void _resize(unsigned int w, unsigned int h);
@@ -1001,6 +1052,7 @@ private:
     void _render_objects(GLVolumeCollection::ERenderType type);
     void _render_gcode();
     void _render_gcode_cog();
+    void _render_gcode_print_button();
     void _render_selection();
     void _render_sequential_clearance();
 #if ENABLE_RENDER_SELECTION_CENTER
@@ -1015,6 +1067,13 @@ private:
     void _render_undoredo_toolbar();
     void _render_collapse_toolbar() const;
     void _render_view_toolbar() const;
+
+    //assemble
+    void _render_return_toolbar() const;
+    void _render_paint_toolbar() const;
+    void _render_assemble_control();
+    void _render_assemble_info() const;
+
 #if ENABLE_SHOW_CAMERA_TARGET
     void _render_camera_target();
 #endif // ENABLE_SHOW_CAMERA_TARGET
@@ -1088,6 +1147,7 @@ private:
 
 const ModelVolume *get_model_volume(const GLVolume &v, const Model &model);
 const ModelVolume *get_model_volume(const ObjectID &volume_id, const ModelObjectPtrs &objects);
+ModelVolume* get_model_volume_ptr(const ObjectID& volume_id, const ModelObjectPtrs& objects);
 ModelVolume *get_model_volume(const GLVolume &v, const ModelObjectPtrs &objects);
 ModelVolume *get_model_volume(const GLVolume &v, const ModelObject &object);
 

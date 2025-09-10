@@ -49,7 +49,7 @@ void CreateFontStyleImagesJob::process(Ctl &ctl)
         const auto  &cn  = item.prop.collection_number;
         unsigned int font_index  = (cn.has_value()) ? *cn : 0;
         double unit_per_em = item.font.font_file->infos[font_index].unit_per_em;
-        double scale = item.prop.size_in_mm / unit_per_em * SHAPE_SCALE * m_input.ppm;
+        double scale = get_text_shape_scale(item.prop, *item.font.font_file) * m_input.ppm;
         scales[index] = scale;
 
         //double scale = font_prop.size_in_mm * SCALING_FACTOR;

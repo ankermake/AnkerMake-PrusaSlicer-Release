@@ -42,12 +42,28 @@ namespace internal {
 
 template<typename... TArgs>
 inline std::string format(const char* fmt, TArgs&&... args) {
+	// Regular expression to find format control sequences like %1%, %2%, etc.
+	// fix crash, galen 2024/06/13
+	std::regex format_regex("%[1-9][0-9]*%");
+	if (!std::regex_search(fmt, format_regex)) {
+		// If no format control sequences are found, return the original string
+		return fmt;
+	}
+
 	boost::format message(fmt);
 	return internal::format::format_recursive(message, std::forward<TArgs>(args)...);
 }
 
 template<typename... TArgs>
 inline std::string format(const std::string& fmt, TArgs&&... args) {
+	// Regular expression to find format control sequences like %1%, %2%, etc.
+	// fix crash, galen 2024/06/13
+	std::regex format_regex("%[1-9][0-9]*%");
+	if (!std::regex_search(fmt, format_regex)) {
+		// If no format control sequences are found, return the original string
+		return fmt;
+	}
+
 	boost::format message(fmt);
 	return internal::format::format_recursive(message, std::forward<TArgs>(args)...);
 }

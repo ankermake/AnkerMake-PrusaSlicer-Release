@@ -35,8 +35,10 @@ public:
 	void SetValue(bool isCheck);
 	bool GetValue();
 	bool getCheckStatus();
+	void openSupport();
 	virtual void OnPressed(wxMouseEvent& event);
-	virtual void OnDClick(wxMouseEvent& event);
+	void OnDelayTimer(wxTimerEvent& event);
+	void EnabelDelayTimer(bool bEnabel) { m_bUseDelayTimer = bEnabel;}
 protected:
 	void OnPaint(wxPaintEvent& event);
 private:
@@ -49,6 +51,9 @@ private:
 	wxFont   m_textFont;
 	wxColour m_Color;
 	wxColour m_bgColor;
+	//by samuel, add a delay timer to avoid response click event frequently
+	wxTimer delayTimer;
+	bool	m_bUseDelayTimer = true;
 
 };
 #endif

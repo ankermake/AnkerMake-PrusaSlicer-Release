@@ -31,7 +31,7 @@ public:
      * \param inset_count The maximum number of parallel extrusion lines that make up the wall
      * \param wall_0_inset How far to inset the outer wall, to make it adhere better to other walls.
      */
-    WallToolPaths(const Polygons& outline, coord_t bead_width_0, coord_t bead_width_x, size_t inset_count, coord_t wall_0_inset, coordf_t layer_height, const PrintObjectConfig &print_object_config, const PrintConfig &print_config);
+    WallToolPaths(const Polygons& outline, coord_t bead_width_0, coord_t bead_width_x, size_t inset_count, coord_t wall_0_inset, coordf_t layer_height, const PrintObjectConfig &print_object_config, const PrintConfig &print_config, const int layer_id = -1);
 
     /*!
      * Generates the Toolpaths

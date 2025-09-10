@@ -345,9 +345,9 @@ public:
         return dist;
     }
 
-    std::vector<size_t> all_lines_in_radius(const Vec<2, typename LineType::Scalar> &point, Floating radius)
+    std::vector<size_t> all_lines_in_radius(const Vec<2, Scalar> &point, Floating radius)
     {
-        return all_lines_in_radius(this->lines, this->tree, point, radius * radius);
+        return AABBTreeLines::all_lines_in_radius(this->lines, this->tree, point, radius * radius);
     }
 
     template<bool sorted> std::vector<std::pair<Vec<2, Scalar>, size_t>> intersections_with_line(const LineType &line) const

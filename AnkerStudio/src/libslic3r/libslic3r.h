@@ -46,7 +46,7 @@ using coordf_t = double;
 
 //FIXME This epsilon value is used for many non-related purposes:
 // For a threshold of a squared Euclidean distance,
-// for a trheshold in a difference of radians,
+// for a threshold in a difference of radians,
 // for a threshold of a cross product of two non-normalized vectors etc.
 static constexpr double EPSILON = 1e-4;
 // Scaling factor for a conversion from coord_t to coordf_t: 10e-6
@@ -55,12 +55,22 @@ static constexpr double EPSILON = 1e-4;
 // int32_t fits an interval of (-2147.48mm, +2147.48mm)
 // with int64_t we don't have to worry anymore about the size of the int.
 static constexpr double SCALING_FACTOR = 0.000001;
+// for creating circles(make ear brim)
+#define POLY_SIDES 24
 static constexpr double PI = 3.141592653589793238;
 // When extruding a closed loop, the loop is interrupted and shortened a bit to reduce the seam.
-static constexpr double LOOP_CLIPPING_LENGTH_OVER_NOZZLE_DIAMETER = 0.15;
+static constexpr double RESOLUTION = 0.0125;
+#define                 SCALED_RESOLUTION (RESOLUTION / SCALING_FACTOR)
+static constexpr double SPARSE_INFILL_RESOLUTION = 0.04;
+#define                 SCALED_SPARSE_INFILL_RESOLUTION (SPARSE_INFILL_RESOLUTION / SCALING_FACTOR)
+static constexpr double SUPPORT_RESOLUTION = 0.05;
+#define                 SCALED_SUPPORT_RESOLUTION (SUPPORT_RESOLUTION / SCALING_FACTOR)
+// replace by seam_gap now
+//static constexpr double LOOP_CLIPPING_LENGTH_OVER_NOZZLE_DIAMETER = 0.15;
 // Maximum perimeter length for the loop to apply the small perimeter speed. 
-#define                 SMALL_PERIMETER_LENGTH  ((6.5 / SCALING_FACTOR) * 2 * PI)
-static constexpr double INSET_OVERLAP_TOLERANCE = 0.4;
+//#define                 SMALL_PERIMETER_LENGTH  ((6.5 / SCALING_FACTOR) * 2 * PI)
+#define                 SMALL_PERIMETER_LENGTH(LENGTH)  (((LENGTH) / SCALING_FACTOR) * 2 * PI)
+static constexpr double INSET_OVERLAP_TOLERANCE = 0.2;
 // 3mm ring around the top / bottom / bridging areas.
 //FIXME This is quite a lot.
 static constexpr double EXTERNAL_INFILL_MARGIN = 3.;
@@ -290,7 +300,7 @@ template<class I> struct is_scaled_coord
             std::numeric_limits<coord_t>::digits;
 };
 
-// Meta predicates for floating, 'scaled coord' and generic arithmetic types
+// Meta predicates for floating, 'scaled coordinate' and generic arithmetic types
 // Can be used to restrict templates to work for only the specified set of types.
 // parameter T is the type we want to restrict
 // parameter O (Optional defaults to T) is the type that the whole expression
@@ -371,7 +381,7 @@ constexpr double NaNd = NaN<double>;
 // 0.49 is rounded to 0
 // -0.5 is rounded to 0,
 // -0.51 is rounded to -1,
-// -1.5 is rounded to -1.
+// -1.5 is rounded to -1,
 // -1.51 is rounded to -2.
 // If input is not a valid float (it is infinity NaN or if it does not fit)
 // the float to int conversion produces a max int on Intel and +-max int on ARM.

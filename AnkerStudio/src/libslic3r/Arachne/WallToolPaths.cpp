@@ -25,7 +25,7 @@ namespace Slic3r::Arachne
 
 WallToolPaths::WallToolPaths(const Polygons& outline, const coord_t bead_width_0, const coord_t bead_width_x,
                              const size_t inset_count, const coord_t wall_0_inset, const coordf_t layer_height,
-                             const PrintObjectConfig &print_object_config, const PrintConfig &print_config)
+                             const PrintObjectConfig &print_object_config, const PrintConfig &print_config, const int layer_id)
     : outline(outline)
     , bead_width_0(bead_width_0)
     , bead_width_x(bead_width_x)
@@ -47,8 +47,14 @@ WallToolPaths::WallToolPaths(const Polygons& outline, const coord_t bead_width_0
     if (const auto &min_feature_size_opt = print_object_config.min_feature_size; min_feature_size_opt.percent)
         this->min_feature_size = scaled<coord_t>(min_feature_size_opt.value * 0.01 * this->min_nozzle_diameter);
 
-    if (const auto &min_bead_width_opt = print_object_config.min_bead_width; min_bead_width_opt.percent)
-        this->min_bead_width = scaled<coord_t>(min_bead_width_opt.value * 0.01 * this->min_nozzle_diameter);
+    if (layer_id == 0) {
+        if (const auto& min_bead_width_opt = print_object_config.first_layer_min_bead_width)
+            this->min_bead_width = scaled<coord_t>(min_bead_width_opt.value * 0.01 * this->min_nozzle_diameter);
+    }
+    else {
+        if (const auto& min_bead_width_opt = print_object_config.min_bead_width; min_bead_width_opt.percent)
+            this->min_bead_width = scaled<coord_t>(min_bead_width_opt.value * 0.01 * this->min_nozzle_diameter);
+    }
 
     if (const auto &wall_transition_filter_deviation_opt = print_object_config.wall_transition_filter_deviation; wall_transition_filter_deviation_opt.percent)
         this->wall_transition_filter_deviation = scaled<coord_t>(wall_transition_filter_deviation_opt.value * 0.01 * this->min_nozzle_diameter);

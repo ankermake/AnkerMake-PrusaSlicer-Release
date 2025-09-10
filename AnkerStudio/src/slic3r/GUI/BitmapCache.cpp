@@ -320,6 +320,45 @@ wxBitmap* BitmapCache::load_png(const std::string &bitmap_name, unsigned width, 
     return this->insert(bitmap_key, wxImage_to_wxBitmap_with_alpha(std::move(image)));
 }
 
+wxBitmap* BitmapCache::load_png(const std::string& bitmap_name, unsigned width, unsigned height,
+    const bool grayscale/* = false*/, const float scale_in_center/* = 0*/) // BBS: support resize by fill border
+{
+    std::string bitmap_key = bitmap_name + (height != 0 ?
+        "-h" + std::to_string(height) :
+        "-w" + std::to_string(width))
+        + (grayscale ? "-gs" : "");
+
+    auto it = m_map.find(bitmap_key);
+    if (it != m_map.end())
+        return it->second;
+
+    wxImage image;
+    if (!image.LoadFile(Slic3r::GUI::from_u8(Slic3r::var(bitmap_name + ".png")), wxBITMAP_TYPE_PNG) ||
+        image.GetWidth() == 0 || image.GetHeight() == 0)
+        return nullptr;
+
+    if (height == 0 && width == 0)
+        height = image.GetHeight();
+
+    if (height != 0 && unsigned(image.GetHeight()) != height)
+        width = unsigned(0.5f + float(image.GetWidth()) * height / image.GetHeight());
+    else if (width != 0 && unsigned(image.GetWidth()) != width)
+        height = unsigned(0.5f + float(image.GetHeight()) * width / image.GetWidth());
+
+    if (height != 0 && width != 0) {
+        // BBS: support resize by fill border
+        if (scale_in_center > 0)
+            image.Resize({ (int)width, (int)height }, { (int)(width - image.GetWidth()) / 2, (int)(height - image.GetHeight()) / 2 });
+        else
+            image.Rescale(width, height, wxIMAGE_QUALITY_BILINEAR);
+    }
+
+    if (grayscale)
+        image = image.ConvertToGreyscale(m_gs, m_gs, m_gs);
+
+    return this->insert(bitmap_key, wxImage_to_wxBitmap_with_alpha(std::move(image)));
+}
+
 NSVGimage* BitmapCache::nsvgParseFromFileWithReplace(const char* filename, const char* units, float dpi, const std::map<std::string, std::string>& replaces)
 {
     std::string str;
@@ -491,6 +530,86 @@ wxBitmap* BitmapCache::load_svg(const std::string &bitmap_name, unsigned target_
 
     std::vector<unsigned char> data(n_pixels * 4, 0);
     ::nsvgRasterize(rast, image, 0, 0, svg_scale, data.data(), width, height, width * 4);
+    ::nsvgDeleteRasterizer(rast);
+    ::nsvgDelete(image);
+
+    return this->insert_raw_rgba(bitmap_key, width, height, data.data(), grayscale);
+}
+
+wxBitmap* BitmapCache::load_svg_(const std::string& bitmap_name, unsigned target_width, unsigned target_height,
+    const bool grayscale/* = false*/, const bool dark_mode/* = false*/, const std::string& new_color /*= ""*/, const float scale_in_center/* = 0*/)
+{
+    std::string bitmap_key = bitmap_name + (target_height != 0 ?
+        "-h" + std::to_string(target_height) :
+        "-w" + std::to_string(target_width))
+        + (m_scale != 1.0f ? "-s" + float_to_string_decimal_point(m_scale) : "")
+        + (dark_mode ? "-dm" : "")
+        + (grayscale ? "-gs" : "")
+        + new_color;
+
+    auto it = m_map.find(bitmap_key);
+    if (it != m_map.end())
+        return it->second;
+
+    // map of color replaces
+    std::map<std::string, std::string> replaces;
+    if (dark_mode) {
+        replaces["\"#262E30\""] = "\"#EFEFF0\"";
+        replaces["\"#323A3D\""] = "\"#B3B3B5\"";
+        replaces["\"#808080\""] = "\"#818183\"";
+        //replaces["\"#ACACAC\""] = "\"#54545A\"";
+        replaces["\"#CECECE\""] = "\"#54545B\"";
+        replaces["\"#6B6B6B\""] = "\"#818182\"";
+        replaces["\"#909090\""] = "\"#FFFFFF\"";
+        replaces["\"#00FF00\""] = "\"#FF0000\"";
+    }
+    //if (!new_color.empty())
+    //    replaces["\"#ED6B21\""] = "\"" + new_color + "\"";
+
+    NSVGimage* image = nullptr;
+    if (strstr(bitmap_name.c_str(), "printer_thumbnail") == NULL) {
+        image = nsvgParseFromFileWithReplace(Slic3r::var(bitmap_name + ".svg").c_str(), "px", 96.0f, replaces);
+    }
+    else {
+        std::map<std::string, std::string> temp_replaces;
+        image = nsvgParseFromFileWithReplace(Slic3r::var(bitmap_name + ".svg").c_str(), "px", 96.0f, temp_replaces);
+    }
+
+    if (image == nullptr)
+        return nullptr;
+
+    if (target_height == 0 && target_width == 0)
+        target_height = image->height;
+
+    target_height != 0 ? target_height *= m_scale : target_width *= m_scale;
+
+    float svg_scale = target_height != 0 ?
+        (float)target_height / image->height : target_width != 0 ?
+        (float)target_width / image->width : 1;
+
+    int   width = (int)(svg_scale * image->width + 0.5f);
+    int   height = (int)(svg_scale * image->height + 0.5f);
+    int   n_pixels = width * height;
+    if (n_pixels <= 0) {
+        ::nsvgDelete(image);
+        return nullptr;
+    }
+
+    NSVGrasterizer* rast = ::nsvgCreateRasterizer();
+    if (rast == nullptr) {
+        ::nsvgDelete(image);
+        return nullptr;
+    }
+
+    std::vector<unsigned char> data(n_pixels * 4, 0);
+    // BBS: support resize by fill border
+    if (scale_in_center > 0 && scale_in_center < svg_scale) {
+        int w = (int)(image->width * scale_in_center);
+        int h = (int)(image->height * scale_in_center);
+        ::nsvgRasterize(rast, image, 0, 0, scale_in_center, data.data() + int(height - h) / 2 * width * 4 + int(width - w) / 2 * 4, w, h, width * 4);
+    }
+    else
+        ::nsvgRasterize(rast, image, 0, 0, svg_scale, data.data(), width, height, width * 4);
     ::nsvgDeleteRasterizer(rast);
     ::nsvgDelete(image);
 

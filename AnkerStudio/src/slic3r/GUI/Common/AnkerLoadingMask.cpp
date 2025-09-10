@@ -88,6 +88,8 @@ void AnkerLoadingMask::stop()
 	m_loadingCounter = 0;
 	if (m_pAnimationTimer)
 		m_pAnimationTimer->Stop();
+	if (m_pRectUpdatetTimer)
+		m_pRectUpdatetTimer->Stop();
 	if (m_pTimeOutTimer)
 		m_pTimeOutTimer->Stop();
 }
@@ -154,6 +156,7 @@ void AnkerLoadingMask::OnShow(wxShowEvent& event)
 
 void AnkerLoadingMask::OnTimeEvent(wxTimerEvent& event)
 {
+	//ANKER_LOG_INFO << "m_pAnimationTimer Enter";
 	m_loadingCounter++;
 	if (m_loadingCounter == m_deltaCount)
 		m_loadingCounter = 0;
@@ -168,12 +171,14 @@ void AnkerLoadingMask::OnTimeEvent(wxTimerEvent& event)
 
 void AnkerLoadingMask::OnTimeOutEvent(wxTimerEvent& event)
 {
+	ANKER_LOG_INFO << "m_pTimeOutTimer Enter";
 	wxCommandEvent evt = wxCommandEvent(wxANKEREVT_LOADING_TIMEOUT);
 	ProcessEvent(evt);
 }
 
 void AnkerLoadingMask::OnRectUpdateEvent(wxTimerEvent& event)
 {
+	//ANKER_LOG_INFO << "m_pRectUpdatetTimer Enter";
 	wxCommandEvent evt = wxCommandEvent(wxANKEREVT_LOADMASK_RECTUPDATE);
 	ProcessEvent(evt);
 }

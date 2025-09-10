@@ -30,6 +30,12 @@ struct ThumbnailsParams
 	bool 			transparent_background;
 };
 
+struct  SliceModelData
+{
+    int print_time { 0 };
+    std::string filament_cost { "--" };
+};
+
 typedef std::function<ThumbnailsList(const ThumbnailsParams&)> ThumbnailsGeneratorCallback;
 
 } // namespace Slic3r

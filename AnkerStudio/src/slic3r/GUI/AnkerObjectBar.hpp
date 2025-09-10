@@ -45,6 +45,8 @@ public:
     // data interface
     void setType(ItemType type);
     ItemType getType() { return m_itemType; }
+    void inValidate() { m_valid = false; }
+    bool isValid() { return m_valid; }
     void setObject(Slic3r::ModelObject* object);
     void setVolume(Slic3r::ModelVolume* volume);
     void setInstance(Slic3r::ModelInstance* instance);
@@ -68,11 +70,13 @@ public:
     bool hasPrintableInfo() { return m_itemType == ITYPE_OBJECT || m_itemType == ITYPE_INSTANCE; }
     bool getPrintable();
     bool hasSetting();
-    bool hasFilamentInfo() { return m_itemType <= ITYPE_VOLUME; }
+    bool hasFilamentInfo() { return m_itemType < ITYPE_VOLUME || (m_itemType == ITYPE_VOLUME && m_pVolumeData &&
+        (m_pVolumeData->type() == Slic3r::ModelVolumeType::MODEL_PART || m_pVolumeData->type() == Slic3r::ModelVolumeType::PARAMETER_MODIFIER)); }
     int getFilamentIndex();
     wxColour getFilamentColour();
 
 private:
+    bool m_valid;
     ItemType m_itemType;
 
     // data
@@ -157,19 +161,19 @@ public:
     void delete_instance_from_list(const size_t obj_idx, const size_t inst_idx);
     bool delete_from_model_and_list(const AnkerObjectItem::ItemType type, const int obj_idx, const int sub_obj_idx);
     bool delete_from_model_and_list(const std::vector<ItemForDelete>& items_for_delete);
-    void delete_from_model_and_list(const size_t obj_idx);
+    void delete_from_model_and_list(const size_t obj_idx, bool reSelectFlag = true);
     void delete_from_model_and_list(Slic3r::ModelObject* obj);
     // Delete all objects from the list
     void delete_all_objects_from_list();
     // Delete item from model
     bool del_object(const int obj_idx);
-    bool del_subobject_item(AnkerObjectItem* item);
+    bool del_subobject_item(AnkerObjectItem* item, bool reSelectFlag = true);
 	void del_settings_from_config();
 	void del_instances_from_object(const int obj_idx);
 	void del_layer_from_object(const int obj_idx, const t_layer_height_range& layer_range);
 	void del_layers_from_object(const int obj_idx);
     bool del_from_cut_object(bool is_connector, bool is_model_part = false, bool is_negative_volume = false);
-    bool del_subobject_from_object(const int objectID, const int volumeID, AnkerObjectItem::ItemType type);
+    bool del_subobject_from_object(const int objectID, const int volumeID, AnkerObjectItem::ItemType type, bool reSelectFlag = true);
     //void                del_info_item(const int obj_idx, InfoItemType type);
 
     void update_name_in_list(int obj_idx, int vol_idx) const;
@@ -290,7 +294,7 @@ private:
     int getVolumeIndex(Slic3r::ModelVolume* target, std::vector<Slic3r::ModelVolume*>& targetVector);
     bool getItemID(AnkerObjectItem* item, int& objectIndex, int& volumeIndex, int& instanceIndex);
 
-    void delViewItem(AnkerObjectItem* item);
+    void delViewItem(AnkerObjectItem* item, bool refresh);
 
 private:
     Slic3r::GUI::Plater* m_pPlater;
@@ -301,6 +305,7 @@ private:
     Slic3r::ModelConfig* m_config{ nullptr };
     std::vector<Slic3r::ModelObject*>* m_objects{ nullptr };
 
+    bool m_bindFlag { false };
     bool m_settingsEditing;
     bool m_layerEditing;
     AnkerObjectItem* m_editingObjectItem;

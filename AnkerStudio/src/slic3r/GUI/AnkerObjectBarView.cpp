@@ -176,7 +176,8 @@ void AnkerObjectBarView::updateSize()
 
         Fit();
         Layout();
-        Update();
+        Refresh();
+        //Update();
     }
     else if (!m_emptyFlag)
     {
@@ -188,7 +189,8 @@ void AnkerObjectBarView::updateSize()
 
         Fit();
         Layout();
-        Update();
+        Refresh();
+        //Update();
     }
 }
 
@@ -760,6 +762,8 @@ void AnkerObjectBarView::OnItemFilamentClicked(wxCommandEvent& event)
             wxVariant eventData;
             eventData.ClearList();
             eventData.Append(wxVariant(object));
+            eventData.Append(wxVariant(object->getObject()));
+            eventData.Append(wxVariant(object->getVolume()));
             eventData.Append(wxVariant(currentIndex));
             evt.SetClientData(new wxVariant(eventData));
             ProcessEvent(evt);
@@ -966,7 +970,7 @@ void AnkerObjectViewItem::OnPaint(wxPaintEvent& event)
     wxPaintDC dc(this);
     dc.Clear();
 
-    if (m_object == nullptr)
+    if (m_object == nullptr || !m_object->isValid())
         return;
 
     wxColour bgColor = m_bgColour;
@@ -1040,12 +1044,12 @@ void AnkerObjectViewItem::OnPaint(wxPaintEvent& event)
     // draw reverse
     x = GetSize().GetWidth() - m_borderMargin - 5;
 
-    // draw filament colour button
+    // draw filament color button
     if (m_object->hasFilamentInfo() && m_hasFilament)
     {
         x -= m_toolBtnSize.GetWidth();
 
-        // draw filemant colour
+        // draw filament color
         bgColor = m_object->getFilamentColour();
         wxBrush brush(bgColor);
         wxPen pen(wxColour(41, 42, 45));
@@ -1053,6 +1057,7 @@ void AnkerObjectViewItem::OnPaint(wxPaintEvent& event)
         dc.SetPen(pen);
         wxPoint drawPoint = wxPoint(x, (rect.GetHeight() - m_toolBtnSize.GetHeight()) / 2.0);
         dc.DrawRoundedRectangle(drawPoint, m_toolBtnSize, 3);
+        m_filamenColourBtnRect = wxRect(drawPoint.x, drawPoint.y, m_toolBtnSize.GetWidth(), m_toolBtnSize.GetHeight());
 
         // draw filament index
         wxColour foreColor = wxColour(255, 255, 255);
@@ -1067,7 +1072,7 @@ void AnkerObjectViewItem::OnPaint(wxPaintEvent& event)
             dc.SetFont(ANKER_BOLD_FONT_NO_2);
             dc.SetTextForeground(foreColor);
 #ifdef __APPLE__
-            wxPoint textPoint = wxPoint(m_filamenColourBtnRect.x + m_filamenColourBtnRect.width / 2 - 5, m_filamenColourBtnRect.y + m_filamenColourBtnRect.height / 2 - 5);
+            wxPoint textPoint = wxPoint(m_filamenColourBtnRect.x + m_filamenColourBtnRect.width / 2 - 4, m_filamenColourBtnRect.y + m_filamenColourBtnRect.height / 2 - 5);
 #else
             wxPoint textPoint = wxPoint(drawPoint.x + m_toolBtnSize.GetWidth() / 2 - 4, drawPoint.y + m_toolBtnSize.GetHeight() / 2 - 8);
 #endif
@@ -1086,8 +1091,6 @@ void AnkerObjectViewItem::OnPaint(wxPaintEvent& event)
             triPoints[2] = wxPoint(drawPoint.x + m_toolBtnSize.GetWidth() - 3, drawPoint.y + m_toolBtnSize.GetHeight() - 8);
             dc.DrawPolygon(3, triPoints);
         }
-
-        m_filamenColourBtnRect = wxRect(drawPoint.x, drawPoint.y, m_toolBtnSize.GetWidth(), m_toolBtnSize.GetHeight());
     }
     else
         m_filamenColourBtnRect = wxRect(0, 0, 0, 0);

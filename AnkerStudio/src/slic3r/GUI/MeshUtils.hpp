@@ -115,13 +115,16 @@ public:
 
     // Render the triangulated cut. Transformation matrices should
     // be set in world coords.
-    void render_cut(const ColorRGBA& color);
-    void render_contour(const ColorRGBA& color);
+    void render_cut(const ColorRGBA& color, const std::vector<size_t>* ignore_idxs = nullptr);
+    void render_contour(const ColorRGBA& color, const std::vector<size_t>* ignore_idxs = nullptr);
 
     void pass_mouse_click(const Vec3d& pt);
 
-    bool is_projection_inside_cut(const Vec3d& point) const;
+    int is_projection_inside_cut(const Vec3d& point) const;
     bool has_valid_contour() const;
+
+    int get_number_of_contours() const { return m_result ? m_result->cut_islands.size() : 0; }
+    std::vector<Vec3d> point_per_contour() const;
 
 private:
     void recalculate_triangles();
@@ -185,6 +188,10 @@ public:
     
     const AABBMesh &get_aabb_mesh() const { return m_emesh; }
 
+    // Given a point and direction in world coords, returns whether the respective line
+    // intersects the mesh if it is transformed into world by trafo.
+    bool intersects_line(Vec3d point, Vec3d direction, const Transform3d& trafo) const;
+
     bool is_valid_intersection(Vec3d point, Vec3d direction, const Transform3d& trafo) const;
 
     // Given a vector of points in woorld coordinates, this returns vector
@@ -219,6 +226,8 @@ public:
     int get_closest_facet(const Vec3f &point) const;
 
     Vec3f get_triangle_normal(size_t facet_idx) const;
+
+    bool is_valid_normals() const;
 
 private:
     std::shared_ptr<const TriangleMesh> m_mesh;

@@ -144,10 +144,8 @@ void GLGizmoSimplify::add_simplify_suggestion_notification(
 
     for (size_t object_id : big_ids) {
         std::string t = GUI::format(_L(
-            "Processing model '%1%' with more than 1M triangles "
-            "could be slow. It is highly recommended to reduce "
-            "amount of triangles."), objects[object_id]->name);
-        std::string hypertext = _u8L("Simplify model");
+            "common_slicepopup_triangletoomuch1"), objects[object_id]->name);
+        std::string hypertext = _u8L("common_slicepopup_triangletoomuch2");
 
         std::function<bool(wxEvtHandler *)> open_simplify =
             [object_id](wxEvtHandler *) {
@@ -542,8 +540,7 @@ void GLGizmoSimplify::apply_simplify() {
     auto plater = wxGetApp().plater();
     // TRN %1% = volumes name
     plater->take_snapshot(Slic3r::format(_u8L("Simplify %1%"), create_volumes_name(m_volume_ids, selection)));
-    plater->clear_before_change_mesh(selection.get_object_idx(), _u8L("Custom supports, seams and multimaterial painting were "
-                                                                      "removed after simplifying the mesh."));
+    plater->clear_before_change_mesh(selection.get_object_idx(), _u8L("common_slicepopup_simplify1"));
     // After removing custom supports, seams, and multimaterial painting, we have to update info about the object to remove information about
     // custom supports, seams, and multimaterial painting in the right panel.
     //wxGetApp().obj_list()->update_info_items(selection.get_object_idx());

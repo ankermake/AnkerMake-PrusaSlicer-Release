@@ -36,7 +36,9 @@ void AnkerBox::setStrWrap(wxStaticText* context, int width, const wxString& text
         language == wxLanguage::wxLANGUAGE_JAPANESE_JAPAN || 
         language == wxLanguage::wxLANGUAGE_JAPANESE) {
         wxString wrapStr = "";
+        wxFont curFont = context->GetFont();
         wxClientDC dc(context);
+        dc.SetFont(curFont);
         int tmpWidth = 0;
         for (size_t i = 0; i < text.length(); i++) {
             wxSize tmpSize = dc.GetTextExtent(text[i]);

@@ -5,6 +5,9 @@
 #include "GUI_App.hpp"
 #include "AnkerObjectBar.hpp"
 
+#define ITEM_HEIGHT 42
+#define EDGE_HEIGHT 4
+
 
 AnkerFloatingList::AnkerFloatingList(wxWindow* parent)
     : wxFrame(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxFRAME_FLOAT_ON_PARENT | wxFRAME_TOOL_WINDOW)
@@ -39,6 +42,8 @@ void AnkerFloatingList::setContentList(std::vector<std::pair<wxColour, wxString>
 		}
 
 		m_contentList = content;
+
+		SetSize(AnkerSize(202, ITEM_HEIGHT * m_contentList.size() + EDGE_HEIGHT * 2));
 
 		Layout();
 		Refresh();
@@ -77,7 +82,6 @@ void AnkerFloatingList::setCurrentSelection(int index)
 
 	m_currentIndex = index;
 
-
 	if (m_currentIndex > -1 && m_currentIndex < m_pItemList.size())
 		m_pItemList[m_currentIndex]->setSelected(true);
 }
@@ -85,9 +89,9 @@ void AnkerFloatingList::setCurrentSelection(int index)
 void AnkerFloatingList::initUI()
 {
     SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
-	SetMinSize(wxSize(202, 260));
-	SetMaxSize(wxSize(202, 260));
-    SetSize(wxSize(202, 260));
+	SetMinSize(AnkerSize(202, ITEM_HEIGHT + EDGE_HEIGHT * 2));
+	//SetMaxSize(AnkerSize(202, 260));
+    SetSize(AnkerSize(202, ITEM_HEIGHT * 6 + EDGE_HEIGHT * 2));
 
     m_pListVSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -197,9 +201,9 @@ void AnkerFloatingListItem::setSelected(bool selected)
 void AnkerFloatingListItem::initUI()
 {
     SetBackgroundColour(wxColour(PANEL_BACK_RGB_INT));
-    SetMinSize(wxSize(202, 42));
-    SetMaxSize(wxSize(202, 42));
-	SetSize(wxSize(202, 42));
+    SetMinSize(AnkerSize(202, ITEM_HEIGHT));
+    SetMaxSize(AnkerSize(202, ITEM_HEIGHT));
+	SetSize(AnkerSize(202, ITEM_HEIGHT));
     SetBackgroundStyle(wxBG_STYLE_PAINT);
 }
 

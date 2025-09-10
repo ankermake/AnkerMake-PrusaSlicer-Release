@@ -24,6 +24,7 @@
 
 #include <tbb/parallel_for.h>
 #include <tbb/task_group.h>
+#include <chrono>
 
 namespace Slic3r::FFFTreeSupport
 {

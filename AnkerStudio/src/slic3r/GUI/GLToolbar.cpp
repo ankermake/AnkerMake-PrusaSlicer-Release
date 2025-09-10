@@ -21,6 +21,7 @@ wxDEFINE_EVENT(EVT_GLTOOLBAR_ADD, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLTOOLBAR_DELETE, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLTOOLBAR_DELETE_ALL, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLTOOLBAR_ARRANGE, SimpleEvent);
+wxDEFINE_EVENT(EVT_GLTOOLBAR_AUTO_BED, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLTOOLBAR_COPY, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLTOOLBAR_PASTE, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLTOOLBAR_MORE, SimpleEvent);
@@ -31,10 +32,12 @@ wxDEFINE_EVENT(EVT_GLTOOLBAR_LAYERSEDITING, SimpleEvent);
 
 wxDEFINE_EVENT(EVT_GLVIEWTOOLBAR_3D, SimpleEvent);
 wxDEFINE_EVENT(EVT_GLVIEWTOOLBAR_PREVIEW, SimpleEvent);
+wxDEFINE_EVENT(EVT_GLVIEWTOOLBAR_ASSEMBLE, SimpleEvent);
 
 const GLToolbarItem::ActionCallback GLToolbarItem::Default_Action_Callback = [](){};
 const GLToolbarItem::VisibilityCallback GLToolbarItem::Default_Visibility_Callback = []()->bool { return true; };
 const GLToolbarItem::EnablingCallback GLToolbarItem::Default_Enabling_Callback = []()->bool { return true; };
+const GLToolbarItem::ToggledCallback GLToolbarItem::Default_Toggled_Callback = []()->bool { return false; };
 const GLToolbarItem::RenderCallback GLToolbarItem::Default_Render_Callback = [](float, float, float, float){};
 
 GLToolbarItem::Data::Option::Option()
@@ -53,6 +56,7 @@ GLToolbarItem::Data::Data()
     , visible(true)
     , visibility_callback(Default_Visibility_Callback)
     , enabling_callback(Default_Enabling_Callback)
+    , toggled_callback(Default_Toggled_Callback)
 {
 }
 
@@ -63,6 +67,7 @@ GLToolbarItem::GLToolbarItem(GLToolbarItem::EType type, const GLToolbarItem::Dat
     , m_last_action_type(Undefined)
     , m_highlight_state(NotHighlighted)
 {
+    render_left_pos = Vec2d(0.0f, 0.0f);
 }
 
 bool GLToolbarItem::update_visibility()
@@ -81,6 +86,16 @@ bool GLToolbarItem::update_enabled_state()
     bool ret = (is_enabled() != enabled);
     if (ret)
         m_state = enabled ? GLToolbarItem::Normal : GLToolbarItem::Disabled;
+
+    return ret;
+}
+
+bool GLToolbarItem::update_toggled_state()
+{
+    bool toggled = m_data.toggled_callback();
+    bool ret = (is_toggled() != toggled);
+    if (ret)
+        m_state = toggled ? GLToolbarItem::Pressed : GLToolbarItem::Normal;
 
     return ret;
 }
@@ -280,6 +295,35 @@ bool GLToolbar::add_item(const GLToolbarItem::Data& data)
     return true;
 }
 
+bool GLToolbar::get_item_pos(size_t sprite_id, Vec2d& pos)
+{
+    for (auto item : m_items) {
+		if (item->m_data.sprite_id == sprite_id) 
+        {
+            pos = item->render_left_pos;
+            return true;
+		}
+    }
+
+    return false;
+}
+
+float GLToolbar::get_main_toolbar_size() const
+{
+    return get_main_size();
+}
+
+bool GLToolbar::del_all_item()
+{
+    for (int i = 0; i < m_items.size(); i++) {
+        delete m_items[i];
+        m_items[i] = nullptr;
+    }
+    m_items.clear();
+    m_layout.dirty = true;
+    return true;
+}
+
 bool GLToolbar::add_separator()
 {
     GLToolbarItem::Data data;
@@ -322,6 +366,7 @@ void GLToolbar::select_item(const std::string& name)
         }
     }
 }
+
 
 bool GLToolbar::is_item_pressed(const std::string& name) const
 {
@@ -392,8 +437,17 @@ void GLToolbar::toggled_action(int item_id, GLCanvas3D& parent)
 
 void GLToolbar::reset_all_toggled_state(GLCanvas3D& parent)
 {
+    //if (m_pressed_toggable_id != -1)
+        //do_action(GLToolbarItem::Left, m_pressed_toggable_id, parent, false);
     if (m_pressed_toggable_id != -1)
-        do_action(GLToolbarItem::Left, m_pressed_toggable_id, parent, false);
+    {
+        if (0 <= m_pressed_toggable_id && m_pressed_toggable_id < (int)m_items.size()) 
+            {
+                GLToolbarItem* item = m_items[m_pressed_toggable_id];
+                item->set_state(GLToolbarItem::Normal);
+            }
+    }
+    m_pressed_toggable_id = -1;
 }
 
 std::string GLToolbar::get_tooltip() const
@@ -446,6 +500,7 @@ bool GLToolbar::update_items_state()
 {
     bool ret = false;
     ret |= update_items_visibility();
+    ret |= update_items_toggeld_state();
     ret |= update_items_enabled_state();
     if (!is_any_item_pressed())
         m_pressed_toggable_id = -1;
@@ -1306,15 +1361,24 @@ void GLToolbar::render_horizontal(const GLCanvas3D& parent)
     top  -= border_h;
 
     // renders icons
+    float itemX = (cnv_w - fabs(m_layout.left) * 2.0f) / 2.0f  + m_layout.border * m_layout.scale;
+    float itemY = m_layout.height + m_layout.border_outer;
     for (const GLToolbarItem* item : m_items) {
         if (!item->is_visible())
             continue;
 
         if (item->is_separator())
+        {
             left += separator_stride;
-        else {
+            itemX += m_layout.separator_size * m_layout.scale;
+        }
+        else 
+        {
+            item->render_left_pos = Vec2d(itemX, itemY);
             item->render(parent, tex_id, left, left + icons_size_x, top - icons_size_y, top, (unsigned int)tex_width, (unsigned int)tex_height, (unsigned int)(m_layout.icons_size * m_layout.scale));
             left += icon_stride;
+            itemX += m_layout.icons_size * m_layout.scale;
+
         }
     }
 }
@@ -1456,6 +1520,26 @@ bool GLToolbar::update_items_enabled_state()
             ret = true;
             // Anker: do not disable others when one is toggled
             //item->set_state(GLToolbarItem::Disabled);
+        }
+    }
+
+    if (ret)
+        m_layout.dirty = true;
+
+    return ret;
+}
+
+bool GLToolbar::update_items_toggeld_state()
+{
+    bool ret = false;
+
+    for (int i = 0; i < (int)m_items.size(); ++i)
+    {
+        GLToolbarItem* item = m_items[i];
+        ret |= item->update_toggled_state();
+        if (item->is_toggled() && (m_pressed_toggable_id != -1) && (m_pressed_toggable_id != i))
+        {
+            m_pressed_toggable_id = i;
         }
     }
 

@@ -66,7 +66,7 @@ public:
         SP_MATERIALS,
     };
 
-    ConfigWizard(wxWindow *parent);
+    ConfigWizard(wxWindow *parent, bool can_close = true);
     ConfigWizard(ConfigWizard &&) = delete;
     ConfigWizard(const ConfigWizard &) = delete;
     ConfigWizard &operator=(ConfigWizard &&) = delete;
@@ -75,6 +75,7 @@ public:
 
     // Run the Wizard. Return whether it was completed.
     bool run(RunReason reason, StartPage start_page = SP_WELCOME);
+    void go_next_page();
 
     static const wxString& name(const bool from_menu = false);
 protected:

@@ -1,5 +1,6 @@
 #ifndef post_Procesee_Ext_hpp_
 #define post_Procesee_Ext_hpp_
+#define COOL_DOWN_TO_ZERO
 #include <iostream>
 #include "ProcessCommand.hpp"
 #include "UntilString.h"
@@ -11,6 +12,8 @@
 #include <oneapi/tbb/parallel_pipeline.h>
 #include <oneapi/tbb/concurrent_unordered_map.h>
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <libslic3r/GCode/GCodeProcessor.hpp>
 using namespace post_gcode;
 
@@ -22,8 +25,8 @@ public:
 	PipelineRunner() {}
 	void run(const std::string& input_file, const std::string& output_file, std::vector<std::shared_ptr<process_command>>& commands) {
 
-		std::ifstream infile(input_file, std::ios::binary | std::ios::in);
-		std::ofstream outfile(output_file, ios::binary | ios::out | ios::app);
+		boost::filesystem::ifstream infile(input_file, std::ios::binary | std::ios::in);
+		boost::filesystem::ofstream outfile(output_file, ios::binary | ios::out | ios::app);
 		tbb::tick_count t0 = tbb::tick_count::now();
 		std::sort(commands.begin(), commands.end(), [](const std::shared_ptr<process_command>& lhs, const std::shared_ptr<process_command>& rhs) {
 			return *lhs < *rhs;
@@ -37,7 +40,6 @@ public:
 		infile.close();
 		outfile.close();
 		double serial_time = (tbb::tick_count::now() - t0).seconds();
-		std::cout << "runPipeLine == " << serial_time << " seconds" << std::endl;
 	}
 
 private:
@@ -169,9 +171,10 @@ namespace post_gcode {
 			const std::array<std::vector<size_t>, 6>& toolChangePos,
 			const std::array<std::vector<size_t>, 6>& toolChangeTemps,
 			const std::vector<Slic3r::GCodeProcessorResult::MoveVertex>& moves,
-			const std::vector<size_t>& lines_ends
+			const std::vector<size_t>& lines_ends,
+			size_t i_extruder
 		) :
-			heatParam(heat), coolParam(cool), m_toolChangePos(toolChangePos), m_toolChangeTemps(toolChangeTemps), m_lines_ends(lines_ends) {
+			heatParam(heat), coolParam(cool), m_toolChangePos(toolChangePos), m_toolChangeTemps(toolChangeTemps), m_lines_ends(lines_ends), init_extruder(i_extruder){
 			unsigned int  moves_index = 0;
 			for (size_t i = 0; i < lines_ends.size(); i++) {
 				if (i < moves[moves_index].gcode_id) {
@@ -200,9 +203,15 @@ namespace post_gcode {
 				std::vector<std::shared_ptr<process_command>> commands;
 
 				//i:extruder index    k:vector index
-
-				for (int i = 0; i < m_toolChangePos.size();i++) {
+				for (int i = 0; i < m_toolChangePos.size(); i++) {
 					int cur_t = init_temp;
+					if (m_toolChangePos[i].size() > 0) {
+						size_t fisrt_pos = m_toolChangePos[i].at(0);
+						double fisr_time = caltime(fisrt_pos);
+						cur_t = calTargetTempExt(fisr_time, m_toolChangeTemps[i].at(0), m_toolChangeTemps[i].at(0));
+						cur_t = cur_t < init_temp ? init_temp : cur_t;//FIXME: the first temp need to cal each extruder cool down time
+					}
+					size_t init_pre_pos = std::numeric_limits<size_t>::max();
 					for (int k = 0; k < m_toolChangePos[i].size(); k++) {
 						//need clarification:the slicer always keep T0 first. the pos of first t0 don't need to cal temp 
 
@@ -211,9 +220,13 @@ namespace post_gcode {
 						set_target_cool_temp(m_toolChangeTemps[i].at(k));
 						float heat_time = getTimeFromTg(cur_t);
 
-
+						//gen the heat cmd  where TN added
 						size_t cur_line_id = m_toolChangePos[i].at(k);
 						auto cmd_s = genCommandFormHeatTime(heat_time, cur_line_id, i, cur_t); //heat up command
+						if (i == init_extruder && k == 0 && cmd_s.size() == 1) {
+							//get the init extruder pre heat up pos
+						     init_pre_pos = cmd_s[0]->get_range().first;
+						}
 						for (auto& cmd : cmd_s) {
 							commands.push_back(std::move(cmd));
 						}
@@ -224,7 +237,6 @@ namespace post_gcode {
 							 continue;
 						 }
 						 size_t next_pos = iter_pos_extruder->first;
-						 //std::cout << "next_pos: " << next_pos << " iter_pos_extruder.extruder_id: "<< iter_pos_extruder->second.extruder_id  << "  index:  "<< iter_pos_extruder->second.index << std::endl;
 						 //cal cur extuder to next pos heatup  & cool when cache_temp > 0.0
 						 if(cache_temp > 0.0){
 							 posInfo cur_cache_pos_info;
@@ -236,8 +248,6 @@ namespace post_gcode {
 							 //
 							 float heat_time_cache = getHeatTime(start_p_cache_temps, start_temps) - heatParam.b + 1; // when heatParam 
 							 float cool_time_cache = getCoolTime(start_temps, start_p_cache_temps);
-							 std::cout << "cool_time_cache: " << cool_time_cache << std::endl;
-							 std::cout << "heat_time_cache: " << heat_time_cache << std::endl;
 							 float use_time = heat_time_cache + cool_time_cache;
 
 							 if (use_time < cache_temp_t) {
@@ -292,7 +302,6 @@ namespace post_gcode {
 							 float tg = calTargetTemp(d_t);
 							 tg = tg < init_temp ? init_temp : tg;
 							 tg = min(tg, t1);
-							 //std::cout <<"d_t: " << d_t << " next extruder : " << iter_pos_extruder->second.extruder_id << " tg " << tg << std::endl;
 							 if (tg < t0) {
 								 auto cmd_c = genCommandForCoolingTimeEx(tg, i, next_pos, d_t);
 								 cur_t = tg;
@@ -308,6 +317,18 @@ namespace post_gcode {
 								 commands.push_back(std::move(cmd));
 							 }
 						 }
+					}
+					//cool the int_extruder to init_temp
+					if (i == init_extruder && !m_pos_extruder.empty()) {
+							auto first_pos = m_pos_extruder.begin()->first;
+							if (m_lines_ends[first_pos] > init_pre_pos) {
+								continue;
+							}
+							auto cmd_c = genCommandForCoolingTimeEx(init_temp, i, first_pos, 0.0);
+							cur_t = init_temp;
+							for (auto& cmd : cmd_c) {
+								commands.push_back(std::move(cmd));
+							}
 					}
 				}
 
@@ -330,13 +351,6 @@ namespace post_gcode {
 			}
 			return 0.0;
 		};
-		//double diffTime(int i, int extruder_id) {
-		//	_line_id_vec.clear();
-		//	set_target_heat_temp(m_toolChangeTemps[extruder_id].at(i));
-		//	int k = i - 1 > 0 ? i - 1 : 0;
-		//	set_target_cool_temp(m_toolChangeTemps[extruder_id].at(k));
-		//	return caltime(i, extruder_id) - caltime(i - 1, extruder_id);
-		//};
 
 		double caltime(size_t pos) {
 			_line_id_vec.push_back(pos);
@@ -347,8 +361,7 @@ namespace post_gcode {
 		double diffTime(std::pair<size_t, posInfo> cur_pos_info, std::pair<size_t, posInfo> last_pos_info) {
 			_line_id_vec.clear();
 			//TODO  t0  t1 always use the same color
-			//bugfix: there are a condition that the first value of toolChangePos valide when the slicer layer == 1;
-			
+			//bugfix: there are a condition that the first value of toolChangePos valide when the slicer layer == 1;		
 			size_t end_index = max(cur_pos_info.second.index, 0);
 			size_t start_index = max((int)end_index-1, 0);
 			set_target_heat_temp(m_toolChangeTemps[cur_pos_info.second.extruder_id].at(start_index));
@@ -395,14 +408,20 @@ namespace post_gcode {
 
 
 		std::vector<std::shared_ptr<process_command>> genCommandForCoolingTime(int cooling_tg, int extruder_id) {
+			std::vector<std::shared_ptr<process_command>> cmds;
 			auto minTempPos = std::min_element(_line_id_vec.begin(), _line_id_vec.end());
 			if (minTempPos == _line_id_vec.end()) {
 				std::cout << "pos empty" << std::endl;
 			}
-			std::vector<std::shared_ptr<process_command>> cmds;
 			//cool down cmd
 			int temp = static_cast<int>(t1);
+#ifdef COOL_DOWN_TO_ZERO
+			std::string cmd_str = "M104 T" + std::to_string(extruder_id) + " S" + std::to_string(int(0)) + "\n";
+#else
 			std::string cmd_str = "M104 T" + std::to_string(extruder_id) + " S" + std::to_string(int(cooling_tg)) + "\n";
+#endif // COOL_DOWN_TO_ZERO
+
+			
 			size_t offset = m_lines_ends[*minTempPos];
 			auto cmd2 = std::make_shared<append_command>(offset, cmd_str);
 			cmds.push_back(std::move(cmd2));
@@ -414,7 +433,14 @@ namespace post_gcode {
 		std::vector<std::shared_ptr<process_command>> genCommandForCoolingTimeEx(int cooling_tg, int extruder_id, size_t pos,double d_t) {
 			std::vector<std::shared_ptr<process_command>> cmds;
 			//cool down cmd
-			std::string cmd_str = "M104 T" + std::to_string(extruder_id) + " S" + std::to_string(int(cooling_tg))+";cool down"+ std::to_string(int(d_t))+ "  t0"+ std::to_string(int(t0)) +"  t1"+ std::to_string(int(t1)) + "\n";
+#ifdef COOL_DOWN_TO_ZERO
+			std::string cmd_str = "M104 T" + std::to_string(extruder_id) + " S" + std::to_string(int(0))
+				+ ";cool down" + std::to_string(int(d_t)) + "  t0" + std::to_string(int(t0)) + "  t1" + std::to_string(int(t1)) + "\n";
+#else
+			std::string cmd_str = "M104 T" + std::to_string(extruder_id) + " S" + std::to_string(int(cooling_tg)) 
+				+ ";cool down" + std::to_string(int(d_t)) + "  t0" + std::to_string(int(t0)) + "  t1" + std::to_string(int(t1)) + "\n";
+#endif // COOL_DOWN_TO_ZERO
+			
 			size_t offset = m_lines_ends[pos];
 			auto cmd2 = std::make_shared<append_command>(offset, cmd_str);
 			cmds.push_back(std::move(cmd2));
@@ -453,7 +479,6 @@ namespace post_gcode {
 			while (early_time > 0) {
 				if (m_line_times_cache[cur_line_id] < early_time) {
 					//TODO：
-					std::cout << "error  cur_line_id < early_time " ;
 					return cmds;
 				}
 				float t = m_line_times_cache[cur_line_id] - m_line_times_cache[cur_line_id - 1];
@@ -484,9 +509,9 @@ namespace post_gcode {
 		const std::vector<size_t>& m_lines_ends;
 		float t0 = 195.0;
 		float t1 = 195.0;
-		float cache_temp = 10.0;
-		int init_temp = 150;
-
+		float cache_temp = 0.0;
+		int init_temp = 30;
+		int  init_extruder;
 		std::vector<size_t>  _line_id_vec;
 	};
 }
@@ -610,8 +635,8 @@ namespace post_gcode {
 			ss << "G0" << " F" << double2SS{ 1,          upF * 60 } << " Z" << UM2MM{ _0Z } << new_line;
 			ss << "G3" << " I2 J0 P2" << " E" << double2SS{ 5, relativeExtrude ? 3 : currentE } << new_line;    //  0
 			ss << "G0" << " X" << UM2MM{ _1X } << " Y" << UM2MM{ _0Y } << " E" << double2SS{ 5, relativeExtrude ? 0 : currentE + retraction } << new_line;
-			ss << "G2" << " I-2 J0" << new_line << "G2" << " I-2 J0" << new_line << "G2" << " I-2 J0" << new_line;    //
 			ss << "G1" << " F" << double2SS{ 1, retract_speed * 60 } << " E" << double2SS{ 5, relativeExtrude ? -1 : currentE + retraction - 1 } << new_line;   //  -0.5
+			ss << "G2" << " I-2 J0" << new_line << "G2" << " I-2 J0" << new_line << "G2" << " I-2 J0" << new_line;    //
 		}
 
 
@@ -623,7 +648,7 @@ namespace post_gcode {
 			double currentZ = picInfo.Z;
 			ss << "G0 F" << double2SS{ 1,           upF * 60 } << " Z" << double2SS{5, currentZ} << new_line;
 			ss << "G0 F" << double2SS{ 1,  travel_speed * 60 } << " X" << double2SS{5, currentX } << " Y" << double2SS{ 5,currentY} << new_line;
-			//ss << "G1 F" << double2SS{ 1, retract_speed * 60 } << " E" << double2SS{ 5, relative ? 2 : L_E}                << new_line;    //  0
+			ss << "G1 F" << double2SS{ 1, retract_speed * 60 } << " E" << double2SS{ 5, relativeExtrude ? 1.35 : picInfo.E + retraction + 1.35 } << new_line;
 			ss << "G0 F" << double2SS{ 1,          currentF*60 } << new_line;
 		}
 
@@ -641,17 +666,27 @@ namespace post_gcode {
 		std::string Color;
 		std::string MID;
 		std::string CID;
+		std::string filamentType;
 	};
 
 	struct startCuraInfo {
 		float time;
 		std::string filamentName;
 		std::string MachineName;
-		double nozzleSize;
+		std::string profileName;
 		std::string printMode;
+		std::string adhesion_type;
+		double nozzleSize;
 		double filamentUsed;
 		double filamentWeight;
 		double layerHeight;
+		int firstLayerTemp;
+		int speedInfill;
+		int speedWall;
+		int speedWallInner;
+		int acceleration;
+		int accelerationTravel;
+		int perimeter_flow_ratio;
 		float MINX;
 		float MINY;
 		float MINZ;
@@ -659,57 +694,220 @@ namespace post_gcode {
 		float MAXY;
 		float MAXZ;
 		float MAXSPEED;
+		bool multi_model;
+		bool support_enable;
+		bool damaged;
+		bool repaired;
+	};
+
+	class genBBox {
+	public:
+		genBBox(const std::vector<size_t>& lines_ends, const std::array<float, 6>& bbox) :
+			m_lines_ends(lines_ends), boundBox(bbox) {};
+
+		std::vector<std::shared_ptr<process_command>>& run() {
+			size_t offset = m_lines_ends[pos];
+			std::string cmd_str = "";
+			cmd_str += _genBBox();
+			cmd_str += "\n";
+			auto cmd_ = std::make_shared<append_command>(m_lines_ends[pos], cmd_str);
+			res.push_back(std::move(cmd_));
+			return res;
+		}
+	private:
+		std::string _genBBox() {
+			std::string genToolChangeTimeStr;
+
+			boost::format _nzfmt(";MINX:%1%\n"
+				";MINY:%2%\n"
+				";MINZ:%3%\n"
+				";MAXX:%4%\n"
+				";MAXY:%5%\n"
+				";MAXZ:%6%\n");
+			_nzfmt% boundBox[0] % boundBox[1] % boundBox[2] % boundBox[3] % boundBox[4] % boundBox[5];
+			genToolChangeTimeStr += _nzfmt.str();
+			return genToolChangeTimeStr;
+		};
+
+	private:
+		const std::array<float, 6>& boundBox;
+		std::vector<std::shared_ptr<process_command>> res;
+		const std::vector<size_t>& m_lines_ends;
+		size_t pos = 1;
+	};
+
+	class ToolChangeTime {
+	public:
+		ToolChangeTime(const std::array<int, 36>& nozzleCf,float printTime, const std::vector<size_t>& lines_ends , const std::array<float, 6>& bbox):
+			nozzle_change_info(nozzleCf), m_lines_ends(lines_ends), _printTime(printTime), boundBox(bbox){
+		};
+		std::vector<std::shared_ptr<process_command>>& run() {
+			size_t offset = m_lines_ends[pos];
+			std::string cmd_str = "";				
+			cmd_str += "\n";
+			cmd_str += genNozzleChangeInfo();
+			cmd_str += "\n";
+			cmd_str += genNozzleChangetime();
+			cmd_str += "\n";
+			cmd_str += genToolChangeTime();
+			cmd_str += "\n";
+			cmd_str += genAllTime();
+			cmd_str += "\n";
+			cmd_str += genBBox();
+			cmd_str += "\n";
+			auto cmd_toolChangeTime = std::make_shared<append_command>(offset, cmd_str);
+			res.push_back(std::move(cmd_toolChangeTime));
+			return res;
+		}
+	private:
+		std::string genNozzleChangeInfo() {
+			std::string nozzleChangeInfoStr;
+			nozzleChangeInfoStr = ";NozzleChangeInfo:0"; //the first (i=0,j=0) always 0
+			for (int i = 1; i < nozzle_change_info.size(); i++) {
+				boost::format nzfmt(",%1%");
+				nzfmt% nozzle_change_info[i];
+				nozzleChangeInfoStr += nzfmt.str();
+			}
+			return nozzleChangeInfoStr;
+		};
+
+		std::string genNozzleChangetime() {
+			std::string genNozzleChangetimeStr;
+			genNozzleChangetimeStr = ";NozzleChangeTime:";
+			boost::format _nzfmt("%1%");
+			_nzfmt% nozzle_change_info[0];
+			genNozzleChangetimeStr += _nzfmt.str();
+			for (int i = 1; i < nozzle_change_info.size(); i++) {
+				boost::format nzfmt(",%1%");
+				nzfmt% nozzle_change_time[i];
+				genNozzleChangetimeStr += nzfmt.str();
+			}
+			return genNozzleChangetimeStr;
+		};
+
+		std::string genToolChangeTime() {
+			std::string genToolChangeTimeStr;
+			genToolChangeTimeStr = ";ToolChangeTime:";
+			toolChangeTime = 0.0;
+			for (int i = 0; i < 36;i++) {
+				toolChangeTime += nozzle_change_info[i] * nozzle_change_time[i];
+			}
+			boost::format _nzfmt("%1%");
+			_nzfmt% toolChangeTime;
+			genToolChangeTimeStr += _nzfmt.str();
+			return genToolChangeTimeStr;
+		};
+
+		std::string genAllTime() {
+			std::string genToolChangeTimeStr;
+			double allTime = toolChangeTime + _printTime;
+
+			boost::format _nzfmt(";TIME:%1%s");
+			_nzfmt% allTime;
+			genToolChangeTimeStr += _nzfmt.str();
+			return genToolChangeTimeStr;
+		};
+		std::string genBBox() {
+			std::string genToolChangeTimeStr;
+
+			boost::format _nzfmt(";MINX:%1%\n"
+				";MINY:%2%\n"
+				";MINZ:%3%\n"
+				";MAXX:%4%\n"
+				";MAXY:%5%\n"
+				";MAXZ:%6%\n");
+			_nzfmt% boundBox[0]% boundBox[1]%boundBox[2]%boundBox[3]%boundBox[4]% boundBox[5];
+			genToolChangeTimeStr += _nzfmt.str();
+			return genToolChangeTimeStr;
+		};
+	private:
+		std::vector<std::shared_ptr<process_command>> res;
+		double toolChangeTime = 0.0;
+		double _printTime;
+		const std::array<int, 36>& nozzle_change_info;
+		const std::array<float, 6>& boundBox;
+		const std::array<float, 36> nozzle_change_time{ 0.0 ,3.0 ,6.0 ,9.0 ,12.0 ,15.0 ,
+													   4.0 ,0.0 ,3.0 ,6.0 ,9.0 ,12.0 ,
+													   7.0 ,4.0 ,0.0 ,3.0 ,6.0 ,9.0 ,
+													   10.0 ,7.0 ,4.0 ,0.0, 3.0 ,6.0 ,
+													   13.0 ,10.0 ,7.0 ,4.0 ,0.0 ,3.0 ,
+													   15.0 ,13.0 ,10.0 ,7.0 ,10.0 ,0.0 };
+		const std::vector<size_t>& m_lines_ends;
+		size_t pos = 1;
 	};
 
 	class startGCodeGen {
 	public:
-		startGCodeGen(const std::vector<size_t>& lines_ends, std::vector<NozzleInfo>& nInfo, startCuraInfo& sCuraInfo,bool isV6 = true) :m_lines_ends(lines_ends), extuderInfos(nInfo), mStartCuraInfo(sCuraInfo), printModeV6(isV6){
+		startGCodeGen(const std::vector<size_t>& lines_ends, std::vector<NozzleInfo>& nInfo,startCuraInfo& sCuraInfo,bool isV6 = true) :m_lines_ends(lines_ends), extuderInfos(nInfo), mStartCuraInfo(sCuraInfo), printModeV6(isV6) {
 		};
 		std::vector<std::shared_ptr<process_command>>& run() {
 						
 			size_t offset = m_lines_ends[pos];
 			std::string cmd_str = "";
-			if (printModeV6) {
-				cmd_str += genNozzleMap();
-			}
-			cmd_str += "\n";
+			cmd_str += genNozzleMap();
 			cmd_str += genCuraHead();
 			auto cmd1 = std::make_shared<append_command>(offset, cmd_str);
 			res.push_back(std::move(cmd1));
+			//add anker MakeVerion in end
+			boost::format end_nzfmt(";AnkerMake version: V%1%");
+			end_nzfmt% std::string(SLIC3R_VERSION);
+			std::string cmd_str_end = end_nzfmt.str();
+			size_t offset_end = m_lines_ends.back();
+			auto cmd2 = std::make_shared<append_command>(offset_end, cmd_str_end);
+			res.push_back(std::move(cmd2));
 			return res;
 		};
 
 	private:
-		
 		std::string  genNozzleMap() {
 			std::string nozzleMapStr;
-			nozzleMapStr = ";NozzleColorMap:";
-			for(const auto & info: extuderInfos) {
-				boost::format nzfmt("T%1% C=0x%2% MID=%3% CID=%4%,");
-				nzfmt% info.EID% info.Color.substr(1)% info.MID% info.CID;
-				nozzleMapStr += nzfmt.str();
+			if (printModeV6) {
+				nozzleMapStr = ";NozzleColorMap:";
+				for (const auto& info : extuderInfos) {
+					boost::format nzfmt("T%1% C=0x%2% MID=%3% CID=%4%,");
+					nzfmt% info.EID% info.Color.substr(1) % info.MID% info.CID;
+					nozzleMapStr += nzfmt.str();
+				}
+				nozzleMapStr += "\n";
 			}
+			nozzleMapStr = "; filament_type = ";
+			for (int i = 0; i < extuderInfos.size(); i++) {
+				if (i < extuderInfos.size() - 1) {
+					nozzleMapStr += "\"" + extuderInfos[i].filamentType + "\";";
+				}
+				else {
+					nozzleMapStr += "\"" + extuderInfos[i].filamentType + "\"\n";
+				}
+			}
+
 			return nozzleMapStr;
 		};
 
 		std::string genCuraHead() {
 			std::string curaHead;
 			mStartCuraInfo.printMode.find("Normal") ;
-			boost::format fmt(";TIME:%1%s\n"
+			boost::format fmt(
 				";Filament Name:%2%\n"
-				";Machine Name:%15%\n"
+				";Machine Name:%22%\n"
+				";Profile Name:%15%\n"
+				";multi_model:%23%\n"
+				";support_enable:%24%\n"
+				";damaged:%25%\n"
+				";repaired:%26%\n"
+				";adhesion_type:%27%\n"
+				";perimeter_flow_ratio:%28%\n"
 				";Machine Nozzle Size:%3%\n"
 				";Print Mode:%4%\n"
 				";Filament weight: %6%g\n"
 				";Filament used: %5%mm\n"
 				";Layer height: %7%\n"
-				";MINX:%8%\n"
-				";MINY:%9%\n"
-				";MINZ:%10%\n"
-				";MAXX:%11%\n"
-				";MAXY:%12%\n"
-				";MAXZ:%13%\n"
-				";MAXSPEED:%14%");
+				";material_print_temperature_layer_0: %16%\n"
+				";speed_infill: %17%\n"
+				";speed_wall_0: %18%\n"
+				";speed_wall_x: %19%\n"
+				";acceleration_print: %20%\n"
+				";acceleration_travel: %21%\n"
+				";MAXSPEED:%14%\n");
 
 			fmt% mStartCuraInfo.time
 				% mStartCuraInfo.filamentName
@@ -725,8 +923,26 @@ namespace post_gcode {
 				% mStartCuraInfo.MAXY
 				% mStartCuraInfo.MAXZ
 				% mStartCuraInfo.MAXSPEED
-				% mStartCuraInfo.MachineName;
+				% mStartCuraInfo.profileName
+				% mStartCuraInfo.firstLayerTemp
+				% mStartCuraInfo.speedInfill
+				% mStartCuraInfo.speedWall
+				% mStartCuraInfo.speedWallInner
+				% mStartCuraInfo.acceleration
+				% mStartCuraInfo.accelerationTravel
+				% mStartCuraInfo.MachineName
+				% (mStartCuraInfo.multi_model ? "true" : "false")
+				% (mStartCuraInfo.support_enable ? "true" : "false")
+				% (mStartCuraInfo.damaged ? "true" : "false")
+				% (mStartCuraInfo.repaired ? "true" : "false")
+				% (mStartCuraInfo.adhesion_type.empty() ? "none" : mStartCuraInfo.adhesion_type)
+				% mStartCuraInfo.perimeter_flow_ratio;
 			curaHead = fmt.str();
+			if (!printModeV6) {
+				boost::format _nzfmt(";TIME:%1%s\n");
+				_nzfmt% mStartCuraInfo.time;
+				curaHead += _nzfmt.str();
+			}
 			return curaHead;
 		}
 

@@ -25,11 +25,13 @@
 #include <boost/uuid/detail/md5.hpp>
 #include <boost/algorithm/hex.hpp>
 #endif
+#include <slic3r/Config/AnkerCommonConfig.hpp>
 
 namespace Slic3r {
 
 static const std::string VENDOR_PREFIX = "vendor:";
 static const std::string MODEL_PREFIX = "model:";
+static const std::string SLICE_PREFIX = "SliceTimesCheck";
 // Because of a crash in PrusaSlicer 2.3.0/2.3.1 when showing an update notification with some locales, we don't want PrusaSlicer 2.3.0/2.3.1
 // to show this notification. On the other hand, we would like PrusaSlicer 2.3.2 to show an update notification of the upcoming PrusaSlicer 2.4.0.
 // Thus we will let PrusaSlicer 2.3.2 and couple of follow-up versions to download the version number from an alternate file until the PrusaSlicer 2.3.0/2.3.1
@@ -95,8 +97,8 @@ void AppConfig::set_defaults()
 #ifdef _WIN32
         if (get("associate_3mf").empty())
             set("associate_3mf", "0");
-        if (get("associate_stl").empty())
-            set("associate_stl", "1");      // "0" -> "1"  change @2023-06-15 by ChunLian
+       /* if (get("associate_stl").empty())*/  // Masked forced association STL default open mode logic
+            set("associate_stl", "0");      // "0" -> "1"  change @2023-06-15 by ChunLian
 
         if (get("tabs_as_menu").empty())
             set("tabs_as_menu", "0");
@@ -119,6 +121,15 @@ void AppConfig::set_defaults()
                 "1"
 #endif // __APPLE__
                 );
+
+        if (get("config_wizard_done").empty())
+            set("config_wizard_done",
+#ifdef __APPLE__
+                "0"
+#else // __APPLE__
+                "0"
+#endif // __APPLE__
+            );
 
         if (get("multi-language_enable").empty())
             set("multi-language_enable",
@@ -179,8 +190,8 @@ void AppConfig::set_defaults()
         if (get("clear_undo_redo_stack_on_new_project").empty())
             set("clear_undo_redo_stack_on_new_project", "1");
 
-        if (get("translation_language").empty())
-            set("translation_language", "en");
+        //if (get("translation_language").empty())
+        //    set("translation_language", "en");
     }
     else {
 #ifdef _WIN32
@@ -392,7 +403,19 @@ std::string AppConfig::load(const std::string &path)
                     vendor[model_name].insert(variant);
                 }
             }
-    	} else {
+        } else if(boost::starts_with(section.first, SLICE_PREFIX)){
+            if (!section.second.empty()) {
+                for (const auto& data : section.second) {
+                    if (!data.first.empty()) { 
+                        std::string sliceStr = data.first + " = "+ data.second.data();
+                        std::string sliceKey{};
+                        std::shared_ptr<SliceConfig> sliceInfo = load_slice_config_final(sliceStr, data.first,sliceKey);
+                        m_slice_config[section.first][sliceKey] = sliceInfo;
+                    }
+                }
+            }
+        }
+        else {
     		// This must be a section name. Read the entries of a section.
     		std::map<std::string, std::string> &storage = m_storage[section.first];
             for (auto &kvp : section.second)
@@ -408,7 +431,7 @@ std::string AppConfig::load(const std::string &path)
         // Make 1.40.0 alphas compare well
         ini_ver->set_metadata(boost::none);
         ini_ver->set_prerelease(boost::none);
-        m_legacy_datadir = ini_ver < Semver(1, 40, 0);
+        m_legacy_datadir = ini_ver < Semver(1, 0, 0);
     }
 
     // Legacy conversion
@@ -472,22 +495,28 @@ void AppConfig::initDefaultPrinterList() {
     // see  //wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
     //if (!has_section("presets")) {
     std::map<std::string, std::string> mapPresets;
-    mapPresets["filament"] = "AnkerMake PLA+ Basic (Black)";
+    mapPresets["filament"] = "AnkerMake PLA+ Basic (White)";
     mapPresets["print"] = "Normal - M5 0.4mm - PLA+ Basic";
     mapPresets["printer"] = "AnkerMake M5 0.4 mm Nozzle";
     set_section("presets", mapPresets);
     //}
 
-    set_variant("Anker", "M5", "0.4", true);
-    set_variant("Anker", "M5", "0.2", true);
-    //set_variant("Anker", "M5", "0.6", true);
-    //set_variant("Anker", "M5", "0.8", true);
-    set_variant("Anker", "M5C", "0.4", true);
-    //set_variant("Anker", "M5C", "0.2", true);
-    //set_variant("Anker", "M5C", "0.6", true);
-    //set_variant("Anker", "M5C", "0.8", true);
-    set_variant("Anker", "M5_V6", "0.4", true);
-    set_variant("Anker", "M5C_V6", "0.4", true);
+    //set_variant("Anker", "M5", "0.4", true);
+    //set_variant("Anker", "M5", "0.2", true);
+    ////set_variant("Anker", "M5", "0.6", true);
+    ////set_variant("Anker", "M5", "0.8", true);
+    //set_variant("Anker", "M5C", "0.4", true);
+    ////set_variant("Anker", "M5C", "0.2", true);
+    ////set_variant("Anker", "M5C", "0.6", true);
+    ////set_variant("Anker", "M5C", "0.8", true);
+    //set_variant("Anker", "M5_V6", "0.4", true);
+    //set_variant("Anker", "M5C_V6", "0.4", true);
+    if (m_vendors.empty())
+   {
+     set_variant("Anker", "M5", "0.4", true);
+     set_variant("Anker", "M5C", "0.4", true);
+     set_variant("Anker", "M5 All Metal Hotend", "0.4", true);
+    }
     save();
 }
 
@@ -539,6 +568,21 @@ void AppConfig::save()
             config_ss << MODEL_PREFIX << model.first << " = " << escaped << std::endl;
         }
     }
+
+    for (const auto& sliceconfig : m_slice_config) {
+        if (sliceconfig.first.empty())
+            continue;
+        config_ss << std::endl << "[" << sliceconfig.first << "]" << std::endl;
+        int i = 0;
+        for (const auto& keyVal : sliceconfig.second) {
+            std::string sliceKey = "slice_key_" + std::to_string(i); ++i;
+            config_ss << sliceKey <<" = "<< keyVal.first <<","  \
+                      <<    "user_id"<<" = "<<keyVal.second->user_id << ","  \
+                      << "version_id"<<" = "<< keyVal.second->version_id << ","  \
+                      <<"slice_times"<<" = "<< keyVal.second->slice_times<<std::endl;
+        }
+    }
+
     // One empty line before the MD5 sum.
     config_ss << std::endl;
 
@@ -826,11 +870,12 @@ void AppConfig::reset_selections()
     }
 }
 
+// Only for the compatibility of version 23 with version 22, regarding the addition of nozzles
 std::string AppConfig::config_path() const
 {
     std::string path = (m_mode == EAppMode::Editor) ?
-        (boost::filesystem::path(Slic3r::data_dir()) / (SLIC3R_APP_KEY ".ini")).make_preferred().string() :
-        (boost::filesystem::path(Slic3r::data_dir()) / (GCODEVIEWER_APP_KEY ".ini")).make_preferred().string();
+        (boost::filesystem::path(Slic3r::data_dir()) / (Slic3r::ProfileConfig::iniName)).make_preferred().string() :
+        (boost::filesystem::path(Slic3r::data_dir()) / (Slic3r::ProfileConfig::gcodeViewerIniName)).make_preferred().string();
 
     return path;
 }

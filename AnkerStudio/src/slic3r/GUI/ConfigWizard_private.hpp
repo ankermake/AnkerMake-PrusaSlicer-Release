@@ -26,6 +26,7 @@
 #include "GUI.hpp"
 #include "SavePresetDialog.hpp"
 #include "wxExtensions.hpp"
+#include "AnkerCheckBox.hpp"
 
 
 namespace fs = boost::filesystem;
@@ -39,9 +40,10 @@ enum {
 
     DIALOG_MARGIN = 15,
     INDEX_MARGIN = 40,
-    BTN_SPACING = 10,
+    BTN_SPACING = 6,
     INDENT_SPACING = 30,
     VERTICAL_SPACING = 10,
+    TITLE_CONTENT_SAPCING = 24,
 
     MAX_COLS = 4,
     ROW_SPACING = 75,
@@ -99,23 +101,49 @@ struct PrinterPickerEvent;
 
 typedef std::function<bool(const VendorProfile::PrinterModel&)> ModelFilter;
 
+class AnkerCheckBoxWrapper : public AnkerCheckBox
+{
+public:
+    AnkerCheckBoxWrapper(
+        wxWindow* parent,
+        wxImage uncheckImg,
+        wxImage checkImg,
+        wxImage disuncheckImg,
+        wxImage discheckImg,
+        wxString label,
+        const std::string& model,
+        const std::string& variant,
+        wxFont   font = wxFont(),
+        wxColour color = wxColour("#FFFFFF"),
+        wxWindowID winid = wxID_ANY,
+        const wxPoint& pos = wxDefaultPosition,
+        const wxSize& size = wxDefaultSize) :
+        AnkerCheckBox(parent,
+            uncheckImg,
+            checkImg,
+            disuncheckImg,
+            discheckImg,
+            label,
+            font,
+            color,
+            winid,
+            wxDefaultPosition,
+            wxDefaultSize),
+        model(model),
+        variant(variant)
+    {}
+
+    std::string model;
+    std::string variant;
+};
+
+
+
 struct PrinterPicker: wxPanel
 {
-    struct Checkbox : wxCheckBox
-    {
-        Checkbox(wxWindow *parent, const wxString &label, const std::string &model, const std::string &variant) :
-            wxCheckBox(parent, wxID_ANY, label),
-            model(model),
-            variant(variant)
-        {}
-
-        std::string model;
-        std::string variant;
-    };
-
     const std::string vendor_id;
-    std::vector<Checkbox*> cboxes;
-    std::vector<Checkbox*> cboxes_alt;
+    std::vector<AnkerCheckBoxWrapper*> cboxes;
+    std::vector<AnkerCheckBoxWrapper*> cboxes_alt;
 
     PrinterPicker(wxWindow *parent, const VendorProfile &vendor, wxString title, size_t max_cols, const AppConfig &appconfig, const ModelFilter &filter);
     PrinterPicker(wxWindow *parent, const VendorProfile &vendor, wxString title, size_t max_cols, const AppConfig &appconfig);
@@ -133,7 +161,7 @@ private:
     int width;
     std::vector<int> m_button_indexes;
 
-    void on_checkbox(const Checkbox *cbox, bool checked);
+    void on_checkbox(const AnkerCheckBoxWrapper*cbox, bool checked);
 };
 
 struct ConfigWizardPage: wxPanel
@@ -168,6 +196,7 @@ struct PageWelcome: ConfigWizardPage
     wxStaticText *welcome_text;
     wxCheckBox *cbox_reset;
     wxCheckBox *cbox_integrate;
+    ConfigWizard *config_Wizard;
 
     PageWelcome(ConfigWizard *parent);
 
@@ -528,6 +557,7 @@ public:
     size_t active_item() const { return item_active; }
     ConfigWizardPage* active_page() const;
     bool active_is_last() const { return item_active < items.size() && item_active == last_page; }
+    bool active_is_first() const { return item_active < items.size() && item_active == (size_t)0; }
 
     void go_prev();
     void go_next();
@@ -601,13 +631,14 @@ struct ConfigWizard::priv
     wxScrolledWindow *hscroll = nullptr;
     wxBoxSizer *hscroll_sizer = nullptr;
     wxBoxSizer *btnsizer = nullptr;
+    wxBoxSizer *bottomSizer = nullptr;
     ConfigWizardPage *page_current = nullptr;
     ConfigWizardIndex *index = nullptr;
     wxButton *btn_sel_all = nullptr;
-    wxButton *btn_prev = nullptr;
-    wxButton *btn_next = nullptr;
-    wxButton *btn_finish = nullptr;
-    wxButton *btn_cancel = nullptr;
+    AnkerBtn* btn_prev = nullptr;
+    AnkerBtn *btn_next = nullptr;
+    AnkerBtn *btn_finish = nullptr;
+    AnkerBtn *btn_cancel = nullptr;
 
     PageWelcome      *page_welcome = nullptr;
     PagePrinters     *page_fff = nullptr;
@@ -660,6 +691,7 @@ struct ConfigWizard::priv
     void on_3rdparty_install(const VendorProfile *vendor, bool install);
 
     bool on_bnt_finish();
+    void uploadTraceData();
     bool check_and_install_missing_materials(Technology technology, const std::string &only_for_model_id = std::string());
     bool apply_config(AppConfig *app_config, PresetBundle *preset_bundle, const PresetUpdater *updater, bool& apply_keeped_changes);
     // #ys_FIXME_alise

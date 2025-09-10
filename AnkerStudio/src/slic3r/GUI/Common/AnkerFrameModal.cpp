@@ -1,23 +1,33 @@
 #include "AnkerFrameModal.hpp"
 
-HalfModalDialog::HalfModalDialog(wxWindow* parent, wxWindowID id, const wxString& title, 
-    const wxString& context, const wxPoint& pos, const wxSize& size, long style, const wxString& name) :
+HalfModalDialog::HalfModalDialog(
+    wxWindow* parent, 
+    wxWindowID id, 
+    const wxString& title, 
+    const wxString& context, 
+    const wxString& imageName,
+    const wxPoint& pos, 
+    const wxSize& size, 
+    long style, 
+    const wxString& name) :
+    m_imageName(imageName),
     AnkerDialog(parent, id, title, context, pos, size, style, name)
 {
-   
 }
 
 HalfModalDialog::~HalfModalDialog()
 {
-
 }
 
 void HalfModalDialog::InitDialogPanel(int dialogType)
 {
     switch (dialogType)
     {
-    case  PartialModal_OK:
-        m_panel = new PartialModalOkPanel(this, m_title, m_size, m_context);
+    case PartialModal_OK:
+        m_panel = new AnkerDialogDisplayTextOkPanel(this, m_title, m_size, m_context, m_okBtnCallBack);
+        break;
+    case PartialModal_IMAGE_OK:
+        m_panel = new AnkerDialogIconTextOkPanel(this, m_imageName, m_title, m_context, m_size, m_okBtnCallBack);
         break;
     case PartialModal_CANCEL_OK:
         m_panel = new PartialModalCancalOkPanel(this, m_title, m_size, m_context);
@@ -28,6 +38,7 @@ void HalfModalDialog::InitDialogPanel(int dialogType)
     if (m_panel == nullptr) {
         return;
     }
+
     wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(m_panel, 1, wxEXPAND);
     SetSizer(sizer);
@@ -37,22 +48,15 @@ void HalfModalDialog::setBackgroundColour(const wxColour& color)
 {
 }
 
-int HalfModalDialog::ShowAnkerModal(int dialogType)
-{
-    InitDialogPanel(dialogType);
-    return wxDialog::ShowModal();
-}
-
-
 void HalfModalDialog::ShowAnker(int dialogType)
 {
     InitDialogPanel(dialogType);
     Show(true);
 }
 
-void HalfModalDialog::HideWindow(bool hide)
+void HalfModalDialog::SetOkBtnCallBack(AnkerDialogBtnCallBack_T callback)
 {
-    Show(!hide);
+    m_okBtnCallBack = callback;
 }
 
 void HalfModalDialog::CheckWindowShow()
@@ -74,7 +78,6 @@ void HalfModalDialog::CheckWindowShow()
 PartialModalCancalOkPanel::PartialModalCancalOkPanel(wxWindow* parent, const wxString& title, 
     const wxSize& size, const wxString& context) : 
     AnkerDialogDisplayTextCancelOkPanel(parent, title, size, context)
-
 {
 }
 
@@ -94,55 +97,7 @@ void PartialModalCancalOkPanel::okButtonClicked(wxCommandEvent& event)
     if (dialog) {
         dialog->Close();
     }
-}
-
-PartialModalOkPanel::PartialModalOkPanel(wxWindow* parent, const wxString& title, 
-    const wxSize& size, const wxString& context) :
-    AnkerDialogDisplayTextOkPanel(parent, title, size, context)
-{
-}
-
-void PartialModalOkPanel::okButtonClicked(wxCommandEvent& event)
-{
-    wxWindow* parent = GetParent();
-    HalfModalDialog* dialog = static_cast<HalfModalDialog*>(parent);
-    if (dialog) {
-        dialog->Close();
+    if (m_okBtnCallBack) {
+        m_okBtnCallBack(event);
     }
-}
-
-HalfModalPanel::HalfModalPanel(wxWindow* parent, wxWindowID id, const wxString& title,
-    const wxString& context, const wxPoint& pos, const wxSize& size, 
-    long style, const wxString& name)  : 
-    wxPanel(parent, id, pos, size)
-{
-    m_dialog = new HalfModalDialog(this, id, title, context, pos, size, style, name);
-    wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(m_dialog, 1, wxEXPAND);
-    SetSizer(sizer);
-}
-
-void HalfModalPanel::InitDialogPanel(int dialogType)
-{
-    
-
-
-}
-
-void HalfModalPanel::ShowAnkerModal(int dialogType)
-{
-    m_dialog->ShowAnker(dialogType);
-    Show();
-}
-
-void HalfModalPanel::OnMouseEvents(wxMouseEvent& event)
-{
-    std::cout << "HalfModalPanel::OnMouseEvents.\n";
-    event.Skip();
-}
-
-void HalfModalPanel::OnKeyDown(wxKeyEvent& event)
-{
-    std::cout << "HalfModalPanel::OnKeyDown.\n";
-    event.Skip();
 }

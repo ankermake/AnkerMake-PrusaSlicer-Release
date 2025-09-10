@@ -62,7 +62,7 @@ struct ExtrusionRole : public ExtrusionRoleModifiers
     // Visible bridging infill at the bottom of an object.
     static constexpr const ExtrusionRoleModifiers BridgeInfill{ ExtrusionRoleModifier::Infill | ExtrusionRoleModifier::Solid | ExtrusionRoleModifier::Bridge | ExtrusionRoleModifier::External };
 //    static constexpr const ExtrusionRoleModifiers InternalBridgeInfill{ ExtrusionRoleModifier::Infill | ExtrusionRoleModifier::Solid | ExtrusionRoleModifier::Bridge };
-    // Gap fill extrusion, currently used for any variable width extrusion: Thin walls outside of the outer extrusion,
+    // Gap fill extrusion, currently used for any variable width extrusion: Thin enum Extrusion walls outside of the outer extrusion,
     // gap fill in between perimeters, gap fill between the inner perimeter and infill.
     //FIXME revise GapFill and ThinWall types, split Gap Fill to Gap Fill and ThinWall.
     static constexpr const ExtrusionRoleModifiers GapFill{ ExtrusionRoleModifier::Thin }; // | ExtrusionRoleModifier::External };
@@ -98,7 +98,7 @@ enum ExtrusionLoopRole {
 };
 
 // Be careful when editing this list as many parts of the code depend
-// on the values of these ordinars, for example
+// on the values of these ordinals, for example
 // GCodeViewer::Extrusion_Role_Colors
 enum class GCodeExtrusionRole : uint8_t {
     None,
@@ -121,7 +121,7 @@ enum class GCodeExtrusionRole : uint8_t {
     Count
 };
 
-// Convert a rich bitmask based ExtrusionRole to a less expressive ordinal GCodeExtrusionRole.
+// Convert a rich bit mask based ExtrusionRole to a less expressive ordinal GCodeExtrusionRole.
 // GCodeExtrusionRole is to be serialized into G-code and deserialized by G-code viewer,
 GCodeExtrusionRole extrusion_role_to_gcode_extrusion_role(ExtrusionRole role);
 

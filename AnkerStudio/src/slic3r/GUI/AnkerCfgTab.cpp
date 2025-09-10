@@ -74,6 +74,22 @@ namespace GUI {
 AnkerTab::AnkerTab(wxBookCtrlBase* parent, const wxString& title, Preset::Type type) :
     m_parent(parent), m_type(type), m_title(title)
 {
+    Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
+        if (event.IsShown())
+        {
+            if (m_active_page) {
+                auto page_name = translate_category(m_active_page->title(), m_type);
+                change_page(page_name);
+            }
+        }
+        else {
+            if (m_page_valid)
+                clear_pages();
+        }
+
+        wxPanel::Show(event.IsShown());
+    });
+
     Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBK_LEFT | wxTAB_TRAVERSAL/*, name*/);
     this->SetFont(/*Slic3r::GUI::wxGetApp().normal_font() */ ANKER_FONT_NO_1);
 
@@ -143,20 +159,37 @@ void AnkerTab::create_preset_tab()
 #endif //__WXOSX__
 
     // preset chooser
-    m_presets_choice = new TabPresetComboBox(panel, m_type);
-    // add by allen for ankerCfgDlg
-#if _HIDE_CONTROL_FOR_ANKERCFGDLG_
-    m_presets_choice->Show(false);
-#endif
-    m_presets_choice->set_selection_changed_function([this](int selection) {
-        if (!m_presets_choice->selection_is_changed_according_to_physical_printers())
-        {
-            if (m_type == Preset::TYPE_PRINTER && !m_presets_choice->is_selected_physical_printer())
-                m_preset_bundle->physical_printers.unselect_printer();
+    m_presets_choice = new AnkerTabPresetComboBox(panel, m_type);
+    m_presets_choice->Create(panel,
+		wxID_ANY,
+		wxEmptyString,
+		wxDefaultPosition,
+		wxSize(35 * wxGetApp().em_unit(), ANKER_COMBOBOX_HEIGHT),
+		wxNO_BORDER | wxCB_READONLY,
+		wxDefaultValidator,
+		"");
+    m_presets_choice->SetFont(ANKER_FONT_NO_1);
+    m_presets_choice->SetBackgroundColour(wxColour("#333438"));
+    m_presets_choice->setColor(wxColour("#434447"), wxColour("#3A3B3F"));
+    wxImage btnImage(wxString::FromUTF8(Slic3r::var("drop_down.png")), wxBITMAP_TYPE_PNG);
+    btnImage.Rescale(8, 8, wxIMAGE_QUALITY_HIGH);
+    wxBitmapBundle dropBtnBmpNormal = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+    wxBitmapBundle dropBtnBmpPressed = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+    wxBitmapBundle dropBtnBmpHover = wxBitmapBundle::FromBitmap(wxBitmap(btnImage));
+    m_presets_choice->SetButtonBitmaps(dropBtnBmpNormal, true, dropBtnBmpPressed, dropBtnBmpHover);
 
-            // select preset
-            std::string preset_name = m_presets_choice->GetString(selection).ToUTF8().data();
-            select_preset(Preset::remove_suffix_modified(preset_name));
+    m_presets_choice->set_selection_changed_function([this](int selection) {
+        wxGetApp().mainframe->m_ankerCfgDlg->ChangeAnkerTabComboSel(m_presets_choice, selection);
+		if (m_type == Preset::TYPE_FILAMENT) {
+			// mod by allen for Change the interaction for switching print and filament presets.
+			CallAfter([=] {
+				AnkerTab* printTab = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
+				if (!printTab) {
+					return;
+				}
+				int selection = printTab->m_presets_choice->GetSelection();
+                wxGetApp().mainframe->m_ankerCfgDlg->ChangeAnkerTabComboSel(printTab->m_presets_choice, selection);
+				});
         }
     });
 
@@ -195,11 +228,12 @@ void AnkerTab::create_preset_tab()
     m_question_btn->SetToolTip(_(L("Hover the cursor over buttons to find more information \n"
                                    "or click this button.")));
     m_question_btn->Hide();
-    add_scaled_button(panel, &m_search_btn, "search");
+    add_scaled_button(panel, &m_search_btn, /*"search"*/"search_btn");
     m_search_btn->SetToolTip(format_wxstr(_L("Search in settings [%1%]"), "Ctrl+F"));
-    m_search_btn->Hide();
+    //m_search_btn->Hide();
 
-    create_search_edit(panel);
+    // cause click on the search edit would open the plater search dialog, use the search btn to replace the search edit --- xavier
+    //create_search_edit(panel);
 
 
     // Bitmaps to be shown on the "Revert to system" aka "Lock to system" button next to each input field.
@@ -229,8 +263,8 @@ void AnkerTab::create_preset_tab()
         if (dlg.ShowModal() == wxID_OK)
             wxGetApp().update_label_colours();
     });
-    m_search_btn->Bind(wxEVT_BUTTON, [](wxCommandEvent) {
-        wxGetApp().plater()->search(false);
+    m_search_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent) {
+        wxGetApp().plater()->search(false, "", m_type);
         });
 
     // Colors for ui "decoration"
@@ -246,7 +280,7 @@ void AnkerTab::create_preset_tab()
 
     const float scale_factor = em_unit(this)*0.1;// GetContentScaleFactor();
     m_hsizer = new wxBoxSizer(wxHORIZONTAL);
-   
+    m_hsizer->AddSpacer(int(8 * scale_factor));
     // adjust print tab combox sizer border because the logic in funciton OnActivate is not working
     if (Preset::TYPE_PRINT == m_type) {
         sizer->Add(m_hsizer, 0, wxEXPAND, 0);
@@ -256,7 +290,7 @@ void AnkerTab::create_preset_tab()
         sizer->Add(m_hsizer, 0, wxEXPAND | wxBOTTOM, 3);
         m_hsizer->Add(m_presets_choice, 0, wxLEFT | wxRIGHT | wxTOP | wxALIGN_CENTER_VERTICAL, 3);
     }
-    m_hsizer->AddSpacer(int(4*scale_factor));
+    m_hsizer->AddSpacer(int(8 * scale_factor));
 
     m_h_buttons_sizer = new wxBoxSizer(wxHORIZONTAL);
     m_h_buttons_sizer->AddStretchSpacer();
@@ -269,9 +303,9 @@ void AnkerTab::create_preset_tab()
     m_h_buttons_sizer->Add(m_btn_save_preset, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT);
 	m_h_buttons_sizer->AddSpacer(int(8 * scale_factor));
 	m_h_buttons_sizer->Add(m_search_btn, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT);
-    m_h_buttons_sizer->AddSpacer(int(8 * scale_factor));
-    m_h_buttons_sizer->Add(m_pSearchEdit, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT| int(4 * scale_factor));
-
+    // do not need the search edit --- xavier
+    //m_h_buttons_sizer->AddSpacer(int(8 * scale_factor));
+    //m_h_buttons_sizer->Add(m_pSearchEdit, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT| int(4 * scale_factor));
     if (m_btn_edit_ph_printer) {
         // m_h_buttons_sizer->AddSpacer(int(4 * scale_factor));
         m_h_buttons_sizer->Add(m_btn_edit_ph_printer, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_RIGHT| int(/*16*/8 * scale_factor));
@@ -299,6 +333,17 @@ void AnkerTab::create_preset_tab()
         m_mode_sizer->Show(false);
 //        m_hsizer->Add(mode_sizer, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, wxOSX ? 15 : 10);
     }
+
+    sizer->AddSpacer(int(5 * scale_factor));
+    // split ctrl
+    wxControl* splitLineCtrl = new wxControl(panel, wxID_ANY, wxDefaultPosition, wxSize(100000, 1), wxNO_BORDER);
+    splitLineCtrl->SetBackgroundColour(wxColour("#484A51"));
+    splitLineCtrl->SetMaxSize(wxSize(100000, 1));
+    splitLineCtrl->SetMinSize(wxSize(100000, 1));
+    m_hsizer = new wxBoxSizer(wxHORIZONTAL);
+    m_hsizer->Add(splitLineCtrl, 0, wxEXPAND | wxALL, 0);
+	sizer->Add(m_hsizer, 1, wxEXPAND, 0);
+    sizer->AddSpacer(int(5 * scale_factor));
 
     //Horizontal sizer to hold the tree and the selected page.
     m_hsizer = new wxBoxSizer(wxHORIZONTAL);
@@ -365,6 +410,7 @@ void AnkerTab::create_preset_tab()
     m_completed = true;
 
     timer.Bind(wxEVT_TIMER, [this](wxTimerEvent&) {
+        ANKER_LOG_INFO << "ForceUpdate Timer Enter";
         this->Freeze();
         if (wxGetApp().mainframe) {
             wxSize sz = wxGetApp().mainframe->m_ankerCfgDlg->GetRightPanelSize();
@@ -467,7 +513,7 @@ void AnkerTab::create_search_edit(wxWindow* parent)
         m_pSearchTextCtrl->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& event)
             {
                 //wxMessageBox("TextCtrl clicked!", "Message", wxOK | wxICON_INFORMATION);
-                wxGetApp().plater()->search(false);
+                wxGetApp().plater()->search(false,"", m_type);
             }
         );
 
@@ -479,7 +525,7 @@ void AnkerTab::create_search_edit(wxWindow* parent)
                 return;
 
 #if 1
-            wxGetApp().plater()->search(false, searchData);
+            wxGetApp().plater()->search(false, searchData, m_type);
 #else
             if (m_popupWidget)
             {
@@ -519,6 +565,7 @@ void AnkerTab::create_search_edit(wxWindow* parent)
 
 void AnkerTab::force_update() {
     timer.StartOnce(1);
+
 }
 
 void AnkerTab::load_initial_data()
@@ -601,6 +648,9 @@ void AnkerTab::OnActivate()
     // altogether.
 
 #endif
+
+    // clear the page to refresh the controls in the current page --- add by xavier
+    clear_pages();
 
     // create controls on active page
     activate_selected_page([](){});
@@ -989,13 +1039,6 @@ void AnkerTab::on_roll_back_value(const bool to_sys /*= true*/)
 void AnkerTab::update_dirty()
 {
     m_presets_choice->update_dirty();
-
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->update_dirty();
-    }
-
     on_presets_changed();
     update_changed_ui();
 }
@@ -1003,12 +1046,6 @@ void AnkerTab::update_dirty()
 void AnkerTab::update_tab_ui()
 {
     m_presets_choice->update();
-
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->update();
-    }
 }
 
 // Load a provied DynamicConfig into the tab, modifying the active preset.
@@ -1081,12 +1118,6 @@ void AnkerTab::msw_rescale()
 
     m_presets_choice->msw_rescale();
 
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->msw_rescale();
-    }
-
     // rescale options_groups
     if (m_active_page)
         m_active_page->msw_rescale();
@@ -1098,12 +1129,6 @@ void AnkerTab::msw_rescale()
 void AnkerTab::sys_color_changed()
 {
     m_presets_choice->sys_color_changed();
-
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->sys_color_changed();
-    }
 
     // update buttons and cached bitmaps
     for (const auto btn : m_scaled_buttons)
@@ -1200,12 +1225,6 @@ void AnkerTab::load_key_value(const std::string& opt_key, const boost::any& valu
         m_preset_bundle->update_compatible(PresetSelectCompatibleType::Never);
     }
     m_presets_choice->update_dirty();
-
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->update_dirty();
-    }
 
     on_presets_changed();
     update();
@@ -1349,6 +1368,8 @@ void AnkerTab::activate_option(const std::string& opt_key, const wxString& categ
     }
 
     m_highlighter.init(get_custom_ctrl_with_blinking_ptr(opt_key));
+
+    force_update();
 }
 
 void AnkerTab::cache_config_diff(const std::vector<std::string>& selected_options, const DynamicPrintConfig* config/* = nullptr*/)
@@ -1689,12 +1710,17 @@ void AnkerTabPrint::build()
 
         optgroup = page->new_optgroup(L("Brim"));
         optgroup->append_single_option_line("brim_type", category_path + "brim");
+        optgroup->append_single_option_line("brim_smart_ordering", category_path + "brim");
         optgroup->append_single_option_line("brim_width", category_path + "brim");
         optgroup->append_single_option_line("brim_separation", category_path + "brim");
+		optgroup->append_single_option_line("brim_ears_max_angle", category_path + "brim");
+		optgroup->append_single_option_line("brim_ears_detection_length", category_path + "brim");
+
 
     page = add_options_page(L("Support material"), "support");
         category_path = "support-material_1698#";
         optgroup = page->new_optgroup(L("Support material"));
+        optgroup->set_opt_width(Field::def_width_wider());
         optgroup->append_single_option_line("support_material", category_path + "generate-support-material");
         optgroup->append_single_option_line("support_material_auto", category_path + "auto-generated-supports");
         optgroup->append_single_option_line("support_material_threshold", category_path + "overhang-threshold");
@@ -1703,12 +1729,13 @@ void AnkerTabPrint::build()
         optgroup->append_single_option_line("raft_first_layer_expansion", category_path + "raft-first-layer-expansion");
 
         optgroup = page->new_optgroup(L("Raft"));
+        optgroup->set_opt_width(Field::def_width_wider());
         optgroup->append_single_option_line("raft_layers", category_path + "raft-layers");
         optgroup->append_single_option_line("raft_contact_distance", category_path + "raft-layers");
         optgroup->append_single_option_line("raft_expansion");
 
         optgroup = page->new_optgroup(L("Options for support material and raft"));
-        optgroup->set_opt_width(Field::def_width());
+        optgroup->set_opt_width(Field::def_width_wider());
         optgroup->append_single_option_line("support_material_style", category_path + "style");
         optgroup->append_single_option_line("support_material_contact_distance", category_path + "contact-z-distance");
         optgroup->append_single_option_line("support_material_bottom_contact_distance", category_path + "contact-z-distance");
@@ -1728,6 +1755,7 @@ void AnkerTabPrint::build()
         optgroup->append_single_option_line("support_material_synchronize_layers", category_path + "synchronize-with-object-layers");
 
         optgroup = page->new_optgroup(L("Organic supports"));
+        optgroup->set_opt_width(Field::def_width_wider());
         optgroup->append_single_option_line("support_tree_angle", category_path + "tree_angle");
         optgroup->append_single_option_line("support_tree_angle_slow", category_path + "tree_angle_slow");
         optgroup->append_single_option_line("support_tree_branch_diameter", category_path + "tree_branch_diameter");
@@ -1738,7 +1766,7 @@ void AnkerTabPrint::build()
 
     page = add_options_page(L("Speed"), "time");
         optgroup = page->new_optgroup(L("Speed for print moves"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("perimeter_speed");
         optgroup->append_single_option_line("small_perimeter_speed");
         optgroup->append_single_option_line("external_perimeter_speed");
@@ -1752,7 +1780,7 @@ void AnkerTabPrint::build()
         optgroup->append_single_option_line("ironing_speed");
 
         optgroup = page->new_optgroup(L("Dynamic overhang speed"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("enable_dynamic_overhang_speeds");
         optgroup->append_single_option_line("overhang_speed_0");
         optgroup->append_single_option_line("overhang_speed_1");
@@ -1760,17 +1788,17 @@ void AnkerTabPrint::build()
         optgroup->append_single_option_line("overhang_speed_3");
 
         optgroup = page->new_optgroup(L("Speed for non-print moves"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("travel_speed");
         optgroup->append_single_option_line("travel_speed_z");
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup = page->new_optgroup(L("Modifiers"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("first_layer_speed");
         optgroup->append_single_option_line("first_layer_speed_over_raft");
 
         optgroup = page->new_optgroup(L("Acceleration control (advanced)"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("external_perimeter_acceleration");
         optgroup->append_single_option_line("perimeter_acceleration");
         optgroup->append_single_option_line("top_solid_infill_acceleration");
@@ -1783,12 +1811,12 @@ void AnkerTabPrint::build()
         optgroup->append_single_option_line("default_acceleration");
 
         optgroup = page->new_optgroup(L("Autospeed (advanced)"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("max_print_speed", "max-volumetric-speed_127176");
         optgroup->append_single_option_line("max_volumetric_speed", "max-volumetric-speed_127176");
 
         optgroup = page->new_optgroup(L("Pressure equalizer (experimental)"));
-        optgroup->set_opt_width(Field::def_width_wider());
+        optgroup->set_opt_width(Field::def_width_16());
         optgroup->append_single_option_line("max_volumetric_extrusion_rate_slope_positive", "pressure-equlizer_331504");
         optgroup->append_single_option_line("max_volumetric_extrusion_rate_slope_negative", "pressure-equlizer_331504");
 
@@ -2000,7 +2028,7 @@ void AnkerTabPrint::update()
         // update() could be called during undo/redo execution
         // Update of objectList can cause a crash in this case (because m_objects doesn't match ObjectList) 
         if (!wxGetApp().plater()->inside_snapshot_capture())
-            wxGetApp().objectbar()->update_and_show_object_settings_item();
+            wxGetApp().obj_list()->update_and_show_object_settings_item();
 
         wxGetApp().mainframe->on_config_changed(m_config);
     }
@@ -2339,7 +2367,9 @@ void AnkerTabFilament::build()
         option.opt.width = Field::def_width();
         optgroup->append_single_option_line(option);
         optgroup->append_single_option_line("filament_soluble");
-
+        optgroup->append_single_option_line("enable_pressure_advance");
+        optgroup->append_single_option_line("pressure_advance");
+        
         optgroup = page->new_optgroup(L("Print speed override"));
         optgroup->append_single_option_line("filament_max_volumetric_speed", "max-volumetric-speed_127176");
 
@@ -2486,6 +2516,11 @@ void AnkerTabFilament::toggle_options()
         toggle_option("overhang_fan_speed_"+std::to_string(i),dynamic_fan_speeds);
         }
     }
+    
+    if (m_active_page->title() == L("Advanced")) {
+        bool pa = m_config->opt_bool("enable_pressure_advance", 0);
+        toggle_option("pressure_advance", pa);
+    }
 
     if (m_active_page->title() == "Filament Overrides")
         update_filament_overrides_page();
@@ -2579,7 +2614,7 @@ void AnkerTabPrinter::build_print_host_upload_group(AnkerPage* page)
         "A new Physical Printer profile is created by clicking on the \"cog\" icon right of the Printer profiles combo box, "
         "by selecting the \"Add physical printer\" item in the Printer combo box. The Physical Printer profile editor opens "
         "also when clicking on the \"cog\" icon in the Printer settings tab. The Physical Printer profiles are being stored "
-        "into AnkerMake Studio/physical_printer directory.");
+        "into eufyMake Studio/physical_printer directory.");
 
     AnkerLine line = { "", "" };
     line.full_width = 1;
@@ -2606,7 +2641,7 @@ void AnkerTabPrinter::build_fff()
 
     auto   *nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(m_config->option("nozzle_diameter"));
     m_initial_extruders_count = m_extruders_count = nozzle_diameter->values.size();
-    wxGetApp().objectbar()->update_objects_list_extruder_column(m_initial_extruders_count);
+    wxGetApp().sidebarnew().update_objects_list_extruder_column(m_initial_extruders_count);
 
     const Preset* parent_preset = m_printer_technology == ptSLA ? nullptr // just for first build, if SLA printer preset is selected 
                                   : m_presets->get_selected_preset_parent();
@@ -2630,7 +2665,7 @@ void AnkerTabPrinter::build_fff()
             def.label = L("Extruders");
             def.tooltip = L("Number of extruders of the printer.");
             def.min = 1;
-            def.max = 256;
+            def.max = 6;
             def.mode = comExpert;
             AnkerOption option(def, "extruders_count");
         optgroup->append_single_option_line(option);
@@ -2968,7 +3003,7 @@ void AnkerTabPrinter::extruders_count_changed(size_t extruders_count)
 
     if (is_count_changed) {
         on_value_change("extruders_count", extruders_count);
-        wxGetApp().objectbar()->update_objects_list_extruder_column(extruders_count);
+        wxGetApp().sidebarnew().update_objects_list_extruder_column(extruders_count);
     }
 }
 
@@ -3341,11 +3376,13 @@ void AnkerTabPrinter::build_unregular_pages(bool from_initial_build/* = false*/)
 // this gets executed after preset is loaded and before GUI fields are updated
 void AnkerTabPrinter::on_preset_loaded()
 {
+#if 0
     // update the extruders count field
     auto   *nozzle_diameter = dynamic_cast<const ConfigOptionFloats*>(m_config->option("nozzle_diameter"));
     size_t extruders_count = nozzle_diameter->values.size();
     // update the GUI field according to the number of nozzle diameters supplied
     extruders_count_changed(extruders_count);
+#endif
 }
 
 void AnkerTabPrinter::update_pages()
@@ -3378,7 +3415,7 @@ void AnkerTabPrinter::update_pages()
         else
             m_pages.swap(m_pages_fff);
 
-         wxGetApp().objectbar()->update_objects_list_extruder_column(m_extruders_count);
+        wxGetApp().sidebarnew().update_objects_list_extruder_column(m_extruders_count);
     }
     else
         m_pages_sla.empty() ? build_sla() : m_pages.swap(m_pages_sla);
@@ -3511,6 +3548,8 @@ void AnkerTabPrinter::toggle_options()
 	            toggle_option(opt, enabled, i);
         update_machine_limits_description(machine_limits_usage->value);
     }
+
+    toggle_option("extruders_count", false);
 }
 
 void AnkerTabPrinter::update()
@@ -3570,7 +3609,7 @@ void AnkerTab::load_current_preset()
         if (preset.printer_technology() == ptFFF)
             on_preset_loaded();
         else
-            wxGetApp().objectbar()->update_objects_list_extruder_column(1);
+            wxGetApp().sidebarnew().update_objects_list_extruder_column(1);
     }
     // Reload preset pages with the new configuration values.
     reload_config();
@@ -3665,6 +3704,17 @@ void AnkerTab::load_current_preset()
 #endif
 }
 
+int AnkerTab::get_page_title_gap(bool is_selected_page)
+{
+#ifndef __APPLE__
+    int gap = is_selected_page ? 40 : 30;
+#else
+    int gap = is_selected_page ? 40 : 35;
+#endif
+
+    return gap;
+}
+
 // add by dhf, to change page UI
 void AnkerTab::change_page(wxString page_Tab_text)
 {
@@ -3674,21 +3724,28 @@ void AnkerTab::change_page(wxString page_Tab_text)
             (*it)->SetFont(/*Font*/ANKER_FONT_NO_1);
             (*it)->SetBackgroundColour(wxColour(51, 52, 56));
             (*it)->SetTextColor(wxColour(173, 174, 175));
-
+            (*it)->SetMinSize(wxSize((*it)->GetTextExtent((*it)->GetText()).GetWidth() + get_page_title_gap(), AnkerLength(25)));
+            (*it)->SetSize(wxSize((*it)->GetTextExtent((*it)->GetText()).GetWidth() + get_page_title_gap(), AnkerLength(25)));
             if ((*it)->GetText() == page_Tab_text)
             {
                 pageTabBtn = (*it);
             }
         }
     }
+
+    // hight the selected page text
     if (pageTabBtn) {
         pageTabBtn->SetFont(/*Font*/ANKER_BOLD_FONT_NO_1);
         pageTabBtn->SetBackgroundColour(wxColour(58, 76, 62));
         pageTabBtn->SetTextColor(wxColour(98, 211, 97));
+        pageTabBtn->SetMinSize(wxSize(pageTabBtn->GetTextExtent(page_Tab_text).GetWidth() + get_page_title_gap(true), AnkerLength(25)));
+        pageTabBtn->SetSize(wxSize(pageTabBtn->GetTextExtent(page_Tab_text).GetWidth() + get_page_title_gap(true), AnkerLength(25)));
         pageTabBtn->SetFocus();
+
+        this->change_sel_page(pageTabBtn->GetText());
     }
 
-    this->change_sel_page(pageTabBtn->GetText());
+    Refresh();
 }
 
 // add by dhf, to change page UI
@@ -3716,13 +3773,9 @@ void AnkerTab::rebuild_page_buttons()
         button->SetBackgroundColour(wxColour(51, 52, 56));
         button->SetTextColor(wxColour(173, 174, 175));
         button->SetRadius(3);
-#ifndef __APPLE__
-        int gap = 20;
-#else
-        int gap = 25;
-#endif
-        button->SetMinSize(AnkerSize(button->GetTextExtent(label).GetWidth() + gap, 25));
 
+        // AnkerSize
+        button->SetMinSize(wxSize(button->GetTextExtent(label).GetWidth() + get_page_title_gap(), AnkerLength(25)));
         button->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this](wxCommandEvent& event) {
             AnkerBtn* pbtn = dynamic_cast<AnkerBtn*>(event.GetEventObject());
             if (pbtn)
@@ -3776,12 +3829,13 @@ void AnkerTab::update_btns_enabling()
 void AnkerTab::update_preset_choice()
 {
     m_presets_choice->update();
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->update();
-    }
     update_btns_enabling();
+}
+
+void AnkerTab::get_current_preset_name(std::string& strPresetName)
+{
+    int nSelection = m_presets_choice->GetSelection();
+    strPresetName = m_presets_choice->GetString(nSelection).ToUTF8().data();
 }
 
 // Called by the UI combo box when the user switches profiles, and also to delete the current profile.
@@ -3789,6 +3843,10 @@ void AnkerTab::update_preset_choice()
 // If the current profile is modified, user is asked to save the changes.
 void AnkerTab::select_preset(std::string preset_name, bool delete_current /*=false*/, const std::string& last_selected_ph_printer_name/* =""*/)
 {
+    bool print_tab = m_presets->type() == Preset::TYPE_PRINT || m_presets->type() == Preset::TYPE_SLA_PRINT;
+    bool printer_tab = m_presets->type() == Preset::TYPE_PRINTER;
+    bool filament_tab = m_presets->type() == Preset::TYPE_FILAMENT;
+
     if (preset_name.empty()) {
         if (delete_current) {
             // Find an alternate preset to be selected after the current preset is deleted.
@@ -3796,11 +3854,18 @@ void AnkerTab::select_preset(std::string preset_name, bool delete_current /*=fal
             size_t    				  idx_current   = m_presets->get_idx_selected();
             // Find the next visible preset.
             size_t 				      idx_new       = idx_current + 1;
-            if (idx_new < presets.size())
-                for (; idx_new < presets.size() && ! presets[idx_new].is_visible; ++ idx_new) ;
-            if (idx_new == presets.size())
-                for (idx_new = idx_current - 1; idx_new > 0 && ! presets[idx_new].is_visible; -- idx_new);
-            preset_name = presets[idx_new].name;
+            if (print_tab || filament_tab) {
+                // If you are deleting a custom filament and print configuration preset, you should switch to the inherited system preset after deletion
+                // fix bug of zz_3d_pc#3556 
+                preset_name = presets[idx_current].inherits();
+            }
+            else {
+                if (idx_new < presets.size())  // fix the bug of 2887
+                   for (; idx_new < presets.size() && (!presets[idx_new].is_visible || !presets[idx_new].is_compatible); ++ idx_new) ;
+                if (idx_new == presets.size())
+                   for (idx_new = idx_current - 1; idx_new > 0 && (!presets[idx_new].is_visible || !presets[idx_new].is_compatible); -- idx_new);
+                preset_name = presets[idx_new].name;
+            }
         } else {
             // If no name is provided, select the "-- default --" preset.
             preset_name = m_presets->default_preset().name;
@@ -3808,9 +3873,6 @@ void AnkerTab::select_preset(std::string preset_name, bool delete_current /*=fal
     }
     assert(! delete_current || (m_presets->get_edited_preset().name != preset_name && m_presets->get_edited_preset().is_user()));
     bool current_dirty = ! delete_current && m_presets->current_is_dirty();
-    bool print_tab     = m_presets->type() == Preset::TYPE_PRINT || m_presets->type() == Preset::TYPE_SLA_PRINT;
-    bool printer_tab   = m_presets->type() == Preset::TYPE_PRINTER;
-    bool filament_tab = m_presets->type() == Preset::TYPE_FILAMENT;
     bool canceled      = false;
     bool technology_changed = false;
     m_dependent_tabs.clear();
@@ -3929,32 +3991,39 @@ void AnkerTab::select_preset(std::string preset_name, bool delete_current /*=fal
                 on_page ? PresetSelectCompatibleType::Never :
                 show_incompatible_presets ? PresetSelectCompatibleType::OnlyIfWasCompatible : PresetSelectCompatibleType::Always;
         };
-        // mod by allen for Change the interaction for switching print and filament presets.
-        if (current_dirty || delete_current /*|| print_tab*/ || printer_tab) {
+        // change the interaction for switching print and filament presets.
+        // fix bug of zz_3d_pc#3556
+        if (current_dirty || (delete_current && !print_tab && !filament_tab) /*|| print_tab*/ || printer_tab) {
             PresetSelectCompatibleType select_other_print_if_incompatible = update_compatible_type(
                 technology_changed, print_tab, (print_tab ? this : wxGetApp().getAnkerTab(Preset::TYPE_PRINT))->m_show_incompatible_presets);
             PresetSelectCompatibleType select_other_filament_if_incompatible = update_compatible_type(
                 technology_changed, false, wxGetApp().getAnkerTab(Preset::TYPE_FILAMENT)->m_show_incompatible_presets);
             // mod by allen for Change the interaction for switching print and filament presets.
             //select_other_print_if_incompatible = PresetSelectCompatibleType::Never;
-            select_other_filament_if_incompatible = PresetSelectCompatibleType::Never;
+            //select_other_filament_if_incompatible = PresetSelectCompatibleType::Never;
 
             m_preset_bundle->update_compatible(select_other_print_if_incompatible, select_other_filament_if_incompatible);
         }
 
         if (filament_tab && wxGetApp().mainframe->m_ankerCfgDlg) {
-            wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->update();
+            //wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->update();
+            AnkerTab* printTab = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
+            if (!printTab) {
+	            return;
+            }
+            printTab->m_presets_choice->update();
 
             // mod by allen according to the product requirements, when switching machine models and consumables presets, 
             // the default printing parameter package is set to Normal mode.
-            int selectedIndex = wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetSelection();
-            std::string preset_name = wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetString(selectedIndex).ToUTF8().data();
+            int selectedIndex = printTab->m_presets_choice->GetSelection(); //wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetSelection();
+            std::string preset_name = printTab->m_presets_choice->GetString(selectedIndex).ToUTF8().data();//wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetString(selectedIndex).ToUTF8().data();
             ANKER_LOG_INFO << "filament changed, current selected print preset name is " << preset_name.c_str();
             // default print config should be normal mode
-            if (std::string::npos == preset_name.find(DEFAULT_PRINT_PRESET_KEYWORDS)) {
+            /*if (std::string::npos == preset_name.find(DEFAULT_PRINT_PRESET_KEYWORDS)) {
                 ANKER_LOG_INFO << "current selected default print preset is not Normal, need reselect";
                 selectNormalPrintPreset();
-            }
+            }*/
+            selectNormalPrintPreset();
         }
 
         // Initialize the UI from the current preset.
@@ -3987,8 +4056,12 @@ void AnkerTab::select_preset(std::string preset_name, bool delete_current /*=fal
             // mod by allen according to the product requirements, when switching machine models and consumables presets, 
             // the default printing parameter package is set to Normal mode.
             // check print preset is in normal mode when changed printer selection
-            int selectedIndex = wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetSelection();
-            std::string preset_name = wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetString(selectedIndex).ToUTF8().data();
+            AnkerTab* printTab = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
+            if (!printTab) {
+	            return;
+            }
+            int selectedIndex = printTab->m_presets_choice->GetSelection();//wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetSelection();
+            std::string preset_name = printTab->m_presets_choice->GetString(selectedIndex).ToUTF8().data();//wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->GetString(selectedIndex).ToUTF8().data();
             ANKER_LOG_INFO << "printer changed, current selected print preset name is " << preset_name.c_str();
             if (std::string::npos == preset_name.find(DEFAULT_PRINT_PRESET_KEYWORDS)) {
                 selectNormalPrintPreset();
@@ -4033,8 +4106,16 @@ void AnkerTab::selectNormalPrintPreset() {
         if (!preset.vendor || !preset.vendor->templates_profile) {
              if (std::string::npos != preset.name.find(DEFAULT_PRINT_PRESET_KEYWORDS)) {
                  wxGetApp().preset_bundle->prints.select_preset_by_name(preset.name, false);
-                 if(wxGetApp().mainframe->m_ankerCfgDlg)
-                    wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->update();
+
+				 AnkerTab* printTab = wxGetApp().getAnkerTab(Preset::TYPE_PRINT);
+				 if (!printTab) {
+					 return;
+				 }
+
+                 printTab->m_presets_choice->update();
+                 wxGetApp().plater()->sidebarnew().reloadParameterData();
+                /* if(wxGetApp().mainframe->m_ankerCfgDlg)
+                    wxGetApp().mainframe->m_ankerCfgDlg->m_printPresetsChoice->update();*/
                  ANKER_LOG_INFO << "reselect Normal preset, name is " << preset.name.c_str();
                  return;
              }
@@ -4046,6 +4127,10 @@ void AnkerTab::selectNormalPrintPreset() {
 // if the current preset was not dirty, or the user agreed to discard the changes, 1 is returned.
 bool AnkerTab::may_discard_current_dirty_preset(PresetCollection* presets /*= nullptr*/, const std::string& new_printer_name /*= ""*/)
 {
+    // fix bug:zz_3d_pc#3944
+    if (wxGetApp().is_recreating_gui())
+        return false;
+
     if (presets == nullptr) presets = m_presets;
 
     UnsavedChangesDialog dlg(m_type, presets, new_printer_name);
@@ -4308,8 +4393,10 @@ bool AnkerTab::change_sel_page(wxString page_tab_text)
         clear_pages();
         throw_if_canceled();
 
-        if (wxGetApp().mainframe!=nullptr && wxGetApp().mainframe->isActiveAndShownAnkerTab(this))
+        if (wxGetApp().mainframe != nullptr && wxGetApp().mainframe->isActiveAndShownAnkerTab(this)) {
             activate_selected_page(throw_if_canceled);
+            m_page_valid = true;
+        }
 
 #ifdef __linux__
         no_updates.reset(nullptr);
@@ -4500,10 +4587,6 @@ void AnkerTab::rename_preset()
 {
     if (m_presets_choice->is_selected_physical_printer())
         return;
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo && ankerTabPresetCombo->is_selected_physical_printer())
-        return;
 
     wxString msg;
 
@@ -4527,8 +4610,8 @@ void AnkerTab::rename_preset()
     AnkerSavePresetDialog dlg(m_parent, m_type, msg);
     if (dlg.ShowModal() != wxID_OK)
         return;
-
-    const std::string new_name = into_u8(dlg.get_name());
+    // fix the bug of #1408
+    const std::string new_name = dlg.get_name(); //into_u8(dlg.get_name());
     if (new_name.empty() || new_name == m_presets->get_selected_preset().name)
         return;
 
@@ -4571,20 +4654,24 @@ void AnkerTab::rename_preset()
     m_presets->select_preset_by_name(new_name, true);
 
     m_presets_choice->update();
-    // add by allen for ankerCfgDlg
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->update();
-    }
    
     on_presets_changed();
+
+    wxGetApp().plater()->sidebarnew().renameUserFilament(old_name, new_name);
 }
 
 // Called for a currently selected preset.
 void AnkerTab::delete_preset()
 {
     auto current_preset = m_presets->get_selected_preset();
+    std::string strOldFilamentName;
+    if (m_type == Preset::TYPE_FILAMENT) {
+        strOldFilamentName = current_preset.name;
+    }
     // Don't let the user delete the ' - default - ' configuration.
-    wxString action = current_preset.is_external ? _L("remove") : _L("delete");
+    //wxString action = current_preset.is_external ? _L("remove") : _L("delete");
+
+    std::string action  = current_preset.is_external ? _u8L(_L("remove")) : _u8L(_L("delete"));
 
     PhysicalPrinterCollection& physical_printers = m_preset_bundle->physical_printers;
     wxString msg;
@@ -4633,13 +4720,11 @@ void AnkerTab::delete_preset()
         msg += from_u8((boost::format(_u8L("Are you sure you want to %1% the selected preset?")) % action).str());
     }
 
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo && ankerTabPresetCombo->is_selected_physical_printer())
+    if (m_presets_choice->is_selected_physical_printer())
     {
         PhysicalPrinter& printer = physical_printers.get_selected_printer();
         if (printer.preset_names.size() == 1) {
-            if (ankerTabPresetCombo->del_physical_printer(_L("It's a last preset for this physical printer.")))
+            if (m_presets_choice->del_physical_printer(_L("It's a last preset for this physical printer.")))
                 Layout();
             return;
         }
@@ -4647,16 +4732,17 @@ void AnkerTab::delete_preset()
         msg = format_wxstr(_L("Are you sure you want to delete \"%1%\" preset from the physical printer \"%2%\"?"), current_preset.name, printer.name);
     }
 
-    action = current_preset.is_external ? _L("Remove") : _L("Delete");
+    //action = current_preset.is_external ? _L("Remove") : _L("Delete");
+    action = current_preset.is_external ? _u8L(_L("Remove")) : _u8L(_L("Delete"));
     if (msg.empty()) {
-        msg = format_wxstr(_L("Are you sure you want to delete \"%1%\" preset?"), current_preset.name);
+        msg = format_wxstr(_L("common_notice_delete2check"), current_preset.name);
     }
     // TRN Settings Tabs: Button in toolbar: "Remove/Delete"
     wxString title = format_wxstr(_L("%1% Preset"), action);
     if (current_preset.is_default ||
         //wxID_YES != wxMessageDialog(parent(), msg, title, wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION).ShowModal())
         // add by allen for ankerCfgDlg AnkerSavePresetDialog
-        AnkerMsgDialog::MsgResult::MSG_OK != AnkerMessageBox(nullptr, msg.ToStdString(), title.ToStdString()))
+        AnkerMsgDialog::MsgResult::MSG_OK != AnkerMessageBox(nullptr, msg.ToStdString(wxConvUTF8), title.ToStdString(wxConvUTF8)))
         return;
 
     // if we just delete preset from the physical printer
@@ -4672,7 +4758,7 @@ void AnkerTab::delete_preset()
         return;
     }
     // add by allen for ankerCfgDlg
-    if (ankerTabPresetCombo->is_selected_physical_printer()) {
+    if (m_presets_choice->is_selected_physical_printer()) {
         PhysicalPrinter& printer = physical_printers.get_selected_printer();
 
         // just delete this preset from the current physical printer
@@ -4691,18 +4777,16 @@ void AnkerTab::delete_preset()
     // Select will handle of the preset dependencies, of saving & closing the depending profiles, and
     // finally of deleting the preset.
     this->select_preset("", true);
+    if (m_type == Preset::TYPE_FILAMENT) {
+        std::string strNewFilamentName = m_presets->get_edited_preset().name;
+        wxGetApp().plater()->sidebarnew().renameUserFilament(strOldFilamentName, strNewFilamentName);
+    }
 }
 
 void AnkerTab::toggle_show_hide_incompatible()
 {
     m_show_incompatible_presets = !m_show_incompatible_presets;
     m_presets_choice->set_show_incompatible_presets(m_show_incompatible_presets);
-
-    // add by allen for ankerCfgDlg
-    AnkerTabPresetComboBox* ankerTabPresetCombo = getAnkerTabPresetCombo(m_type);
-    if (ankerTabPresetCombo) {
-        ankerTabPresetCombo->set_show_incompatible_presets(m_show_incompatible_presets);
-    }
     update_show_hide_incompatible_button();
     update_tab_ui();
 }
@@ -5879,7 +5963,7 @@ void AnkerTabSLAPrint::update()
         // update() could be called during undo/redo execution
         // Update of objectList can cause a crash in this case (because m_objects doesn't match ObjectList) 
         if (!wxGetApp().plater()->inside_snapshot_capture())
-            wxGetApp().objectbar()->update_and_show_object_settings_item();
+            wxGetApp().obj_list()->update_and_show_object_settings_item();
 
         wxGetApp().mainframe->on_config_changed(m_config);
     }
@@ -5910,7 +5994,7 @@ ConfigManipulation AnkerTab::get_config_manipulation()
         return on_value_change(opt_key, value);
     };
 
-    return ConfigManipulation(load_config, cb_toggle_field, cb_value_change, nullptr, this);
+    return ConfigManipulation(load_config, cb_toggle_field, nullptr, cb_value_change, nullptr, this);
 }
 
 

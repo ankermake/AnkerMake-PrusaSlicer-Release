@@ -5,10 +5,14 @@
 #include "slic3r/GUI/GLToolbar.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmoBase.hpp"
 #include "slic3r/GUI/Gizmos/GLGizmosCommon.hpp"
-
+#include "slic3r/GUI/Gizmos/GizmoObjectManipulation.hpp"
 #include "libslic3r/ObjectID.hpp"
 
 #include <map>
+
+//BBS: GUI refactor: to support top layout
+#define USE_OCRA 1
+#define TOOLBAR_ON_TOP 1
 
 namespace Slic3r {
 
@@ -22,7 +26,7 @@ class GLCanvas3D;
 class ClippingPlane;
 enum class SLAGizmoEventType : unsigned char;
 class CommonGizmosDataPool;
-
+class GizmoObjectManipulation;
 class Rect
 {
     float m_left{ 0.0f };
@@ -79,6 +83,7 @@ public:
         MmuSegmentation,
         Measure,
         Emboss,
+        Svg,
         Simplify,
         Undefined
     };
@@ -90,12 +95,15 @@ private:
         float icons_size{ Default_Icons_Size };
         float border{ 5.0f };
         float gap_y{ 5.0f };
+        float gap_x{ 5.0f };
 
+        float stride_x() const { return icons_size + gap_x; }
         float stride_y() const { return icons_size + gap_y;}
 
         float scaled_icons_size() const { return scale * icons_size; }
         float scaled_border() const { return scale * border; }
         float scaled_gap_y() const { return scale * gap_y; }
+        float scaled_stride_x() const { return scale * stride_x(); }
         float scaled_stride_y() const { return scale * stride_y(); }
     };
 
@@ -121,6 +129,10 @@ private:
     bool m_serializing;
     std::unique_ptr<CommonGizmosDataPool> m_common_gizmos_data;
 
+    // key MENU_ICON_NAME, value = ImtextureID
+    std::map<int, void*> icon_list;
+    GizmoObjectManipulation m_object_manipulation;
+
     /// <summary>
     /// Process mouse event on gizmo toolbar
     /// </summary>
@@ -130,9 +142,27 @@ private:
     /// On false, event should be process by others.</returns>
     bool gizmos_toolbar_on_mouse(const wxMouseEvent &mouse_event);
 public:
+    std::unique_ptr<AssembleViewDataPool> m_assemble_view_data;
+
+    enum MENU_ICON_NAME {
+        IC_TOOLBAR_RESET = 0,
+        IC_TOOLBAR_RESET_HOVER,
+        IC_TOOLBAR_TOOLTIP,
+        IC_TOOLBAR_TOOLTIP_HOVER,
+        IC_TEXT_B,
+        IC_TEXT_B_DARK,
+        IC_TEXT_T,
+        IC_TEXT_T_DARK,
+        IC_NAME_COUNT,
+    };
+
     explicit GLGizmosManager(GLCanvas3D& parent);
 
     bool init();
+
+    bool init_icon_textures();
+
+    float get_layout_scale();
 
     bool init_arrow(const std::string& filename);
 
@@ -177,6 +207,7 @@ public:
     // Anker
     bool is_rendered() const { return m_UIRendered; }
     void set_UI_rendered(bool rendered) { m_UIRendered = rendered; }
+    void render_anker_data();
 
     void set_overlay_icon_size(float size);
     void set_overlay_scale(float scale);
@@ -193,6 +224,7 @@ public:
     /// Should be called when selection changed
     /// </summary>
     void update_data();
+    void update_assemble_view_data();
 
     EType get_current_type() const { return m_current; }
     GLGizmoBase* get_current() const;
@@ -205,6 +237,7 @@ public:
     bool is_dragging() const;
 
     ClippingPlane get_clipping_plane() const;
+    ClippingPlane get_assemble_view_clipping_plane() const;
     bool wants_reslice_supports_on_undo() const;
 
     bool is_in_editing_mode(bool error_notification = false) const;
@@ -212,8 +245,11 @@ public:
 
     void render_current_gizmo() const;
     void render_painter_gizmo();
+    void render_painter_assemble_view() const;
 
     void render_overlay();
+
+    
 
     void render_arrow(const GLCanvas3D& parent, EType highlighted_type) const;
 
@@ -232,6 +268,24 @@ public:
     void set_highlight(EType gizmo, bool highlight_shown) { m_highlight = std::pair<EType, bool>(gizmo, highlight_shown); }
     bool get_highlight_state() const { return m_highlight.second; }
 
+    float get_scaled_total_height() const;
+    float get_scaled_total_width() const;
+
+    Vec2d get_gizmo_render_position(size_t gizmoID) const;
+
+    void* get_icon_texture_id(MENU_ICON_NAME icon) {
+        if (icon_list.find((int)icon) != icon_list.end())
+            return icon_list[icon];
+        else
+            return nullptr;
+    }
+    void* get_icon_texture_id(MENU_ICON_NAME icon) const {
+        if (icon_list.find((int)icon) != icon_list.end())
+            return icon_list.at(icon);
+        else
+            return nullptr;
+    }
+
 private:
     bool gizmo_event(SLAGizmoEventType action,
                      const Vec2d &     mouse_position = Vec2d::Zero(),
@@ -242,9 +296,6 @@ private:
     void render_background(float left, float top, float right, float bottom, float border_w, float border_h) const;
 
     void do_render_overlay() const;
-
-    float get_scaled_total_height() const;
-    float get_scaled_total_width() const;
 
     bool generate_icons_texture();
 

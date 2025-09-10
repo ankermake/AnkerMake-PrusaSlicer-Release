@@ -128,13 +128,14 @@ void SLAImportJob::finalize(bool canceled, std::exception_ptr &eptr)
 
     std::string name = wxFileName(p->path).GetName().ToUTF8().data();
 
-    if (p->profile.empty()) {
+    //comment by Samuel 20231106, Discarded  unused notification text
+ /*   if (p->profile.empty()) {
         p->plater->get_notification_manager()->push_notification(
         NotificationType::CustomNotification,
         NotificationManager::NotificationLevel::WarningNotificationLevel,
             _u8L("The imported SLA archive did not contain any presets. "
                "The current SLA presets were used as fallback."));
-    }
+    }*/
 
     if (p->sel != Sel::modelOnly) {
         if (p->profile.empty())
@@ -163,7 +164,7 @@ void SLAImportJob::finalize(bool canceled, std::exception_ptr &eptr)
             p->plater->get_notification_manager()->push_notification(
                 NotificationType::CustomNotification,
                 NotificationManager::NotificationLevel::WarningNotificationLevel,
-                _u8L("The profile in the imported archive is corrupted and will not be loaded."));
+                _u8L("common_slicepopup_profileerror"));
         }
     }
 
@@ -172,10 +173,12 @@ void SLAImportJob::finalize(bool canceled, std::exception_ptr &eptr)
         //p->plater->objectbar().getObjectList()->load_mesh_object(TriangleMesh{std::move(p->mesh)},
         //                                                  name, is_centered);
     } else if (p->sel == Sel::modelOnly || p->sel == Sel::modelAndProfile) {
-        p->plater->get_notification_manager()->push_notification(
+
+        //comment by Samuel 20231106, Discarded  unused notification text
+       /* p->plater->get_notification_manager()->push_notification(
             NotificationType::CustomNotification,
             NotificationManager::NotificationLevel::WarningNotificationLevel,
-            _u8L("No object could be retrieved from the archive. The slices might be corrupted or missing."));
+            _u8L("No object could be retrieved from the archive. The slices might be corrupted or missing."));*/
     }
 
     if (! p->config_substitutions.empty())

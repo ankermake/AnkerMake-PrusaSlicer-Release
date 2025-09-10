@@ -2,6 +2,7 @@
 #define slic3r_OpenGLManager_hpp_
 
 #include "GLShadersManager.hpp"
+#include "AnkerComFunction.hpp"
 
 class wxWindow;
 class wxGLCanvas;

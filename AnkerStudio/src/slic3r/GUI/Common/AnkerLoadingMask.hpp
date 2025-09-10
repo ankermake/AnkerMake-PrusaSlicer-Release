@@ -40,9 +40,9 @@ private:
 	wxImage m_mumImage[MUM_IMAGE_COUNT];
 	wxStaticBitmap* m_pMumLabel;
 	wxStaticText* m_pLoadingLabel;
-	wxTimer* m_pAnimationTimer;
-	wxTimer* m_pTimeOutTimer;
-	wxTimer* m_pRectUpdatetTimer;
+	wxTimer* m_pAnimationTimer{ nullptr };
+	wxTimer* m_pTimeOutTimer{ nullptr };
+	wxTimer* m_pRectUpdatetTimer{ nullptr };
 };
 
 #endif // _ANKER_LOADING_MASK_H_

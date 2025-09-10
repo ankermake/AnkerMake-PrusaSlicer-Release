@@ -5,13 +5,13 @@
 #include "slic3r/GUI/AnkerBtn.hpp"
 #include "slic3r/GUI/GUI_App.hpp"
 #include "slic3r/GUI/AnkerCheckBox.hpp"
-#include "slic3r/Utils/DataManger.hpp"
-
 #include "libslic3r/Utils.hpp"
 #include "AnkerLoadingMask.hpp"
 #include "AnkerGUIConfig.hpp"
 
 #include <regex>
+#include <slic3r/Utils/DataMangerUi.hpp>
+#include "AnkerNetBase.h"
 
 
 
@@ -131,7 +131,10 @@ void AnkerFeedbackDialog::initUI()
     m_pEmailLineEdit->SetMaxSize(AnkerSize(352, 30));
     m_pEmailLineEdit->SetMinSize(AnkerSize(352, 30));
     m_pEmailLineEdit->SetSize(AnkerSize(352, 30));
-    m_pEmailLineEdit->SetValue(Datamanger::GetInstance().m_userInfo.email);
+    auto ankerNet = AnkerNetInst();
+    if (ankerNet) {
+        m_pEmailLineEdit->SetValue(ankerNet->GetUserEmail());
+    }    
     m_pEmailLineEdit->getTextEdit()->SetHint(_L("Email"));
     emailHSizer->Add(m_pEmailLineEdit, 0, wxALIGN_RIGHT | wxTOP | wxCENTER, 0);
 
@@ -175,7 +178,7 @@ void AnkerFeedbackDialog::initUI()
     shareLogHSizer->Add(shareLogCheckBox, 0,  wxALIGN_CENTER_VERTICAL, 0);
 
     wxStaticText* shareLogText = new wxStaticText(this, wxID_ANY, m_title, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTER_HORIZONTAL);
-    shareLogText->SetMinSize(AnkerSize(257, 20));
+    shareLogText->SetMinSize(AnkerSize(280, 20));
     shareLogText->SetBackgroundColour(wxColour("#333438"));
     shareLogText->SetForegroundColour(wxColour("#FFFFFF"));
     shareLogText->SetFont(ANKER_FONT_NO_1);

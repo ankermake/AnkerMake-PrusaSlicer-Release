@@ -175,6 +175,15 @@ public:
     void setSelectedObjectMultiContinuous(AnkerObjectItem* object);
     int getSelectedCount() { return m_selectedItems.size(); }
     AnkerObjectItem* getSelectedObject(int index = 0) { return index < 0 || index >= m_selectedItems.size() ? nullptr : m_selectedItems[index]->getObject(); }
+    std::vector<AnkerObjectItem*> getSelectedObjects() 
+    {
+        std::vector<AnkerObjectItem*> itemVector;
+        for (int i = 0; i < m_selectedItems.size(); i++)
+        {
+            itemVector.push_back(m_selectedItems[i]->getObject());
+        }
+        return itemVector;
+    }
     AnkerObjectItem* getParentObject(AnkerObjectItem* object);
 
     void selectAll(bool selected = true);

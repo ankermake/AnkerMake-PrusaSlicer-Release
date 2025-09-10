@@ -94,9 +94,9 @@ void MeshClipper::set_transformation(const Geometry::Transformation& trafo)
     }
 }
 
-void MeshClipper::render_cut(const ColorRGBA& color)
+void MeshClipper::render_cut(const ColorRGBA& color, const std::vector<size_t>* ignore_idxs)
 {
-    if (! m_result)
+    if (!m_result)
         recalculate_triangles();
     GLShaderProgram* curr_shader = wxGetApp().get_current_shader();
     if (curr_shader != nullptr)
@@ -108,7 +108,10 @@ void MeshClipper::render_cut(const ColorRGBA& color)
         const Camera& camera = wxGetApp().plater()->get_camera();
         shader->set_uniform("view_model_matrix", camera.get_view_matrix());
         shader->set_uniform("projection_matrix", camera.get_projection_matrix());
-        for (CutIsland& isl : m_result->cut_islands) {
+        for (size_t i = 0; i < m_result->cut_islands.size(); ++i) {
+            if (ignore_idxs && std::binary_search(ignore_idxs->begin(), ignore_idxs->end(), i))
+                continue;
+            CutIsland& isl = m_result->cut_islands[i];
             isl.model.set_color(isl.disabled ? ColorRGBA(0.5f, 0.5f, 0.5f, 1.f) : color);
             isl.model.render();
         }
@@ -120,9 +123,9 @@ void MeshClipper::render_cut(const ColorRGBA& color)
 }
 
 
-void MeshClipper::render_contour(const ColorRGBA& color)
+void MeshClipper::render_contour(const ColorRGBA& color, const std::vector<size_t>* ignore_idxs)
 {
-    if (! m_result)
+    if (!m_result)
         recalculate_triangles();
 
     GLShaderProgram* curr_shader = wxGetApp().get_current_shader();
@@ -135,7 +138,10 @@ void MeshClipper::render_contour(const ColorRGBA& color)
         const Camera& camera = wxGetApp().plater()->get_camera();
         shader->set_uniform("view_model_matrix", camera.get_view_matrix());
         shader->set_uniform("projection_matrix", camera.get_projection_matrix());
-        for (CutIsland& isl : m_result->cut_islands) {
+        for (size_t i = 0; i < m_result->cut_islands.size(); ++i) {
+            if (ignore_idxs && std::binary_search(ignore_idxs->begin(), ignore_idxs->end(), i))
+                continue;
+            CutIsland& isl = m_result->cut_islands[i];
             isl.model_expanded.set_color(isl.disabled ? ColorRGBA(1.f, 0.f, 0.f, 1.f) : color);
             isl.model_expanded.render();
         }
@@ -146,18 +152,19 @@ void MeshClipper::render_contour(const ColorRGBA& color)
         curr_shader->start_using();
 }
 
-bool MeshClipper::is_projection_inside_cut(const Vec3d& point_in) const
+int MeshClipper::is_projection_inside_cut(const Vec3d& point_in) const
 {
     if (!m_result || m_result->cut_islands.empty())
-        return false;
+        return -1;
     Vec3d point = m_result->trafo.inverse() * point_in;
     Point pt_2d = Point::new_scale(Vec2d(point.x(), point.y()));
 
-    for (const CutIsland& isl : m_result->cut_islands) {
+    for (int i=0; i<int(m_result->cut_islands.size()); ++i) {
+        const CutIsland& isl = m_result->cut_islands[i];
         if (isl.expoly_bb.contains(pt_2d) && isl.expoly.contains(pt_2d))
-            return !isl.disabled;
+            return i; // TODO: handle intersecting contours
     }
-    return false;
+    return -1;
 }
 
 bool MeshClipper::has_valid_contour() const
@@ -165,6 +172,46 @@ bool MeshClipper::has_valid_contour() const
     return m_result && std::any_of(m_result->cut_islands.begin(), m_result->cut_islands.end(), [](const CutIsland& isl) { return !isl.expoly.empty(); });
 }
 
+std::vector<Vec3d> MeshClipper::point_per_contour() const
+{
+    assert(m_result);
+    std::vector<Vec3d> out;
+
+    for (const CutIsland& isl : m_result->cut_islands) {
+        assert(isl.expoly.contour.size() > 2);
+        // Now return a point lying inside the contour but not in a hole.
+        // We do this by taking a point lying close to the edge, repeating
+        // this several times for different edges and distances from them.
+        // (We prefer point not extremely close to the border.
+        bool done = false;
+        Vec2d p;
+        size_t i = 1;
+        while (i < isl.expoly.contour.size()) {
+            const Vec2d& a = unscale(isl.expoly.contour.points[i - 1]);
+            const Vec2d& b = unscale(isl.expoly.contour.points[i]);
+            Vec2d n = (b - a).normalized();
+            std::swap(n.x(), n.y());
+            n.x() = -1 * n.x();
+            double f = 10.;
+            while (f > 0.05) {
+                p = (0.5 * (b + a)) + f * n;
+                if (isl.expoly.contains(Point::new_scale(p))) {
+                    done = true;
+                    break;
+                }
+                f = f / 10.;
+            }
+            if (done)
+                break;
+            i += std::max(size_t(2), isl.expoly.contour.size() / 5);
+        }
+        // If the above failed, just return the centroid, regardless of whether
+        // it is inside the contour or in a hole (we must return something).
+        Vec2d c = done ? p : unscale(isl.expoly.contour.centroid());
+        out.emplace_back(m_result->trafo * Vec3d(c.x(), c.y(), 0.));
+    }
+    return out;
+}
 
 void MeshClipper::pass_mouse_click(const Vec3d& point_in)
 {
@@ -367,6 +414,11 @@ Vec3f MeshRaycaster::get_triangle_normal(size_t facet_idx) const
     return m_normals[facet_idx];
 }
 
+bool MeshRaycaster::is_valid_normals() const
+{
+    return m_normals.size() > 0;
+}
+
 void MeshRaycaster::line_from_mouse_pos(const Vec2d& mouse_pos, const Transform3d& trafo, const Camera& camera, Vec3d& point, Vec3d& direction)
 {
     CameraUtils::ray_from_screen_pos(camera, mouse_pos, point, direction);
@@ -418,7 +470,18 @@ bool MeshRaycaster::unproject_on_mesh(const Vec2d& mouse_pos, const Transform3d&
     return true;
 }
 
+bool MeshRaycaster::intersects_line(Vec3d point, Vec3d direction, const Transform3d& trafo) const
+{
+    Transform3d trafo_inv = trafo.inverse();
+    Vec3d to = trafo_inv * (point + direction);
+    point = trafo_inv * point;
+    direction = (to - point).normalized();
 
+    std::vector<AABBMesh::hit_result> hits = m_emesh.query_ray_hits(point, direction);
+    std::vector<AABBMesh::hit_result> neg_hits = m_emesh.query_ray_hits(point, -direction);
+
+    return !hits.empty() || !neg_hits.empty();
+}
 
 bool MeshRaycaster::is_valid_intersection(Vec3d point, Vec3d direction, const Transform3d& trafo) const 
 {

@@ -225,7 +225,7 @@ std::vector<std::string> ConfigOptionDef::cli_args(const std::string &key) const
 	if (this->cli != ConfigOptionDef::nocli) {
         const std::string &cli = this->cli;
         //FIXME What was that for? Check the "readline" documentation.
-        // Neither '=' nor '!' is used in any of the cli parameters currently defined by AnkerStudio.
+        // Neither '=' nor '!' is used in any of the cli parameters currently defined by.
 //        std::string cli = this->cli.substr(0, this->cli.find("="));
 //        boost::trim_right_if(cli, boost::is_any_of("!"));
 		if (cli.empty()) {
@@ -949,7 +949,7 @@ ConfigSubstitutions ConfigBase::load_from_gcode_file(const std::string &file, Fo
                 for (; j < header.size() && header[j] != ' '; ++ j) ;
                 try {
                     Semver semver(header.substr(i, j - i));
-                    has_delimiters = semver >= Semver(2, 4, 0, nullptr, "alpha0");
+                    has_delimiters = semver >= Semver(1, 0, 0, nullptr, "alpha0");
                 } catch (const RuntimeError &) {
                 }
                 header_found = true;
@@ -957,7 +957,7 @@ ConfigSubstitutions ConfigBase::load_from_gcode_file(const std::string &file, Fo
             }
         }
         if (! header_found)
-            throw Slic3r::RuntimeError("Not a AnkerMake Studio / Slic3r PE generated g-code.");
+            throw Slic3r::RuntimeError("Not a eufyMake Studio / Slic3r PE generated g-code.");
     }
 
     auto                      header_end_pos = ifs.tellg();
@@ -978,7 +978,7 @@ ConfigSubstitutions ConfigBase::load_from_gcode_file(const std::string &file, Fo
         bool end_found   = false;
         std::string line;
         while (reader.getline(line))
-            if (line == "; ankerstudio_config = end") {
+            if (line == "; ankerslicer_config = end") {
                 end_found = true;
                 break;
             }
@@ -986,7 +986,7 @@ ConfigSubstitutions ConfigBase::load_from_gcode_file(const std::string &file, Fo
             throw Slic3r::RuntimeError(format("Configuration block closing tag \"; ankerstudio_config = end\" not found when reading %1%", file));
         std::string key, value;
         while (reader.getline(line)) {
-            if (line == "; ankerstudio_config = begin") {
+            if (line == "; ankerslicer_config = begin") {
                 begin_found = true;
                 break;
             }

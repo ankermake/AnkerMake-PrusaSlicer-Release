@@ -50,6 +50,11 @@ void    msw_buttons_rescale(wxDialog* dlg, const int em_unit, const std::vector<
 int     em_unit(wxWindow* win);
 int     mode_icon_px_size();
 
+wxBitmap create_scaled_bitmap(const std::string& bmp_name, wxWindow* win = nullptr,
+    const int px_cnt = 16, const bool grayscale = false,
+    const std::string& new_color = std::string(), // color witch will used instead of orange
+    const bool menu_bitmap = false, const bool resize = false);
+
 wxBitmapBundle* try_get_bmp_bundle(const std::string& bmp_name, int px_cnt = 16, const std::string& new_color_rgb = std::string());
 wxBitmapBundle* get_bmp_bundle(const std::string& bmp_name, int px_cnt = 16, const std::string& new_color_rgb = std::string());
 wxBitmapBundle* get_empty_bmp_bundle(int width, int height);
@@ -128,6 +133,16 @@ public:
     void				SetItemsCnt(int cnt) { m_cnt_open_items = cnt; }
 };
 
+inline wxSize get_preferred_size(const wxBitmapBundle& bmp, wxWindow* parent)
+{
+    if (!bmp.IsOk())
+        return wxSize(0, 0);
+#ifdef __WIN32__
+    return bmp.GetPreferredBitmapSizeFor(parent);
+#else
+    return bmp.GetDefaultSize();
+#endif
+}
 
 // ----------------------------------------------------------------------------
 // ScalableBitmap
@@ -146,7 +161,8 @@ public:
 
     void                sys_color_changed();
 
-    const wxBitmapBundle& bmp()   const { return m_bmp; }
+    const wxBitmapBundle&     bmp()   const { return m_bmp; }
+    wxBitmapBundle& bmp() { return m_bmp; }
     wxBitmap            get_bitmap()    { return m_bmp.GetBitmapFor(m_parent); }
     wxWindow*           parent()  const { return m_parent;}
     const std::string&  name()    const { return m_icon_name; }
@@ -159,8 +175,11 @@ public:
         return m_bmp.GetDefaultSize();
 #endif
     }
+    wxSize              GetBmpSize() const { return GetSize();  };
     int                 GetWidth()  const { return GetSize().GetWidth(); }
     int                 GetHeight() const { return GetSize().GetHeight(); }
+
+    void                msw_rescale();
 
 private:
     wxWindow*       m_parent{ nullptr };
@@ -168,6 +187,8 @@ private:
     wxBitmap        m_bitmap = wxBitmap();
     std::string     m_icon_name = "";
     int             m_px_cnt {16};
+    bool            m_grayscale{ false };
+    bool            m_resize{ false };
 };
 
 
@@ -244,6 +265,8 @@ public:
 
     virtual void    sys_color_changed();
 
+    void    msw_rescale();
+
 private:
     void initBindEvent();
 
@@ -253,6 +276,8 @@ private:
     std::string     m_disabled_icon_name;
     int             m_width {-1}; // should be multiplied to em_unit
     int             m_height{-1}; // should be multiplied to em_unit
+
+    bool            m_use_default_disabled_bitmap{ false };
 
 protected:
     // bitmap dimensions 

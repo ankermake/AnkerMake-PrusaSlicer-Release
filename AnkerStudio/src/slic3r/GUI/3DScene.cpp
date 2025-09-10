@@ -10,6 +10,7 @@
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
 #include "libslic3r/ExtrusionEntityCollection.hpp"
+#include "slic3r/GUI/OpenGLManager.hpp"
 #include "libslic3r/Geometry.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/SLAPrint.hpp"
@@ -21,6 +22,7 @@
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Tesselate.hpp"
 #include "libslic3r/PrintConfig.hpp"
+#include "slic3r/GUI/GLCanvas3D.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,6 +63,8 @@ void glAssertRecentCallImpl(const char* file_name, unsigned int line, const char
     assert(false);
 }
 #endif // HAS_GLSAFE
+
+
 
 namespace Slic3r {
 
@@ -204,6 +208,7 @@ const ColorRGBA GLVolume::DISABLED_COLOR         = ColorRGBA::DARK_GRAY();
 const ColorRGBA GLVolume::SLA_SUPPORT_COLOR      = ColorRGBA::LIGHT_GRAY();
 const ColorRGBA GLVolume::SLA_PAD_COLOR          = { 0.0f, 0.2f, 0.0f, 1.0f };
 const ColorRGBA GLVolume::NEUTRAL_COLOR          = { 0.9f, 0.9f, 0.9f, 1.0f };
+std::array<float, 4> GLVolume::MODEL_HIDDEN_COL = { 0.9f, 0.9f, 0.9f, 0.3f };
 const std::array<ColorRGBA, 4> GLVolume::MODEL_COLOR = { {
     ColorRGBA::YELLOW(),
     { 1.0f, 0.5f, 0.5f, 1.0f },
@@ -221,6 +226,7 @@ GLVolume::GLVolume(float r, float g, float b, float a)
     , selected(false)
     , disabled(false)
     , printable(true)
+    , visible(true)
     , is_active(true)
     , zoom_to_volumes(true)
     , shader_outside_printer_detection_enabled(false)
@@ -233,15 +239,26 @@ GLVolume::GLVolume(float r, float g, float b, float a)
     , force_neutral_color(false)
     , force_sinking_contours(false)
     , tverts_range(0, size_t(-1))
+    , mmu_mesh(nullptr)
 {
     color = { r, g, b, a };
     set_render_color(color);
 }
 
+float GLVolume::explosion_ratio = 1.0;
+float GLVolume::last_explosion_ratio = 1.0;
+
 void GLVolume::set_render_color(bool force_transparent)
 {
-    bool outside = is_outside || is_below_printbed();
+    if (!GUI::wxGetApp().plater())
+        return;
 
+    bool is_assemble_view = false;
+    if (auto plater = GUI::wxGetApp().plater()) {
+        is_assemble_view = (plater->get_current_canvas3D()->get_canvas_type() == GUI::GLCanvas3D::ECanvasType::CanvasAssembleView);
+    }
+
+    bool outside = is_outside || is_below_printbed();
     if (force_native_color || force_neutral_color) {
         if (outside && shader_outside_printer_detection_enabled)
             set_render_color(OUTSIDE_COLOR);
@@ -258,20 +275,55 @@ void GLVolume::set_render_color(bool force_transparent)
         else if (hover == HS_Deselect)
             set_render_color(HOVER_DESELECT_COLOR);
         else if (selected)
-            set_render_color(outside ? SELECTED_OUTSIDE_COLOR : SELECTED_COLOR);
+            set_render_color((outside && !is_assemble_view) ? SELECTED_OUTSIDE_COLOR : SELECTED_COLOR);
         else if (disabled)
             set_render_color(DISABLED_COLOR);
-        else if (outside && shader_outside_printer_detection_enabled)
+        else if (outside && shader_outside_printer_detection_enabled && !is_assemble_view)
             set_render_color(OUTSIDE_COLOR);
-        else
+        else {
             set_render_color(color);
+        }
     }
 
-    if (!printable)
+    if (!printable && !is_assemble_view)
         render_color = saturate(render_color, 0.25f);
 
-    if (force_transparent)
+    if (force_transparent && !is_assemble_view)
         render_color.a(color.a());
+
+    //set invisible color
+    if (!visible) {
+        ColorRGBA visible_color (MODEL_HIDDEN_COL[0], MODEL_HIDDEN_COL[1], MODEL_HIDDEN_COL[2], MODEL_HIDDEN_COL[3]);
+        render_color = visible_color;
+    }
+}
+
+void GLVolume::set_mmu_render_data_from_model_volume(const ModelVolume& model_volume)
+{
+    if (model_volume.mmu_segmentation_facets.empty()) {
+        return;
+    }
+    GUI::GLTriangleSelector selector(model_volume.mesh());
+    selector.deserialize(model_volume.mmu_segmentation_facets.get_data(), false);
+    auto max_size = 6;
+    mmu_mesh = std::make_shared<GLSimpleMesh>((max_size + 1 ) * 2);
+    selector.set_mmu_render_data(mmu_mesh, max_size);
+    mmu_mesh->finalize_vertices();
+    mmu_mesh->finalize_triangle_indices();
+}
+
+void GLVolume::set_mmu_render_data_from_model_volume(const ModelVolume& model_volume)
+{
+    if (model_volume.mmu_segmentation_facets.empty()) {
+        return;
+    }
+    GUI::GLTriangleSelector selector(model_volume.mesh());
+    selector.deserialize(model_volume.mmu_segmentation_facets.get_data(), false);
+    auto max_size = 6;
+    mmu_mesh = std::make_shared<GLSimpleMesh>((max_size + 1 ) * 2);
+    selector.set_mmu_render_data(mmu_mesh, max_size);
+    mmu_mesh->finalize_vertices();
+    mmu_mesh->finalize_triangle_indices();
 }
 
 ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
@@ -294,8 +346,17 @@ ColorRGBA color_from_model_volume(const ModelVolume& model_volume)
 
 Transform3d GLVolume::world_matrix() const
 {
+#if 0
     Transform3d m = m_instance_transformation.get_matrix() * m_volume_transformation.get_matrix();
     m.translation()(2) += m_sla_shift_z;
+#else
+    Transform3d m = m_instance_transformation.get_matrix() * m_volume_transformation.get_matrix();
+    Vec3d ofs2ass = m_offset_to_assembly * (GLVolume::explosion_ratio - 1.0);
+    Vec3d volofs2obj = m_volume_transformation.get_offset() * (GLVolume::explosion_ratio - 1.0);
+
+    m.translation()(2) += m_sla_shift_z;
+    m.translate(ofs2ass + volofs2obj);
+#endif
     return m;
 }
 
@@ -308,12 +369,22 @@ bool GLVolume::is_left_handed() const
 
 const BoundingBoxf3& GLVolume::transformed_bounding_box() const
 {
+#if 0
     if (!m_transformed_bounding_box.has_value()) {
         const BoundingBoxf3& box = bounding_box();
         assert(box.defined || box.min.x() >= box.max.x() || box.min.y() >= box.max.y() || box.min.z() >= box.max.z());
         std::optional<BoundingBoxf3>* trans_box = const_cast<std::optional<BoundingBoxf3>*>(&m_transformed_bounding_box);
         *trans_box = box.transformed(world_matrix());
     }
+#else
+    if (!m_transformed_bounding_box.has_value() || last_explosion_ratio != explosion_ratio) {
+        const BoundingBoxf3& box = bounding_box();
+        assert(box.defined || box.min.x() >= box.max.x() || box.min.y() >= box.max.y() || box.min.z() >= box.max.z());
+        std::optional<BoundingBoxf3>* trans_box = const_cast<std::optional<BoundingBoxf3>*>(&m_transformed_bounding_box);
+        *trans_box = box.transformed(world_matrix());
+        last_explosion_ratio = explosion_ratio;
+    }
+#endif
     return *m_transformed_bounding_box;
 }
 
@@ -381,11 +452,20 @@ void GLVolume::render()
 {
     if (!is_active)
         return;
-
-    GLShaderProgram* shader = GUI::wxGetApp().get_current_shader();
-    if (shader == nullptr)
-        return;
     
+    auto colors = []() {
+        std::vector<std::string> colorsStr = Slic3r::GUI::wxGetApp().plater()->get_filament_colors_from_plater_config();
+        std::vector<ColorRGBA> colors;
+        decode_colors(colorsStr, colors);
+        return std::move(colors);
+    };
+
+    if (mmu_mesh != nullptr && colors().size() > 1) {
+        const GUI::Camera& camera = GUI::wxGetApp().plater()->get_camera();
+        render_mmu(colors(), camera);
+        return;
+    }
+
     const bool is_left_handed = this->is_left_handed();
 
     if (is_left_handed)
@@ -399,6 +479,53 @@ void GLVolume::render()
 
     if (is_left_handed)
         glsafe(::glFrontFace(GL_CCW));
+}
+
+void GLVolume::render_mmu(const std::vector<ColorRGBA>& colors, const GUI::Camera& camera)
+{
+    auto current_shader = GUI::wxGetApp().get_current_shader();
+    if (current_shader) {
+        current_shader->stop_using();
+    }
+
+    auto* shader = GUI::wxGetApp().get_shader("mm_gouraud");
+    if (!shader)
+        return;
+    shader->start_using();
+
+    const Transform3d& view_matrix = camera.get_view_matrix();
+    const Transform3d trafo_matrix = world_matrix();
+    const bool is_left_handed = this->is_left_handed();
+    if (is_left_handed)
+        glsafe(::glFrontFace(GL_CW));
+    std::array<float, 2> z_range = { -FLT_MAX, FLT_MAX };
+    shader->set_uniform("z_range", z_range);
+    shader->set_uniform("view_model_matrix", view_matrix * trafo_matrix);
+    shader->set_uniform("projection_matrix", camera.get_projection_matrix());
+    const Matrix3d view_normal_matrix = view_matrix.matrix().block(0, 0, 3, 3) * trafo_matrix.matrix().block(0, 0, 3, 3).inverse().transpose();
+    shader->set_uniform("view_normal_matrix", view_normal_matrix);
+    shader->set_uniform("clipping_plane", m_clipping_plane);
+
+    shader->set_uniform("volume_world_matrix", trafo_matrix);
+    shader->set_uniform("volume_mirrored", is_left_handed);
+    for (size_t color_idx = 0; color_idx < mmu_mesh->triangle_indices.size(); ++color_idx) {
+        if (mmu_mesh->has_VBOs(color_idx)) {
+            if (color_idx > colors.size()) // Seed fill VBO
+                shader->set_uniform("uniform_color", render_color);
+            else                             // Normal VBO
+                shader->set_uniform("uniform_color", color_idx == 0 ? render_color : colors[color_idx - 1]);
+
+            mmu_mesh->render(color_idx);
+        }
+    }
+
+    shader->stop_using();
+    if (is_left_handed)
+        glsafe(::glFrontFace(GL_CCW));
+        
+    if (current_shader) {
+        current_shader->start_using();
+    }
 }
 
 bool GLVolume::is_sla_support() const { return this->composite_id.volume_id == -int(slaposSupportTree); }
@@ -443,7 +570,8 @@ int GLVolumeCollection::load_object_volume(
     const ModelObject* model_object,
     int                obj_idx,
     int                volume_idx,
-    int                instance_idx)
+    int                instance_idx,
+    bool               in_assemble_view)
 {
     const ModelVolume   *model_volume = model_object->volumes[volume_idx];
     const int            extruder_id  = model_volume->extruder_id();
@@ -472,24 +600,36 @@ int GLVolumeCollection::load_object_volume(
     }
     v.is_modifier = !model_volume->is_model_part();
     v.shader_outside_printer_detection_enabled = model_volume->is_model_part();
-    v.set_instance_transformation(instance->get_transformation());
+    if (in_assemble_view) {
+        v.set_instance_transformation(instance->get_assemble_transformation());
+        v.set_offset_to_assembly(instance->get_offset_to_assembly());
+    }
+    else {
+        v.set_instance_transformation(instance->get_transformation());
+    }
+
+    //v.set_instance_transformation(instance->get_transformation());
     v.set_volume_transformation(model_volume->get_transformation());
+    v.set_mmu_render_data_from_model_volume(*model_volume);
 
     return int(this->volumes.size() - 1);
 }
 
 #if ENABLE_OPENGL_ES
 int GLVolumeCollection::load_wipe_tower_preview(
-    float pos_x, float pos_y, float width, float depth, float height, float cone_angle,
+    float pos_x, float pos_y, float width, float depth, const std::vector<std::pair<float, float>>& z_and_depth_pairs, float height, float cone_angle,
     float rotation_angle, bool size_unknown, float brim_width, TriangleMesh* out_mesh)
 #else
 int GLVolumeCollection::load_wipe_tower_preview(
-    float pos_x, float pos_y, float width, float depth, float height, float cone_angle,
+    float pos_x, float pos_y, float width, float depth, const std::vector<std::pair<float, float>>& z_and_depth_pairs, float height, float cone_angle,
     float rotation_angle, bool size_unknown, float brim_width)
 #endif // ENABLE_OPENGL_ES
 {
     if (height == 0.0f)
         height = 0.1f;
+
+    if (depth == 0.0f)
+        depth = 0.1f;
 
     static const float brim_height = 0.2f;
 //    const float scaled_brim_height = brim_height / height;
@@ -759,6 +899,9 @@ void GLVolumeCollection::render(GLVolumeCollection::ERenderType type, bool disab
 #endif // ENABLE_ENVIRONMENT_MAP
         glcheck();
 
+        if(volume.first->mmu_mesh){
+            volume.first->set_clip_planes(m_clipping_plane);
+        }
         volume.first->model.set_color(volume.first->render_color);
         const Transform3d model_matrix = world_matrix;
         shader->set_uniform("view_model_matrix", view_matrix * model_matrix);
@@ -1552,4 +1695,138 @@ void _3DScene::extrusionentity_to_verts(const ExtrusionEntity* extrusion_entity,
     }
 }
 
+
+void GLSimpleMesh::release_geometry() {
+        if (this->vertices_VBO_id) {
+            glsafe(::glDeleteBuffers(1, &this->vertices_VBO_id));
+            this->vertices_VBO_id = 0;
+        }
+        for(auto &triangle_indices_VBO_id : triangle_indices_VBO_ids) {
+            glsafe(::glDeleteBuffers(1, &triangle_indices_VBO_id));
+            triangle_indices_VBO_id = 0;
+        }
+    #if ENABLE_GL_CORE_PROFILE
+        if (this->vertices_VAO_id > 0) {
+            glsafe(::glDeleteVertexArrays(1, &this->vertices_VAO_id));
+            this->vertices_VAO_id = 0;
+        }
+    #endif // ENABLE_GL_CORE_PROFILE
+    
+        this->clear();
+    }
+    
+    void GLSimpleMesh::render(size_t triangle_indices_idx) const
+    {
+        assert(triangle_indices_idx < this->triangle_indices_VBO_ids.size());
+        assert(this->triangle_indices_sizes.size() == this->triangle_indices_VBO_ids.size());
+    #if ENABLE_GL_CORE_PROFILE
+        if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            assert(this->vertices_VAO_id != 0);
+    #endif // ENABLE_GL_CORE_PROFILE
+        assert(this->vertices_VBO_id != 0);
+        assert(this->triangle_indices_VBO_ids[triangle_indices_idx] != 0);
+    
+        GLShaderProgram* shader = GUI::wxGetApp().get_current_shader();
+        if (shader == nullptr)
+            return;
+    
+    #if ENABLE_GL_CORE_PROFILE
+        if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            glsafe(::glBindVertexArray(this->vertices_VAO_id));
+        // the following binding is needed to set the vertex attributes
+    #endif // ENABLE_GL_CORE_PROFILE
+        glsafe(::glBindBuffer(GL_ARRAY_BUFFER, this->vertices_VBO_id));
+        const GLint position_id = shader->get_attrib_location("v_position");
+        if (position_id != -1) {
+            glsafe(::glVertexAttribPointer(position_id, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (GLvoid*)0));
+            glsafe(::glEnableVertexAttribArray(position_id));
+        }
+    
+        // Render using the Vertex Buffer Objects.
+        if (this->triangle_indices_VBO_ids[triangle_indices_idx] != 0 &&
+            this->triangle_indices_sizes[triangle_indices_idx] > 0) {
+            glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices_VBO_ids[triangle_indices_idx]));
+            glsafe(::glDrawElements(GL_TRIANGLES, GLsizei(this->triangle_indices_sizes[triangle_indices_idx]), GL_UNSIGNED_INT, nullptr));
+            glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+        }
+    
+        if (position_id != -1)
+            glsafe(::glDisableVertexAttribArray(position_id));
+    
+        glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+    #if ENABLE_GL_CORE_PROFILE
+        if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            glsafe(::glBindVertexArray(0));
+    #endif // ENABLE_GL_CORE_PROFILE
+    }
+    
+    void GLSimpleMesh::finalize_vertices()
+    {
+    #if ENABLE_GL_CORE_PROFILE
+            assert(this->vertices_VAO_id == 0);
+    #endif // ENABLE_GL_CORE_PROFILE
+        assert(this->vertices_VBO_id == 0);
+        if (!this->vertices.empty()) {
+    #if ENABLE_GL_CORE_PROFILE
+            if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0)) {
+                glsafe(::glGenVertexArrays(1, &this->vertices_VAO_id));
+                glsafe(::glBindVertexArray(this->vertices_VAO_id));
+            }
+    #endif // ENABLE_GL_CORE_PROFILE
+    
+            glsafe(::glGenBuffers(1, &this->vertices_VBO_id));
+            glsafe(::glBindBuffer(GL_ARRAY_BUFFER, this->vertices_VBO_id));
+            glsafe(::glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(float), this->vertices.data(), GL_STATIC_DRAW));
+            glsafe(::glBindBuffer(GL_ARRAY_BUFFER, 0));
+            this->vertices.clear();
+    
+    #if ENABLE_GL_CORE_PROFILE
+            if (GUI::OpenGLManager::get_gl_info().is_version_greater_or_equal_to(3, 0))
+            glsafe(::glBindVertexArray(0));
+    #endif // ENABLE_GL_CORE_PROFILE
+        }
+    }
+    
+    void GLSimpleMesh::finalize_triangle_indices()
+    {
+        assert(std::all_of(triangle_indices_VBO_ids.cbegin(), triangle_indices_VBO_ids.cend(), [](const auto &ti_VBO_id) { return ti_VBO_id == 0; }));
+    
+        assert(this->triangle_indices.size() == this->triangle_indices_VBO_ids.size());
+        for (size_t buffer_idx = 0; buffer_idx < this->triangle_indices.size(); ++buffer_idx)
+            if (!this->triangle_indices[buffer_idx].empty()) {
+                glsafe(::glGenBuffers(1, &this->triangle_indices_VBO_ids[buffer_idx]));
+                glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices_VBO_ids[buffer_idx]));
+                glsafe(::glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->triangle_indices[buffer_idx].size() * sizeof(int), this->triangle_indices[buffer_idx].data(), GL_STATIC_DRAW));
+                glsafe(::glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+                this->triangle_indices[buffer_idx].clear();
+            }
+    }
+
+
 } // namespace Slic3r
+
+void Slic3r::GUI::GLTriangleSelector::set_mmu_render_data(std::shared_ptr<GLSimpleMesh> mmu_mesh, int max_size)
+{
+    for (const TriangleSelector::Vertex& vr : m_vertices) {
+        mmu_mesh->vertices.emplace_back(vr.v.x());
+        mmu_mesh->vertices.emplace_back(vr.v.y());
+        mmu_mesh->vertices.emplace_back(vr.v.z());
+    }
+
+    for (const TriangleSelector::Triangle& tr : m_triangles)
+        if (tr.valid() && !tr.is_split()) {
+            int               color = int(tr.get_state()) <= max_size ? int(tr.get_state()) : 0;
+            assert(max_size + 1 + color < mmu_mesh->triangle_indices.size());
+            std::vector<int>& iva = mmu_mesh->triangle_indices[color + tr.is_selected_by_seed_fill() * (max_size + 1)];
+
+            if (iva.size() + 3 > iva.capacity())
+                iva.reserve(next_highest_power_of_2(iva.size() + 3));
+
+            iva.emplace_back(tr.verts_idxs[0]);
+            iva.emplace_back(tr.verts_idxs[1]);
+            iva.emplace_back(tr.verts_idxs[2]);
+        }
+
+    for (size_t color_idx = 0; color_idx < mmu_mesh->triangle_indices.size(); ++color_idx)
+        mmu_mesh->triangle_indices_sizes[color_idx] = mmu_mesh->triangle_indices[color_idx].size();
+}

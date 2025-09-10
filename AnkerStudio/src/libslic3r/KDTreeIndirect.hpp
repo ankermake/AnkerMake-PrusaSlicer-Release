@@ -69,7 +69,7 @@ public:
                    (dist > CoordType(0)) ? (unsigned int)(VisitorReturnMask::CONTINUE_RIGHT) : (unsigned int)(VisitorReturnMask::CONTINUE_LEFT);
     }
 
-       // Visitor is supposed to return a bit mask of VisitorReturnMask.
+       // Visitor is supposed to return a bitmask of VisitorReturnMask.
     template<typename Visitor>
     void visit(Visitor &visitor) const
     {

@@ -71,11 +71,11 @@ struct CurlGlobalInit
 
             if (!bundle)
                 message = _u8L("Could not detect system SSL certificate store. "
-                               "AnkerMake Studio will be unable to establish secure "
+                               "eufyMake Studio will be unable to establish secure "
                                "network connections.");
             else
                 message = Slic3r::GUI::format(
-					_L("AnkerMake Studio detected system SSL certificate store in: %1%"),
+					_L("eufyMake Studio detected system SSL certificate store in: %1%"),
                     bundle);
 
             message += "\n" + Slic3r::GUI::format(
@@ -88,7 +88,7 @@ struct CurlGlobalInit
 #endif // OPENSSL_CERT_OVERRIDE
 
         if (CURLcode ec = ::curl_global_init(CURL_GLOBAL_DEFAULT)) {
-            message += _u8L("CURL init has failed. AnkerMake Studio will be unable to establish "
+            message += _u8L("CURL init has failed. eufyMake Studio will be unable to establish "
                             "network connections. See logs for additional details.");
 
             BOOST_LOG_TRIVIAL(error) << ::curl_easy_strerror(ec);
@@ -105,7 +105,7 @@ struct Http::priv
 	enum {
 		DEFAULT_TIMEOUT_CONNECT = 10,
         DEFAULT_TIMEOUT_MAX = 0,
-		DEFAULT_SIZE_LIMIT = 5 * 1024 * 1024,
+		DEFAULT_SIZE_LIMIT = 1024 * 1024 * 1024,
 	};
 
 	::CURL *curl;
@@ -355,6 +355,9 @@ void Http::priv::http_perform()
 
 	::curl_easy_setopt(curl, CURLOPT_VERBOSE, get_logging_level() >= 5);
 
+	::curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 15L);
+	::curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 20L);
+
 	if (headerlist != nullptr) {
 		::curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
 	}
@@ -369,7 +372,7 @@ void Http::priv::http_perform()
 	}
 
 	CURLcode res = ::curl_easy_perform(curl);
-
+	ANKER_LOG_INFO << "curl_easy_perform: " << res;
     putFile.reset();
 
 	if (res != CURLE_OK) {
@@ -387,15 +390,13 @@ void Http::priv::http_perform()
 		else if (res == CURLE_WRITE_ERROR) {
 			if (errorfn) { errorfn(std::move(buffer), body_size_error(), 0); }
 		} else {
-			if (errorfn) { errorfn(std::move(buffer), curl_error(res), 0); }
+			if (errorfn) { errorfn(std::move(buffer), curl_error(res), res); }
 		};
 	} else {
 		long http_status = 0;
 		::curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_status);
 
-		if (http_status >= 400) {
-			if (errorfn) { errorfn(std::move(buffer), std::string(), http_status); }
-		} else {
+		if (http_status >= 200 && http_status < 300) {
 			if (completefn) { completefn(std::move(buffer), http_status); }
 			if (ipresolvefn) {
 				char* ct;
@@ -404,6 +405,9 @@ void Http::priv::http_perform()
 					ipresolvefn(ct);
 				}
 			}
+		}
+		else if (http_status >= 400) {
+			if (errorfn) { errorfn(std::move(buffer), std::string(), http_status); }
 		}
 	}
 }

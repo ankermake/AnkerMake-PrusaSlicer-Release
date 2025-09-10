@@ -18,6 +18,8 @@
 #include <stack>
 #include <thread>
 
+#include "OnlinePreset/OnlinePresetManager.hpp"
+
 class AnkerObjectBar;
 class AnkerObjectManipulator;
 class AnkerFloatingList;
@@ -32,6 +34,11 @@ struct wxLanguageInfo;
 #define  AnkerRect(x, y, w, h) Slic3r::GUI::wxGetApp().getRealRect(wxRect(x, y, w, h))
 #define  AnkerPoint(x, y) Slic3r::GUI::wxGetApp().getRealPoint(wxPoint(x, y))
 #define  AnkerLength(x) Slic3r::GUI::wxGetApp().getRealLength(x)
+
+//enable/ disable V6 ui 
+#define ENABLE_V6   true
+#define LOCAL_SIMULATE_V6 false
+
 
 namespace Slic3r {
 
@@ -61,7 +68,8 @@ class NotificationManager;
 class Downloader;
 struct GUI_InitParams;
 class GalleryDialog;
-
+class FilamentMaterialManager;
+class AnkerObjectLayerEditor;
 
 
 enum FileType
@@ -98,6 +106,9 @@ extern wxString file_wildcards(FileType file_type, const std::string &custom_ext
 #endif // ENABLE_ALTERNATIVE_FILE_WILDCARDS_GENERATOR
 
 extern wxString WrapEveryCharacter(const wxString& str, wxFont font, const int& lineLength);
+extern wxString WrapFixWidth(const wxString& str, wxFont font, const int& lineLength);
+extern wxString WrapFixWidthAdvance(const wxString& str, wxFont font, const int& lineLength, std::string language);
+extern wxString WrapFixWidthAdvance(const wxString& str, wxFont font, const int& lineLength);
 
 enum ConfigMenuIDs {
     ConfigMenuWizard,
@@ -119,14 +130,17 @@ enum ConfigMenuIDs {
 enum ENVIR_ID {
 	EU_ID = wxID_ANY +10086,
     US_ID = wxID_ANY +10087,
-	QA_ID = wxID_ANY +10088
+	QA_ID = wxID_ANY +10088,
+    CI_ID = wxID_ANY + 10089
 };
 
 enum ANKER_ENVIR
 {
-    EN_ENVIR = 0,
-    US_ENVIR = 1,
-    QA_ENVIR = 2
+    EN_UNKNOWN = -1,    
+    US_ENVIR = 0,
+    EU_ENVIR = 1,
+    QA_ENVIR = 2,
+    CI_ENVIR = 3
 };
 
 // add by allen for ankerCfgDlg
@@ -200,6 +214,9 @@ private:
     std::unique_ptr <AppUpdater> m_app_updater;
     std::unique_ptr <wxSingleInstanceChecker> m_single_instance_checker;
     std::unique_ptr <Downloader> m_downloader;
+    std::unique_ptr <FilamentMaterialManager> m_filament_material_manager;
+    std::unique_ptr <OnlinePresetManager> m_onlinePresetManager;
+
     std::string m_instance_hash_string;
 	size_t m_instance_hash_int;
 
@@ -215,6 +232,10 @@ public:
     bool is_gcode_viewer() const { return m_app_mode == EAppMode::GCodeViewer; }
     bool is_recreating_gui() const { return m_is_recreating_gui; }
     std::string logo_name() const { return is_editor() ? "AnkerStudio" : "AnkerStudio-gcodeviewer"; }
+
+    ///
+    void request_model_download(std::string url);
+    ////
 
     // To be called after the GUI is fully built up.
     // Process command line parameters cached in this->init_params,
@@ -290,6 +311,12 @@ public:
     void            import_model(wxWindow *parent, wxArrayString& input_files) const;
     void            import_zip(wxWindow* parent, wxString& input_file) const;
     void            load_gcode(wxWindow* parent, wxString& input_file) const;
+    void            change_calibration_dialog(const wxDialog* have_to_destroy, wxDialog* new_one);
+    void            calib_filament_temperature_dialog(wxWindow* parent, Plater* plater);
+    void            calib_pressure_advance_dialog(wxWindow* parent, Plater* plater);
+    void            calib_retraction_dialog(wxWindow* parent, Plater* plater);
+    void            calib_max_flowrate_dialog(wxWindow* parent, Plater* plater);
+    void            calib_vfa_dialog(wxWindow* parent, Plater* plater);
 
     static bool     catch_error(std::function<void()> cb, const std::string& err);
 
@@ -358,15 +385,17 @@ public:
     ObjectManipulation*  obj_manipul();
     AnkerObjectManipulator*  aobj_manipul();
     ObjectSettings*      obj_settings();
-    //ObjectList*          obj_list();
-    //ObjectLayers*        obj_layers();
-    AnkerObjectLayers*   obj_layers();
+    ObjectList*          obj_list();
+    AnkerObjectLayers*   obj_layers_();
+    AnkerObjectLayerEditor* obj_layers();
     Plater*              plater();
     const Plater*        plater() const;
     Model&      		 model();
     NotificationManager* notification_manager();
     GalleryDialog *      gallery_dialog();
     Downloader*          downloader();
+    FilamentMaterialManager* filamentMaterialManager();
+    OnlinePresetManager* onlinePresetManager();
 
     // Parameters extracted from the command line to be passed to GUI after initialization.
     GUI_InitParams* init_params { nullptr };
@@ -400,6 +429,8 @@ public:
 	size_t      get_instance_hash_int ()              { return m_instance_hash_int; }
 
     bool check_privacy_policy();
+
+    std::string getWebview2Version();
 
     ImGuiWrapper* imgui() { return m_imgui.get(); }
 
@@ -435,9 +466,13 @@ public:
 
     
     bool            select_language(AnkerLanguageType type);
+    void            on_CrashTrack();
 
 private:
     bool            on_init_inner();
+    void            CompatibleProcess();
+    void            WebviewCompatibleProcess();
+    bool            ProfileCompatibleProcess();
 	void            init_app_config();
     // returns old config path to copy from if such exists,
     // returns an empty string if such config path does not exists or if it cannot be loaded.
@@ -461,12 +496,17 @@ private:
 
     // Support regular cleaning of log files and retaining logs of the last few days
     void delLogtimer();
-    void auto_delete_logfile(const unsigned int days);
+    void autoDeleteLogfile(const unsigned int days);
+    void autoDeleteTempGcodeFile(const unsigned int days);
+    void autoDeleteUrlFile();
+    void readDownloadFile();
 
     bool            m_datadir_redefined { false }; 
     std::thread     m_thrdDelLog;
     std::atomic<bool> m_bDelLogTimerStop{ true };
  
+    std::thread    m_urlThread;
+    std::atomic<bool> m_bReadUrlStop { true };
 };
 
 DECLARE_APP(GUI_App)

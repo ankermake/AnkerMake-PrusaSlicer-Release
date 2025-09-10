@@ -9,7 +9,7 @@
 #include "AnkerButton.hpp"
 #include <boost/regex.hpp>
 #include <boost/signals2.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/signals2/connection.hpp>
 
 enum AnkerSpinBoxCtrlDoubleType {

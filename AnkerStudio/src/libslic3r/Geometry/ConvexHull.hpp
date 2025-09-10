@@ -17,6 +17,8 @@ Polygon convex_hull(Points points);
 Polygon convex_hull(const Polygons &polygons);
 Polygon convex_hull(const ExPolygons &expolygons);
 Polygon convex_hulll(const Polylines &polylines);
+inline Polygon convex_hull(const Polygon& poly) { return convex_hull(poly.points); }
+inline Polygon convex_hull(const ExPolygon& poly) { return convex_hull(poly.contour.points); }
 
 // Returns true if the intersection of the two convex polygons A and B
 // is not an empty set.

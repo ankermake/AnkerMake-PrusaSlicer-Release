@@ -124,7 +124,7 @@ protected:
     static const char* separator_head() { return "————— "; }
     static const char* separator_tail() { return " —————"; }
 #endif // __linux__
-    static wxString    separator(const std::string& label);
+    static wxString    separator(const wxString& label);
 
     wxBitmapBundle* get_bmp(  std::string bitmap_key, bool wide_icons, const std::string& main_icon_name,
                         bool is_compatible = true, bool is_system = false, bool is_single_bar = false,
@@ -227,6 +227,7 @@ protected:
     void invalidate_selection();
     void validate_selection(bool predicate = false);
     void update_selection();
+    void update_selection(int topNozzleIndex);
 
 #ifdef __linux__
     static const char* separator_head() { return "------- "; }
@@ -235,7 +236,7 @@ protected:
     static const char* separator_head() { return "————— "; }
     static const char* separator_tail() { return " —————"; }
 #endif // __linux__
-    static const wxString  separator(const std::string& label);
+    static const wxString  separator(const wxString& label);
 
     wxBitmapBundle* get_bmp(std::string bitmap_key, bool wide_icons, const std::string& main_icon_name,
         bool is_compatible = true, bool is_system = false, bool is_single_bar = false,
@@ -310,6 +311,7 @@ public:
     wxString get_preset_name(const Preset& preset) override;
     void update_dirty();
     void update() override;
+    void update(int topNozzleIndex);
     void msw_rescale() override;
     void sys_color_changed() override;
     void OnSelect(wxCommandEvent& evt) override;

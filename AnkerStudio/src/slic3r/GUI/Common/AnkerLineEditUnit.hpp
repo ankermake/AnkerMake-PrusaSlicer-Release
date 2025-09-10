@@ -28,6 +28,7 @@ public:
 		const wxSize& size = wxDefaultSize);
 	~AnkerLineEditUnit();
 	
+	void SetToolTip(const wxString& toolTipsStr);
 	wxString getValue();
 	wxString GetValue();
 	void setValue(const wxString& value);
@@ -41,13 +42,17 @@ public:
 	void setLineEditBgColor(const wxColour& color);
 	void setLineUnitBgColor(const wxColour& color);
 
+	void AddValidatorInt(uint32_t min, uint32_t max);
+	void AddValidatorFloat(float min, float max, int precision = 6);
+
 	wxRichTextCtrl* getTextEdit();
-	wxRichTextCtrl* getUnitEdit();
+	wxStaticText* getUnitEdit();
 
 	virtual void OnSize(wxSizeEvent& event);
 
 	bool Enable(bool enable = true);
 	bool Disable();
+	wxString getUnit() {return m_unit;}
 protected:
 
 	void initUi(wxColour bgColor,
@@ -60,7 +65,7 @@ private:
 	wxCriticalSection m_pThreadCS;
 	wxFont		   m_unitFont;
 	wxString	   m_unit{""};
-	AnkerLineEdit*  m_pUnitLabel{ nullptr };
+	wxStaticText*  m_pUnitLabel{ nullptr };
 };
 
 wxDECLARE_EVENT(wxCUSTOMEVT_ANKER_SPIN_EDIT_TEXT_CHANGED, wxCommandEvent);
@@ -92,13 +97,15 @@ public:
 	int  GetMaxValue();
 	void SetMaxValue(const int value);
 
+	void AddValidatorInt(int min, int max);
+
 	void setEditLength(const int& length);
 	void setLineEditFont(const wxFont& font);
 	void setLineEditTextColor(const wxColour& color);	
 	void setLineEditBgColor(const wxColour& color);
 	
 	AnkerLineEdit* getTextEdit();
-	AnkerLineEdit* getUnitEdit();
+	wxStaticText* getUnitEdit();
 	virtual void OnSize(wxSizeEvent& event);
 
 	bool Enable(bool enable = true);
@@ -115,13 +122,15 @@ protected:
 private:
 	AnkerBgPanel* m_pBgWidget{ nullptr };
 	AnkerLineEdit*   m_pLineEdit{ nullptr };
-	AnkerLineEdit* m_pUnitLabel{ nullptr };
+	wxStaticText* m_pUnitLabel{ nullptr };
 
 	wxString		m_unit;
 
 	int m_val;
 	int m_minVal;
 	int m_maxVal;
+	bool m_minEnable = false;
+	bool m_maxEnable = false;
 
 #ifndef __APPLE__
 	wxButton* m_upBtn{ nullptr };

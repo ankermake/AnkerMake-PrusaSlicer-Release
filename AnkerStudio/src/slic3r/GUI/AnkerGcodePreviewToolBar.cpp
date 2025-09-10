@@ -29,24 +29,20 @@
 #include "Field.hpp"
 #include "format.hpp"
 #include "NotificationManager.hpp"
-
 #include "libslic3r/CustomGCode.hpp"
 #include "wxExtensions.hpp"
 #include "libslic3r/Utils.hpp"
-
-
 #include "GLCanvas3D.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
-
 #include "AnkerGcodePreviewToolBar.hpp"
-
-#include "../Utils/DataManger.hpp"
 #include "Common/AnkerGUIConfig.hpp"
 
 using namespace Slic3r::GUI;
 //using Slic3r::SLAPrint;
 using namespace Slic3r;
+
+#define ENABLE_DRAGING_TOOLBAR false
 
 static std::string num2Str(long long num)
 {
@@ -1203,6 +1199,7 @@ bool GcodeLayerSlider::AddPausePrintCmdAtLayer(int layer)
         }
     }
     m_pauseCmdLayers.push_back(layer);
+    ANKER_LOG_INFO << "after Add,pauseCmd cnt:" << m_pauseCmdLayers.size();
     printPauseListChangeNotify();
     return true;
 }
@@ -1373,20 +1370,22 @@ Slic3r::CustomGCode::Info GcodeLayerSlider::GetGcodePauseCmdValues() const
 AnkerGcodePreviewLayerToolbar::AnkerGcodePreviewLayerToolbar(wxWindow* parent) //: wxPanel(parent, wxID_ANY)
     :wxFrame(parent, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxNO_BORDER | wxFRAME_FLOAT_ON_PARENT | wxFRAME_TOOL_WINDOW)
 {
-    initGui();
+    InitGui();
     Bind(wxEVT_SIZE, &AnkerGcodePreviewLayerToolbar::OnSize, this);
     Bind(wxEVT_KEY_DOWN, &AnkerGcodePreviewLayerToolbar::OnKeyDown, this);
     Bind(wxEVT_ENTER_WINDOW, &AnkerGcodePreviewLayerToolbar::OnEnterWin, this);
+#if ENABLE_DRAGING_TOOLBAR
     Bind(wxEVT_LEFT_DOWN, &AnkerGcodePreviewLayerToolbar::OnMouseDown, this);
     Bind(wxEVT_LEFT_UP, &AnkerGcodePreviewLayerToolbar::OnMouseUp, this);
     Bind(wxEVT_MOTION, &AnkerGcodePreviewLayerToolbar::OnMouseMove, this);
+#endif
     Bind(wxEVT_SHOW, [this](wxShowEvent& event) {
         //event.Skip();
         });
 
 }
 
-void AnkerGcodePreviewLayerToolbar::initGui()
+void AnkerGcodePreviewLayerToolbar::InitGui()
 {
     // row 1
     m_layerLabel = new wxStaticText(this, wxID_ANY, "LayerLabel");

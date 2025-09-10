@@ -34,6 +34,8 @@ set(SLIC3R_SOURCES
     BuildVolume.cpp
     BuildVolume.hpp
     BoostAdapter.hpp
+    Calib.hpp
+    Calib.cpp
     clipper.cpp
     clipper.hpp
     ClipperUtils.cpp
@@ -43,6 +45,8 @@ set(SLIC3R_SOURCES
     Color.hpp
     Config.cpp
     Config.hpp
+    CutUtils.cpp
+    CutUtils.hpp
     CSGMesh/CSGMesh.hpp
     CSGMesh/SliceCSGMesh.hpp
     CSGMesh/ModelToCSGMesh.hpp
@@ -56,6 +60,7 @@ set(SLIC3R_SOURCES
     ElephantFootCompensation.hpp
     Emboss.cpp
     Emboss.hpp
+    EmbossShape.hpp
     enum_bitmask.hpp
     ExPolygon.cpp
     ExPolygon.hpp
@@ -109,6 +114,8 @@ set(SLIC3R_SOURCES
     format.hpp
     Format/3mf.cpp
     Format/3mf.hpp
+    Format/bbs_3mf.cpp
+    Format/bbs_3mf.hpp
     Format/AMF.cpp
     Format/AMF.hpp
     Format/OBJ.cpp
@@ -127,6 +134,8 @@ set(SLIC3R_SOURCES
     Format/SL1.cpp
     Format/SL1_SVG.hpp
     Format/SL1_SVG.cpp
+    Format/SVG.hpp
+    Format/SVG.cpp
     Format/pwmx.hpp
     Format/pwmx.cpp
     Format/STEP.hpp
@@ -135,6 +144,8 @@ set(SLIC3R_SOURCES
     GCode/ThumbnailData.hpp
     GCode/Thumbnails.cpp
     GCode/Thumbnails.hpp
+    GCode/ConflictChecker.cpp
+    GCode/ConflictChecker.hpp
     GCode/CoolingBuffer.cpp
     GCode/CoolingBuffer.hpp
     GCode/FindReplace.cpp
@@ -207,6 +218,8 @@ set(SLIC3R_SOURCES
     MultiMaterialSegmentation.hpp
     MeshNormals.hpp
     MeshNormals.cpp
+    md5.h
+    md5.cpp
     Measure.hpp
     Measure.cpp
     MeasureUtils.hpp
@@ -239,6 +252,8 @@ set(SLIC3R_SOURCES
     PolygonTrimmer.hpp
     Polyline.cpp
     Polyline.hpp
+    ArcFitter.cpp
+    ArcFitter.hpp
     Preset.cpp
     Preset.hpp
     PresetBundle.cpp
@@ -288,6 +303,7 @@ set(SLIC3R_SOURCES
     SurfaceCollection.cpp
     SurfaceCollection.hpp
     SurfaceMesh.hpp
+    SurfaceMesh.cpp
     SVG.cpp
     SVG.hpp
     Technologies.hpp
@@ -414,6 +430,13 @@ set(SLIC3R_SOURCES
     Arachne/SkeletalTrapezoidationJoint.hpp
     Arachne/WallToolPaths.hpp
     Arachne/WallToolPaths.cpp
+	
+	Orientation/OrientBase.hpp
+	Orientation/OrientBase.cpp
+	Orientation/AutoOrient.hpp
+	Orientation/AutoOrient.cpp
+    Orientation/OrientTriangleMesh.hpp
+    Orientation/OrientTriangleMesh.cpp
 )
 
 add_library(libslic3r STATIC ${SLIC3R_SOURCES})
@@ -488,7 +511,9 @@ target_link_libraries(libslic3r
     qhull
     semver
     TBB::tbb
+    TBB::tbbmalloc
     libslic3r_cgal
+    CGAL::CGAL
     ${CMAKE_DL_LIBS}
     PNG::PNG
     ZLIB::ZLIB

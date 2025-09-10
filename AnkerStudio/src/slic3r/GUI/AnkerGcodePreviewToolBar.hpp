@@ -308,7 +308,7 @@ public:
     void calculateLayoutAndResize();
     void msw_rescale(){ }
 private:
-    void initGui();
+    void InitGui();
     void onLayerChange(int lowerLayer, int hightLayer);
     void onStepChange(int m_minValue, int Value);
     void SendLayerScrollChangeEvt();

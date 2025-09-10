@@ -15,7 +15,7 @@ namespace GUI {
 
 const double GLGizmoScale3D::Offset = 5.0;
 
-GLGizmoScale3D::GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id)
+GLGizmoScale3D::GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filename, unsigned int sprite_id, GizmoObjectManipulation* obj_manipulation)
     : GLGizmoBase(parent, icon_filename, sprite_id)
     , m_scale(Vec3d::Ones())
     , m_snap_step(0.05)
@@ -24,6 +24,7 @@ GLGizmoScale3D::GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filen
     , m_highlight_color(DEFAULT_HIGHLIGHT_COLOR)
     , m_panelVisibleFlag(false)
     , m_pInputWindowSizer(nullptr)
+    , m_object_manipulation(obj_manipulation)
 {
     m_grabber_connections[0].grabber_indices = { 0, 1 };
     m_grabber_connections[1].grabber_indices = { 2, 3 };
@@ -34,6 +35,38 @@ GLGizmoScale3D::GLGizmoScale3D(GLCanvas3D& parent, const std::string& icon_filen
     m_grabber_connections[6].grabber_indices = { 9, 6 };
 }
 
+#if USE_OCRA
+std::string GLGizmoScale3D::get_tooltip() const
+{
+    const Selection& selection = m_parent.get_selection();
+
+    bool single_instance = selection.is_single_full_instance();
+    bool single_volume = selection.is_single_modifier() || selection.is_single_volume();
+
+    Vec3f scale = 100.0f * Vec3f::Ones();
+    if (single_instance)
+        scale = 100.0f * selection.get_volume(*selection.get_volume_idxs().begin())->get_instance_scaling_factor().cast<float>();
+    else if (single_volume)
+        scale = 100.0f * selection.get_volume(*selection.get_volume_idxs().begin())->get_volume_scaling_factor().cast<float>();
+
+    if (m_hover_id == 0 || m_hover_id == 1 || m_grabbers[0].dragging || m_grabbers[1].dragging)
+        return "X: " + format(scale(0), 4) + "%";
+    else if (m_hover_id == 2 || m_hover_id == 3 || m_grabbers[2].dragging || m_grabbers[3].dragging)
+        return "Y: " + format(scale(1), 4) + "%";
+    else if (m_hover_id == 4 || m_hover_id == 5 || m_grabbers[4].dragging || m_grabbers[5].dragging)
+        return "Z: " + format(scale(2), 4) + "%";
+    else if (m_hover_id == 6 || m_hover_id == 7 || m_hover_id == 8 || m_hover_id == 9 ||
+        m_grabbers[6].dragging || m_grabbers[7].dragging || m_grabbers[8].dragging || m_grabbers[9].dragging)
+    {
+        std::string tooltip = "X: " + format(scale(0), 2) + "%\n";
+        tooltip += "Y: " + format(scale(1), 2) + "%\n";
+        tooltip += "Z: " + format(scale(2), 2) + "%";
+        return tooltip;
+    }
+    else
+        return "";
+}
+#else
 std::string GLGizmoScale3D::get_tooltip() const
 {
     const Vec3d scale = 100.0 * m_scale;
@@ -55,6 +88,7 @@ std::string GLGizmoScale3D::get_tooltip() const
     else
         return "";
 }
+#endif
 
 static int constraint_id(int grabber_id)
 {
@@ -101,7 +135,7 @@ void GLGizmoScale3D::enable_ununiversal_scale(bool enable)
         m_grabbers[i].enabled = enable;
 }
 
-void GLGizmoScale3D::data_changed()
+void GLGizmoScale3D::data_changed(bool is_serializing)
 {
     //Selection& selection = m_parent.get_selection();
     //double xScale = get_selected_volume(selection)->get_transformation().get_scaling_factor(Axis::X);
@@ -135,10 +169,10 @@ bool GLGizmoScale3D::on_is_activable() const
 
 void GLGizmoScale3D::on_set_state()
 {
-    if (m_state == On)
-        set_input_window_state(true);
-    else
-        set_input_window_state(false);
+    //if (m_state == On)
+    //    set_input_window_state(true);
+    //else
+    //    set_input_window_state(false);
 }
 
 void GLGizmoScale3D::on_start_dragging()
@@ -358,6 +392,7 @@ void GLGizmoScale3D::on_unregister_raycasters_for_picking()
     m_parent.set_raycaster_gizmos_on_top(false);
 }
 
+
 void GLGizmoScale3D::render_grabbers_connection(unsigned int id_1, unsigned int id_2, const ColorRGBA& color)
 {
     auto grabber_connection = [this](unsigned int id_1, unsigned int id_2) {
@@ -398,6 +433,12 @@ void GLGizmoScale3D::render_grabbers_connection(unsigned int id_1, unsigned int 
     m_grabber_connections[id].model.render();
 }
 
+void GLGizmoScale3D::on_render_input_window(float x, float y, float bottom_limit)
+{
+    if (m_object_manipulation)
+        m_object_manipulation->do_render_scale_input_window(m_imgui, "Scale", x, y, bottom_limit);
+}
+
 void GLGizmoScale3D::do_scale_along_axis(Axis axis, const UpdateData& data)
 {
     double ratio = calc_ratio(data);
@@ -410,13 +451,13 @@ void GLGizmoScale3D::do_scale_along_axis(Axis axis, const UpdateData& data)
 
 void GLGizmoScale3D::do_scale_uniform(const UpdateData & data)
 {
-    std::cout << "m_scale1 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
+    //std::cout << "m_scale1 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
 
     const double ratio = calc_ratio(data);
     if (ratio > 0.0)
         m_scale = m_starting.scale * ratio;
 
-    std::cout << "m_scale2 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
+    //std::cout << "m_scale2 = " << m_scale.x() << ", " << m_scale.y() << ", " << m_scale.z() << std::endl;
 }
 
 double GLGizmoScale3D::calc_ratio(const UpdateData& data) const
@@ -501,7 +542,7 @@ void GLGizmoScale3D::set_input_window_state(bool on)
     ANKER_LOG_INFO << "GLGizmoScale3D: " << on;
     wxGetApp().plater()->sidebarnew().Freeze();
 
-    std::string panelFlag = get_name(true, false);
+    std::string panelFlag = "GLGizmoScale3D";
     if (on)
     {        
         wxGetApp().plater()->sidebarnew().setMainSizer();
@@ -524,13 +565,13 @@ void GLGizmoScale3D::set_input_window_state(bool on)
                 {
                     m_panelVisibleFlag = false;
 
-                    wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+                    wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
                 }
                 });
         }
 
         auto returnFunc = [this]() {
-            wxGetApp().plater()->get_current_canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->get_current_canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
+            wxGetApp().plater()->canvas3D()->force_main_toolbar_left_action(wxGetApp().plater()->canvas3D()->get_main_toolbar_item_id(get_name(false, false)));
         };
         wxGetApp().aobj_manipul()->setReturnFunc(returnFunc);
 

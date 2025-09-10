@@ -1,14 +1,31 @@
 #pragma once
+#include <vector>
 #include <wx/wx.h>
 #include <wx/sizer.h>
 #include <wx/scrolbar.h>
 #include "AnkerBaseCtls.h"
-
-
+#include "../Common/AnkerRoundPanel.hpp"
+#include "AnkerNetDefines.h"
 
 
 namespace Slic3r {
 	namespace GUI {
+
+
+		enum NOZZLES_STATUS {
+			type_normal = 0,
+			type_out_of_supplies,
+			type_jammed	
+		};
+
+		typedef struct tagNozzlesData
+		{
+			wxString strMaterialName;
+			wxColour ColorRgb;
+			int		iNozzlesInx;
+			NOZZLES_STATUS nozzlesStatus;
+			ROUND_STATE nozzlesBtnState;
+		}NozzlesData;
 
 		struct filamentInfo
 		{
@@ -47,6 +64,7 @@ namespace Slic3r {
 			void OnMouseEvent(wxMouseEvent& event);
 			void InitData();
 			void InitUI();
+			void InitEvent();
 			void SetNoticeText(std::string strNewText) 
 			{
 				m_NoticeText = strNewText;
@@ -57,20 +75,21 @@ namespace Slic3r {
 				}
 			}
 
+			NOZZLES_STATUS getDevcieStatus() {return  m_DeviceInterruptType;}
+
 		protected:
 			virtual bool ProcessEvent(wxEvent& event) override;
-
-		private:
-			void SimulateData();
 
 		protected:
 			std::map<filamentInfo, printFilamentInfo> filamentMap;
 			std::vector<printFilamentInfo> m_PrinterFilamentVec;
+			std::vector<NozzlesData> m_NozzlesStateVec;
 
 		private:
-			std::string m_NoticeText;
+			wxString m_NoticeText;
 			wxStaticText* m_pContentText;
-
+			NOZZLES_STATUS	m_DeviceInterruptType;
+			std::vector<AnkerStateRoundTextPanel*> m_NozzlesPanelVec;
 			DECLARE_EVENT_TABLE()
 		};
 	}

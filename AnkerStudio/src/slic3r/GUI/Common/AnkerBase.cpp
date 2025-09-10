@@ -4,22 +4,21 @@
 
 
 #ifdef _WIN32
-std::string AnkerBase::AnkerResourceIconPath = "/resources/icons/";
+wxString AnkerBase::AnkerResourceIconPath = "/resources/icons/";
 #elif __APPLE__
-std::string AnkerBase::AnkerResourceIconPath = "/../Resources/icons/";
+wxString AnkerBase::AnkerResourceIconPath = "/../Resources/icons/";
 #endif
 
 AnkerBase::AnkerBase()
 {
     wxString exePath = wxStandardPaths::Get().GetExecutablePath();
     wxString applicationPath = wxFileName(exePath).GetPath();
-    std::string iconPath = applicationPath.ToStdString();
 #ifdef _WIN32
-    iconPath += "/resources/icons/";
+    applicationPath += "/resources/icons/";
 #elif __APPLE__
-    iconPath += "/../Resources/icons/";
+    applicationPath += "/../Resources/icons/";
 #endif
-    AnkerResourceIconPath = iconPath;
+    AnkerResourceIconPath = applicationPath;
 }
 
 AnkerBase::~AnkerBase()

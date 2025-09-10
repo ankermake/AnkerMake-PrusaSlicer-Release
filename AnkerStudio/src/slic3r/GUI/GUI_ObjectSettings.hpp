@@ -5,7 +5,7 @@
 #include <vector>
 #include <wx/panel.h>
 #include "wxExtensions.hpp"
-
+#include "ObjectDataViewModel.hpp"
 class wxBoxSizer;
 
 namespace Slic3r {
@@ -59,6 +59,32 @@ public:
     void        UpdateAndShow(const bool show) override;
     void        sys_color_changed();
 };
+
+class AnkerObjectSettings
+{
+public:
+    AnkerObjectSettings() = default;
+    ~AnkerObjectSettings() = default;
+
+    void UpdateAndShow(bool show);
+    bool update_settings_list(bool enable);
+
+    std::map<t_config_option_key, ConfigOption*> GetCalibrationValue (ModelConfig* config, int &extruder);
+    bool UpdateModelConfig(const std::map<t_config_option_key, ConfigOption*>& calibrations, ModelConfig* config, int extruder);
+    ModelConfig* GetSelsItemModelConfig() const { return m_model_config_sels; }
+    ObjectDataViewModelNode* GetNode() const { return m_node;  }
+
+private:
+    void SetItemModelConfig(ModelConfig*& config);
+
+private:
+    bool m_bindFlag{ false };
+    void* m_ID{ nullptr };
+
+    ObjectDataViewModelNode* m_node { nullptr };
+    ModelConfig* m_model_config_sels { nullptr};
+};
+
 
 }}
 

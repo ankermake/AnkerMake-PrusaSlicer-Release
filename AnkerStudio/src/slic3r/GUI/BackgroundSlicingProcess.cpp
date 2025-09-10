@@ -81,8 +81,8 @@ std::pair<std::string, bool> SlicingProcessCompletedEvent::format_error_message(
                               "be glad if you reported it."), SLIC3R_APP_NAME);
         error += "\n\n" + std::string(ex.what());
     } catch (const HardCrash &ex) {
-        error = GUI::format(_L("AnkerMake Studio has encountered a fatal error: \"%1%\""), ex.what()) + "\n\n" +
-        		_u8L("Please save your project and restart AnkerMake Studio. "
+        error = GUI::format(_L("eufyMake Studio has encountered a fatal error: \"%1%\""), ex.what()) + "\n\n" +
+        		_u8L("Please save your project and restart eufyMake Studio. "
                      "We would be glad if you reported the issue.");
     } catch (PlaceholderParserError &ex) {
 		error = ex.what();
@@ -100,7 +100,7 @@ BackgroundSlicingProcess::BackgroundSlicingProcess()
     // boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
     // temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
 	// m_temp_output_path = temp_path.string();
-	update_temp_output_path();
+	set_temp_output_path();
 }
 
 BackgroundSlicingProcess::~BackgroundSlicingProcess() 
@@ -110,14 +110,14 @@ BackgroundSlicingProcess::~BackgroundSlicingProcess()
 	boost::nowide::remove(m_temp_output_path.c_str());
 }
 
-void BackgroundSlicingProcess::update_temp_output_path(bool createAiFile)
+void BackgroundSlicingProcess::set_temp_output_path(bool createAiFile)
 {
-	boost::filesystem::path temp_path(wxStandardPaths::Get().GetTempDir().utf8_str().data());
-	if (createAiFile)
-		temp_path /= (boost::format(".%1%.acode") % get_current_pid()).str();
-	else
-		temp_path /= (boost::format(".%1%.gcode") % get_current_pid()).str();
-	m_temp_output_path = temp_path.string();
+	//auto wstr = wxStandardPaths::Get().GetUserLocalDataDir() + "\\..\\Temp\\." + std::to_string(get_current_pid()) + ".gcode";
+
+	auto wstr_temp = wxStandardPaths::Get().GetTempDir();
+	auto wstr = wstr_temp + "\\." + std::to_string(get_current_pid()) + ".gcode";
+
+	m_temp_output_path = wstr.ToStdString(wxConvUTF8);
 }
 
 std::string BackgroundSlicingProcess::get_temp_output_path()
@@ -160,12 +160,26 @@ std::string BackgroundSlicingProcess::output_filepath_for_project(const boost::f
 void BackgroundSlicingProcess::process_fff()
 {
 	assert(m_print == m_fff_print);
-	m_print->process();
-	wxCommandEvent evt(m_event_slicing_completed_id);
-	// Post the Slicing Finished message for the G-code viewer to update.
-	// Passing the timestamp 
-	evt.SetInt((int)(m_fff_print->step_state_with_timestamp(PrintStep::psSlicingFinished).timestamp));
-	wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+
+	if (this->set_step_started(bspsSliceComplete)) {
+		{
+			wxCommandEvent evt(m_event_slicing_began_id);
+			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+		}
+
+		m_print->process();
+
+		{
+			wxCommandEvent evt(m_event_slicing_completed_id);
+			// Post the Slicing Finished message for the G-code viewer to update.
+			// Passing the timestamp 
+			evt.SetInt((int)(m_fff_print->step_state_with_timestamp(PrintStep::psSlicingFinished).timestamp));
+			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt.Clone());
+		}
+
+		this->set_step_done(bspsSliceComplete);
+	}
+
 	//friva change for acode export
 	if (GUI::wxGetApp().plater()) {
 		bool isCreatAiFile = GUI::wxGetApp().plater()->get_create_AI_file_val();
@@ -173,9 +187,10 @@ void BackgroundSlicingProcess::process_fff()
 	}
 	
 	m_fff_print->export_gcode(m_temp_output_path, m_gcode_result, [this](const ThumbnailsParams& params) { return this->render_thumbnails(params); });
-	if (GUI::wxGetApp().plater()) {
-		GUI::wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(m_gcode_result->filename);
-	}	if (this->set_step_started(bspsGCodeFinalize)) {
+	//if (GUI::wxGetApp().plater()) {
+	//	GUI::wxGetApp().plater()->setAKeyPrintSlicerTempGcodePath(m_gcode_result->filename);
+	//}	
+	if (this->set_step_started(bspsGCodeFinalize)) {
 	    if (! m_export_path.empty()) {
 			wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, new wxCommandEvent(m_event_export_began_id));
 			finalize_gcode();
@@ -504,13 +519,13 @@ void BackgroundSlicingProcess::stop_internal()
 		// Allow the worker thread to wake up if blocking on a milestone.
 		m_print->state_mutex().unlock();
 		// Wait until the background processing stops by being canceled.
-		m_condition.wait(lck, [this](){ return m_state == STATE_CANCELED; });
+		m_condition.wait(lck, [this]() { return m_state == STATE_CANCELED; });
 		// Lock it back to be in a consistent state.
 		m_print->state_mutex().lock();
 	}
 	// In the "Canceled" state. Reset the state to "Idle".
 	m_state = STATE_IDLE;
-	m_print->set_cancel_callback([](){});
+	m_print->set_cancel_callback([]() {});
 }
 
 // Execute task from background thread on the UI thread. Returns true if processed, false if cancelled. 
@@ -520,13 +535,14 @@ bool BackgroundSlicingProcess::execute_ui_task(std::function<void()> task)
 	if (m_mutex.try_lock()) {
 		// Cancellation is either not in process, or already canceled and waiting for us to finish.
 		// There must be no UI task planned.
-		assert(! m_ui_task);
-		if (! m_print->canceled()) {
+		assert(!m_ui_task);
+		if (!m_print->canceled()) {
 			running = true;
 			m_ui_task = std::make_shared<UITask>();
 		}
 		m_mutex.unlock();
-	} else {
+	}
+	else {
 		// Cancellation is in process.
 	}
 
@@ -539,17 +555,17 @@ bool BackgroundSlicingProcess::execute_ui_task(std::function<void()> task)
 			if (ctx->state == UITask::Planned) {
 				task();
 				std::unique_lock<std::mutex> lck(ctx->mutex);
-	    		ctx->state = UITask::Finished;
-	    	}
-	    	// Wake up the worker thread from the UI thread.
-    		ctx->condition.notify_all();
-	    });
+				ctx->state = UITask::Finished;
+			}
+			// Wake up the worker thread from the UI thread.
+			ctx->condition.notify_all();
+			});
 
-	    {
+		{
 			std::unique_lock<std::mutex> lock(ctx->mutex);
-	    	ctx->condition.wait(lock, [&ctx]{ return ctx->state == UITask::Finished || ctx->state == UITask::Canceled; });
-	    }
-	    result = ctx->state == UITask::Finished;
+			ctx->condition.wait(lock, [&ctx] { return ctx->state == UITask::Finished || ctx->state == UITask::Canceled; });
+		}
+		result = ctx->state == UITask::Finished;
 		m_ui_task.reset();
 	}
 
@@ -576,16 +592,21 @@ bool BackgroundSlicingProcess::empty() const
 std::string BackgroundSlicingProcess::validate(std::string* warning)
 {
 	assert(m_print != nullptr);
-    return m_print->validate(warning);
+	return m_print->validate(warning);
 }
 
 // Apply config over the print. Returns false, if the new config values caused any of the already
 // processed steps to be invalidated, therefore the task will need to be restarted.
-Print::ApplyStatus BackgroundSlicingProcess::apply(const Model &model, const DynamicPrintConfig &config)
+Print::ApplyStatus BackgroundSlicingProcess::apply(const Model& model, const DynamicPrintConfig& config)
 {
 	assert(m_print != nullptr);
 	assert(config.opt_enum<PrinterTechnology>("printer_technology") == m_print->technology());
 	Print::ApplyStatus invalidated = m_print->apply(model, config);
+
+	if ((invalidated != PrintBase::APPLY_STATUS_UNCHANGED) && m_print->technology() == ptFFF){
+		this->invalidate_step(bspsSliceComplete);
+	}
+
 	if ((invalidated & PrintBase::APPLY_STATUS_INVALIDATED) != 0 && m_print->technology() == ptFFF &&
 		!m_fff_print->is_step_done(psGCodeExport)) {
 		// Some FFF status was invalidated, and the G-code was not exported yet.

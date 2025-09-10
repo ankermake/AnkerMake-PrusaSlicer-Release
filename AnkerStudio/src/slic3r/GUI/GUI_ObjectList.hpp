@@ -1,3 +1,7 @@
+///|/ Copyright (c) Prusa Research 2018 - 2022 Oleksandra Iushchenko @YuSanka, Lukáš Matěna @lukasmatena, Pavel Mikuš @Godrak, Filip Sykala @Jony01, Lukáš Hejl @hejllukas, Vojtěch Bubník @bubnikv, David Kocík @kocikdav, Enrico Turri @enricoturri1966, Tomáš Mészáros @tamasmeszaros
+///|/
+///|/ PrusaSlicer is released under the terms of the AGPLv3 or higher
+///|/
 #ifndef slic3r_GUI_ObjectList_hpp_
 #define slic3r_GUI_ObjectList_hpp_
 
@@ -19,7 +23,6 @@ class wxBoxSizer;
 class wxBitmapComboBox;
 class wxMenuItem;
 class MenuWithSeparators;
-class AnkerObjectBarView;
 
 namespace Slic3r {
 class ConfigOptionsGroup;
@@ -28,7 +31,6 @@ class ModelConfig;
 class ModelObject;
 class ModelVolume;
 class TriangleMesh;
-struct TextConfiguration;
 enum class ModelVolumeType : int;
 
 // FIXME: broken build on mac os because of this is missing:
@@ -39,11 +41,12 @@ typedef std::pair<coordf_t, coordf_t>               t_layer_height_range;
 typedef std::map<t_layer_height_range, ModelConfig> t_layer_config_ranges;
 
 // Manifold mesh may contain self-intersections, so we want to always allow fixing the mesh.
-#define FIX_THROUGH_NETFABB_ALWAYS 1
+#define FIX_THROUGH_WINSDK_ALWAYS 1
 
 namespace GUI {
 
 wxDECLARE_EVENT(EVT_OBJ_LIST_OBJECT_SELECT, SimpleEvent);
+wxDECLARE_EVENT(EVT_OBJ_LIST_OBJECT_HEIGHT_CHANGED, wxCommandEvent);
 class BitmapComboBox;
 
 struct ItemForDelete
@@ -160,8 +163,6 @@ private:
 
     std::vector<wxBitmap*>      m_bmp_vector;
 
-    AnkerObjectBarView* m_pObjectBar;
-
     int			m_selected_object_id = -1;
     bool		m_prevent_list_events = false;		// We use this flag to avoid circular event handling Select() 
                                                     // happens to fire a wxEVT_LIST_ITEM_SELECTED on OSX, whose event handler 
@@ -187,6 +188,7 @@ private:
 #endif
 
     size_t    m_items_count { size_t(-1) };
+    int       m_items_heigh{ 0 };
 
     inline void ensure_current_item_visible()
     {
@@ -198,6 +200,9 @@ public:
     ObjectList(wxWindow* parent);
     ~ObjectList() override;
 
+    int get_all_item_height() { return m_items_heigh; }
+    void set_all_item_height();
+    void update_all_item_height();
     void set_min_height();
     void update_min_height();
     int get_item_count();
@@ -207,6 +212,7 @@ public:
     std::vector<ModelObject*>*  objects() const     { return m_objects; }
 
     ModelObject*                object(const int obj_idx) const ;
+    wxDataViewItemArray         GetAllChildren();
 
     void                create_objects_ctrl();
     void                update_objects_list_extruder_column(size_t extruders_count);
@@ -219,8 +225,6 @@ public:
     void                update_name_in_model(const wxDataViewItem& item) const;
     void                update_name_in_list(int obj_idx, int vol_idx) const;
     void                update_extruder_values_for_items(const size_t max_extruder);
-    // Anker
-    void                set_ui_bar(AnkerObjectBarView* bar) { m_pObjectBar = bar; }
 
     // Get obj_idx and vol_idx values for the selected (by default) or an adjusted item
     void                get_selected_item_indexes(int& obj_idx, int& vol_idx, const wxDataViewItem& item = wxDataViewItem(0));
@@ -264,8 +268,7 @@ public:
     void                load_shape_object(const std::string &type_name);
     void                load_shape_object_from_gallery();
     void                load_shape_object_from_gallery(const wxArrayString& input_files);
-    void                load_mesh_object(const TriangleMesh &mesh, const std::string &name, bool center = true, 
-                                         const TextConfiguration* text_config = nullptr, const Transform3d* transformation = nullptr);
+    void                load_mesh_object(const TriangleMesh &mesh, const std::string &name, bool center = true);
     bool                del_object(const int obj_idx);
     bool                del_subobject_item(wxDataViewItem& item);
     void                del_settings_from_config(const wxDataViewItem& parent_item);
@@ -391,7 +394,7 @@ public:
     void instances_to_separated_objects(const int obj_idx);
     void split_instances();
     void rename_item();
-    void fix_through_netfabb();
+    void fix_through_winsdk();
     void simplify();
     void update_item_error_icon(const int obj_idx, int vol_idx) const ;
 
@@ -418,12 +421,19 @@ public:
 
     bool is_editing() const { return m_is_editing_started; }
 
+    void sync_calibration_config(const wxString& key, ConfigOption* option);
+    void update_item_model_config(const DynamicPrintConfig& new_config, const DynamicPrintConfig& last_preset_config);
+    void reset_item_model_config(const DynamicPrintConfig& new_preset_config);
+    void update_item_support_config(const wxString& configOptionKey, bool value);
 private:
 #ifdef __WXOSX__
 //    void OnChar(wxKeyEvent& event);
+    wxAcceleratorTable m_accel;
 #endif /* __WXOSX__ */
     void OnContextMenu(wxDataViewEvent &event);
     void list_manipulation(const wxPoint& mouse_pos, bool evt_context_menu = false);
+
+    void update_name_column_width() const;
 
     void OnBeginDrag(wxDataViewEvent &event);
     void OnDropPossible(wxDataViewEvent &event);
@@ -434,6 +444,12 @@ private:
     // Workaround for entering the column editing mode on Windows. Simulate keyboard enter when another column of the active line is selected.
 	void OnEditingStarted(wxDataViewEvent &event);
     void OnEditingDone(wxDataViewEvent &event);
+    
+    // apply the instance transform to all volumes and reset instance transform except the offset
+    void apply_object_instance_transfrom_to_all_volumes(ModelObject *model_object, bool need_update_assemble_matrix = true);
+
+    wxSize  m_last_size;
+    std::vector<int> m_columns_width;
 };
 
 

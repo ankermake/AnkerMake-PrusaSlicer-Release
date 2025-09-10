@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.13)
-project(AnkerStudio)
+project(eufyStudio)
 
 include("version.inc")
 include(GNUInstallDirs)
@@ -8,15 +8,22 @@ include(CMakeDependentOption)
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 # include(ConfigureAllModules)
 
+set(OPEN_SOURCE OFF)
+
 set(SLIC3R_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 file(TO_NATIVE_PATH "${SLIC3R_RESOURCES_DIR}" SLIC3R_RESOURCES_DIR_WIN)
 
 if(NOT CMAKE_PREFIX_PATH)
-    if(EXISTS $ENV{THIRD_PART_ROOT})
-        set(CMAKE_PREFIX_PATH "$ENV{THIRD_PART_ROOT}/usr/local/")
-        message("NOT Set CMAKE_PREFIX_PATH set to $ENV{THIRD_PART_ROOT}")
-    else()
-        message("NOT Set CMAKE_PREFIX_PATH OR THIRD_PART_ROOT please check.")
+	if(THIRD_PART_ROOT)
+		set(CMAKE_PREFIX_PATH "${THIRD_PART_ROOT}/usr/local/")
+		message("Param Set CMAKE_PREFIX_PATH to ${CMAKE_PREFIX_PATH}")
+	else()
+		if(EXISTS $ENV{THIRD_PART_ROOT})
+			set(CMAKE_PREFIX_PATH "$ENV{THIRD_PART_ROOT}/usr/local/")
+			message("Env Set CMAKE_PREFIX_PATH to ${CMAKE_PREFIX_PATH}")
+		else()
+			message("NO Set CMAKE_PREFIX_PATH OR THIRD_PART_ROOT, please check.")
+		endif()
     endif()
 endif()
 
@@ -35,10 +42,13 @@ else()
         endif()
 endif()
 
-option(SLIC3R_STATIC 			"Compile AnkerStudio with static libraries (Boost, TBB, glew)" ${SLIC3R_STATIC_INITIAL})
-option(SLIC3R_GUI    			"Compile AnkerStudio with GUI components (OpenGL, wxWidgets)" 1)
-option(SLIC3R_FHS               "Assume AnkerStudio is to be installed in a FHS directory structure" 0)
+#add_definitions(-DNET_TEST=1)
+
+option(SLIC3R_STATIC 			"Compile eufyStudio with static libraries (Boost, TBB, glew)" ${SLIC3R_STATIC_INITIAL})
+option(SLIC3R_GUI    			"Compile eufyStudio with GUI components (OpenGL, wxWidgets)" 1)
+option(SLIC3R_FHS               "Assume eufyStudio is to be installed in a FHS directory structure" 0)
 option(SLIC3R_WX_STABLE         "Build against wxWidgets stable (3.0) as oppsed to dev (3.1) on Linux" 0)
+option(SLIC3R_PROFILE 			"Compile eufyStudio with an invasive Shiny profiler" 0)
 option(SLIC3R_PCH               "Use precompiled headers" 1)
 option(SLIC3R_MSVC_COMPILE_PARALLEL "Compile on Visual Studio in parallel" 1)
 option(SLIC3R_MSVC_PDB          "Generate PDB files on MSVC in Release mode" 1)
@@ -82,7 +92,7 @@ endif ()
 
 # Proposal for C++ unit tests and sandboxes
 option(SLIC3R_BUILD_SANDBOXES   "Build development sandboxes" OFF)
-option(SLIC3R_BUILD_TESTS       "Build unit tests" ON)
+option(SLIC3R_BUILD_TESTS       "Build unit tests" OFF)
 
 if (IS_CROSS_COMPILE)
     message("Detected cross compilation setup. Tests and encoding checks will be forcedly disabled!")
@@ -147,7 +157,7 @@ if (MINGW)
 endif ()
 
 if (NOT MSVC)
-    # ARMs (Raspberry PI) use an unsigned char by default. Let's make it consistent for AnkerStudio on all platforms.
+    # ARMs (Raspberry PI) use an unsigned char by default. Let's make it consistent for eufyStudio on all platforms.
     add_compile_options(-fsigned-char)
 endif ()
 
@@ -310,8 +320,6 @@ if (SLIC3R_ASAN)
 endif ()
 
 if (SLIC3R_UBSAN)
-    # Stacktrace for every report is enabled by default. It can be disabled by running AnkerStudio with "UBSAN_OPTIONS=print_stacktrace=0".
-
     # Define macro SLIC3R_UBSAN to allow detection in the source code if this sanitizer is enabled.
     add_compile_definitions(SLIC3R_UBSAN)
 
@@ -353,7 +361,7 @@ if(WIN32)
     if(MSVC)
         # BOOST_ALL_NO_LIB: Avoid the automatic linking of Boost libraries on Windows. Rather rely on explicit linking.
         add_definitions(-DBOOST_ALL_NO_LIB -DBOOST_USE_WINAPI_VERSION=0x601 -DBOOST_SYSTEM_USE_UTF8 )
-        # Force the source code encoding to UTF-8. See AnkerStudio GH pull request #5583
+        # Force the source code encoding to UTF-8.
         add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
         add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
     endif(MSVC)
@@ -550,7 +558,6 @@ foreach(po_file ${L10N_PO_FILES})
     GET_FILENAME_COMPONENT(po_dir "${po_file}" DIRECTORY)
     GET_FILENAME_COMPONENT(po_dir_name "${po_dir}" NAME)
     SET(wx_po_file "${L10N_DIR}/wx_locale/${po_dir_name}.po")
-    #SET(po_new_file "${po_dir}/AnkerStudio_.po")
     add_custom_command(
         TARGET gettext_concat_wx_po_with_po PRE_BUILD
         COMMAND msgcat --use-first -o ${po_file} ${po_file} ${wx_po_file}
@@ -614,6 +621,7 @@ function(AnkerStudio_copy_dlls target)
     
     # This has to be a separate target due to the windows command line lenght limits    
     add_custom_command(TARGET ${target} POST_BUILD 
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_out_dir}
         COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/libgmp-10.dll ${_out_dir}
         COMMENT "Copy gmp runtime to build tree"
         VERBATIM)
@@ -628,12 +636,39 @@ function(AnkerStudio_copy_dlls target)
         COMMENT "Copy mpfr runtime to build tree"
         VERBATIM)
 
+if(NOT OPEN_SOURCE)		
+	add_custom_command(TARGET ${target} POST_BUILD 
+        COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/sentry.dll ${_out_dir}
+        COMMENT "Copy senntry library to build tree"
+        VERBATIM)
+endif()
+		
+	add_custom_command(TARGET ${target} POST_BUILD 
+		COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/crashpad_handler.exe ${_out_dir}
+		COMMENT "Copy crashpad library to build tree"
+		VERBATIM)	
+    
+    message(STATUS "------Build type: ${CMAKE_BUILD_TYPE}------")
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        message("Using NINJA")
+        add_custom_command(TARGET ${target} POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/AnkerPlugin/Release/AnkerPlugin.dll ${_out_dir}
+            COMMENT "Copy anker plugin to build tree"
+            VERBATIM)	
+    else()
+        message("Using LOCAL")
+        set (buildEnvir "$(Configuration)")
+        add_custom_command(TARGET ${target} POST_BUILD 
+            COMMAND ${CMAKE_COMMAND} -E copy $ENV{THIRD_PART_ROOT}/usr/local/bin/AnkerPlugin/${buildEnvir}/AnkerPlugin.dll ${_out_dir}
+            COMMENT "Copy anker plugin to build tree"
+            VERBATIM)	        
+    endif()
 endfunction()
 
 
-# libslic3r, AnkerStudio GUI and the AnkerStudio executable.
+# libslic3r, eufyStudio GUI and the eufyStudio executable.
 add_subdirectory(src)
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT AnkerStudio_app_console)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT eufyStudio_app_console)
 
 add_dependencies(gettext_make_pot hintsToPot)
 

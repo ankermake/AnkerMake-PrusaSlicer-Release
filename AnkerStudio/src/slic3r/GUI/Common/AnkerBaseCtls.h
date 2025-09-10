@@ -20,8 +20,16 @@ namespace Slic3r {
 				const wxString& name = wxPanelNameStr
 				): wxPanel(parent, id, pos,size,style,name)
 			{
-
+				m_bgColor = wxColor("#3A3B3F");
+				m_fgColor = wxColor("#FFFFFF");
 			}
+
+			void setBgColor(wxColor newColor) { m_bgColor = newColor; }
+			void setFgColor(wxColor newColor) { m_fgColor = newColor; }
+
+		protected:
+			wxColour m_bgColor;
+			wxColour m_fgColor;
 		};
 
 		class AnkerBaseButton :public wxButton
@@ -64,6 +72,18 @@ namespace Slic3r {
 			{
 
 			}
+		};
+
+
+		class AnkerNoBarScrolledWindow : public wxScrolledWindow
+		{
+		public:
+			AnkerNoBarScrolledWindow(wxWindow* parent, wxWindowID id, const wxPoint& pos = wxDefaultPosition,
+				const wxSize& size = wxDefaultSize, long style = 0, const wxString& name = wxPanelNameStr);
+			void OnMouseWheel(wxMouseEvent& event);
+		private:
+
+			DECLARE_EVENT_TABLE()
 		};
 	}
 }

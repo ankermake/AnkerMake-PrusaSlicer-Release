@@ -35,6 +35,8 @@ namespace Slic3r {
             void msw_rescale();
 
             wxSize GetRightPanelSize();
+            void ChangeAnkerTabComboSel(AnkerTabPresetComboBox* presetChoice, const int selection);
+
         protected:
             virtual void on_dpi_changed(const wxRect& suggested_rect) override;
         private:
@@ -52,7 +54,7 @@ namespace Slic3r {
             
             void OnExitButtonClicked(wxCommandEvent& event);
 
-            void onAnkerTabComboSelChanged(AnkerTabPresetComboBox* presetChoice,const int selection);
+            
             void onComboBoxCloseUp(wxCommandEvent& event);
             void onPresetRightClick(wxMouseEvent& event);
             void onPresetOpPopupClick(wxCommandEvent& event);

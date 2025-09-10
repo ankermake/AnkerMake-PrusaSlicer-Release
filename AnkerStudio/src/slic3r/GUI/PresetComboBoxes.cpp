@@ -42,6 +42,8 @@
 #include "BitmapCache.hpp"
 #include "PhysicalPrinterDialog.hpp"
 #include "MsgDialog.hpp"
+#include "slic3r/Utils/DataMangerUi.hpp"
+#include "AnkerNetModule/BuryDefines.h"
 
 // A workaround for a set of issues related to text fitting into gtk widgets:
 // See e.g.: https://github.com/prusa3d/PrusaSlicer/issues/4584
@@ -51,10 +53,17 @@
     #include <gtk/gtk.h>
 #endif
 
+#include "AnkerNetModule/BuryDefines.h"
+
 using Slic3r::GUI::format_wxstr;
 
 namespace Slic3r {
 namespace GUI {
+
+static void run_wizard(ConfigWizard::StartPage sp)
+{
+	wxGetApp().run_wizard(ConfigWizard::RR_USER, sp);
+}
 
 #define BORDER_W 10
 
@@ -310,7 +319,7 @@ void PresetComboBox::update(std::string select_preset_name)
     }
     if (!nonsys_presets.empty())
     {
-        set_label_marker(Append(separator(L("My presets")), NullBitmapBndl()));
+        set_label_marker(Append(separator(_L("common_slicepannel_parametersselect_title2")), NullBitmapBndl()));
         for (std::map<wxString, std::pair<wxBitmapBundle*, bool>>::iterator it = nonsys_presets.begin(); it != nonsys_presets.end(); ++it) {
             int item_id = Append(it->first, *it->second.first);
             bool is_enabled = it->second.second;
@@ -439,7 +448,7 @@ void PresetComboBox::fill_width_height()
     wide_space_icon_width = 6;
 }
 
-wxString PresetComboBox::separator(const std::string& label)
+wxString PresetComboBox::separator(const wxString& label)
 {
     return wxString::FromUTF8(separator_head()) + _(label) + wxString::FromUTF8(separator_tail());
 }
@@ -720,6 +729,47 @@ void AnkerPresetComboBox::validate_selection(bool predicate/*=false*/)
         m_last_selected = GetCount() - 1;
 }
 
+
+void AnkerPresetComboBox::update_selection(int topNozzleIndex)
+{
+    /* If selected_preset_item is still equal to INT_MAX, it means that
+     * there is no presets added to the list.
+     * So, select last combobox item ("Add/Remove preset")
+     */
+    validate_selection();
+
+    SetSelection(topNozzleIndex);
+#ifdef __WXMSW__
+    // From the Windows 2004 the tooltip for preset combobox doesn't work after next call of SetTooltip()
+    // (There was an issue, when tooltip doesn't appears after changing of the preset selection)
+    // But this workaround seems to work: We should to kill tooltip and than set new tooltip value
+    SetToolTip(NULL);
+#endif
+    SetToolTip(GetString(topNozzleIndex));
+
+    // A workaround for a set of issues related to text fitting into gtk widgets:
+    // See e.g.: https://github.com/prusa3d/PrusaSlicer/issues/4584
+#if defined(__WXGTK20__) || defined(__WXGTK3__)
+    GList* cells = gtk_cell_layout_get_cells(GTK_CELL_LAYOUT(m_widget));
+
+    // 'cells' contains the GtkCellRendererPixBuf for the icon,
+    // 'cells->next' contains GtkCellRendererText for the text we need to ellipsize
+    if (!cells || !cells->next) {
+        return;
+    }
+
+    auto cell = static_cast<GtkCellRendererText*>(cells->next->data);
+
+    if (!cell) {
+        return;
+    }
+
+    g_object_set(G_OBJECT(cell), "ellipsize", PANGO_ELLIPSIZE_END, (char*)NULL);
+
+    // Only the list of cells must be freed, the renderer isn't ours to free
+    g_list_free(cells);
+#endif
+}
 void AnkerPresetComboBox::update_selection()
 {
     /* If selected_preset_item is still equal to INT_MAX, it means that
@@ -846,7 +896,7 @@ void AnkerPresetComboBox::update(std::string select_preset_name)
     }
     if (!nonsys_presets.empty())
     {
-        set_label_marker(Append(separator(L("My presets"))));
+        set_label_marker(Append(separator(_L("common_slicepannel_parametersselect_title2"))));
         for (std::map<wxString, std::pair<wxBitmapBundle*, bool>>::iterator it = nonsys_presets.begin(); it != nonsys_presets.end(); ++it) {
             int item_id = Append(it->first);
             bool is_enabled = it->second.second;
@@ -992,7 +1042,7 @@ bool AnkerPresetComboBox::bPrintPresetNeedHide(Preset printPreset) {
     return false;
 }
 
-const wxString AnkerPresetComboBox::separator(const std::string& label)
+const wxString AnkerPresetComboBox::separator(const wxString& label)
 {
     return wxString::FromUTF8(separator_head()) + _(label) + wxString::FromUTF8(separator_tail());
 }
@@ -1219,10 +1269,6 @@ PlaterPresetComboBox::~PlaterPresetComboBox()
         edit_btn->Destroy();
 }
 
-static void run_wizard(ConfigWizard::StartPage sp)
-{
-    wxGetApp().run_wizard(ConfigWizard::RR_USER, sp);
-}
 
 void PlaterPresetComboBox::OnSelect(wxCommandEvent &evt)
 {
@@ -1526,7 +1572,7 @@ void PlaterPresetComboBox::update()
     
     if (!nonsys_presets.empty())
     {
-        set_label_marker(Append(separator(L("My presets")), NullBitmapBndl()));
+        set_label_marker(Append(separator(_L("common_slicepannel_parametersselect_title2")), NullBitmapBndl()));
         for (std::map<wxString, wxBitmapBundle*>::iterator it = nonsys_presets.begin(); it != nonsys_presets.end(); ++it) {
             Append(it->first, *it->second);
             validate_selection(it->first == selected_user_preset);
@@ -1574,7 +1620,7 @@ void PlaterPresetComboBox::update()
         else if (m_type == Preset::TYPE_SLA_MATERIAL)
             set_label_marker(Append(separator(L("Add/Remove materials")), *bmp), LABEL_ITEM_WIZARD_MATERIALS);
         else { // mod by allen at 20230627,Shielding according to product requirements
-            /*set_label_marker(Append(separator(L("Add/Remove printers")), *bmp), LABEL_ITEM_WIZARD_PRINTERS);*/
+            set_label_marker(Append(separator(L("Add/Remove printers")), *bmp), LABEL_ITEM_WIZARD_PRINTERS);
         }
     }
 
@@ -1633,14 +1679,16 @@ AnkerPlaterPresetComboBox::AnkerPlaterPresetComboBox(wxWindow* parent, Preset::T
     edit_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent)
         {
             // In a case of a physical printer, for its editing open PhysicalPrinterDialog
-            if (m_type == Preset::TYPE_PRINTER
+            if (m_type == Preset::TYPE_PRINTER) {
+                //switch_to_tab();   // open config dialog
+                wxTheApp->CallAfter([]() { run_wizard(ConfigWizard::SP_PRINTERS); });  // open wizrd dialog
+            }
 #ifdef __linux__
                 // To edit extruder color from the sidebar
-                || m_type == Preset::TYPE_FILAMENT
-#endif //__linux__
-                )
+            else if( m_type == Preset::TYPE_FILAMENT )
                 //show_edit_menu();
                 switch_to_tab();
+#endif //__linux__
             else
                 switch_to_tab();
         });
@@ -1652,11 +1700,6 @@ AnkerPlaterPresetComboBox::~AnkerPlaterPresetComboBox()
         edit_btn->Destroy();*/
 }
 
-//static void run_wizard(ConfigWizard::StartPage sp)
-//{
-//    wxGetApp().run_wizard(ConfigWizard::RR_USER, sp);
-//}
-
 void AnkerPlaterPresetComboBox::OnSelect(wxCommandEvent& evt)
 {
     auto selected_item = evt.GetSelection();
@@ -1667,8 +1710,16 @@ void AnkerPlaterPresetComboBox::OnSelect(wxCommandEvent& evt)
         evt.StopPropagation();
         if (marker == LABEL_ITEM_MARKER)
             return;
-        if (marker == LABEL_ITEM_WIZARD_PRINTERS)
-            show_add_menu();
+        if (marker == LABEL_ITEM_WIZARD_PRINTERS) {
+            //show_add_menu();
+            //add Data Tracking
+
+            std::map<std::string, std::string> map;
+            map.insert(std::make_pair(c_config_wizard_entrance, "enter by user"));
+            BuryAddEvent(e_config_wizard_event, map);
+
+            wxTheApp->CallAfter([]() { run_wizard(ConfigWizard::SP_PRINTERS); });
+        }
         else {
             ConfigWizard::StartPage sp = ConfigWizard::SP_WELCOME;
             switch (marker) {
@@ -1680,10 +1731,14 @@ void AnkerPlaterPresetComboBox::OnSelect(wxCommandEvent& evt)
         }
         return;
     }
-    else if (marker == LABEL_ITEM_PHYSICAL_PRINTER || m_last_selected != selected_item || m_collection->current_is_dirty())
+    else if (on_selection_changed && marker == LABEL_ITEM_PHYSICAL_PRINTER
+        || m_last_selected != selected_item
+        || m_collection->current_is_dirty()) {
         m_last_selected = selected_item;
-
-    evt.Skip();
+        on_selection_changed(selected_item);
+    }
+    // fix bug:zz_3d_pc#3584
+   // evt.Skip();
 }
 
 std::string AnkerPlaterPresetComboBox::get_selected_ph_printer_name() const
@@ -2019,7 +2074,7 @@ void AnkerPlaterPresetComboBox::update()
 
     if (!nonsys_presets.empty())
     {
-        set_label_marker(Append(separator(L("My presets"))));
+        set_label_marker(Append(separator(_L("common_slicepannel_parametersselect_title2"))));
         for (std::map<wxString, wxBitmapBundle*>::iterator it = nonsys_presets.begin(); it != nonsys_presets.end(); ++it) {
             Append(it->first);
             validate_selection(it->first == selected_user_preset);
@@ -2063,11 +2118,13 @@ void AnkerPlaterPresetComboBox::update()
         assert(bmp);
 
         if (m_type == Preset::TYPE_FILAMENT)
-            set_label_marker(Append(separator(L("Add/Remove filaments"))), LABEL_ITEM_WIZARD_FILAMENTS);
-        else if (m_type == Preset::TYPE_SLA_MATERIAL)
+        {
+            /*set_label_marker(Append(separator(L("Add/Remove filaments"))), LABEL_ITEM_WIZARD_FILAMENTS);*/
+        }
+		else if (m_type == Preset::TYPE_SLA_MATERIAL)
             set_label_marker(Append(separator(L("Add/Remove materials"))), LABEL_ITEM_WIZARD_MATERIALS);
-        else { // mod by allen at 20230627,Shielding according to product requirements
-            /*set_label_marker(Append(separator(L("Add/Remove printers")), *bmp), LABEL_ITEM_WIZARD_PRINTERS);*/
+        else {
+            set_label_marker(Append(separator(L("Add/Remove printers"))), LABEL_ITEM_WIZARD_PRINTERS);
         }
     }
 
@@ -2236,7 +2293,7 @@ void TabPresetComboBox::update()
    
     if (!nonsys_presets.empty())
     {
-        set_label_marker(Append(separator(L("My presets")), NullBitmapBndl()));
+        set_label_marker(Append(separator(_L("common_slicepannel_parametersselect_title2")), NullBitmapBndl()));
         for (std::map<wxString, std::pair<wxBitmapBundle*, bool>>::iterator it = nonsys_presets.begin(); it != nonsys_presets.end(); ++it) {
             int item_id = Append(it->first, *it->second.first);
             bool is_enabled = it->second.second;
@@ -2375,6 +2432,10 @@ void AnkerTabPresetComboBox::OnSelect(wxCommandEvent& evt)
     else if (on_selection_changed && (m_last_selected != selected_item || m_collection->current_is_dirty())) {
         m_last_selected = selected_item;
         on_selection_changed(selected_item);
+
+        if (Slic3r::GUI::wxGetApp().plater() != nullptr) {
+            Slic3r::GUI::wxGetApp().plater()->HintFor02mmPrinter("");
+        }
     }
 
     evt.StopPropagation();
@@ -2393,7 +2454,7 @@ void AnkerTabPresetComboBox::OnButtonClick() {
     }
     // According to the product requirements, clicking on the text control area in the drop - down list should switch to the next tab, 
     // and clicking on the drop - down button in the drop - down list should display the drop - down box.
-    //ShowPopup();
+    ShowPopup();
 }
 
 wxString AnkerTabPresetComboBox::get_preset_name(const Preset& preset)
@@ -2479,7 +2540,7 @@ void AnkerTabPresetComboBox::update()
 
     if (!nonsys_presets.empty())
     {
-        set_label_marker(Append(separator(L("My presets"))));
+        set_label_marker(Append(separator(_L("common_slicepannel_parametersselect_title2"))));
         for (std::map<wxString, std::pair<wxBitmapBundle*, bool>>::iterator it = nonsys_presets.begin(); it != nonsys_presets.end(); ++it) {
             int item_id = Append(it->first);
             bool is_enabled = it->second.second;

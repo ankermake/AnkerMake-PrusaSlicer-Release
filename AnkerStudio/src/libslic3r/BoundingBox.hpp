@@ -5,7 +5,6 @@
 #include "Exception.hpp"
 #include "Point.hpp"
 #include "Polygon.hpp"
-
 namespace Slic3r {
 
 template <class PointClass>
@@ -117,6 +116,7 @@ public:
     void merge(const BoundingBox3Base<PointClass> &bb);
     PointClass size() const;
     double radius() const;
+    double area() const { return double(this->max(0) - this->min(0)) * (this->max(1) - this->min(1)); }
     void translate(coordf_t x, coordf_t y, coordf_t z) { assert(this->defined); PointClass v(x, y, z); this->min += v; this->max += v; }
     void translate(const Vec3d &v) { this->min += v; this->max += v; }
     void offset(coordf_t delta);
@@ -293,6 +293,18 @@ inline double bbox_point_distance_squared(const BoundingBox &bbox, const Point &
         return Slic3r::sqr<double>(pt.y() < bbox.min.y() ? bbox.min.y() - pt.y() :
                                    pt.y() > bbox.max.y() ? pt.y() - bbox.max.y() :
                                    coord_t(0));
+}
+
+template<class T>
+BoundingBoxBase<Vec<2, T>> to_2d(const BoundingBox3Base<Vec<3, T>>& bb)
+{
+    return { to_2d(bb.min), to_2d(bb.max) };
+}
+
+template<class Tout, class T>
+BoundingBoxBase<Vec<2, Tout>> to_2d(const BoundingBox3Base<Vec<3, T>>& bb)
+{
+    return { to_2d(bb.min), to_2d(bb.max) };
 }
 
 } // namespace Slic3r

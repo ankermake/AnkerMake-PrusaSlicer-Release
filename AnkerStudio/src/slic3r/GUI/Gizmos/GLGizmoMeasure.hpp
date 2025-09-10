@@ -8,7 +8,9 @@
 #include "slic3r/GUI/I18N.hpp"
 #include "libslic3r/Measure.hpp"
 #include "libslic3r/Model.hpp"
+#include "slic3r/GUI/Common/AnkerLineEditUnit.hpp"
 
+class AnkerBtn;
 namespace Slic3r {
 
 enum class ModelVolumeType : int;
@@ -142,6 +144,18 @@ class GLGizmoMeasure : public GLGizmoBase
 
     void render_dimensioning();
 
+    // Anker
+    bool m_panelVisibleFlag;
+    wxBoxSizer* m_pInputWindowSizer;
+    wxStaticText* m_firstSelectedType;
+    wxStaticText* m_secondSelectedType;
+    wxStaticText* m_firstResultType;
+    wxStaticText* m_firstResultValue;
+    wxStaticText* m_secondResultType;
+    wxStaticText* m_secondResultValue;
+    bool m_restartBtnEnable{ false };
+    AnkerBtn* restartButton;
+
 #if ENABLE_MEASURE_GIZMO_DEBUG
     void render_debug_dialog();
 #endif // ENABLE_MEASURE_GIZMO_DEBUG
@@ -156,7 +170,7 @@ public:
     /// <returns>Return True when use the information otherwise False.</returns>
     bool on_mouse(const wxMouseEvent &mouse_event) override;
 
-    void data_changed() override;
+    void data_changed(bool is_serializing) override;
 
     bool gizmo_event(SLAGizmoEventType action, const Vec2d& mouse_position, bool shift_down, bool alt_down, bool control_down);
 
@@ -178,6 +192,11 @@ protected:
 
     void remove_selected_sphere_raycaster(int id);
     void update_measurement_result();
+
+private:
+    // Anker
+    void set_input_window_state(bool on);
+    void update_input_window();
 };
 
 } // namespace GUI

@@ -596,6 +596,14 @@ void GLModel::init_from(const indexed_triangle_set& its)
     }
 }
 
+void GLModel::update_bounding_box()
+{
+    const Geometry& data = m_render_data.geometry;
+    for (size_t i = 0; i < vertices_count(); ++i) {
+        m_bounding_box.merge(data.extract_position_3(i).cast<double>());
+    }
+}
+
 void GLModel::init_from(const Polygons& polygons, float z)
 {
     if (is_initialized()) {
@@ -638,6 +646,7 @@ void GLModel::init_from(const Polygons& polygons, float z)
         m_bounding_box.merge(data.extract_position_3(i).cast<double>());
     }
 }
+
 
 bool GLModel::init_from_file(const std::string& filename)
 {

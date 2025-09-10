@@ -29,7 +29,7 @@ public:
 	AnkerBase();
 	~AnkerBase();
 
-	static std::string 	AnkerResourceIconPath;
+	static wxString AnkerResourceIconPath;
 
 private:
 

@@ -53,14 +53,13 @@ bool AnkerOptionsGroup::sidetext_is_unit(wxString sideText)
         || sideText == _L("g/cm³")
 
         || sideText == _L("%")
-        || sideText == _L("layers")
-
-        || sideText == _L("money/kg")
         || sideText == _L("∆°C")
         || sideText == _L("ml")
         || sideText == _L("kg")
         || sideText == _L("g/ml")
-        || sideText == _L("money/bottle");
+        /* || sideText == _L("layers")
+        || sideText == _L("money/kg")
+        || sideText == _L("money/bottle")*/;
 }
 
 //#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStrartup")
@@ -703,7 +702,7 @@ AnkerOption AnkerConfigOptionsGroup::get_option(const std::string& opt_key, int 
 	//if (m_use_custom_ctrl) // fill group and category values just for options from Settings Tab
 	//    wxGetApp().sidebar().get_searcher().add_key(opt_id, static_cast<Preset::Type>(this->config_type()), title, this->config_category());    // old sidebar
 
-    if (m_use_custom_ctrl) // fill group and category values just for options from Settings Tab
+    if (m_use_custom_ctrl && this->config_type() != Preset::TYPE_PRINT) // fill group and category values just for options from Settings Tab
         wxGetApp().sidebarnew().get_searcher().add_key(opt_id, static_cast<Preset::Type>(this->config_type()), title, this->config_category());    // new sidebar
 
 	return AnkerOption(*m_config->def()->get(opt_key), opt_id);

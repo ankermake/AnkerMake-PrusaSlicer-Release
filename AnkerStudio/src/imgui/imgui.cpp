@@ -992,7 +992,7 @@ ImGuiStyle::ImGuiStyle()
     PopupRounding           = 0.0f;             // Radius of popup window corners rounding. Set to 0.0f to have rectangular child windows
     PopupBorderSize         = 1.0f;             // Thickness of border around popup or tooltip windows. Generally set to 0.0f or 1.0f. Other values not well tested.
     FramePadding            = ImVec2(4,3);      // Padding within a framed rectangle (used by most widgets)
-    FrameRounding           = 0.0f;             // Radius of frame corners rounding. Set to 0.0f to have rectangular frames (used by most widgets).
+    FrameRounding           = 2.0f;             // Radius of frame corners rounding. Set to 0.0f to have rectangular frames (used by most widgets).
     FrameBorderSize         = 0.0f;             // Thickness of border around frames. Generally set to 0.0f or 1.0f. Other values not well tested.
     ItemSpacing             = ImVec2(8,4);      // Horizontal and vertical spacing between widgets/lines
     ItemInnerSpacing        = ImVec2(4,4);      // Horizontal and vertical spacing between within elements of a composed widget (e.g. a slider and its label)
@@ -3336,6 +3336,34 @@ void ImGui::MemFree(void* ptr)
         if (ImGuiContext* ctx = GImGui)
             ctx->IO.MetricsActiveAllocations--;
     return (*GImAllocatorFreeFunc)(ptr, GImAllocatorUserData);
+}
+
+//void ImGui::ClearInputTextInitialData(const char* label, double new_value)
+void ImGui::ClearInputTextInitialData(const char* label, double new_value)
+{
+    ImGuiContext& g = *GImGui;
+    ImGuiWindow* window = GetCurrentWindow();
+    const ImGuiID id = window->GetID(label);
+    if (id == g.InputTextState.ID)
+    {
+        char buf[64];
+        DataTypeFormatString(buf, IM_ARRAYSIZE(buf), ImGuiDataType_Double, &new_value, "%.2f");
+
+        const int buf_len = (int)strlen(buf);
+        g.InputTextState.InitialTextA.resize(buf_len + 1);    // UTF-8. we use +1 to make sure that .Data is always pointing to at least an empty string.
+        memcpy(g.InputTextState.InitialTextA.Data, buf, buf_len + 1);
+
+        // Start edition
+        int buf_size = sizeof(new_value);
+        const char* buf_end = NULL;
+        g.InputTextState.TextW.resize(buf_size + 1);          // wchar count <= UTF-8 count. we use +1 to make sure that .Data is always pointing to at least an empty string.
+        g.InputTextState.TextA.resize(0);
+        g.InputTextState.TextAIsValid = false;                // TextA is not valid yet (we will display buf until then)
+        g.InputTextState.CurLenW = ImTextStrFromUtf8(g.InputTextState.TextW.Data, buf_size, buf, NULL, &buf_end);
+        g.InputTextState.CurLenA = (int)(buf_end - buf);      // We can't get the result from ImStrncpy() above because it is not UTF-8 aware. Here we'll cut off malformed UTF-8.
+        //*/
+        //g.InputTextState.ClearText();
+    }
 }
 
 const char* ImGui::GetClipboardText()
@@ -6755,6 +6783,12 @@ ImVec2 ImGui::GetWindowSize()
     return window->Size;
 }
 
+ImVec2 ImGui::GetWindowSizeByName(const char* name)
+{
+    ImGuiWindow* window = FindWindowByName(name);
+    return window ? window->Size : ImVec2(0.0, 0.0);
+}
+
 void ImGui::SetWindowSize(ImGuiWindow* window, const ImVec2& size, ImGuiCond cond)
 {
     // Test condition (NB: bit 0 is always true) and clear flags for next time
@@ -8010,6 +8044,11 @@ void ImGui::BeginTooltip()
     BeginTooltipEx(ImGuiWindowFlags_None, ImGuiTooltipFlags_None);
 }
 
+void ImGui::BeginTooltip2(ImVec2 pos)
+{
+    BeginTooltipEx2(ImGuiWindowFlags_None, ImGuiTooltipFlags_None, pos);
+}
+
 void ImGui::BeginTooltipEx(ImGuiWindowFlags extra_flags, ImGuiTooltipFlags tooltip_flags)
 {
     ImGuiContext& g = *GImGui;
@@ -8040,6 +8079,15 @@ void ImGui::BeginTooltipEx(ImGuiWindowFlags extra_flags, ImGuiTooltipFlags toolt
             }
     ImGuiWindowFlags flags = ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize;
     Begin(window_name, NULL, flags | extra_flags);
+}
+
+void  ImGui::BeginTooltipEx2(ImGuiWindowFlags extra_flags, ImGuiTooltipFlags tooltip_flags, ImVec2 pos)
+{
+    SetNextWindowPos(pos);
+    SetNextWindowSize(ImVec2(0.0, 0.0));
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize;
+    Begin(" ", NULL, flags | extra_flags);
 }
 
 void ImGui::EndTooltip()

@@ -63,6 +63,7 @@ public:
 	static const ColorRGB REDISH()      { return { 1.0f, 0.5f, 0.5f }; }
 	static const ColorRGB YELLOW()      { return { 1.0f, 1.0f, 0.0f }; }
 	static const ColorRGB WHITE()       { return { 1.0f, 1.0f, 1.0f }; }
+	static const ColorRGB ANKER()       { return { 0.384f, 0.83f, 0.380f }; }
 
 	static const ColorRGB X()           { return { 0.75f, 0.0f, 0.0f }; }
 	static const ColorRGB Y()           { return { 0.0f, 0.75f, 0.0f }; }
@@ -129,6 +130,7 @@ public:
 	static const ColorRGBA REDISH()      { return { 1.0f, 0.5f, 0.5f, 1.0f }; }
 	static const ColorRGBA YELLOW()      { return { 1.0f, 1.0f, 0.0f, 1.0f }; }
 	static const ColorRGBA WHITE()       { return { 1.0f, 1.0f, 1.0f, 1.0f }; }
+	static const ColorRGBA ANKER() { return { 0.384f, 0.83f, 0.380f, 1.0f }; }
 
 	static const ColorRGBA X()           { return { 0.75f, 0.0f, 0.0f, 1.0f }; }
 	static const ColorRGBA Y()           { return { 0.0f, 0.75f, 0.0f, 1.0f }; }

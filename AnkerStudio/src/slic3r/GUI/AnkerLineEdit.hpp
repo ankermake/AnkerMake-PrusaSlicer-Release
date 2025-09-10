@@ -5,6 +5,7 @@
 
 wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_FINISHED, wxCommandEvent);
 wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_ENTER, wxCommandEvent);
+wxDECLARE_EVENT(wxCUSTOMEVT_EDIT_FOCUS, wxCommandEvent);
 class AnkerLineEdit :public wxRichTextCtrl
 {
 public:
@@ -17,7 +18,12 @@ public:
 	void SetTextColor(wxColour color);
 	void SetForegroundColour(wxColour color);
 	void SetBackgroundColour(wxColour color);
+	void AddValidatorInt(uint32_t min, uint32_t max);
+	void AddValidatorFloat(float min, float max, int precision);
 	wxString GetValue()const;
+	bool SetFont(const wxFont& font);
+
+
 protected:
 	void OnKillFocus(wxFocusEvent& event);
 	void OnSetFocus(wxFocusEvent& event);

@@ -3,9 +3,9 @@
 #include "wx/wx.h"
 #include <wx/richtext/richtextctrl.h>
 #include "AnkerLineEditUnit.hpp"
-#include "slic3r/GUI/Network/basetype.hpp"
 #include "AnkerDialog.hpp"
-
+#include "AnkerNetDefines.h"
+using namespace AnkerNet;
 class AnkerBtn;
 class AnkerFeedbackDialog : public AnkerDialogBase
 {
@@ -23,7 +23,7 @@ public:
 	void setCancelVisible(bool visible);
 	void OnPaint(wxPaintEvent& event);
 	void OnSize(wxSizeEvent& event);
-	HttpsType::FeedBackInfo GetFeedBack() { return m_feedback; }
+	FeedBackInfo GetFeedBack() { return m_feedback; }
 
 private:
 	void initUI();
@@ -38,7 +38,7 @@ private:
 private:
 	int m_titleFontSize;
 	int m_messageFontSize;
-	HttpsType::FeedBackInfo m_feedback;
+	FeedBackInfo m_feedback;
 	bool m_dragging;
 	wxPoint m_dragStartPos;
 

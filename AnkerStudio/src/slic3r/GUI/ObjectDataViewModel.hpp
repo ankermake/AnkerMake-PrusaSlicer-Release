@@ -37,6 +37,7 @@ enum ColumnNumber
     colPrint,    // printable property
     colExtruder,    // extruder selection
     colEditing         ,    // item editing
+    colCount,
 };
 
 enum PrintIndicator
@@ -75,7 +76,7 @@ class ObjectDataViewModelNode
     int                             m_idx = -1;
     bool					        m_container = false;
     wxString				        m_extruder = /*"default"*/"1";
-    wxColour                      m_extruder_color;
+    wxColour                        m_extruder_color;
     wxBitmapBundle                  m_extruder_bmp;
     wxBitmapBundle				    m_action_icon;
     PrintIndicator                  m_printable {piUndef};
@@ -87,6 +88,8 @@ class ObjectDataViewModelNode
     ModelVolumeType                 m_volume_type{ -1 };
     bool                            m_is_text_volume{ false };
     InfoItemType                    m_info_item_type {InfoItemType::Undef};
+    bool                            m_has_setting { false };
+    std::map<std::string, bool>     m_dirtyMap;
 
 public:
     ObjectDataViewModelNode(const wxString& name,
@@ -94,7 +97,8 @@ public:
         m_parent(NULL),
         m_name(name),
         m_type(itObject),
-        m_extruder(extruder)
+        m_extruder(extruder),
+        m_has_setting(false)
     {
         set_action_and_extruder_icons();
         init_container();
@@ -140,7 +144,13 @@ public:
 
     ObjectDataViewModelNode* GetParent()
     {
-        assert(m_parent == nullptr || m_parent->valid());
+        //assert(m_parent == nullptr || m_parent->valid());
+        if (!m_parent)
+            return nullptr;
+
+        if (m_parent->invalid())
+            return nullptr;
+
         return m_parent;
     }
     MyObjectTreeModelNodePtrArray& GetChildren()
@@ -250,6 +260,13 @@ public:
     bool        has_lock() const                    { return m_has_lock; }
     const std::string& warning_icon_name() const    { return m_warning_icon_name; }
 
+    bool        has_setting() const                 { return m_has_setting; }
+    void        set_has_setting(bool has_setting)       { m_has_setting = has_setting; }
+
+    const std::map<std::string, bool>& dirty_settings()                     { return m_dirtyMap; }
+    inline void set_dirty_setting(const std::string& key, bool has_dirty)   { m_dirtyMap[key] = has_dirty; }
+    inline bool has_dirty_setting(const std::string& key) const             { return m_dirtyMap.count(key) > 0 && m_dirtyMap.at(key); }
+    inline void clear_dirty_settings()                                      { m_dirtyMap.clear(); }
 private:
     friend class ObjectDataViewModel;
 };
@@ -313,6 +330,7 @@ public:
     wxDataViewItem GetItemByLayerId(int obj_idx, int layer_idx);
     wxDataViewItem GetItemByLayerRange(const int obj_idx, const t_layer_height_range& layer_range);
     int  GetItemIdByLayerRange(const int obj_idx, const t_layer_height_range& layer_range);
+    wxString GetItemName(const wxDataViewItem& item) const;
     int  GetIdByItem(const wxDataViewItem& item) const;
     int  GetIdByItemAndType(const wxDataViewItem& item, const ItemType type) const;
     int  GetObjectIdByItem(const wxDataViewItem& item) const;
@@ -408,6 +426,7 @@ public:
     void        UpdateVolumesExtruderBitmap(wxDataViewItem object_item);
     int         GetDefaultExtruderIdx(wxDataViewItem item);
 
+    ModelConfig* GetModelConfig(const wxDataViewItem& item);
 private:
     wxDataViewItem  AddRoot(const wxDataViewItem& parent_item, const ItemType root_type);
     wxDataViewItem  AddInstanceRoot(const wxDataViewItem& parent_item);

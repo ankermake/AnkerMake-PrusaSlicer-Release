@@ -356,7 +356,7 @@ void Anker_OG_CustomCtrl::OnLeftDown(wxMouseEvent& event)
 
             if (is_point_in_rect(pos, line.rects_undo_icon[opt_idx])) {
                 if (line.og_line.has_undo_ui()) {
-                    if (ConfigOptionsGroup* conf_OG = dynamic_cast<ConfigOptionsGroup*>(line.ctrl->opt_group))
+                    if (AnkerConfigOptionsGroup* conf_OG = dynamic_cast<AnkerConfigOptionsGroup*>(line.ctrl->opt_group))
                         conf_OG->back_to_initial_value(opt_key);
                 }
                 else if (Field* field = opt_group->get_field(opt_key))
@@ -367,7 +367,7 @@ void Anker_OG_CustomCtrl::OnLeftDown(wxMouseEvent& event)
 
             if (is_point_in_rect(pos, line.rects_undo_to_sys_icon[opt_idx])) {
                 if (line.og_line.has_undo_ui()) {
-                    if (ConfigOptionsGroup* conf_OG = dynamic_cast<ConfigOptionsGroup*>(line.ctrl->opt_group))
+                    if (AnkerConfigOptionsGroup* conf_OG = dynamic_cast<AnkerConfigOptionsGroup*>(line.ctrl->opt_group))
                         conf_OG->back_to_sys_value(opt_key);
                 }
                 else if (Field* field = opt_group->get_field(opt_key))
@@ -831,9 +831,24 @@ void Anker_OG_CustomCtrl::CtrlLine::render(wxDC& dc, wxCoord v_pos)
     }
 
     // If there's a widget, build it and set result to the correct position.
-    if (og_line.widget != nullptr) {
-        if (og_line.has_undo_ui()) 
-            draw_act_bmps(dc, wxPoint(h_pos, v_pos), og_line.undo_to_sys_bitmap(), og_line.undo_bitmap(), og_line.blink());
+    if (og_line.widget != nullptr && og_line.widget_sizer) {
+        if (og_line.has_undo_ui()) {
+            auto children = og_line.widget_sizer->GetChildren();
+            int rightPos = ctrl->GetSize().GetWidth();
+            int pos_x;
+            int right_margin = 10;
+                for (auto child = children.rbegin(); child != children.rend(); ++child) {
+                    if ((*child)->IsWindow()) {
+                        wxSize  sz = (*child)->GetWindow()->GetSize();
+                        rightPos = rightPos - sz.x;
+                        rightPos = rightPos - ctrl->m_h_gap * 10;
+                        pos_x = rightPos;
+                    }
+                }
+                pos_x = pos_x - get_bitmap_size(&(og_line.undo_bitmap()), ctrl).GetWidth();
+
+            draw_act_bmps(dc, wxPoint(pos_x, v_pos)/*, og_line.undo_to_sys_bitmap()*/, og_line.undo_bitmap(), og_line.blink());
+        }
         else
             draw_blinking_bmp(dc, wxPoint(0, v_pos), og_line.blink());
         return;
@@ -1054,9 +1069,21 @@ wxCoord    Anker_OG_CustomCtrl::CtrlLine::draw_text(wxDC& dc, wxPoint pos, const
         wxCoord text_width, text_height;
         dc.GetMultiLineTextExtent(out_text, &text_width, &text_height);
 
+#ifdef __APPLE__
+        wxFontMetrics metrics = dc.GetFontMetrics();
+        int fontActualHeight = metrics.ascent + metrics.descent;
+        pos.y = pos.y + lround((height - fontActualHeight) / 2);
+        if (rect_label.GetWidth() == 0)
+            rect_label = wxRect(pos, wxSize(text_width, fontActualHeight));
+#else
         pos.y = pos.y + lround((height - text_height) / 2);
         if (rect_label.GetWidth() == 0)
             rect_label = wxRect(pos, wxSize(text_width, text_height));
+#endif// _APPLE_
+
+        //pos.y = pos.y + lround((height - text_height) / 2);
+        //if (rect_label.GetWidth() == 0)
+        //    rect_label = wxRect(pos, wxSize(text_width, text_height));
 
         wxColour old_clr = dc.GetTextForeground();
         wxFont old_font = dc.GetFont();

@@ -27,7 +27,7 @@ struct Camera
     };
 
     bool requires_zoom_to_bed{ false };
-
+    bool requires_zoom_to_volumes{ false };
 private:
     EType m_type{ EType::Perspective };
     bool m_update_config_on_type_change_enabled{ false };
@@ -64,6 +64,7 @@ public:
 
     double get_distance() const { return (get_position() - m_target).norm(); }
     double get_gui_scale() const { return m_gui_scale; }
+    float  get_zenit() const { return m_zenit; }
 
     double get_zoom() const { return m_zoom; }
     double get_inv_zoom() const { assert(m_zoom != 0.0); return 1.0 / m_zoom; }
@@ -78,6 +79,8 @@ public:
     const std::array<int, 4>& get_viewport() const { return m_viewport; }
     const Transform3d& get_view_matrix() const { return m_view_matrix; }
     const Transform3d& get_projection_matrix() const { return m_projection_matrix; }
+
+    const Eigen::Quaterniond& get_view_rotation() const { return m_view_rotation; }
 
     Vec3d get_dir_right() const { return m_view_matrix.matrix().block(0, 0, 3, 3).row(0); }
     Vec3d get_dir_up() const { return m_view_matrix.matrix().block(0, 0, 3, 3).row(1); }
@@ -131,6 +134,9 @@ public:
         if (std::abs(get_dir_right()(2)) > EPSILON)
             look_at(get_position(), m_target, Vec3d::UnitZ());
     }
+
+    //store and load camera view
+    void load_camera_view(Camera& cam);
 
     void look_at(const Vec3d& position, const Vec3d& target, const Vec3d& up);
 

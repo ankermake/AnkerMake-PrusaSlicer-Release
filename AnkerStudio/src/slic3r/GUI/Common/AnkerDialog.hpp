@@ -9,18 +9,21 @@
 #include "../GUI_App.hpp"
 #include "../AnkerBtn.hpp"
 
-enum AnkerDialogType {
+enum AnkerDialogType 
+{
 	AnkerDialogType_Dialog,
 	AnkerDialogType_OkDialog,
 	AnkerDialogType_CancelOkDialog,
 	AnkerDialogType_DisplayTextOkDialog,
 	AnkerDialogType_DisplayTextCancelOkDialog,
-	AnkerDialogType_DisplayTextNoYesDialog,
+	AnkerDialogType_DisplayTextNoYesDialog,	// deprecated
 	AnkerDialogType_DisplayTextCheckBoxNoYesDialog,
+	AnkerDialogType_DisplayTextCheckBoxOkDialog,
 	AnkerDialogType_CustomContent,
 };
 
 #define EMPTY_EVENTCB (std::function<void(wxCommandEvent&, wxControl*)>())
+using AnkerDialogBtnCallBack_T = std::function<void(wxCommandEvent&)>;
 
 class AnkerDialogPanel : public AnkerBox
 {
@@ -32,18 +35,15 @@ public:
 	
 	void disableCloseButton(bool disable);
 	void hideCloseButton(bool hide);
-
 public:
 	wxSizer* m_mainSizer;
 protected:
 	AnkerLine2* m_line;
-
-private:
-	AnkerStaticText* m_title;
 	AnkerButton* closeBtn;
+private:
+	AnkerStaticText* m_title;	
 };
 
-// TODO: this dialog should use factory mode
 class AnkerDialog : public wxDialog
 {
 public:
@@ -62,6 +62,7 @@ public:
 	virtual void InitDialogPanel2(int dialogType = 0, const wxString& otherText = "", EventCallBack_T eventCallBack = EMPTY_EVENTCB);
 	virtual void setBackgroundColour(const wxColour& color = "#333438");
 	virtual int ShowAnkerModal(int dialogType = 0);
+	virtual int ShowAnkerModalOkCancel(const wxString& okText = "", const wxString& cancelText = _AnkerL("common_button_cancel"));
 	virtual int ShowAnkerModal2(int dialogType = 0, const wxString& otherText = "", EventCallBack_T eventCallBack = EMPTY_EVENTCB);
 	bool ShowAnker(int dialogType = 0);
 	bool ShowAnker2(int dialogType = 0, EventCallBack_T eventCallBack = EMPTY_EVENTCB);
@@ -86,70 +87,124 @@ public:
 class AnkerDialogOkPanel : public AnkerDialogPanel
 {
 public:
-	AnkerDialogOkPanel(wxWindow* parent, const wxString& title = "", const wxSize& size = wxDefaultSize);
+	AnkerDialogOkPanel(
+		wxWindow* parent = nullptr, 
+		const wxString& title = "", 
+		const wxSize& size = wxDefaultSize,
+		AnkerDialogBtnCallBack_T okBtnCallBack = nullptr);
 	~AnkerDialogOkPanel();
 	void setOkBtnText(const wxString& text);
 
 protected:
-	AnkerBox* m_centerPanel;
+	AnkerBox* m_centerPanel = nullptr;
 	virtual void okButtonClicked(wxCommandEvent& event);
 
 protected:
-	AnkerBtn* m_okBtn;
+	AnkerBtn* m_okBtn = nullptr;
+	AnkerDialogBtnCallBack_T m_okBtnCallBack = nullptr;
 };
 
 class AnkerDialogDisplayTextOkPanel : public AnkerDialogOkPanel
 {
 public:
-	AnkerDialogDisplayTextOkPanel(wxWindow* parent, const wxString& title = "", const wxSize& size = wxDefaultSize, const wxString& context = "");
-	~AnkerDialogDisplayTextOkPanel();
+	AnkerDialogDisplayTextOkPanel(
+		wxWindow* parent, 
+		const wxString& title = "", 
+		const wxSize& size = wxDefaultSize, 
+		const wxString& context = "",
+		AnkerDialogBtnCallBack_T okBtnCallBack = nullptr);
 
 private:
-	AnkerStaticText* m_contextText;
+	AnkerStaticText* m_contextText = nullptr;
 };
 
+class AnkerDialogIconTextOkPanel : public AnkerDialogOkPanel
+{
+public:
+	AnkerDialogIconTextOkPanel(
+		wxWindow* parent = nullptr,
+		const wxString& iconPath = "",
+		const wxString& title = "",
+		const wxString& context = "",
+		const wxSize& size = wxDefaultSize,
+		AnkerDialogBtnCallBack_T okBtnCallBack = nullptr);
+
+private:
+	AnkerStaticText* m_contextText = nullptr;
+};
+
+class AnkerDialogDisplayTextCheckBoxOkPanel : public AnkerDialogOkPanel
+{
+public:
+	AnkerDialogDisplayTextCheckBoxOkPanel(
+		const wxString& title = "",
+		const wxSize& size = wxDefaultSize,
+		const wxString& context = "",
+		const wxString& checkBoxStr = "",
+		AnkerDialog::EventCallBack_T callback = EMPTY_EVENTCB,
+		wxWindow* parent = nullptr,
+		AnkerDialogBtnCallBack_T okBtnCallBack = nullptr);
+
+private:
+	AnkerStaticText* m_contextText = nullptr;
+};
 
 class AnkerDialogCancelOkPanel : public AnkerDialogPanel
 {
-public:
+public:	
 	AnkerDialogCancelOkPanel(wxWindow* parent, const wxString& title = "", const wxSize& size = wxDefaultSize);
 	~AnkerDialogCancelOkPanel();
 
 	virtual void bindBtnEvent();
 	void setOkBtnText(const wxString& text = _AnkerL("common_button_ok"));
-	void setCancelBtnText(const wxString &text = _AnkerL("common_button_cancel"));
+	void setCancelBtnText(const wxString &text = _AnkerL("common_button_cancel"));	
 protected:
-	AnkerBox* m_centerPanel;
+	AnkerBox* m_centerPanel = nullptr;
 
 	virtual void cancelButtonClicked(wxCommandEvent& event);
-	virtual void  okButtonClicked(wxCommandEvent& event);
+	virtual void okButtonClicked(wxCommandEvent& event);
 
 protected:
-	AnkerBtn* m_okBtn;
-	AnkerBtn* m_cancelBtn;
+	AnkerBtn* m_okBtn = nullptr;
+	AnkerBtn* m_cancelBtn = nullptr;
+	AnkerDialogBtnCallBack_T m_okBtnCallBack = nullptr;
+	AnkerDialogBtnCallBack_T m_cancelBtnCallBack = nullptr;
 };
 
 class AnkerDialogDisplayTextCancelOkPanel : public AnkerDialogCancelOkPanel
 {
 public:
-	AnkerDialogDisplayTextCancelOkPanel(wxWindow* parent, const wxString& title = "", const wxSize& size = wxDefaultSize, const wxString& context = "");
-	~AnkerDialogDisplayTextCancelOkPanel();
+	AnkerDialogDisplayTextCancelOkPanel(
+		wxWindow* parent, 
+		const wxString& title = "", 
+		const wxSize& size = wxDefaultSize, 
+		const wxString& context = "");
 
 private:
-	AnkerStaticText* m_contextText;
+	AnkerStaticText* m_contextText = nullptr;
 };
-
 
 class AnkerDialogDisplayTextCheckBoxCancelOkPanel : public AnkerDialogCancelOkPanel
 {
 public:
-	AnkerDialogDisplayTextCheckBoxCancelOkPanel(const wxString& title = "", 
-		const wxSize& size = wxDefaultSize, const wxString& context = "", 
-		const wxString& checkBoxStr = "", AnkerDialog::EventCallBack_T callback = EMPTY_EVENTCB, wxWindow * parent = nullptr);
-	~AnkerDialogDisplayTextCheckBoxCancelOkPanel();
-
+	AnkerDialogDisplayTextCheckBoxCancelOkPanel(
+		const wxString& title = "", 
+		const wxSize& size = wxDefaultSize, 
+		const wxString& context = "", 
+		const wxString& checkBoxStr = "", 
+		AnkerDialog::EventCallBack_T callback = EMPTY_EVENTCB, 
+		wxWindow * parent = nullptr);
 private:
-	AnkerStaticText* m_contextText;
+	AnkerStaticText* m_contextText = nullptr;
+};
+
+class AnkerDialogIconTextOkPanel : public AnkerBox
+{
+public:
+	using EventCallBack_T = std::function<void(wxCommandEvent&)>;
+	AnkerDialogIconTextOkPanel(EventCallBack_T callback, const wxString& context = "", const std::string& iconPath = "",
+		const wxSize& size = wxDefaultSize,  wxWindow* parent = nullptr);
+	~AnkerDialogIconTextOkPanel();
 };
 
 class AnkerDialogBase : public wxDialog
@@ -162,10 +217,10 @@ public:
 		long style = wxBORDER_NONE,
 		const wxString& name = wxASCII_STR(wxFrameNameStr));
 	~AnkerDialogBase();
+	void SetSize(wxSize size);
 
 protected:
 	void SetSizer(wxSizer* sizer);
-	void SetSize(wxSize size);
 	void SetTitle(wxString title);
 	void SetBackgroundColour(wxColour colour);
 	void OnDragMouseDown(wxMouseEvent& event);

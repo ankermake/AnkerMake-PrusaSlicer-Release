@@ -306,6 +306,14 @@ template<typename T> T angle_to_0_2PI(T angle)
 
     return angle;
 }
+template<typename T> void to_range_pi_pi(T& angle) {
+    if (angle > T(PI) || angle <= -T(PI)) {
+        int count = static_cast<int>(std::round(angle / (2 * PI)));
+        angle -= static_cast<T>(count * 2 * PI);
+        assert(angle <= T(PI) && angle > -T(PI));
+    }
+}
+
 
 void simplify_polygons(const Polygons &polygons, double tolerance, Polygons* retval);
 
@@ -346,6 +354,10 @@ void assemble_transform(Transform3d& transform, const Transform3d& translation =
 // T = translation * rotation * scale * mirror
 Transform3d assemble_transform(const Transform3d& translation = Transform3d::Identity(), const Transform3d& rotation = Transform3d::Identity(),
     const Transform3d& scale = Transform3d::Identity(), const Transform3d& mirror = Transform3d::Identity());
+
+// Returns the euler angles extracted from the given rotation matrix
+// Warning -> The matrix should not contain any scale or shear !!!
+Vec3d extract_euler_angles(const Eigen::Matrix<double, 3, 3, Eigen::DontAlign>& rotation_matrix);
 
 // Sets the given transform by assembling the given translation
 void translation_transform(Transform3d& transform, const Vec3d& translation);
@@ -431,6 +443,8 @@ public:
     void set_mirror(Axis axis, double mirror);
 
     bool has_skew() const;
+
+    void set_from_transform(const Transform3d& transform);
 
     void reset();
     void reset_offset() { set_offset(Vec3d::Zero()); }

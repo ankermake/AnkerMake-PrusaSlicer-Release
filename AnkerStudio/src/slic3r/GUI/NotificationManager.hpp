@@ -275,6 +275,7 @@ public:
 	bool update_notifications(GLCanvas3D& canvas);
 	// returns number of all notifications shown
 	size_t get_notification_count() const;
+	int get_notification_top(int upper_limit);
 private:
 	// duration 0 means not disapearing
 	struct NotificationData {
@@ -289,6 +290,9 @@ private:
 		// Examples in basic_notifications.
         std::function<bool(wxEvtHandler*)> callback;
 		const std::string        text2;
+		int                      sub_msg_id {-1};
+		std::string        ori_text;
+        bool                use_warn_color { false };
 	};
 
 	// Cache of IDs to identify and reuse ImGUI windows.
@@ -325,6 +329,7 @@ private:
 
 		PopNotification(const NotificationData &n, NotificationIDProvider &id_provider, wxEvtHandler* evt_handler);
 		virtual ~PopNotification() { if (m_id) m_id_provider.release_id(m_id); }
+		virtual void on_change_color_mode(bool is_dark) { m_is_dark = is_dark; };
 		virtual void           render(GLCanvas3D& canvas, float initial_y, bool move_from_overlay, float overlay_width);
 		// close will dissapear notification on next render
 		virtual void           close() { m_state = EState::ClosePending; wxGetApp().plater()->get_current_canvas3D()->schedule_extra_frame(0);}
@@ -382,10 +387,40 @@ private:
 		// used this function instead of reading directly m_data.duration. Some notifications might need to return changing value.
 		virtual int  get_duration() { return m_data.duration; }
 
+		bool m_is_dark = true;
+
 		const NotificationData m_data;
 		// For reusing ImGUI windows.
 		NotificationIDProvider &m_id_provider;
 		int              m_id{ 0 };
+
+		// Custom Theme
+		struct ImGUITheme
+		{
+			ImVec2 mWindowPadding;
+			ImVec4 mWindowBkg;
+			ImVec4 mBorderColor;
+			ImVec4 mTextColor;
+			float  mWindowRound;
+		};
+
+		ImGUITheme m_DefaultTheme;
+
+		ImVec4     m_WindowBkgColor;
+		ImVec4     m_TextColor;
+
+		ImVec4     m_HyperTextColor;
+
+		ImVec4     m_ErrorColor;
+		ImVec4     m_WarnColor;
+		ImVec4     m_NormalColor;
+		ImVec4     m_CurrentColor;
+
+		float      m_WindowRadius { 4.0f };
+
+		void set_theme();
+		void restore_default_theme();
+
 
 		// State for rendering
 		EState           m_state                { EState::Unknown };
@@ -647,6 +682,7 @@ private:
 		bool				m_complete_on_100 { true };
 	};
 
+#if 0
 	class SlicingProgressNotification : public ProgressBarNotification
 	{
 	public:
@@ -715,6 +751,7 @@ private:
 		// if true, it is possible show export hyperlink in state SP_PROGRESS
 		bool                    m_export_possible { false };
 	};
+#endif
 
 	class ProgressIndicatorNotification : public ProgressBarNotification
 	{
@@ -815,6 +852,9 @@ private:
 		std::vector<std::pair<InfoItemType, size_t>> m_types_and_counts;
 	};
 
+	// in SlicingProgressNotification.hpp
+	class SlicingProgressNotification;
+
 	// in HintNotification.hpp
 	class HintNotification;
 
@@ -896,7 +936,7 @@ private:
 	//prepared (basic) notifications
 	// non-static so its not loaded too early. If static, the translations wont load correctly.
 	const std::vector<NotificationData> basic_notifications = {
-	{NotificationType::Mouse3dDisconnected, NotificationLevel::RegularNotificationLevel, 10,  _u8L("3D Mouse disconnected.") },
+	{NotificationType::Mouse3dDisconnected, NotificationLevel::RegularNotificationLevel, 10,  _u8L("common_slicepopup_3dmouse") },
 	{NotificationType::PresetUpdateAvailable, NotificationLevel::ImportantNotificationLevel, 20,  _u8L("Configuration update is available."),  _u8L("See more."),
 		[](wxEvtHandler* evnthndlr) {
 			if (evnthndlr != nullptr)
@@ -910,18 +950,18 @@ private:
 	{NotificationType::EmptyAutoColorChange, NotificationLevel::PrintInfoNotificationLevel, 10,
 		_u8L("No color change event was added to the print. The print does not look like a sign.") },
 	{NotificationType::DesktopIntegrationSuccess, NotificationLevel::RegularNotificationLevel, 10,
-		_u8L("Desktop integration was successful.") },
+		_u8L("common_slicepopup_integrationfinished1") },
 	{NotificationType::DesktopIntegrationFail, NotificationLevel::WarningNotificationLevel, 10,
 		_u8L("Desktop integration failed.") },
 	{NotificationType::UndoDesktopIntegrationSuccess, NotificationLevel::RegularNotificationLevel, 10,
-		_u8L("Undo desktop integration was successful.") },
+		_u8L("common_slicepopup_integration2") },
 	{NotificationType::UndoDesktopIntegrationFail, NotificationLevel::WarningNotificationLevel, 10,
 		_u8L("Undo desktop integration failed.") },
-	{NotificationType::ExportOngoing, NotificationLevel::RegularNotificationLevel, 0, _u8L("Exporting.") },
+	{NotificationType::ExportOngoing, NotificationLevel::RegularNotificationLevel, 0, _u8L("common_slicepopup_exporting") },
     {NotificationType::URLNotRegistered
 		, NotificationLevel::RegularNotificationLevel
 		, 10
-		, _u8L("AnkerMake Studio recieved a download request from Printables.com, but it's not allowed. You can allow it")
+		, _u8L("eufyMake Studio recieved a download request from Printables.com, but it's not allowed. You can allow it")
 		, _u8L("here.")
 		,  [](wxEvtHandler* evnthndlr) {
 			wxGetApp().open_preferences("downloader_url_registered", "Other");

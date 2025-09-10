@@ -46,6 +46,12 @@ public:
     bool empty() const { return contour.points.empty(); }
     bool is_valid() const;
     void douglas_peucker(double tolerance);
+    inline void simplify_only_front(const double tolerance) {
+        contour.simplify_only_front(tolerance);
+        for (auto& poly : holes) {
+            poly.simplify_only_front(tolerance);
+        }
+    }
 
     // Contains the line / polyline / polylines etc COMPLETELY.
     bool contains(const Line &line) const;
@@ -66,6 +72,7 @@ public:
     // at a horizontal boundary are NOT considered overlapping.
     bool overlaps(const ExPolygon &other) const;
 
+    Point projection_onto(const ExPolygons& expolys, const Point& pt);
     void simplify_p(double tolerance, Polygons* polygons) const;
     Polygons simplify_p(double tolerance) const;
     ExPolygons simplify(double tolerance) const;
@@ -204,6 +211,11 @@ inline Points to_points(const ExPolygons &src)
             append(points, hole.points);
     }
     return points;
+}
+
+inline void translate(ExPolygons& expolys, const Point& p) {
+    for (ExPolygon& expoly : expolys)
+        expoly.translate(p);
 }
 
 inline Polylines to_polylines(const ExPolygon &src)
@@ -450,6 +462,7 @@ inline ExPolygons expolygons_simplify(const ExPolygons &expolys, double toleranc
 // Do expolygons match? If they match, they must have the same topology,
 // however their contours may be rotated.
 bool expolygons_match(const ExPolygon &l, const ExPolygon &r);
+bool overlaps(const ExPolygons& expolys1, const ExPolygons& expolys2);
 
 BoundingBox get_extents(const ExPolygon &expolygon);
 BoundingBox get_extents(const ExPolygons &expolygons);
@@ -460,6 +473,9 @@ std::vector<BoundingBox> get_extents_vector(const ExPolygons &polygons);
 // Test for duplicate points. The points are copied, sorted and checked for duplicates globally.
 bool has_duplicate_points(const ExPolygon &expoly);
 bool has_duplicate_points(const ExPolygons &expolys);
+
+// Return True when erase some otherwise False.
+bool remove_same_neighbor(ExPolygons& expolys);
 
 bool remove_sticks(ExPolygon &poly);
 void keep_largest_contour_only(ExPolygons &polygons);

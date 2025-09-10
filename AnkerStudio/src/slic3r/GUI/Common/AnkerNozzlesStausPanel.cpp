@@ -2,7 +2,9 @@
 #include "AnkerGUIConfig.hpp"
 #include "../GUI_App.hpp"
 #include "AnkerNozzlesStausPanel.h"
-#include "../Common/AnkerRoundPanel.hpp"
+#include "../I18N.hpp"
+#include "slic3r/Config/AnkerGlobalConfig.hpp"
+
 
 
 namespace Slic3r {
@@ -14,6 +16,7 @@ namespace Slic3r {
 		{
 			InitData();
 			InitUI();
+			InitEvent();
 		}
 
 		void AnkerNozzlesStausPanel::OnPaint(wxPaintEvent& event)
@@ -33,60 +36,9 @@ namespace Slic3r {
 
 		void AnkerNozzlesStausPanel::InitData()
 		{
-			m_NoticeText = "Filament transfer interrupted, please pick a new slot to resume print.";
-			SimulateData();
-		}
-
-		void AnkerNozzlesStausPanel::SimulateData()
-		{
-			printFilamentInfo info;
-			info.iIndex = 0;
-			info.bCanReplace = true;
-			filamentInfo innerInfo;
-			innerInfo.strfilamentColor = "#fffff";//white
-			innerInfo.strFilamentName = "PLA";
-			info.infoDetail = innerInfo;
-			m_PrinterFilamentVec.push_back(info);
-
-			info.iIndex = 1;
-			innerInfo.strfilamentColor = "#FF0000";
-			innerInfo.strFilamentName = "PLA+";
-			m_PrinterFilamentVec.push_back(info);
-
-			info.iIndex = 2;
-			innerInfo.strfilamentColor = "#00ff00";
-			innerInfo.strFilamentName = "PLA+";
-			m_PrinterFilamentVec.push_back(info);
-
-
-			info.iIndex = 3;
-			innerInfo.strfilamentColor = "#0000FF";
-			innerInfo.strFilamentName = "PLA+";
-			m_PrinterFilamentVec.push_back(info);
-
-			info.iIndex = 4;
-			innerInfo.strfilamentColor = "#12ff00";
-			innerInfo.strFilamentName = "TPT+";
-			info.bCanReplace = false;
-			m_PrinterFilamentVec.push_back(info);
-
-
-			info.iIndex = 5;
-			innerInfo.strfilamentColor = "#00ffF3";
-			innerInfo.strFilamentName = "?";
-			info.bCanReplace = false;
-			m_PrinterFilamentVec.push_back(info);
-
-
-			filamentInfo gcodeFilementInfo;
-			gcodeFilementInfo.strfilamentColor = "#fffff";
-			gcodeFilementInfo.strFilamentName = "PLA";
-
-			filamentMap.insert(std::make_pair(gcodeFilementInfo, m_PrinterFilamentVec[0]));
-
-			gcodeFilementInfo.strfilamentColor = "#123456";
-			gcodeFilementInfo.strFilamentName = "PLA+";
-			filamentMap.insert(std::make_pair(gcodeFilementInfo, m_PrinterFilamentVec[1]));
+			m_DeviceInterruptType = type_normal;
+			m_NoticeText = (m_DeviceInterruptType == type_out_of_supplies)? _L("common_print_popup_filamentbrokenv6"):
+				_L("common_print_popup_filamentblobs");
 		}
 
 		void AnkerNozzlesStausPanel::InitUI()
@@ -100,54 +52,64 @@ namespace Slic3r {
 			m_pContentText->SetFont(ANKER_FONT_SIZE(9));
 			m_pContentText->SetMinSize(AnkerSize(352, 32));
 			contentSizer->Add(m_pContentText, 0, wxEXPAND | wxBOTTOM, 25);
-
-			wxGridSizer* gridSizer = new wxGridSizer(2, 3, 3, 9);
+			//TODO: adjust UI 
+			// 32  lack of supply
+			// 35 jammed
+			wxGridSizer* gridSizer = new wxGridSizer(2, 3, 16, 16);
 			AnkerBasePanel* pContentNozzelPanel = new AnkerBasePanel(this);
 			pContentNozzelPanel->SetBackgroundColour(DEFAULT_BG_COLOR);
 			pContentNozzelPanel->SetSizer(gridSizer);
 
-			for (int i = 0; i < m_PrinterFilamentVec.size(); i++)
+			for (int i = 0; i < m_NozzlesStateVec.size(); i++)
 			{
-				if (i == 1)
+				//0: normal state 1:out of supplies state 2:jammed state 
+				AnkerStateRoundTextPanel* pPanel = new AnkerStateRoundTextPanel(pContentNozzelPanel);
+				m_NozzlesPanelVec.push_back(pPanel);
+				//pPanel->SetSizeHints(AnkerSize(63, 72), AnkerSize(63, 72));
+				pPanel->SetSizeHints(AnkerSize(63, 77), AnkerSize(63, 77));
+				pPanel->SetRoundColor(m_NozzlesStateVec[i].ColorRgb);
+				if (m_DeviceInterruptType == type_jammed && m_NozzlesStateVec[i].nozzlesBtnState != state_warning)
 				{
-					AnkerStateRoundPanel* pPanel = new AnkerStateRoundPanel(pContentNozzelPanel);
-					pPanel->SetSizeHints(AnkerSize(63, 60), AnkerSize(63, 60));
-					pPanel->SetGapWidth(5);
-					pPanel->SetRoundColor(wxColour("#3096FF"));
-					pPanel->SetState(state_warning);
-					gridSizer->Add(pPanel, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL);
-
-				}
-				else if (i == 2)
-				{
-					AnkerStateRoundPanel* pPanel = new AnkerStateRoundPanel(pContentNozzelPanel);
-					pPanel->SetSizeHints(AnkerSize(63, 60), AnkerSize(63, 60));
-					pPanel->SetState(state_unknown);
-					pPanel->SetRoundColor(wxColour("#03CE3C"));
-					gridSizer->Add(pPanel, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL);
-				}
-				else if (i == 3)
-				{
-					AnkerStateRoundTextPanel* pPanel = new AnkerStateRoundTextPanel(pContentNozzelPanel);
-					pPanel->SetSizeHints(AnkerSize(63, 77), AnkerSize(63, 77));
-					pPanel->SetState(state_selected);
-					pPanel->SetRoundColor(wxColour("#5cd8FF"));
-					pPanel->SetInnerText("1#");
-					pPanel->SetDescText("PLA");
-					pPanel->SetTextSpan(3);
-					gridSizer->Add(pPanel, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL);
+					pPanel->SetState(state_unselected);
 				}
 				else
 				{
-					AnkerStateRoundPanel* pPanel = new AnkerStateRoundPanel(pContentNozzelPanel);
-					pPanel->SetSizeHints(AnkerSize(63, 60), AnkerSize(63, 60));
-					pPanel->SetRoundColor(wxColour("#3096FF"));
-					pPanel->SetState(state_normal);
-					gridSizer->Add(pPanel, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL);
+					pPanel->SetState(m_NozzlesStateVec[i].nozzlesBtnState);
 				}
+			
+				pPanel->SetInnerText(std::to_string(m_NozzlesStateVec[i].iNozzlesInx));
+				pPanel->SetDescText(m_NozzlesStateVec[i].strMaterialName);
+				gridSizer->Add(pPanel, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL);
 			}
 			contentSizer->Add(pContentNozzelPanel, 1, wxEXPAND | wxLEFT | wxRIGHT, 58);
 			contentSizer->AddStretchSpacer();
+		}
+
+		void AnkerNozzlesStausPanel::InitEvent()
+		{
+			for (int i = 0 ;i < m_NozzlesPanelVec.size();i++)
+			{
+				AnkerStateRoundPanel* pCurRoundPanel = m_NozzlesPanelVec[i]->getInnnerRoundPanel();
+				pCurRoundPanel->Bind(wxEVT_LEFT_DOWN, [this,pCurRoundPanel](wxMouseEvent& event) {
+					if (pCurRoundPanel->GetState() == state_selected)
+					{
+						pCurRoundPanel->SetState(state_normal);
+					}
+					else if (pCurRoundPanel->GetState() == state_normal)
+					{
+						pCurRoundPanel->SetState(state_selected);
+						//unselect  other panel
+						for (int i = 0; i < m_NozzlesPanelVec.size(); i++)
+						{
+							if (m_NozzlesPanelVec[i]->getInnnerRoundPanel() != pCurRoundPanel && m_NozzlesPanelVec[i]->getInnnerRoundPanel()->GetState() == state_selected)
+							{
+								m_NozzlesPanelVec[i]->SetState(state_normal);
+							}
+						}
+					}
+					Refresh();	
+					});
+			}
 		}
 
 

@@ -22,7 +22,7 @@ class AnkerBtn : public wxControl
 public:
 	AnkerBtn();
 	virtual ~AnkerBtn();
-
+	
 	AnkerBtn(wxWindow* parent, wxWindowID id,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize,
@@ -31,7 +31,7 @@ public:
 
 	void SetStatus(BtnStatus status);
 	void SetRadius(const double& radius);
-
+	void clearImg();
 	virtual void OnEnter(wxMouseEvent& event);
 	virtual void OnLeave(wxMouseEvent& event);
 	virtual void OnPressed(wxMouseEvent& event);
@@ -80,6 +80,7 @@ protected:
 	void OnPaint(wxPaintEvent& event);
 private:
 	void DrawBackground(wxDC* dc);
+	bool IsEnglishString(const wxString& str);
 
 	wxBitmap m_backgroundImg;
 	bool m_isUsedBg;
@@ -224,5 +225,37 @@ private:
 	wxColour m_fgColour;
 
 };
+
+
+class AnkerToggleBtn : public wxControl
+{
+public:
+	AnkerToggleBtn(wxWindow* parent);
+	~AnkerToggleBtn();
+
+	void SetStateColours(bool state, wxColour roundedRectClr, wxColour circleClr);
+
+	void SetState(bool state);
+	bool GetState();
+private:
+	void initUI();
+
+	void OnPaint(wxPaintEvent& event);
+	void OnMouseEnter(wxMouseEvent& event);
+	void OnMouseMove(wxMouseEvent& event);
+	void OnLeftDown(wxMouseEvent& event);
+	void OnLeftUp(wxMouseEvent& event);
+
+private:
+	bool m_state = { false };
+
+	wxColour m_onStateRoundedRectClr ;
+	wxColour m_offStateRoundedRectClr ;
+
+	wxColour m_onStateCircleClr ;
+	wxColour m_offStateCircleClr ;
+};
+
+
 
 #endif

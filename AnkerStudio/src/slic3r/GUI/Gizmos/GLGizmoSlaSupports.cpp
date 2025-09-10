@@ -49,7 +49,7 @@ bool GLGizmoSlaSupports::on_init()
     return true;
 }
 
-void GLGizmoSlaSupports::data_changed()
+void GLGizmoSlaSupports::data_changed(bool is_serializing)
 {
     if (! m_c->selection_info())
         return;

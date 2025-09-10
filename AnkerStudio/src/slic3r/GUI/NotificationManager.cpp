@@ -1,4 +1,5 @@
 #include "NotificationManager.hpp"
+#include "SlicingProgressNotification.hpp"
 
 #include "HintNotification.hpp"
 #include "GUI.hpp"
@@ -19,7 +20,8 @@
 #include <iostream>
 
 #include <wx/glcanvas.h>
-
+#include "../AnkerComFunction.hpp"
+extern AnkerPlugin* pAnkerPlugin;
 static constexpr float GAP_WIDTH = 10.0f;
 static constexpr float SPACE_RIGHT_PANEL = 10.0f;
 static constexpr float FADING_OUT_DURATION = 2.0f;
@@ -139,6 +141,61 @@ NotificationManager::PopNotification::PopNotification(const NotificationData &n,
 	, m_notification_start  (GLCanvas3D::timestamp_now())
 {}
 
+
+void NotificationManager::PopNotification::set_theme()
+{
+	ImGuiStyle& OldStyle = ImGui::GetStyle();
+
+	m_DefaultTheme.mWindowPadding = OldStyle.WindowPadding;
+	m_DefaultTheme.mWindowBkg = OldStyle.Colors[ImGuiCol_WindowBg];
+	m_DefaultTheme.mBorderColor = OldStyle.Colors[ImGuiCol_Border];
+	m_DefaultTheme.mTextColor = OldStyle.Colors[ImGuiCol_Text];
+	m_DefaultTheme.mWindowRound = OldStyle.WindowRounding;
+
+	OldStyle.WindowPadding = ImVec2(0, 0);
+	OldStyle.WindowRounding = m_WindowRadius;
+
+	if (m_data.level == NotificationLevel::ErrorNotificationLevel)
+		m_CurrentColor = m_ErrorColor;
+	else if (m_data.level == NotificationLevel::WarningNotificationLevel)
+		m_CurrentColor = m_WarnColor;
+	else {
+		if (m_data.use_warn_color)
+			m_CurrentColor = m_WarnColor;
+		else
+			m_CurrentColor = m_NormalColor;
+	}
+
+	//OldStyle.Colors[ImGuiCol_Border] = m_CurrentColor;
+
+ //   OldStyle.Colors[ImGuiCol_WindowBg] = m_WindowBkgColor;
+ //   OldStyle.Colors[ImGuiCol_Text]     = m_TextColor;
+
+	m_WindowBkgColor = m_is_dark ? ImVec4(41 / 255.f, 42 / 255.f, 45 / 255.f, 1.f) : ImVec4(0.4, 0.3, 0.4, 1);
+	m_TextColor = m_is_dark ? ImVec4(224 / 255.f, 224 / 255.f, 224 / 255.f, 1.f) : ImVec4(.2f, .2f, .2f, 1.0f);
+	m_HyperTextColor = m_is_dark ? ImVec4(0.03, 0.6, 0.18, 1) : ImVec4(0.03, 0.6, 0.18, 1);
+	m_is_dark ? push_style_color(ImGuiCol_Border, { 62 / 255.f, 62 / 255.f, 69 / 255.f, 1.f }, true, m_current_fade_opacity) : push_style_color(ImGuiCol_Border, m_CurrentColor, true, m_current_fade_opacity);
+	push_style_color(ImGuiCol_WindowBg, m_WindowBkgColor, true, m_current_fade_opacity);
+	push_style_color(ImGuiCol_Text, m_TextColor, true, m_current_fade_opacity);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, m_WindowRadius / 4);
+}
+
+
+void NotificationManager::PopNotification::restore_default_theme()
+{
+	ImGuiStyle& OldStyle = ImGui::GetStyle();
+
+	OldStyle.WindowPadding = m_DefaultTheme.mWindowPadding;
+	OldStyle.WindowRounding = m_DefaultTheme.mWindowRound;
+
+	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar();
+	//OldStyle.Colors[ImGuiCol_WindowBg] = m_DefaultTheme.mWindowBkg;
+ //   OldStyle.Colors[ImGuiCol_Text]     = m_DefaultTheme.mTextColor;
+ //   OldStyle.Colors[ImGuiCol_Border]   = m_DefaultTheme.mBorderColor;
+}
+
+
 void NotificationManager::PopNotification::render(GLCanvas3D& canvas, float initial_y, bool move_from_overlay, float overlay_width)
 {
 
@@ -252,7 +309,11 @@ bool NotificationManager::PopNotification::push_background_color()
 void NotificationManager::PopNotification::count_spaces()
 {
 	//determine line width 
-	m_line_height = ImGui::CalcTextSize("A").y;
+#ifdef __APPLE__
+    m_line_height = 30;
+#else
+    m_line_height = ImGui::CalcTextSize("A").y;
+#endif
 
 	m_left_indentation = m_line_height;
 	if (m_data.level == NotificationLevel::ErrorNotificationLevel 
@@ -265,7 +326,9 @@ void NotificationManager::PopNotification::count_spaces()
 		m_left_indentation = picture_width + m_line_height / 2;
 	}
 	m_window_width_offset = m_left_indentation + m_line_height * 3.f;
-	m_window_width = m_line_height * 25;
+    // adaptive macos hints windows display to modify
+    //m_window_width = m_line_height * 25;
+	m_window_width = m_line_height * 23;
 }
  
 void NotificationManager::PopNotification::count_lines()
@@ -567,7 +630,11 @@ void NotificationManager::PopNotification::render_close_button(ImGuiWrapper& img
 	}
 	ImVec2 button_pic_size = ImGui::CalcTextSize(button_text.c_str());
 	ImVec2 button_size(button_pic_size.x * 1.25f, button_pic_size.y * 1.25f);
+#ifdef __APPLE__
+	ImGui::SetCursorPosX(win_size.x - m_line_height * 2.95f);
+#else
 	ImGui::SetCursorPosX(win_size.x - m_line_height * 2.75f);
+#endif // __APPLE__
 	ImGui::SetCursorPosY(win_size.y / 2 - button_size.y);
 	if (imgui.button(button_text.c_str(), button_size.x, button_size.y))
 	{
@@ -1678,6 +1745,7 @@ void NotificationManager::UpdatedItemsInfoNotification::render_left_sign(ImGuiWr
 }
 */
 //------SlicingProgressNotification
+#if 0
 void NotificationManager::SlicingProgressNotification::init()
 {
 	if (m_sp_state == SlicingProgressState::SP_PROGRESS) {
@@ -1742,6 +1810,14 @@ bool NotificationManager::SlicingProgressNotification::set_progress_state(Notifi
 }
 void NotificationManager::SlicingProgressNotification::set_status_text(const std::string& text)
 {
+	//report: slice model res
+	std::string modelName = std::string();
+	std::string modelSize = std::string();
+	std::string workTime = wxDateTime::Now().GetValue().ToString().ToStdString();
+	std::string status = std::string();
+	std::string errorCode = std::string("0");
+	std::string errorMsg = std::string("slice success");
+	
 	switch (m_sp_state)
 	{
 	case Slic3r::GUI::NotificationManager::SlicingProgressNotification::SlicingProgressState::SP_NO_SLICING:
@@ -1758,6 +1834,9 @@ void NotificationManager::SlicingProgressNotification::set_status_text(const std
 	{
 		NotificationData data{ NotificationType::SlicingProgress, NotificationLevel::ProgressBarNotificationLevel, 0, text };
 		update(data);
+		errorCode = "1";
+		status = "cancel";
+		errorMsg = "slice cancel";
 		m_state = EState::Shown;
 	}
 		break;
@@ -1765,12 +1844,26 @@ void NotificationManager::SlicingProgressNotification::set_status_text(const std
 	{
 		NotificationData data{ NotificationType::SlicingProgress, NotificationLevel::ProgressBarNotificationLevel, 0,  _u8L("Slicing finished."), m_is_fff ? _u8L("Export G-Code.") : _u8L("Export.") };
 		update(data);
+		status = "finish";
 		m_state = EState::Shown;
 	}
 		break;
 	default:
 		break;
 	}
+
+	std::map<std::string, std::string> buryMap;
+	buryMap.insert(std::make_pair(c_sm_file_name, modelName));
+	buryMap.insert(std::make_pair(c_sm_file_size, modelSize));
+	buryMap.insert(std::make_pair(c_sm_time, workTime));
+	buryMap.insert(std::make_pair(c_sm_status, status));
+	buryMap.insert(std::make_pair(c_sm_error_code, errorCode));
+	buryMap.insert(std::make_pair(c_sm_error_msg, errorMsg));
+	if (m_sp_state != SlicingProgressState::SP_PROGRESS) {
+		ANKER_LOG_INFO << "Report bury event is " << e_slice_model;
+		reportBuryEvent(e_slice_model, buryMap);
+	}
+
 }
 void NotificationManager::SlicingProgressNotification::set_print_info(const std::string& info)
 {
@@ -1913,7 +2006,7 @@ void NotificationManager::SlicingProgressNotification::render_cancel_button(ImGu
 	ImGui::SetCursorPosX(win_size.x - m_line_height * 2.75f);
 	ImGui::SetCursorPosY(win_size.y / 2 - button_size.y);
 	if (imgui.button(button_text.c_str(), button_size.x, button_size.y))
-	{
+	{		
 		on_cancel_button();
 	}
 
@@ -1938,6 +2031,10 @@ void NotificationManager::SlicingProgressNotification::render_close_button(ImGui
 		ProgressBarNotification::render_close_button(imgui, win_size_x,  win_size_y, win_pos_x, win_pos_y);
 	}
 }
+#endif
+
+
+
 //------ProgressIndicatorNotification-------
 void NotificationManager::ProgressIndicatorNotification::set_status_text(const char* text)
 {
@@ -2098,19 +2195,19 @@ void NotificationManager::push_delayed_notification(const NotificationType type,
 
 void NotificationManager::push_validate_error_notification(const std::string& text)
 {
-	push_notification_data({ NotificationType::ValidateError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("ERROR:") + "\n" + text }, 0);
+	push_notification_data({ NotificationType::ValidateError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("common_slicepopup_error") + ":" + "\n" + text}, 0);
 	set_slicing_progress_hidden();
 }
 
 void NotificationManager::push_slicing_error_notification(const std::string& text)
 {
 	set_all_slicing_errors_gray(false);
-	push_notification_data({ NotificationType::SlicingError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("ERROR:") + "\n" + text }, 0);
+	push_notification_data({ NotificationType::SlicingError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("common_slicepopup_error") + ":" + "\n" + text }, 0);
 	set_slicing_progress_hidden();
 }
 void NotificationManager::push_slicing_warning_notification(const std::string& text, bool gray, ObjectID oid, int warning_step)
 {
-	NotificationData data { NotificationType::SlicingWarning, NotificationLevel::WarningNotificationLevel, 0,  _u8L("WARNING:") + "\n" + text };
+	NotificationData data { NotificationType::SlicingWarning, NotificationLevel::WarningNotificationLevel, 0,  _u8L("common_slicepopup_warning") + ":"  + "\n" + text };
 
 	auto notification = std::make_unique<NotificationManager::ObjectIDNotification>(data, m_id_provider, m_evt_handler);
 	notification->object_id = oid;
@@ -2121,13 +2218,13 @@ void NotificationManager::push_slicing_warning_notification(const std::string& t
 }
 void NotificationManager::push_plater_error_notification(const std::string& text)
 {
-	push_notification_data({ NotificationType::PlaterError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("ERROR:") + "\n" + text }, 0);
+	push_notification_data({ NotificationType::PlaterError, NotificationLevel::ErrorNotificationLevel, 0,  _u8L("common_slicepopup_error") + ":" + "\n" + text}, 0);
 }
 
 void NotificationManager::close_plater_error_notification(const std::string& text)
 {
 	for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::PlaterError && notification->compare_text(_u8L("ERROR:") + "\n" + text)) {
+		if (notification->get_type() == NotificationType::PlaterError && notification->compare_text(_u8L("common_slicepopup_error") + ":" + "\n" + text)) {
 			notification->close();
 		}
 	}
@@ -2137,7 +2234,7 @@ void NotificationManager::push_plater_warning_notification(const std::string& te
 {
 	// Find if was not hidden 
 	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::PlaterWarning && notification->compare_text(_u8L("WARNING:") + "\n" + text)) {
+		if (notification->get_type() == NotificationType::PlaterWarning && notification->compare_text(_u8L("common_slicepopup_warning") + ":" + "\n" + text)) {
 			if (notification->get_state() == PopNotification::EState::Hidden) {
 				//dynamic_cast<PlaterWarningNotification*>(notification.get())->show();
 				return;
@@ -2145,7 +2242,7 @@ void NotificationManager::push_plater_warning_notification(const std::string& te
 		}
 	}
 
-	NotificationData data{ NotificationType::PlaterWarning, NotificationLevel::WarningNotificationLevel, 0,  _u8L("WARNING:") + "\n" + text };
+	NotificationData data{ NotificationType::PlaterWarning, NotificationLevel::WarningNotificationLevel, 0,  _u8L("common_slicepopup_warning") + ":" + "\n" + text };
 
 	auto notification = std::make_unique<NotificationManager::PlaterWarningNotification>(data, m_id_provider, m_evt_handler);
 	push_notification_data(std::move(notification), 0);
@@ -2156,7 +2253,7 @@ void NotificationManager::push_plater_warning_notification(const std::string& te
 void NotificationManager::close_plater_warning_notification(const std::string& text)
 {
 	for (std::unique_ptr<PopNotification> &notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::PlaterWarning && notification->compare_text(_u8L("WARNING:") + "\n" + text)) {
+		if (notification->get_type() == NotificationType::PlaterWarning && notification->compare_text(_u8L("common_slicepopup_warning") + ":" + "\n" + text)) {
 			dynamic_cast<PlaterWarningNotification*>(notification.get())->real_close();
 		}
 	}
@@ -2198,7 +2295,7 @@ void NotificationManager::close_slicing_errors_and_warnings()
 void NotificationManager::close_slicing_error_notification(const std::string& text)
 {
 	for (std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
-		if (notification->get_type() == NotificationType::SlicingError && notification->compare_text(_u8L("ERROR:") + "\n" + text)) {
+		if (notification->get_type() == NotificationType::SlicingError && notification->compare_text(_u8L("common_slicepopup_error") + ":" + "\n" + text)) {
 			notification->close();
 		}
 	}
@@ -2272,7 +2369,7 @@ void NotificationManager::remove_simplify_suggestion_with_id(const ObjectID oid)
 void NotificationManager::push_exporting_finished_notification(const std::string& path, const std::string& dir_path, bool on_removable)
 {
 	close_notification_of_type(NotificationType::ExportFinished);
-	NotificationData data{ NotificationType::ExportFinished, NotificationLevel::RegularNotificationLevel, on_removable ? 0 : 20,  _u8L("Exporting finished.") + "\n" + path };
+	NotificationData data{ NotificationType::ExportFinished, NotificationLevel::RegularNotificationLevel, on_removable ? 0 : 20,  _u8L("common_slicepopup_exportfinished") + "\n" + path };
 	push_notification_data(std::make_unique<NotificationManager::ExportFinishedNotification>(data, m_id_provider, m_evt_handler, on_removable, path, dir_path), 0);
 	set_slicing_progress_hidden();
 }
@@ -2720,7 +2817,7 @@ bool NotificationManager::is_hint_notification_open()
 }
 void NotificationManager::deactivate_loaded_hints()
 {
-	HintDatabase::get_instance().uninit();
+	//HintDatabase::get_instance().uninit();
 }
 void NotificationManager::push_updated_item_info_notification(InfoItemType type)
 {
@@ -2969,6 +3066,18 @@ size_t NotificationManager::get_notification_count() const
 			ret++;
 	}
 	return ret;
+}
+
+int NotificationManager::get_notification_top(int upper_limit)
+{
+	int top = 0;
+	for (const std::unique_ptr<PopNotification>& notification : m_pop_notifications) {
+		if (notification->get_state() != PopNotification::EState::Hidden) {
+			//ANKER_LOG_INFO << " top:" << notification->get_top();
+			top = std::min(upper_limit, std::max(top, static_cast<int>( notification->get_top())));
+		}
+	}
+	return top;
 }
 
 }//namespace GUI

@@ -50,6 +50,12 @@ public:
     const Point& axis()  const { return m_axis; }
 };
 
+double fit_into_box_rotation(const Polygon& shape, const BoundingBox& box);
+void rotate(Point& point, double angle);
+void rotate(Polygon& polygon, double angle);
+double get_aspect_r(const BoundingBox& b);
+bool would_fit(const BoundingBox& inner, const BoundingBox& outer);
+
 }
 
 #endif // MINAREABOUNDINGBOX_HPP

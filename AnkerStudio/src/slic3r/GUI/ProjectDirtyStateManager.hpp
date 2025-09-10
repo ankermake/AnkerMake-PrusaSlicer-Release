@@ -16,6 +16,7 @@ public:
     void reset_after_save();
     void reset_initial_presets();
 
+    bool is_plater_dirty() const { return m_plater_dirty; }
     bool is_dirty() const { return m_plater_dirty || m_project_config_dirty || m_presets_dirty || m_custom_gcode_per_print_z_dirty; }
     bool is_presets_dirty() const { return m_presets_dirty; }
 

@@ -15,6 +15,7 @@
 #include "../Utils.hpp"
 #include "../ExPolygon.hpp"
 #include "../PrintConfig.hpp"
+#include "../Flow.hpp"
 
 namespace Slic3r {
 
@@ -63,6 +64,8 @@ struct FillParams
     bool        use_arachne     { false };
     // Layer height for Concentric infill with Arachne.
     coordf_t    layer_height    { 0.f };
+
+    Flow        flow;
 };
 static_assert(IsTriviallyCopyable<FillParams>::value, "FillParams class is not POD (and it should be - see constructor).");
 
@@ -94,6 +97,9 @@ public:
     // PrintConfig and PrintObjectConfig are used by infills that use Arachne (Concentric and FillEnsuring).
     const PrintConfig       *print_config        = nullptr;
     const PrintObjectConfig *print_object_config = nullptr;
+
+    // BBS: all no overlap expolygons in same layer
+    ExPolygons              no_overlap_expolygons;
 
 public:
     virtual ~Fill() {}

@@ -168,6 +168,36 @@ bool ExPolygon::overlaps(const ExPolygon &other) const
            other.contains(this->contour.points.front());
 }
 
+Point projection_onto(const ExPolygons& polygons, const Point& from)
+{
+    Point projected_pt;
+    double min_dist = std::numeric_limits<double>::max();
+
+    for (const auto& poly : polygons) {
+        for (int i = 0; i < poly.num_contours(); i++) {
+            Point p = from.projection_onto(poly.contour_or_hole(i));
+            double dist = (from - p).cast<double>().squaredNorm();
+            if (dist < min_dist) {
+                projected_pt = p;
+                min_dist = dist;
+            }
+        }
+    }
+
+    return projected_pt;
+}
+
+bool overlaps(const ExPolygons& expolys1, const ExPolygons& expolys2)
+{
+	for (const ExPolygon& expoly1 : expolys1) {
+		for (const ExPolygon& expoly2 : expolys2) {
+			if (expoly1.overlaps(expoly2))
+				return true;
+		}
+	}
+	return false;
+}
+
 void ExPolygon::simplify_p(double tolerance, Polygons* polygons) const
 {
     Polygons pp = this->simplify_p(tolerance);
@@ -437,6 +467,24 @@ bool has_duplicate_points(const ExPolygons &expolys)
             return true;
     return false;
 #endif
+}
+
+bool remove_same_neighbor(ExPolygons& expolygons)
+{
+    if (expolygons.empty())
+        return false;
+    bool remove_from_holes = false;
+    bool remove_from_contour = false;
+    for (ExPolygon& expoly : expolygons) {
+        remove_from_contour |= remove_same_neighbor(expoly.contour);
+        remove_from_holes |= remove_same_neighbor(expoly.holes);
+    }
+    // Removing of expolygons without contour
+    if (remove_from_contour)
+        expolygons.erase(std::remove_if(expolygons.begin(), expolygons.end(),
+            [](const ExPolygon& p) { return p.contour.points.size() <= 2; }),
+            expolygons.end());
+    return remove_from_holes || remove_from_contour;
 }
 
 bool remove_sticks(ExPolygon &poly)

@@ -103,4 +103,65 @@ void remove_collinear_points(ExPolygon &p)
 {
     p = libnest2d::removeCollinearPoints<ExPolygon>(p, Unit(0));
 }
+
+void rotate(Point& point, double angle)
+{
+    double rad = angle * M_PI / 180.0;
+    double newX = point.x() * cos(rad) - point.y() * sin(rad);
+    double newY = point.x() * sin(rad) + point.y() * cos(rad);
+
+    point.x() = newX;
+    point.y() = newY;
+}
+
+void rotate(Polygon& polygon, double angle)
+{
+    for (auto& point : polygon.points) {
+        rotate(point, angle);
+    }
+}
+
+double get_aspect_r(const BoundingBox& b)
+{
+    return (b.max.x() - b.min.x()) / (b.max.y() - b.min.y());
+}
+
+bool would_fit(const BoundingBox& inner, const BoundingBox& outer)
+{
+    return (inner.max.x() - inner.min.x()) < (outer.max.x() - outer.min.x()) &&
+        (inner.max.y() - inner.min.y()) < (outer.max.y() - outer.min.y());
+}
+
+double fit_into_box_rotation(const Polygon& shape, const BoundingBox& bb)
+{
+    double a_from = 0.;
+    double a_to = 2 * M_PI;
+    double aspect_r = get_aspect_r(bb);
+    double middle, ar_from, ar_middle;
+    BoundingBox box_middle;
+
+    do {
+        middle = (a_from + a_to) / 2.;
+        Polygon rotated_shape = shape;
+        rotated_shape.rotate(middle);
+        box_middle = rotated_shape.bounding_box();
+        ar_from = get_aspect_r(box_middle);
+
+        if (would_fit(box_middle, bb)) {
+            if (ar_from < aspect_r) {
+                a_to = middle;
+            }
+            else {
+                a_from = middle;
+            }
+        }
+        else {
+            // If it doesn't fit, we need to adjust our search interval.
+            // This part of the logic will depend on how you decide to handle the case when the shape doesn't fit.
+        }
+        ar_middle = get_aspect_r(box_middle);
+    } while (std::abs(a_to - a_from) > EPSILON);
+
+    return middle;
+}
 } // namespace Slic3r

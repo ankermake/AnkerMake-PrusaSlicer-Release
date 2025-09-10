@@ -16,6 +16,19 @@ set(SLIC3R_GUI_SOURCES
     GUI/BackgroundSlicingProcess.hpp
     GUI/BitmapCache.cpp
     GUI/BitmapCache.hpp
+    GUI/Calibration/FlowCalibration.hpp
+    GUI/Calibration/FlowCalibration.cpp
+    GUI/Calibration/CalibrationAbstractDialog.hpp
+    GUI/Calibration/CalibrationMaxFlowrateDialog.cpp
+    GUI/Calibration/CalibrationMaxFlowrateDialog.hpp
+    GUI/Calibration/CalibrationPresAdvDialog.cpp
+    GUI/Calibration/CalibrationPresAdvDialog.hpp
+    GUI/Calibration/CalibrationTempDialog.cpp
+    GUI/Calibration/CalibrationTempDialog.hpp
+    GUI/Calibration/CalibrationRetractionDialog.cpp
+    GUI/Calibration/CalibrationRetractionDialog.hpp
+    GUI/Calibration/CalibrationVfaDialog.cpp
+    GUI/Calibration/CalibrationVfaDialog.hpp
     GUI/ConfigSnapshotDialog.cpp
     GUI/ConfigSnapshotDialog.hpp
     GUI/3DScene.cpp
@@ -69,6 +82,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/Gizmos/GLGizmoMmuSegmentation.hpp
     GUI/Gizmos/GLGizmoMeasure.cpp
     GUI/Gizmos/GLGizmoMeasure.hpp
+    GUI/Gizmos/GLGizmoSVG.cpp
+    GUI/Gizmos/GLGizmoSVG.hpp
+    GUI/Gizmos/GizmoObjectManipulation.cpp
+    GUI/Gizmos/GizmoObjectManipulation.hpp
     GUI/GLSelectionRectangle.cpp
     GUI/GLSelectionRectangle.hpp
     GUI/GLModel.hpp
@@ -77,12 +94,16 @@ set(SLIC3R_GUI_SOURCES
     GUI/GLTexture.cpp
     GUI/GLToolbar.hpp
     GUI/GLToolbar.cpp
+    GUI/IMToolbar.hpp
+    GUI/IMToolbar.cpp
     GUI/GCodeViewer.hpp
     GUI/GCodeViewer.cpp    
     GUI/Preferences.cpp
     GUI/Preferences.hpp
     GUI/PresetHints.cpp
     GUI/PresetHints.hpp
+    GUI/AnkerSliceCommentDialog.cpp
+    GUI/AnkerSliceCommentDialog.hpp
     GUI/GUI.cpp
     GUI/GUI.hpp
     GUI/GUI_Init.cpp
@@ -173,17 +194,33 @@ set(SLIC3R_GUI_SOURCES
     GUI/ButtonsDescription.hpp
     GUI/ImGuiWrapper.hpp
     GUI/ImGuiWrapper.cpp
-	GUI/Network/basetype.hpp
-	GUI/Network/basetype.cpp
-    GUI/Network/DeviceObject.h
-    GUI/Network/DeviceObject.cpp
+	GUI/Network/chooseDeviceFrame.h
+	GUI/Network/chooseDeviceFrame.cpp
     GUI/Network/MsgText.hpp
     GUI/Network/SystemInfo.hpp
     GUI/Network/SystemInfo.cpp
+    GUI/Widgets/Button.cpp
+    GUI/Widgets/Button.hpp
+    GUI/Widgets/ComboBox.cpp
+    GUI/Widgets/ComboBox.hpp
+    GUI/Widgets/Label.cpp
+    GUI/Widgets/Label.hpp
+    GUI/Widgets/StaticBox.cpp
+    GUI/Widgets/StaticBox.hpp
+    GUI/Widgets/StateColor.cpp
+    GUI/Widgets/StateColor.hpp
+    GUI/Widgets/StateHandler.cpp
+    GUI/Widgets/StateHandler.hpp
+    GUI/Widgets/TextInput.cpp
+    GUI/Widgets/TextInput.hpp
+    GUI/Widgets/SwitchButton.cpp
+    GUI/Widgets/SwitchButton.hpp
     Config/Snapshot.cpp
     Config/Snapshot.hpp
     Config/Version.cpp
-    Config/Version.hpp    
+    Config/Version.hpp  
+	Config/AnkerCommonConfig.hpp
+	Config/AnkerGlobalConfig.hpp
     Utils/ASCIIFolding.cpp
     Utils/ASCIIFolding.hpp
     Utils/Serial.cpp
@@ -225,10 +262,14 @@ set(SLIC3R_GUI_SOURCES
     GUI/Jobs/NotificationProgressIndicator.cpp
     GUI/Jobs/ThreadSafeQueue.hpp
     GUI/Jobs/SLAImportDialog.hpp
+	GUI/Jobs/OrientJob.hpp
+	GUI/Jobs/OrientJob.cpp
     GUI/ProgressStatusBar.hpp
     GUI/ProgressStatusBar.cpp
     GUI/Mouse3DController.cpp
     GUI/Mouse3DController.hpp
+    GUI/AnkerMsgCentreDialog.cpp
+    GUI/AnkerMsgCentreDialog.hpp
     GUI/DoubleSlider.cpp
     GUI/DoubleSlider.hpp
     GUI/Notebook.cpp
@@ -239,6 +280,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/InstanceCheck.hpp
     GUI/Search.cpp
     GUI/Search.hpp
+    GUI/DailyTips.cpp
+    GUI/DailyTips.hpp
+    GUI/SlicingProgressNotification.cpp
+    GUI/SlicingProgressNotification.hpp
     GUI/NotificationManager.cpp
     GUI/NotificationManager.hpp
     GUI/UnsavedChangesDialog.cpp
@@ -257,13 +302,22 @@ set(SLIC3R_GUI_SOURCES
     GUI/Downloader.hpp
     GUI/DownloaderFileGet.cpp
     GUI/DownloaderFileGet.hpp
+	GUI/AnkerWebView.cpp
+	GUI/AnkerWebView.hpp
     GUI/AnkerConfig.hpp	
+    GUI/AnkerConfig.cpp	
+	GUI/AnkerDevice.cpp	
+    GUI/AnkerDevice.hpp
     GUI/AnkerBtn.cpp
     GUI/AnkerBtn.hpp
     GUI/AnkerHint.cpp
     GUI/AnkerHint.h
-	GUI/AnkerGCodeImportDialog.hpp
-	GUI/AnkerGCodeImportDialog.cpp
+    GUI/AnkerGCodeImportDialog.hpp
+    GUI/AnkerGCodeImportDialog.cpp
+    GUI/AnkerPrintFinishDialog.hpp
+    GUI/AnkerPrintFinishDialog.cpp
+	GUI/AnkerTaskPanel.hpp
+	GUI/AnkerTaskPanel.cpp
 	GUI/AnkerLineEdit.hpp
 	GUI/AnkerLineEdit.cpp
     GUI/AnkerVideo.hpp
@@ -300,7 +354,15 @@ set(SLIC3R_GUI_SOURCES
 	GUI/AnkerObjectManipulator.cpp
 	GUI/AnkerFunctionPanel.cpp
 	GUI/AnkerFunctionPanel.h
+	GUI/Security/AnkerSecurity.cpp
+	GUI/Security/AnkerSecurity.hpp
+	GUI/Common/AnkerValidator.hpp
+	GUI/Common/AnkerValidator.cpp
+	GUI/Common/AnkerSwitchButton.hpp
+    GUI/Common/AnkerSwitchButton.cpp
 	GUI/Common/AnkerCombinButton.cpp
+	GUI/Common/AnkerFont.cpp
+	GUI/Common/AnkerFont.hpp
 	GUI/Common/AnkerCombinButton.h
 	GUI/Common/AnkerGUIConfig.hpp
 	GUI/Common/AnkerTitledPanel.hpp
@@ -333,6 +395,8 @@ set(SLIC3R_GUI_SOURCES
 	GUI/Common/AnkerListCtrl.cpp
 	GUI/Common/AnkerScrolledWindow.hpp
 	GUI/Common/AnkerScrolledWindow.cpp
+	GUI/Common/AnkerMulticolorSyncDeviceDialog.hpp
+	GUI/Common/AnkerMulticolorSyncDeviceDialog.cpp
 	GUI/Common/AnkerSimpleCombox.hpp
 	GUI/Common/AnkerSimpleCombox.cpp
 	GUI/Common/AnkerBitmapCombox.hpp
@@ -355,8 +419,7 @@ set(SLIC3R_GUI_SOURCES
     GUI/Common/AnkerSliderCtrl.cpp
     GUI/Common/AnkerScrollbar.hpp
     GUI/Common/AnkerScrollbar.cpp
-    GUI/Common/AnkerScrolledWindow.hpp
-    GUI/Common/AnkerScrolledWindow.cpp
+
     GUI/Common/AnkerMerterialBoxBtn.hpp
     GUI/Common/AnkerMerterialBoxBtn.cpp
     GUI/Common/AnkerRoundPanel.cpp
@@ -368,19 +431,57 @@ set(SLIC3R_GUI_SOURCES
     GUI/Common/AnkerRoundDialog.cpp
     GUI/Common/AnkerRoundDialog.hpp
     GUI/Common/AnkerBaseCtls.h
+	GUI/Common/AnkerBaseCtls.cpp
+	GUI/Common/AnkerTextCtls.h
+	GUI/Common/AnkerTextCtls.cpp
 	GUI/Common/AnkerNozzlesStausPanel.cpp
     GUI/Common/AnkerNozzlesStausPanel.h
     GUI/Common/AnkerNumberEnterDialog.hpp
     GUI/Common/AnkerNumberEnterDialog.cpp
     GUI/Common/AnkerFeedbackDialog.hpp
     GUI/Common/AnkerFeedbackDialog.cpp
+	GUI/Common/AnkerMaterialMappingPanel.cpp
+	GUI/Common/AnkerMaterialMappingPanel.h
+	GUI/ViewModel/AnkerMaterialMappingViewModel.h
+    GUI/GcodeVerify/GcodeVerifyHint.hpp
+    GUI/GcodeVerify/GcodeVerifyHint.cpp
+    GUI/GcodeVerify/PrintCheckHint.hpp
+    GUI/GcodeVerify/PrintCheckHint.cpp
 	GUI/PrinterConfigPlater/AnkerParameterPanel.hpp
 	GUI/PrinterConfigPlater/AnkerParameterPanel.cpp
+	GUI/PrinterConfigPlater/AnkerPrintParaItem.hpp
+	GUI/PrinterConfigPlater/AnkerPrintParaItem.cpp	
+	GUI/PrinterConfigPlater/AnkerParameterData.hpp
+	GUI/PrinterConfigPlater/AnkerParameterData.cpp
     GUI/AnkerConfigDialog/AnkerConfigDialog.hpp
 	GUI/AnkerConfigDialog/AnkerConfigDialog.cpp
+    GUI/WebWeak/WebDownload.hpp
+    GUI/WebWeak/WebDownload.cpp
+    GUI/WebWeak/WebDownloadController.hpp
+    GUI/WebWeak/WebDownloadController.cpp
+    GUI/WebWeak/DownLoadMessage.hpp
+    GUI/WebWeak/DownLoadMessage.cpp
     GUI/AnkerCfgTab.hpp
     GUI/AnkerCfgTab.cpp
+    GUI/TextLines.hpp
+    GUI/TextLines.cpp
+    GUI/OnlinePreset/OnlinePresetInfo.hpp
+    GUI/OnlinePreset/OnlinePresetInfoTool.hpp
+    GUI/OnlinePreset/OnlinePresetInfoTool.cpp
+    GUI/OnlinePreset/OnlinePresetManager.hpp
+    GUI/OnlinePreset/OnlinePresetManager.cpp
+    GUI/OnlinePreset/Version.hpp
+    GUI/OnlinePreset/VersionTool.hpp
+    GUI/OnlinePreset/VersionTool.cpp
+    GUI/AnkerNetModule/AnkerNetDownloadDialog.h
+    GUI/AnkerNetModule/AnkerNetDownloadDialog.cpp
+	GUI/AnkerNetModule/AnkerNetModuleManager.h
+    GUI/AnkerNetModule/AnkerNetModuleManager.cpp
+    GUI/AnkerNetModule/HttpTool.h
+    GUI/AnkerNetModule/HttpTool.cpp
+    GUI/AnkerNetModule/BuryDefines.h
 	Utils/AppUpdater.cpp
+	Utils/Singleton.hpp
     Utils/AppUpdater.hpp
     Utils/Http.cpp
     Utils/Http.hpp
@@ -392,8 +493,6 @@ set(SLIC3R_GUI_SOURCES
     Utils/Duet.hpp
     Utils/EmbossStyleManager.cpp
     Utils/EmbossStyleManager.hpp
-    Utils/EmbossStylesSerializable.cpp
-    Utils/EmbossStylesSerializable.hpp
     Utils/FlashAir.cpp
     Utils/FlashAir.hpp
     Utils/FontConfigHelp.cpp
@@ -426,11 +525,31 @@ set(SLIC3R_GUI_SOURCES
     Utils/WinRegistry.hpp
     Utils/WxFontUtils.cpp
     Utils/WxFontUtils.hpp
-	Utils/DataManger.hpp
-	Utils/DataManger.cpp
+	Utils/DataMangerUi.hpp
+	Utils/DataMangerUi.cpp
+	Utils/StringHelper.hpp
+	Utils/StringHelper.cpp
+	Utils/DeviceVersionUtil.hpp
+	Utils/DeviceVersionUtil.cpp	
+    Utils/JsonHelp.hpp
+    Utils/JsonHelp.cpp
+    GUI/FilamentMaterial.hpp
+    GUI/FilamentMaterial.cpp
+    GUI/FilamentMaterialHelper.hpp
+    GUI/FilamentMaterialHelper.cpp
+    GUI/FilamentMaterialManager.hpp
+    GUI/FilamentMaterialManager.cpp
+    GUI/FilamentMaterialConvertor.hpp
+    GUI/FilamentMaterialConvertor.cpp
+	Utils/wxFileTool.hpp
+	Utils/wxFileTool.cpp
+    GUI/NozzlePriorPresent/NozzlePriorityQueue.hpp
+    GUI/NozzlePriorPresent/NozzlePriorityQueue.cpp
 )
 
+
 find_package(NanoSVG REQUIRED)
+
 
 if (APPLE)
     list(APPEND SLIC3R_GUI_SOURCES
@@ -455,7 +574,6 @@ foreach(_source IN ITEMS ${SLIC3R_GUI_SOURCES})
     source_group("${_group_path}" FILES "${_source}")
 endforeach()
 
-# encoding_check(libslic3r_gui)
 
 target_link_libraries(libslic3r_gui libslic3r avrdude libcereal imgui GLEW::GLEW OpenGL::GL hidapi libcurl ${wxWidgets_LIBRARIES} NanoSVG::nanosvg NanoSVG::nanosvgrast)
 
@@ -469,12 +587,19 @@ endif()
 
 message("----include path; $ENV{THIRD_PART_ROOT}/usr/local/include/json ----")
 include_directories($ENV{THIRD_PART_ROOT}/usr/local/include/json)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../anker_net/Interface\ Files)
-if(MSVC)
+include_directories($ENV{THIRD_PART_ROOT}/usr/local/include/openssl)
+if(MSVC)    
+    target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/openssl/win/libcrypto.lib)
+    target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/openssl/win/libssl.lib)
 	target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/jansson/win/jansson.lib)
+if(NOT OPEN_SOURCE)		
+	target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/sentry/win/sentry.lib)
+endif()	
 elseif (APPLE)
-target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/jansson/mac/libjansson.a)
-
+    link_directories($ENV{THIRD_PART_ROOT}/usr/local/lib/openssl/mac)
+    target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/openssl/mac/libcrypto.a)
+    target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/openssl/mac/libssl.a)
+    target_link_libraries(libslic3r_gui $ENV{THIRD_PART_ROOT}/usr/local/lib/jansson/mac/libjansson.a)
 endif()
 
 if (SLIC3R_STATIC)

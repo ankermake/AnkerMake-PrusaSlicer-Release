@@ -313,9 +313,9 @@ OptionsSearcher::~OptionsSearcher()
 {
 }
 
-void OptionsSearcher::check_and_update(PrinterTechnology pt_in, ConfigOptionMode mode_in, std::vector<InputInfo> input_values)
+void OptionsSearcher::check_and_update(PrinterTechnology pt_in, ConfigOptionMode mode_in, Preset::Type type_in, std::vector<InputInfo> input_values)
 {
-    if (printer_technology == pt_in && mode == mode_in)
+    if (printer_technology == pt_in && mode == mode_in && type == type_in)
         return;
 
     options.clear();
@@ -353,37 +353,52 @@ void OptionsSearcher::append_preferences_option(const GUI::Line& opt_line)
 
 void OptionsSearcher::append_preferences_options(const std::vector<GUI::Line>& opt_lines)
 {
-    //Preset::Type type = Preset::TYPE_PREFERENCES;
+    Preset::Type type = Preset::TYPE_PREFERENCES;
     for (const GUI::Line& line : opt_lines) {
         if (line.is_separator())
             continue;
         append_preferences_option(line);
-        //wxString label = line.label;
-        //if (label.IsEmpty())
-        //    continue;
+        wxString label = line.label;
+        if (label.IsEmpty())
+            continue;
 
-        //std::string key = get_key(line.get_options().front().opt_id, type);        
-        //const GroupAndCategory& gc = groups_and_categories[key];
-        //if (gc.group.IsEmpty() || gc.category.IsEmpty())
-        //    continue;        
-        //
-        //preferences_options.emplace_back(Search::Option{ boost::nowide::widen(key), type,
-        //                            label.ToStdWstring(), _(label).ToStdWstring(),
-        //                            gc.group.ToStdWstring(), _(gc.group).ToStdWstring(),
-        //                            gc.category.ToStdWstring(), _(gc.category).ToStdWstring() });
+        std::string key = get_key(line.get_options().front().opt_id, type);
+        const GroupAndCategory& gc = groups_and_categories[key];
+        if (gc.group.IsEmpty() || gc.category.IsEmpty())
+            continue;
+
+        preferences_options.emplace_back(Search::Option{ boost::nowide::widen(key), type,
+                                    label.ToStdWstring(), _(label).ToStdWstring(),
+                                    gc.group.ToStdWstring(), _(gc.group).ToStdWstring(),
+                                    gc.category.ToStdWstring(), _(gc.category).ToStdWstring() });
     }
 }
 
 const Option& OptionsSearcher::get_option(size_t pos_in_filter) const
 {
-    assert(pos_in_filter != size_t(-1) && found[pos_in_filter].option_idx != size_t(-1));
-    return options[found[pos_in_filter].option_idx];
+    if (options.empty()) {
+        return Option {};
+    }
+
+    if (found.size() <= pos_in_filter) {
+        return options[0];
+    }
+
+    if (pos_in_filter != size_t(-1) && found[pos_in_filter].option_idx != size_t(-1)) {
+        return options[found[pos_in_filter].option_idx];
+    }
+
+    return options[0];
+
+    //assert(pos_in_filter != size_t(-1) && found[pos_in_filter].option_idx != size_t(-1));
+    //return options[found[pos_in_filter].option_idx];
 }
 
 const Option& OptionsSearcher::get_option(const std::string& opt_key, Preset::Type type) const
 {
     auto it = std::lower_bound(options.begin(), options.end(), Option({ boost::nowide::widen(get_key(opt_key, type)) }));
-    assert(it != options.end());
+    //assert(it != options.end());
+    if (it == options.end()) { return options[0]; }
 
     return options[it - options.begin()];
 }

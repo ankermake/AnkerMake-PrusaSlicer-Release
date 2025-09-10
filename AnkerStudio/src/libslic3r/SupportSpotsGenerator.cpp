@@ -1116,6 +1116,7 @@ void estimate_malformations(LayerPtrs &layers, const Params &params)
 
     for (Layer *l : layers) {
         l->malformed_lines.clear();
+		l->curled_lines.clear();
         std::vector<Linef> boundary_lines = l->lower_layer != nullptr ? to_unscaled_linesf(l->lower_layer->lslices) : std::vector<Linef>();
         AABBTreeLines::LinesDistancer<Linef> prev_layer_boundary{std::move(boundary_lines)};
         std::vector<ExtrusionLine>           current_layer_lines;
@@ -1154,6 +1155,7 @@ void estimate_malformations(LayerPtrs &layers, const Params &params)
         for (const ExtrusionLine &line : current_layer_lines) {
             if (line.curled_up_height > params.curling_tolerance_limit) {
                 l->malformed_lines.push_back(Line{Point::new_scale(line.a), Point::new_scale(line.b)});
+                l->curled_lines.push_back(CurledLine{ Point::new_scale(line.a), Point::new_scale(line.b), line.curled_up_height });
             }
         }
 

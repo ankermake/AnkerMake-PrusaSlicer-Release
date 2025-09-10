@@ -4,7 +4,7 @@ project(miniz)
 add_library(miniz INTERFACE)
 
 add_library(miniz_static STATIC
-    miniz.c
+    miniz.cpp
     miniz.h
 )
 

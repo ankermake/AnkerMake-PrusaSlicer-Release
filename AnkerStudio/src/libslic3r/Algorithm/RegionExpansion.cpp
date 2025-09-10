@@ -407,7 +407,7 @@ std::vector<RegionExpansion> propagate_waves(const WaveSeeds &seeds, const ExPol
     return out;
 }
 
-std::vector<RegionExpansion> propagate_waves(const ExPolygons &src, const ExPolygons &boundary, const RegionExpansionParameters &params)
+std::vector<RegionExpansion> propagate_waves(const ExPolygons& src, const ExPolygons& boundary, const RegionExpansionParameters& params)
 {
     return propagate_waves(wave_seeds(src, boundary, params.tiny_expansion, true), boundary, params);
 }
@@ -477,6 +477,60 @@ std::vector<Polygons> expand_expolygons(const ExPolygons &src, const ExPolygons 
     std::vector<Polygons> out(src.size(), Polygons{});
     for (RegionExpansion &r : propagate_waves(src, boundary, expansion, expansion_step, max_nr_steps))
         out[r.src_id].emplace_back(std::move(r.polygon));
+    return out;
+}
+
+std::vector<ExPolygon> merge_expansions_into_expolygons(ExPolygons&& src, std::vector<RegionExpansion>&& expanded)
+{
+    // expanded regions will be merged into source regions, thus they will be re-sorted by source id.
+    std::sort(expanded.begin(), expanded.end(), [](const auto& l, const auto& r) { return l.src_id < r.src_id; });
+    uint32_t   last = 0;
+    Polygons   acc;
+    ExPolygons out;
+    out.reserve(src.size());
+    for (auto it = expanded.begin(); it != expanded.end();) {
+        for (; last < it->src_id; ++last)
+            out.emplace_back(std::move(src[last]));
+        acc.clear();
+        assert(it->src_id == last);
+        for (; it != expanded.end() && it->src_id == last; ++it)
+            acc.emplace_back(std::move(it->polygon));
+        //FIXME offset & merging could be more efficient, for example one does not need to copy the source expolygon
+        ExPolygon& src_ex = src[last++];
+        assert(!src_ex.contour.empty());
+#if 0
+        {
+            static int iRun = 0;
+            BoundingBox bbox = get_extents(acc);
+            bbox.merge(get_extents(src_ex));
+            SVG svg(debug_out_path("expand_merge_expolygons-failed-union=%d.svg", iRun++).c_str(), bbox);
+            svg.draw(acc);
+            svg.draw_outline(acc, "black", scale_(0.05));
+            svg.draw(src_ex, "red");
+            svg.Close();
+        }
+#endif
+        Point sample = src_ex.contour.front();
+        append(acc, to_polygons(std::move(src_ex)));
+        ExPolygons merged = union_safety_offset_ex(acc);
+        // Expanding one expolygon by waves should not change connectivity of the source expolygon:
+        // Single expolygon should be produced possibly with increased number of holes.
+        if (merged.size() > 1) {
+            // assert(merged.size() == 1);
+            // There is something wrong with the initial waves. Most likely the bridge was not valid at all
+            // or the boundary region was very close to some bridge edge, but not really touching.
+            // Pick only a single merged expolygon, which contains one sample point of the source expolygon.
+            auto aabb_tree = build_aabb_tree_over_expolygons(merged);
+            int id = sample_in_expolygons(aabb_tree, merged, sample);
+            assert(id != -1);
+            if (id != -1)
+                out.emplace_back(std::move(merged[id]));
+        }
+        else if (merged.size() == 1)
+            out.emplace_back(std::move(merged.front()));
+    }
+    for (; last < uint32_t(src.size()); ++last)
+        out.emplace_back(std::move(src[last]));
     return out;
 }
 

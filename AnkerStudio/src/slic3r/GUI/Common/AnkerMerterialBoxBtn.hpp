@@ -15,6 +15,8 @@ enum MaterialBoxStatus
 	BOX_HOVER,
 	BOX_SELECT,
 	BOX_UNKNOWN,	
+	BOX_DISWORK,	
+	BOX_WORKING,	
 	BOX_OFFLINE,
 };
 
@@ -28,20 +30,18 @@ public:
 	AnkerMerterialBoxBtn();
 	AnkerMerterialBoxBtn(wxWindow* parent,
 		wxColour bgColor,
-		wxColour borderColor = wxColour(169, 170, 171),
+		wxColour borderColor = wxColour(169, 170, 171),		
 		wxWindowID winid = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 
 	~AnkerMerterialBoxBtn();
-
-
-	void setUnWorkStatus(bool isWork);
+	
 
 	void setMaterialName(const wxString& name);
 	MaterialBoxStatus getBtnStatus();
 	void setBtnStatus(const MaterialBoxStatus& status);//status changed use
-	//void setDefaultStatus(const MaterialBoxStatus& status);//init and use
+	void reSetBtnStatus(const MaterialBoxStatus& status);//status changed use	
 	void setMaterialColor(const wxColour& color);
 	
 	virtual void OnPressed(wxMouseEvent& event);
@@ -57,11 +57,10 @@ private:
 
 	wxFont	 m_nameFont;
 	wxString m_materialName;
+	wxString m_alotMaterialName;
 	wxColour m_materialColor;
 	wxColour m_borderColor;
 
-	MaterialBoxStatus m_currentStatus;	
-
-	bool m_isAbleWork{true};
+	MaterialBoxStatus m_currentStatus;		
 };
 #endif
