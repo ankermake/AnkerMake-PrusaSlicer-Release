@@ -178,16 +178,11 @@ namespace Slic3r {
 			m_pSizer->Add(m_pPrintButton, 0, wxALL, 1);
 			m_pSizer->AddStretchSpacer();
 
-			m_pPrintButton = new AnkerCombinButton(this, devcieBitmap, _L("Device"));
-			m_pPrintButton->SetMinSize(AnkerSize(160, 35));
-			m_pPrintButton->SetActieBitMap(devcieBitmap_actice);
-			m_pSizer->Add(m_pPrintButton, 0, wxALL, 1);
-
 			m_pTabBtnVec.push_back(m_pSliceButton);
 			m_pTabBtnVec.push_back(m_pPrintButton);
 
-			//set Slice button default selected
-			m_pSliceButton->SetSelected(true);
+			//set Device button default selected (startup view defaults to Device)
+			m_pPrintButton->SetSelected(true);
 
 			wxImage noMsgImg = wxImage(wxString::FromUTF8(Slic3r::var("noNewsMsg.png")), wxBITMAP_TYPE_PNG);
 			wxImage feedBackImg = wxImage(wxString::FromUTF8(Slic3r::var("feedback.png")), wxBITMAP_TYPE_PNG);

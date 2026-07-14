@@ -2612,13 +2612,30 @@ void MainFrame::InitAnkerDevice()
             wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ON_TAB_CHANGE);
             evt.SetId(type_devcie);
             wxPostEvent(m_pFunctionPanel, evt);
-            //change  Tab  to device 
+            //change  Tab  to device
             if (wxGetApp().mainframe != nullptr)
             {
                 wxGetApp().mainframe->setTabMode(TAB_DEVICE);
             }
         }
         });
+
+    // Default the startup view to the Device tab (rather than Slice/Plater).
+    // Deferred so it runs once the tab panel and its page-changed handler are
+    // fully wired; the Device page is the last page in m_printTabPanel.
+    CallAfter([this]() {
+        if (!m_printTabPanel)
+            return;
+        int pageCount = m_printTabPanel->GetPageCount();
+        if (pageCount <= 0)
+            return;
+        m_printTabPanel->SetSelection(pageCount - 1);
+        setTabMode(TAB_DEVICE);
+        wxCommandEvent evt(wxCUSTOMEVT_ON_TAB_CHANGE);
+        evt.SetId(type_devcie);
+        if (m_pFunctionPanel)
+            wxPostEvent(m_pFunctionPanel, evt);
+    });
 }
 
 void MainFrame::create_preset_tabs()

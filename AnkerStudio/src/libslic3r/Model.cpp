@@ -1177,11 +1177,7 @@ BoundingBoxf3 ModelObject::instance_bounding_box(size_t instance_idx, bool dont_
 
     ANKER_LOG_INFO << "start transformed_bounding_box";
     for (ModelVolume *v : this->volumes) {
-<<<<<<< HEAD
         if (v != nullptr && v->is_model_part())
-=======
-        if (v->is_model_part() && v != nullptr)
->>>>>>> 84b4984 (feat: 1.5.21 open source)
             bb.merge(v->mesh().transformed_bounding_box(inst_matrix * v->get_matrix()));
     }
     ANKER_LOG_INFO << "exit instance_bounding_box";

@@ -78,11 +78,14 @@ if (UNIX)
 endif ()
 
 if(APPLE)
-    set(_boost_flags 
+    # Xcode 15+ (Clang 15+) turns out-of-range enum constant conversions into a hard
+    # error by default; Boost 1.78's numeric_cast / date_time code relies on the old
+    # warning-only behavior, so it needs to be downgraded explicitly.
+    set(_boost_flags
         "cflags=-fPIC -mmacosx-version-min=${DEP_OSX_TARGET};"
-        "cxxflags=-fPIC -mmacosx-version-min=${DEP_OSX_TARGET};"
+        "cxxflags=-fPIC -mmacosx-version-min=${DEP_OSX_TARGET} -Wno-enum-constexpr-conversion;"
         "mflags=-fPIC -mmacosx-version-min=${DEP_OSX_TARGET};"
-        "mmflags=-fPIC -mmacosx-version-min=${DEP_OSX_TARGET}") 
+        "mmflags=-fPIC -mmacosx-version-min=${DEP_OSX_TARGET}")
 endif()
 
 set(_boost_variants "")

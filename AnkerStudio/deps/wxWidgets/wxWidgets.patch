@@ -1,0 +1,30 @@
+diff -u ../wxWidgets-orig/src/osx/carbon/dcscreen.cpp ./src/osx/carbon/dcscreen.cpp
+--- ../wxWidgets-orig/src/osx/carbon/dcscreen.cpp	2018-07-15 20:58:00.000000000 +0200
++++ ./src/osx/carbon/dcscreen.cpp	2026-07-11 15:00:00.000000000 +0100
+@@ -69,15 +69,22 @@
+         srcRect = CGRectOffset( srcRect, -subrect->x, -subrect->y ) ;
+ 
+     CGImageRef image = NULL;
+-    
++
++#if MAC_OS_X_VERSION_MAX_ALLOWED < 150000
++    // CGDisplayCreateImage was obsoleted in macOS 15.0 with no direct sync
++    // replacement (Apple points to the async ScreenCaptureKit API instead),
++    // so screen capture is simply unavailable when built against a newer SDK.
+     image = CGDisplayCreateImage(kCGDirectMainDisplay);
+ 
+     wxASSERT_MSG(image, wxT("wxScreenDC::GetAsBitmap - unable to get screenshot."));
++#endif
+ 
+-    CGContextDrawImage(context, srcRect, image);
++    if ( image )
++    {
++        CGContextDrawImage(context, srcRect, image);
++        CGImageRelease(image);
++    }
+ 
+-    CGImageRelease(image);
+-
+     CGContextRestoreGState(context);
+ #else
+     // TODO implement using UIGetScreenImage, CGImageCreateWithImageInRect, CGContextDrawImage

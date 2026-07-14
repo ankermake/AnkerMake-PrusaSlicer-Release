@@ -1,0 +1,30 @@
+diff -u ../cgal-orig/BGL/include/CGAL/boost/graph/iterator.h ./BGL/include/CGAL/boost/graph/iterator.h
+--- ../cgal-orig/BGL/include/CGAL/boost/graph/iterator.h	2022-01-01 00:00:00.000000000 +0100
++++ ./BGL/include/CGAL/boost/graph/iterator.h	2026-07-11 15:00:00.000000000 +0100
+@@ -221,7 +221,7 @@
+ 
+   operator bool_type() const
+   {
+-    return (! (this->base() == nullptr)) ?
++    return (! (this->g == nullptr)) ?
+       &Halfedge_around_source_iterator::this_type_does_not_support_comparisons : 0;
+   }
+ 
+@@ -321,7 +321,7 @@
+ 
+   operator bool_type() const
+   {
+-    return (! (this->base() == nullptr)) ?
++    return (! (this->g == nullptr)) ?
+       &Halfedge_around_target_iterator::this_type_does_not_support_comparisons : 0;
+   }
+ 
+@@ -420,7 +420,7 @@
+ 
+   operator bool_type() const
+   {
+-    return (! (this->base() == nullptr)) ?
++    return (! (this->g == nullptr)) ?
+       &Halfedge_around_face_iterator::this_type_does_not_support_comparisons : 0;
+   }
+ 

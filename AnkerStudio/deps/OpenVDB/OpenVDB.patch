@@ -1,0 +1,30 @@
+diff -u ../openvdb-orig/openvdb/openvdb/tree/NodeManager.h ./openvdb/openvdb/tree/NodeManager.h
+--- ../openvdb-orig/openvdb/openvdb/tree/NodeManager.h	2022-01-01 00:00:00.000000000 +0100
++++ ./openvdb/openvdb/tree/NodeManager.h	2026-07-11 15:00:00.000000000 +0100
+@@ -327,7 +327,7 @@
+         void operator()(const NodeRange& range) const
+         {
+             for (typename NodeRange::Iterator it = range.begin(); it; ++it) {
+-                OpT::template eval(mNodeOp, it);
++                OpT::eval(mNodeOp, it);
+             }
+         }
+         const NodeOp mNodeOp;
+@@ -347,7 +347,7 @@
+         void operator()(const NodeRange& range) const
+         {
+             for (typename NodeRange::Iterator it = range.begin(); it; ++it) {
+-                OpT::template eval(mNodeOp, it);
++                OpT::eval(mNodeOp, it);
+             }
+         }
+         const NodeOp& mNodeOp;
+@@ -372,7 +372,7 @@
+         void operator()(const NodeRange& range)
+         {
+             for (typename NodeRange::Iterator it = range.begin(); it; ++it) {
+-                OpT::template eval(*mNodeOp, it);
++                OpT::eval(*mNodeOp, it);
+             }
+         }
+         void join(const NodeReducer& other)

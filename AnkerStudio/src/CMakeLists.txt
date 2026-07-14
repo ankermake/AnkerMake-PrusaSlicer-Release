@@ -146,6 +146,9 @@ if (SLIC3R_GUI)
     message(STATUS "wx libs: ${wxWidgets_LIBRARIES}")
 
     add_subdirectory(slic3r)
+    if (OPEN_SOURCE)
+        add_subdirectory(slic3r/GUI/AnkerNetModule)
+    endif ()
 endif()
 
 
@@ -206,6 +209,8 @@ target_link_libraries(eufyStudio libslic3r libcereal)
 
 if(NOT OPEN_SOURCE)
     add_dependencies(eufyStudio AnkerNet)
+else()
+    add_dependencies(eufyStudio AnkerNetNative)
 endif()
 
 if (APPLE)
