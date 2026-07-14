@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -17,6 +18,126 @@ namespace AnkerNet {
 namespace {
 
 constexpr int PPPP_LAN_PORT = 32108;
+constexpr int PPPP_WAN_PORT = 32100;
+
+// Decode a p2p_conn init-string into its plaintext (a comma-separated list of relay
+// server hosts). Port of pppp_decode_initstring (shuffle cipher).
+std::string decodeInitString(const std::string& in)
+{
+    static const uint8_t shuffle[54] = {
+        0x49, 0x59, 0x43, 0x3d, 0xb5, 0xbf, 0x6d, 0xa3, 0x47, 0x53,
+        0x4f, 0x61, 0x65, 0xe3, 0x71, 0xe9, 0x67, 0x7f, 0x02, 0x03,
+        0x0b, 0xad, 0xb3, 0x89, 0x2b, 0x2f, 0x35, 0xc1, 0x6b, 0x8b,
+        0x95, 0x97, 0x11, 0xe5, 0xa7, 0x0d, 0xef, 0xf1, 0x05, 0x07,
+        0x83, 0xfb, 0x9d, 0x3b, 0xc5, 0xc7, 0x13, 0x17, 0x1d, 0x1f,
+        0x25, 0x29, 0xd3, 0xdf
+    };
+    size_t olen = in.size() >> 1;
+    std::vector<uint8_t> out(olen, 0);
+    for (size_t q = 0; q < olen; ++q) {
+        uint8_t x = static_cast<uint8_t>(0x39 ^ shuffle[q % 0x36]);
+        for (size_t p = 0; p <= q; ++p)
+            x ^= out[p];
+        int l = static_cast<uint8_t>(in[q * 2 + 1]) - 0x41;
+        int h = static_cast<uint8_t>(in[q * 2 + 0]) - 0x41;
+        out[q] = static_cast<uint8_t>(x ^ static_cast<uint8_t>(l + (h << 4)));
+    }
+    return std::string(out.begin(), out.end());
+}
+
+// PPPP "simple" stream cipher (megajank simple_encrypt/decrypt), used to obfuscate
+// the REPORT_SESSION_READY (0xf9) body. seed = "SSD@cs2-network.".
+const uint8_t PPPP_SIMPLE_SHUFFLE[256] = {
+    0x7C,0x9C,0xE8,0x4A,0x13,0xDE,0xDC,0xB2,0x2F,0x21,0x23,0xE4,0x30,0x7B,0x3D,0x8C,
+    0xBC,0x0B,0x27,0x0C,0x3C,0xF7,0x9A,0xE7,0x08,0x71,0x96,0x00,0x97,0x85,0xEF,0xC1,
+    0x1F,0xC4,0xDB,0xA1,0xC2,0xEB,0xD9,0x01,0xFA,0xBA,0x3B,0x05,0xB8,0x15,0x87,0x83,
+    0x28,0x72,0xD1,0x8B,0x5A,0xD6,0xDA,0x93,0x58,0xFE,0xAA,0xCC,0x6E,0x1B,0xF0,0xA3,
+    0x88,0xAB,0x43,0xC0,0x0D,0xB5,0x45,0x38,0x4F,0x50,0x22,0x66,0x20,0x7F,0x07,0x5B,
+    0x14,0x98,0x1D,0x9B,0xA7,0x2A,0xB9,0xA8,0xCB,0xF1,0xFC,0x49,0x47,0x06,0x3E,0xB1,
+    0x0E,0x04,0x3A,0x94,0x5E,0xEE,0x54,0x11,0x34,0xDD,0x4D,0xF9,0xEC,0xC7,0xC9,0xE3,
+    0x78,0x1A,0x6F,0x70,0x6B,0xA4,0xBD,0xA9,0x5D,0xD5,0xF8,0xE5,0xBB,0x26,0xAF,0x42,
+    0x37,0xD8,0xE1,0x02,0x0A,0xAE,0x5F,0x1C,0xC5,0x73,0x09,0x4E,0x69,0x24,0x90,0x6D,
+    0x12,0xB3,0x19,0xAD,0x74,0x8A,0x29,0x40,0xF5,0x2D,0xBE,0xA5,0x59,0xE0,0xF4,0x79,
+    0xD2,0x4B,0xCE,0x89,0x82,0x48,0x84,0x25,0xC6,0x91,0x2B,0xA2,0xFB,0x8F,0xE9,0xA6,
+    0xB0,0x9E,0x3F,0x65,0xF6,0x03,0x31,0x2E,0xAC,0x0F,0x95,0x2C,0x5C,0xED,0x39,0xB7,
+    0x33,0x6C,0x56,0x7E,0xB4,0xA0,0xFD,0x7A,0x81,0x53,0x51,0x86,0x8D,0x9F,0x77,0xFF,
+    0x6A,0x80,0xDF,0xE2,0xBF,0x10,0xD7,0x75,0x64,0x57,0x76,0xF3,0x55,0xCD,0xD0,0xC8,
+    0x18,0xE6,0x36,0x41,0x62,0xCF,0x99,0xF2,0x32,0x4C,0x67,0x60,0x61,0x92,0xCA,0xD3,
+    0xEA,0x63,0x7D,0x16,0xB6,0x8E,0xD4,0x68,0x35,0xC3,0x52,0x9D,0x46,0x44,0x1E,0x17,
+};
+
+// simple_hash of the seed -> 4 ints (reversed). Values may be large/negative; kept as
+// int to mirror the Python reference exactly before the % 256 in the lookup.
+void simpleHash(const char* seed, size_t n, int h[4])
+{
+    int t[4] = { 0, 0, 0, 0 };
+    for (size_t i = 0; i < n; ++i) {
+        uint8_t c = static_cast<uint8_t>(seed[i]);
+        t[0] ^= c; t[1] += c / 3; t[2] -= c; t[3] += c;
+    }
+    h[0] = t[3]; h[1] = t[2]; h[2] = t[1]; h[3] = t[0];
+}
+
+uint8_t simpleLookup(const int h[4], int b)
+{
+    long idx = static_cast<long>(h[b & 3]) + b;    // may be negative
+    long m = idx % 256; if (m < 0) m += 256;        // Python-style modulo
+    return PPPP_SIMPLE_SHUFFLE[m];
+}
+
+// Encrypt in place (out[i] = in[i] ^ lookup(h, out[i-1])).
+std::vector<uint8_t> simpleEncrypt(const std::vector<uint8_t>& in)
+{
+    static const char SEED[] = "SSD@cs2-network.";
+    int h[4]; simpleHash(SEED, sizeof(SEED) - 1, h);
+    std::vector<uint8_t> out(in.size());
+    if (in.empty()) return out;
+    out[0] = in[0] ^ simpleLookup(h, 0);
+    for (size_t i = 1; i < in.size(); ++i)
+        out[i] = in[i] ^ simpleLookup(h, out[i - 1]);
+    return out;
+}
+
+// Wire Host.addr is the IPv4 octets byte-REVERSED (little-endian of network order).
+// Convert 4 wire bytes -> s_addr (network order).
+uint32_t hostAddrToSaddr(const uint8_t* wire)
+{
+    uint8_t b[4] = { wire[3], wire[2], wire[1], wire[0] };
+    uint32_t s; std::memcpy(&s, b, 4); return s;
+}
+// Append a 16-byte Host with s_addr (network order) reversed into wire order.
+void putHostLE(std::vector<uint8_t>& v, uint32_t saddr, uint16_t port)
+{
+    v.push_back(0);            // pad0
+    v.push_back(2);            // afam = AF_INET
+    v.push_back(static_cast<uint8_t>(port & 0xff));        // port LE
+    v.push_back(static_cast<uint8_t>((port >> 8) & 0xff));
+    const uint8_t* a = reinterpret_cast<const uint8_t*>(&saddr);
+    v.push_back(a[3]); v.push_back(a[2]); v.push_back(a[1]); v.push_back(a[0]); // addr reversed
+    v.insert(v.end(), 8, 0);   // pad1
+}
+
+// Hex string -> raw bytes (used for the dsk_key).
+std::string unhex(const std::string& h)
+{
+    if (h.size() % 2)
+        return "";
+    auto val = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    std::string out;
+    out.reserve(h.size() / 2);
+    for (size_t i = 0; i < h.size(); i += 2) {
+        int hi = val(h[i]), lo = val(h[i + 1]);
+        if (hi < 0 || lo < 0)
+            return "";
+        out.push_back(static_cast<char>((hi << 4) | lo));
+    }
+    return out;
+}
 
 // Lowercase hex MD5 of data into out[33] (32 chars + NUL). Uses OpenSSL EVP.
 void md5_hex(const std::string& data, char out[33])
@@ -45,10 +166,13 @@ enum PType : uint8_t {
     T_DEV_LGN_CRC = 0x12,
     T_LAN_SEARCH = 0x30,
     T_PUNCH_PKT = 0x41,
+    T_P2P_REQ = 0x20, T_P2P_REQ_ACK = 0x21, T_P2P_REQ_DSK = 0x26,
+    T_PUNCH_TO = 0x40,
     T_P2P_RDY = 0x42, T_P2P_RDY_ACK = 0x43,
     T_DRW = 0xd0, T_DRW_ACK = 0xd1,
     T_ALIVE = 0xe0, T_ALIVE_ACK = 0xe1,
     T_CLOSE = 0xf0,
+    T_SESSION_READY = 0xf9, // REPORT_SESSION_READY (ICE candidate exchange)
 };
 
 // FileTransfer frametypes.
@@ -205,9 +329,10 @@ bool AnkerPpppClient::duidMatches(const std::vector<uint8_t>& payload) const
 void AnkerPpppClient::dispatch(uint8_t type, const std::vector<uint8_t>& p,
     uint32_t srcAddr, uint16_t srcPort)
 {
-    // Before we've locked onto a peer (broadcast discovery), only the DUID-bearing
-    // discovery replies are actionable; ignore everything else.
-    if (!m_peerLocked && type != T_P2P_RDY && type != T_PUNCH_PKT)
+    // Before we've locked onto a peer (broadcast discovery / relay rendezvous), only
+    // the DUID-bearing discovery replies and STUN/rendezvous packets are actionable.
+    if (!m_peerLocked && type != T_P2P_RDY && type != T_PUNCH_PKT
+        && type != T_P2P_REQ_ACK && type != T_PUNCH_TO && type != T_HELLO_ACK)
         return;
 
     switch (type) {
@@ -245,6 +370,17 @@ void AnkerPpppClient::dispatch(uint8_t type, const std::vector<uint8_t>& p,
         break;
     case T_HELLO:
         sendPkt(T_HELLO_ACK, packPeerHost(m_peerAddr, m_peerPort));
+        break;
+    case T_HELLO_ACK:
+        // STUN reply from the relay: payload is a 16-byte Host = our public/WAN address.
+        // Keep it verbatim for the REPORT_SESSION_READY addr_wan candidate.
+        if (!m_gotWanHost && p.size() >= 16) {
+            m_wanHost.assign(p.begin(), p.begin() + 16);
+            m_gotWanHost = true;
+            uint16_t wport = static_cast<uint16_t>(p[2] | (p[3] << 8));
+            struct in_addr ia; ia.s_addr = hostAddrToSaddr(&p[4]);
+            std::fprintf(stderr, "[AnkerPppp] STUN: our WAN %s:%u\n", inet_ntoa(ia), wport);
+        }
         break;
     case T_ALIVE:
         sendPkt(T_ALIVE_ACK, {});
@@ -298,6 +434,35 @@ void AnkerPpppClient::dispatch(uint8_t type, const std::vector<uint8_t>& p,
         } // else: already-seen duplicate, ignore
         break;
     }
+    case T_P2P_REQ_ACK: {
+        // Relay accepted the rendezvous. Do NOT lock the peer here -- we still need to
+        // collect candidates/WAN host from every relay and later accept the device's
+        // reply from an ephemeral port during the punch.
+        m_p2pReqAcked = true;
+        break;
+    }
+    case T_PUNCH_TO: {
+        // Relay handed us the device's public address. Aim our hole-punch at it, but
+        // stay UNLOCKED: the device's reply often arrives from a different NAT port,
+        // and we must accept it (dispatch locks on the matching P2P_RDY/PUNCH_PKT).
+        if (p.size() >= 8) {
+            uint16_t dport = static_cast<uint16_t>(p[2] | (p[3] << 8));
+            uint32_t daddr = hostAddrToSaddr(&p[4]); // wire addr is byte-reversed
+            struct in_addr ia;
+            ia.s_addr = daddr;
+            std::fprintf(stderr, "[AnkerPppp] PUNCH_TO candidate %s:%u\n", inet_ntoa(ia), dport);
+            // Add as a candidate (dedup, skip empty); we punch all of them.
+            if (daddr != 0 && dport != 0) {
+                bool have = false;
+                for (const auto& t : m_punchTargets)
+                    if (t.first == daddr && t.second == dport) { have = true; break; }
+                if (!have)
+                    m_punchTargets.emplace_back(daddr, dport);
+            }
+            m_punching = true; // loop now hammers PUNCH_PKT at all candidates
+        }
+        break;
+    }
     case T_DEV_LGN_CRC:
         // LAN path: best-effort, no crypto. If a printer demands a valid CRC ack this
         // would need megajank crypto_curse; observed LAN flows connect via P2P_RDY.
@@ -335,6 +500,12 @@ bool AnkerPpppClient::pump(int timeoutMs)
             size_t avail = static_cast<size_t>(n) - 4;
             if (len > avail)
                 len = static_cast<uint16_t>(avail);
+            if (!m_connected) {
+                struct in_addr ia;
+                ia.s_addr = srcAddr;
+                std::fprintf(stderr, "[AnkerPppp] rx type=0x%02x len=%u from %s:%u\n",
+                    type, len, inet_ntoa(ia), srcPort);
+            }
             std::vector<uint8_t> payload(buf + 4, buf + 4 + len);
             dispatch(type, payload, srcAddr, srcPort);
         }
@@ -467,6 +638,199 @@ bool AnkerPpppClient::connectLan(const std::string& duidStr, const std::string& 
     return m_connected;
 }
 
+bool AnkerPpppClient::sendPktTo(uint32_t addr, uint16_t port, uint8_t type,
+    const std::vector<uint8_t>& payload)
+{
+    std::vector<uint8_t> pkt;
+    pkt.reserve(4 + payload.size());
+    pkt.push_back(0xF1);
+    pkt.push_back(type);
+    putU16be(pkt, static_cast<uint16_t>(payload.size()));
+    pkt.insert(pkt.end(), payload.begin(), payload.end());
+
+    struct sockaddr_in dst;
+    std::memset(&dst, 0, sizeof(dst));
+    dst.sin_family = AF_INET;
+    dst.sin_port = htons(port);
+    dst.sin_addr.s_addr = addr;
+    ssize_t n = ::sendto(m_fd, pkt.data(), pkt.size(), 0,
+        reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
+    return n == static_cast<ssize_t>(pkt.size());
+}
+
+bool AnkerPpppClient::connectRelay(const std::string& duidStr, const std::string& dskHex,
+    const std::string& p2pConn, int timeoutSec)
+{
+    m_duid = packDuid(duidStr);
+    if (m_duid.empty() || p2pConn.empty())
+        return false;
+
+    // dsk_key from get_dsk_keys is a 20-char RAW key (not hex). Use its bytes directly.
+    std::string dsk = dskHex;
+    dsk.resize(20, '\0'); // Dsk.key is 20 bytes
+    std::fprintf(stderr, "[AnkerPppp] relay dsk rawlen=%zu\n", dskHex.size());
+
+    // p2p_conn init-string -> comma-separated relay hosts.
+    std::string hosts = decodeInitString(p2pConn);
+    std::vector<std::string> hostList;
+    {
+        std::string cur;
+        for (char c : hosts) {
+            if (c == ',') { if (!cur.empty()) hostList.push_back(cur); cur.clear(); }
+            else cur.push_back(c);
+        }
+        if (!cur.empty()) hostList.push_back(cur);
+    }
+    if (hostList.empty())
+        return false;
+    std::fprintf(stderr, "[AnkerPppp] relay hosts: %s\n", hosts.c_str());
+
+    m_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_fd < 0)
+        return false;
+    m_connected = false;
+    m_closed = false;
+    m_peerLocked = false;
+    m_punching = false;
+    m_punchTargets.clear();
+    m_p2pReqAcked = false;
+    m_gotWanHost = false;
+    m_wanHost.clear();
+
+    // P2P_REQ_DSK payload: duid(20) + host(16) + nat_type(1) + version(3) + dsk(20+4).
+    std::vector<uint8_t> req;
+    req.insert(req.end(), m_duid.begin(), m_duid.end());
+    req.push_back(0);            // host.pad0
+    req.push_back(2);            // host.afam = AF_INET
+    putU16le(req, 0);           // host.port
+    req.insert(req.end(), 4, 0); // host.addr 0.0.0.0
+    req.insert(req.end(), 8, 0); // host.pad1
+    req.push_back(0);            // nat_type
+    req.push_back(1); req.push_back(0); req.push_back(0); // version
+    req.insert(req.end(), dsk.begin(), dsk.begin() + 20);
+    req.insert(req.end(), 4, 0); // dsk.pad
+
+    // Resolve every relay host once; we broadcast to all of them for redundancy.
+    std::vector<uint32_t> relayAddrs;
+    for (const auto& h : hostList) {
+        struct addrinfo hints; std::memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET; hints.ai_socktype = SOCK_DGRAM;
+        struct addrinfo* res = nullptr;
+        if (getaddrinfo(h.c_str(), nullptr, &hints, &res) == 0 && res) {
+            relayAddrs.push_back(reinterpret_cast<struct sockaddr_in*>(res->ai_addr)->sin_addr.s_addr);
+            freeaddrinfo(res);
+        }
+    }
+    if (relayAddrs.empty())
+        return false;
+
+    long long deadline = nowMs() + static_cast<long long>(timeoutSec) * 1000;
+    long long nextSend = 0;
+
+    // Phase 1: STUN + rendezvous. To every relay, send HELLO (learn our public/WAN Host
+    // from HELLO_ACK) and P2P_REQ_DSK (rendezvous -> P2P_REQ_ACK + the device's PUNCH_TO
+    // candidate addresses). Stay unlocked so replies from all relays are accepted. Cap
+    // this phase so the punch always gets the bulk of the window even if STUN is slow.
+    long long phase1Deadline = nowMs() + 6000;
+    if (phase1Deadline > deadline) phase1Deadline = deadline;
+    m_peerLocked = false;
+    while ((!m_gotWanHost || !m_p2pReqAcked || m_punchTargets.empty())
+        && nowMs() < phase1Deadline && !m_closed) {
+        if (nowMs() >= nextSend) {
+            for (uint32_t ra : relayAddrs) {
+                sendPktTo(ra, PPPP_WAN_PORT, T_HELLO, {});
+                sendPktTo(ra, PPPP_WAN_PORT, T_P2P_REQ_DSK, req);
+            }
+            nextSend = nowMs() + 500;
+        }
+        pump(100);
+    }
+    if (!m_p2pReqAcked || m_punchTargets.empty()) {
+        std::fprintf(stderr, "[AnkerPppp] remote: rendezvous incomplete (wan=%d req=%d cands=%zu)\n",
+            m_gotWanHost ? 1 : 0, m_p2pReqAcked ? 1 : 0, m_punchTargets.size());
+        return false;
+    }
+
+    // Our local LAN address/port for the addr_local candidate (best effort; only
+    // addr_wan matters to a remote peer, but the app always includes addr_local).
+    uint32_t localAddr = 0; uint16_t localPort = 0;
+    {
+        struct sockaddr_in sn; socklen_t sl = sizeof(sn);
+        if (getsockname(m_fd, reinterpret_cast<struct sockaddr*>(&sn), &sl) == 0) {
+            localPort = ntohs(sn.sin_port); localAddr = sn.sin_addr.s_addr;
+        }
+        if (localAddr == 0) { // discover routable local IP via a temp connected socket
+            int t = ::socket(AF_INET, SOCK_DGRAM, 0);
+            if (t >= 0) {
+                struct sockaddr_in r; std::memset(&r, 0, sizeof(r));
+                r.sin_family = AF_INET; r.sin_port = htons(PPPP_WAN_PORT);
+                r.sin_addr.s_addr = relayAddrs[0];
+                if (::connect(t, reinterpret_cast<struct sockaddr*>(&r), sizeof(r)) == 0) {
+                    struct sockaddr_in ln; socklen_t ll = sizeof(ln);
+                    if (getsockname(t, reinterpret_cast<struct sockaddr*>(&ln), &ll) == 0)
+                        localAddr = ln.sin_addr.s_addr;
+                }
+                ::close(t);
+            }
+        }
+    }
+
+    // Build REPORT_SESSION_READY (0xf9): duid(20) + middle(16) + addr_local + addr_wan +
+    // addr_relay, encrypted with the simple cipher. This tells the device our addresses
+    // so it can punch BACK to us. addr_wan is the verbatim STUN Host from HELLO_ACK.
+    static const uint8_t MIDDLE[16] = {
+        0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
+        0x01, 0x91, 0x00, 0x00, 0x7e, 0x00, 0x00, 0x00 };
+    std::vector<uint8_t> sr;
+    sr.insert(sr.end(), m_duid.begin(), m_duid.end());
+    sr.insert(sr.end(), MIDDLE, MIDDLE + 16);
+    putHostLE(sr, localAddr, localPort);                      // addr_local
+    if (m_wanHost.size() == 16)
+        sr.insert(sr.end(), m_wanHost.begin(), m_wanHost.end()); // addr_wan (verbatim)
+    else
+        putHostLE(sr, 0, 0);
+    putHostLE(sr, 0, 0);                                      // addr_relay (unused)
+    std::vector<uint8_t> srEnc = simpleEncrypt(sr);
+
+    // Phase 2: punch. Repeatedly announce our candidates (REPORT_SESSION_READY, relayed
+    // to the device) and hammer PUNCH_PKT + P2P_RDY at the device's candidate addresses.
+    // Once the device knows our address it punches back; its P2P_RDY (from an ephemeral
+    // port) locks the peer and sets m_connected. The official app often fails the first
+    // round and succeeds on a retry, so we keep at it for the whole window.
+    std::fprintf(stderr, "[AnkerPppp] remote: punching %zu candidate(s)\n", m_punchTargets.size());
+    m_peerLocked = false;
+    nextSend = 0;
+    while (!m_connected && nowMs() < deadline && !m_closed) {
+        if (nowMs() >= nextSend) {
+            for (uint32_t ra : relayAddrs)
+                sendPktTo(ra, PPPP_WAN_PORT, T_SESSION_READY, srEnc);
+            for (const auto& t : m_punchTargets) {
+                sendPktTo(t.first, t.second, T_PUNCH_PKT, m_duid);
+                sendPktTo(t.first, t.second, T_P2P_RDY, m_duid);
+            }
+            nextSend = nowMs() + 300;
+        }
+        pump(100);
+    }
+
+    std::fprintf(stderr, "[AnkerPppp] remote connect %s\n", m_connected ? "succeeded" : "timed out");
+    return m_connected;
+}
+
+bool AnkerPpppClient::connect(const std::string& duidStr, const std::string& ip,
+    const std::string& dskHex, const std::string& p2pConn, int timeoutSec)
+{
+    // LAN first (fast on the same subnet).
+    if (connectLan(duidStr, ip, 8))
+        return true;
+    close();
+    // Remote fallback via Anker's relay servers.
+    if (!dskHex.empty() && !p2pConn.empty())
+        return connectRelay(duidStr, dskHex, p2pConn, timeoutSec);
+    std::fprintf(stderr, "[AnkerPppp] no relay creds (dsk/p2p_conn) for remote fallback\n");
+    return false;
+}
+
 bool AnkerPpppClient::uploadFile(const std::string& fileName, const std::string& fileData,
     const std::string& userName, const std::string& userId,
     const std::string& machineId, const ProgressCb& progress)
@@ -479,8 +843,10 @@ bool AnkerPpppClient::uploadFile(const std::string& fileName, const std::string&
         // 16-char id (matches ankerctl's uuid4[:16]); content not otherwise used.
         std::string id16 = (machineId + "0000000000000000").substr(0, 16);
         sendXzyh(P2P_SEND_FILE, std::vector<uint8_t>(id16.begin(), id16.end()), 0);
-        if (!waitDrained(0, 10000))
+        if (!waitDrained(0, 10000)) {
+            std::fprintf(stderr, "[AnkerPppp] P2P_SEND_FILE announce not acked (connection unstable?)\n");
             return false;
+        }
     }
 
     // 2) BEGIN with the metadata CSV (+ trailing NUL).

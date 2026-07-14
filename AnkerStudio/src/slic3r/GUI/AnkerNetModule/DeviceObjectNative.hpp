@@ -25,6 +25,7 @@ public:
     std::string mqttKey;     // secret_key (hex; MQTT AES key, used in Phase 4)
     std::string p2pDuid;     // p2p_did (PPPP device id, used in Phase 3)
     std::string p2pKey;      // dsk_key (PPPP key, from get_dsk_keys; used in Phase 3)
+    std::string p2pConn;     // p2p_conn init-string -> relay server hosts (remote/WAN)
     int stationId = 0;       // station_id
     bool online = true;      // no online flag in the list API; refined via MQTT (Phase 4)
     anker_device_type deviceType = DEVICE_V8111_TYPE; // default M5

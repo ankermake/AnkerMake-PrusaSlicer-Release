@@ -345,7 +345,7 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
             std::fprintf(stderr, "[AnkerNetNative] video already running\n");
             return;
         }
-        std::string ip, duid;
+        std::string ip, duid, dsk, p2pConn;
         {
             std::lock_guard<std::mutex> lock(m_deviceMutex);
             m_videoSn = sn;
@@ -354,14 +354,16 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
                     auto dn = std::static_pointer_cast<DeviceObjectNative>(d);
                     ip = dn->ipAddr;
                     duid = dn->p2pDuid;
+                    dsk = dn->p2pKey;
+                    p2pConn = dn->p2pConn;
                     break;
                 }
             }
         }
 
-        std::thread([this, sn, ip, duid]() {
+        std::thread([this, sn, ip, duid, dsk, p2pConn]() {
             AnkerPpppClient pppp;
-            if (duid.empty() || !pppp.connectLan(duid, ip, 20)) {
+            if (duid.empty() || !pppp.connect(duid, ip, dsk, p2pConn, 25)) {
                 std::fprintf(stderr, "[AnkerNetNative] video PPPP connect failed\n");
                 m_videoRunning.store(false);
                 return;
@@ -419,8 +421,8 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
     if (type != P2P_TRANSFER_LOCAL_FILE)
         return;
 
-    // Resolve the device's LAN address + DUID.
-    std::string ip, duid, name;
+    // Resolve the device's LAN address + DUID + relay creds.
+    std::string ip, duid, name, dsk, p2pConn;
     {
         std::lock_guard<std::mutex> lock(m_deviceMutex);
         for (const auto& d : m_devices) {
@@ -429,6 +431,8 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
                 ip = dn->ipAddr;
                 duid = dn->p2pDuid;
                 name = dn->name;
+                dsk = dn->p2pKey;
+                p2pConn = dn->p2pConn;
                 break;
             }
         }
@@ -447,7 +451,7 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
         return;
     }
 
-    std::thread([this, sn, ip, duid, name, userId, machineId, filePath]() {
+    std::thread([this, sn, ip, duid, name, userId, machineId, filePath, dsk, p2pConn]() {
         auto fireProgress = [this, sn](int progress, FileTransferResult result) {
             sendSigToTransferFileProgressValue_T cb;
             {
@@ -476,9 +480,9 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
         std::string fileName = boost::filesystem::path(filePath).filename().string();
         std::string userName = name.empty() ? "eufyStudio" : name;
 
-        // ip may be empty -- connectLan() falls back to LAN broadcast discovery by DUID.
+        // LAN broadcast discovery first, then relay fallback (works remotely).
         AnkerPpppClient pppp;
-        if (duid.empty() || !pppp.connectLan(duid, ip, 20)) {
+        if (duid.empty() || !pppp.connect(duid, ip, dsk, p2pConn, 25)) {
             std::fprintf(stderr, "[AnkerNetNative] PPPP connect failed (ip='%s' duid='%s')\n",
                 ip.c_str(), duid.c_str());
             fireProgress(0, FileTransferResult::InitFailed);
@@ -834,6 +838,7 @@ std::list<DeviceObjectBasePtr> AnkerNetNativeImpl::fetchDeviceList(
         d->ipAddr = pr.get<std::string>("ip_addr", "");
         d->mqttKey = pr.get<std::string>("secret_key", "");
         d->p2pDuid = pr.get<std::string>("p2p_did", "");
+        d->p2pConn = pr.get<std::string>("p2p_conn", "");
         d->stationId = pr.get<int>("station_id", 0);
         d->online = true;
         d->setCommandSender([this](const std::string& sn, const std::string& json) {
