@@ -27,7 +27,6 @@
 #include "slic3r/GUI/Network/MsgText.hpp"
 
 class AnkerDeviceControl;
-class AnkerOtherWidget;
 class AnkerLoadingMask;
 
 wxDECLARE_EVENT(wxCUSTOMEVT_TEMPERATURE_UPDATE, wxCommandEvent);
@@ -237,8 +236,7 @@ private:
 	AnkerVideo* m_pVideoWidget{nullptr};
 	AnkerTaskPanel* m_pStatusWidget{nullptr};
 
-	AnkerControlWidget* m_pControlWidget{ nullptr };	
-	AnkerOtherWidget* m_pOtherWidget{ nullptr };
+	AnkerControlWidget* m_pControlWidget{ nullptr };
 
 	std::string	m_currentDeviceId{""};	// current device sn
 	HalfModalDialog* m_halfDialog{ nullptr };

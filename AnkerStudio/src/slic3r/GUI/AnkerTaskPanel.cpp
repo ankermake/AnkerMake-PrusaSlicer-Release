@@ -311,6 +311,13 @@ void AnkerTaskPanel::switchMode(TaskMode mode, bool force)
     {
         ANKER_LOG_INFO << "switch mode to: " << mode;
 
+        // A genuine mode change means telemetry just confirmed the device's state
+        // actually moved (e.g. Stop/Pause took effect) -- dismiss any loading spinner
+        // now instead of leaving it to hit its fixed timeout and show a false
+        // "failed to connect" error even though the action succeeded.
+        if (m_pLoadingMask && m_pLoadingMask->IsShown())
+            setLoadingVisible(false);
+
         switch (mode)
         {
         case AnkerTaskPanel::TASK_MODE_NONE:
@@ -564,8 +571,20 @@ void AnkerTaskPanel::updateStatus(std::string currentSn, int type)
         m_toPrinting = false;
         m_pToPrintingTimer->Stop();
     }
+    else if (m_currentDeviceStatus == GUI_DEVICE_STATUS_TYPE_IDLE ||
+        m_currentDeviceStatus == GUI_DEVICE_STATUS_TYPE_STOPPED)
+    {
+        // A stop/cancel (e.g. M524) can take the device straight from PRINTING to
+        // IDLE/STOPPED without ever passing back through this function while one of
+        // the "still printing" statuses above is set. Recognize that as a real
+        // conclusion too, so m_toPrinting clears and the mode switch below actually
+        // runs now instead of waiting on the 30s watchdog (which then falsely reports
+        // "failed to connect" even though the stop succeeded).
+        m_toPrinting = false;
+        m_pToPrintingTimer->Stop();
+    }
 
-    if (m_currentDeviceStatus == GUI_DEVICE_STATUS_TYPE_PRINTING || 
+    if (m_currentDeviceStatus == GUI_DEVICE_STATUS_TYPE_PRINTING ||
         m_currentDeviceStatus == GUI_DEVICE_STATUS_TYPE_PRINT_HEATING ||
         m_currentDeviceStatus == GUI_DEVICE_STATUS_TYPE_PAUSED)
         switchMode(TASK_MODE_PRINT);
@@ -1429,7 +1448,10 @@ void AnkerTaskPanel::OnStopBtn(wxCommandEvent& event)
     if (result != AnkerMsgDialog::MSG_OK)
         return;
 
-    setLoadingVisible(true);
+    // No loading spinner here: unlike Start (which waits on a real PPPP connection),
+    // Stop just publishes an MQTT gcode command with no connection phase to wait on.
+    // The panel updates naturally via telemetry once the device reports the new state
+    // (which can take longer than any fixed timeout we'd otherwise race against).
 
     DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
     if (!currentDev)
@@ -1574,6 +1596,11 @@ void AnkerTaskPanel::updateFileTransferStatus(std::string currentSn, int progres
         return;
     }
     else if (result == FileTransferResult::Succeed) {
+        // Transfer is done, but the printer hasn't necessarily started (and reported
+        // via MQTT) yet -- give it a fresh watchdog window instead of leaving whatever
+        // time was left on the one started when the user pressed print.
+        m_pToPrintingTimer->Stop();
+        m_pToPrintingTimer->StartOnce(30000);
         return;
     }
 
@@ -1587,13 +1614,14 @@ void AnkerTaskPanel::updateFileTransferStatus(std::string currentSn, int progres
     m_pCtrlStatusText->SetLabelText(/*L"Transfering"*/
         wxString::Format(_("common_print_taskbar_statustransfere"), 
         std::to_string(progress) + "%"));
-    if (!m_toPrinting) {
-            m_gcodeImportResult.m_srcType = Slic3r::GUI::FSM_SLICE;
-
-            m_toPrinting = true;
-            m_pToPrintingTimer->Stop();
-            m_pToPrintingTimer->StartOnce(30000);
-        }
+    // Refresh the watchdog on every progress tick, so it only fires after 30s of
+    // silence rather than 30s from the initial button press -- a transfer (especially
+    // over the remote NAT-punched connection) can legitimately take longer than that.
+    if (!m_toPrinting)
+        m_gcodeImportResult.m_srcType = Slic3r::GUI::FSM_SLICE;
+    m_toPrinting = true;
+    m_pToPrintingTimer->Stop();
+    m_pToPrintingTimer->StartOnce(30000);
 
     DeviceObjectBasePtr currentDev = CurDevObject(m_currentDeviceSn);
     if (currentDev) {

@@ -4209,6 +4209,21 @@ void GUI_App::window_pos_save(wxTopLevelWindow* window, const std::string &name)
 void GUI_App::window_pos_restore(wxTopLevelWindow* window, const std::string &name, bool default_maximized)
 {
     if (name.empty()) { return; }
+
+#ifdef __WXOSX__
+    // Fixed startup placement for the main window only: right two-thirds of the
+    // display, full usable height. Other windows (settings dialog, etc.) keep the
+    // normal center/maximize-restore behavior below.
+    if (name == "mainframe") {
+        int display_idx = wxDisplay::GetFromWindow(window);
+        wxRect area = wxDisplay(display_idx == wxNOT_FOUND ? 0u : static_cast<unsigned>(display_idx)).GetClientArea();
+        int width = area.width * 2 / 3;
+        window->SetSize(width, area.height);
+        window->SetPosition(wxPoint(area.x + area.width - width, area.y));
+        return;
+    }
+#endif
+
     const auto config_key = (boost::format("window_%1%") % name).str();
 
     if (! app_config->has(config_key)) {

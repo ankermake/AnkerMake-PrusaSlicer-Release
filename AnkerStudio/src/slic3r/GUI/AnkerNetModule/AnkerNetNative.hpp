@@ -3,7 +3,9 @@
 
 #include "Interface Files/AnkerNetBase.h"
 #include <atomic>
+#include <ctime>
 #include <list>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -13,6 +15,7 @@
 namespace AnkerNet {
 
 class AnkerMqttClient;
+class DeviceObjectNative;
 
 // Native (open-source) replacement for the proprietary libAnkerNet plugin.
 //
@@ -204,6 +207,15 @@ private:
     SnCallBackFunc m_videoClosedCb;
     std::atomic<bool> m_videoRunning{ false };
     std::string m_videoSn;
+
+    // Local print-usage log (no cloud "message center" -- just a durable record of
+    // start/finish/duration/filament/layers per print, appended as CSV). Tracks the
+    // start time+filename per device between the PRINTING/PRINT_HEATING transition in
+    // and the COMPLETED/IDLE transition out, guarded by m_deviceMutex.
+    struct PrintHistoryStart { time_t startTime; std::string fileName; };
+    std::map<std::string, PrintHistoryStart> m_printHistoryStart;
+    void logPrintHistoryTransition(const std::string& sn, DeviceObjectNative* dev,
+        aknmt_print_event_e prevEv, aknmt_print_event_e newEv);
 };
 
 } // namespace AnkerNet

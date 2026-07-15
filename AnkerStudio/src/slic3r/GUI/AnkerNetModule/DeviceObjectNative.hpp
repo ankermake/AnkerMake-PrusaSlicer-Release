@@ -3,9 +3,11 @@
 
 #include "Interface Files/DeviceObjectBase.h"
 
+#include <chrono>
 #include <functional>
 #include <mutex>
 #include <string>
+#include <thread>
 
 namespace AnkerNet {
 
@@ -42,10 +44,41 @@ public:
         std::lock_guard<std::mutex> l(m_liveMutex);
         m_bedCur = cur; m_bedTgt = tgt; m_hasBed = true;
     }
-    void setPrintStatus(aknmt_print_event_e ev, int progress)
+    // Print event (idle/heating/printing/paused/completed/...), from 1000 subType=1.
+    void setPrintEvent(aknmt_print_event_e ev)
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
-        m_printEvent = ev; m_progress = progress;
+        m_printEvent = ev;
+    }
+    // Progress in basis points (0-10000 = 0-100.00%), from 1001's "progress" field --
+    // matches AnkerTaskPanel's setProgressRange(10000) directly, no rescaling needed.
+    void setPrintProgress(int progress)
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        m_progress = progress;
+    }
+    // Print job info, from 1001: file name, total filament for the job (the UI
+    // multiplies this by progress/10000 to estimate filament used so far), remaining
+    // seconds (1001's "time" field, counts down while printing), elapsed seconds
+    // (1001's "totalTime" field, counts up -- used as the finish dialog's duration),
+    // and current print speed.
+    void setPrintJobInfo(const std::string& fileName, int filamentTotal,
+        const std::string& filamentUnit, int64_t timeLeftSec, int64_t elapsedSec, int realSpeed)
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        m_printFile = fileName;
+        m_filamentTotal = filamentTotal;
+        m_filamentUnit = filamentUnit.empty() ? "mm" : filamentUnit;
+        m_timeLeftSec = timeLeftSec;
+        m_elapsedSec = elapsedSec;
+        m_realSpeed = realSpeed;
+    }
+    // Layer progress, from 1052.
+    void setLayerInfo(int totalLayer, int realPrintLayer)
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        m_totalLayer = totalLayer;
+        m_currentLayer = realPrintLayer;
     }
     // z-offset (mm) reported by 1021 telemetry; UI reads via getZAxisCompensationValue.
     void setZOffsetValue(float mm)
@@ -75,6 +108,16 @@ public:
     GUI_DEVICE_STATUS_TYPE getGuiDeviceStatus() override
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
+        // GUI_DEVICE_STATUS_TYPE_PRINT_FINISHED/_FAILED are NOT numerically equal to
+        // aknmt_print_event_e's COMPLETED/STOPPED (they're separate auto-incremented
+        // constants) -- the direct cast below only covers the states that do share
+        // numbering (idle/printing/paused/leveling/etc). Completed and
+        // stopped need an explicit translation so the finish dialog (AnkerTaskPanel)
+        // actually fires; without this it never sees a status it recognizes as "done".
+        if (m_printEvent == AKNMT_PRINT_EVENT_COMPLETED)
+            return GUI_DEVICE_STATUS_TYPE_PRINT_FINISHED;
+        if (m_printEvent == AKNMT_PRINT_EVENT_STOPPED)
+            return GUI_DEVICE_STATUS_TYPE_PRINT_FAILED;
         return static_cast<GUI_DEVICE_STATUS_TYPE>(m_printEvent);
     }
     CustomDeviceStatus getCustomDeviceStatus() override { return CustomDeviceStatus_Max; }
@@ -85,15 +128,27 @@ public:
         return m_printEvent != AKNMT_PRINT_EVENT_IDLE;
     }
 
-    std::string GetPrintFile() override { return ""; }
-    std::string GetFileName() override { return ""; }
+    std::string GetPrintFile() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_printFile;
+    }
+    std::string GetFileName() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_printFile;
+    }
     void GetMsgCenterInfo(std::string& errorCode, std::string& errorLevel) override { errorCode.clear(); errorLevel.clear(); }
     int GetProcess() override
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
         return m_progress;
     }
-    int64_t GetTime() override { return 0; }
+    int64_t GetTime() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_timeLeftSec;
+    }
     int GetHotBedCurrentTemperature() override
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
@@ -104,27 +159,83 @@ public:
         std::lock_guard<std::mutex> l(m_liveMutex);
         return m_bedTgt;
     }
-    int GetFilamentUsed() override { return 0; }
-    std::string GetFilamentUnit() override { return "mm"; }
+    int GetFilamentUsed() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_filamentTotal;
+    }
+    std::string GetFilamentUnit() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_filamentUnit;
+    }
     std::string GetThumbnail() override { return ""; }
-    int GetCurrentLayer() override { return 0; }
-    int GetTotalLayer() override { return 0; }
+    int GetCurrentLayer() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_currentLayer;
+    }
+    int GetTotalLayer() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        return m_totalLayer;
+    }
     void resetStatus() override {}
     std::list<FileInfo> getDeviceFileList() override { return {}; }
     void clearExceptionFinished() override {}
-    PrintFailedInfo GetPrintFailedInfo() const override { return PrintFailedInfo{}; }
+    PrintFailedInfo GetPrintFailedInfo() const override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        PrintFailedInfo info;
+        info.isNull = false;
+        info.name = m_printFile;
+        info.totalTime = m_elapsedSec;
+        info.filamentUsed = m_filamentTotal;
+        info.filamentUnit = m_filamentUnit;
+        return info;
+    }
     MtColorSlotDataVec GetMtSlotData() const override { return {}; }
     int GetMultiCutoffCloggingMapSize() const override { return 0; }
-    PrintNoticeInfo GetPrintNoticeInfo() override { return PrintNoticeInfo{}; }
+    PrintNoticeInfo GetPrintNoticeInfo() override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        PrintNoticeInfo info;
+        info.isNull = false;
+        info.name = m_printFile;
+        info.totalTime = static_cast<int>(m_elapsedSec);
+        info.filamentUsed = m_filamentTotal;
+        info.filamentUnit = m_filamentUnit;
+        info.realSpeed = m_realSpeed;
+        return info;
+    }
     MaxNozzleTemp GetNozzleMaxTemp() override { return MaxNozzleTemp::PTFE; }
 
     // --- control (no-ops until Phases 3-4) ---
     void SetLocalPrintData(const VrCardInfoMap&, const std::string& = "") override {}
     void SetRemotePrintData(const VrCardInfoMap&, const std::string& = "") override {}
     void SendErrWinResToMachine(const std::string&, const std::string&) override {}
-    void setDevicePrintPause() override {}
-    void setDevicePrintStop() override {}
-    void setDevicePrintResume() override {}
+    // Print control: real, working Marlin SD-print gcode over the proven 1043
+    // GCODE_COMMAND channel (same mechanism that reliably drives temperature). Pause
+    // (M25)/Resume (M24) are standard and untested-but-plausible; this firmware is
+    // Marlin-derived ("V3.3.20_3.1.25").
+    void setDevicePrintPause() override { sendGcodeReliably("M25"); }
+    // STOP DOES NOT WORK YET -- every candidate tried against a real, actively
+    // printing job has failed to actually stop it:
+    //   - M524 (standard Marlin cancel-SD-print gcode): firmware REPLIES "Unknown
+    //     command" -- not implemented here.
+    //   - vendor commandType 1057: confirmed unrelated housekeeping chatter (appears
+    //     identically on a completely idle second printer with no action taken).
+    //   - vendor commandType 1026: appeared twice in the device's own notice broadcast
+    //     at the moment an iOS-app stop took effect, but sending it ourselves during a
+    //     live print left it printing -- a correlated side-effect, not the trigger.
+    // The real trigger is whatever the iOS/official app publishes to the device-bound
+    // "/device/maker/<sn>/command" topic; our MQTT client can't observe that (broker
+    // doesn't fan other clients' publishes to us there even though the subscribe
+    // itself succeeds). Left as a harmless no-op-equivalent guess (1026) rather than
+    // the confirmed-rejected M524. Use the iOS app or the printer's own screen to
+    // actually stop a print until this is solved.
+    void setDevicePrintStop() override { sendCommandReliably(1026, ""); }
+    void setDevicePrintResume() override { sendGcodeReliably("M24"); }
     void setDevicePrintAgain() override {}
     bool GetMultiColorDeviceUnInited() override { return false; }
     void clearDeviceCtrlResult() override {}
@@ -213,7 +324,15 @@ public:
     GCodeInfo GetGcodeInfo() const override { return GCodeInfo{}; }
     void SetLastFilament() override {}
     std::string GetLastFilament() const override { return ""; }
-    PliesInfo GetLayerPtr() const override { return PliesInfo{}; }
+    PliesInfo GetLayerPtr() const override
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        PliesInfo info;
+        info.isNull = false;
+        info.total_layer = m_totalLayer;
+        info.real_print_layer = m_currentLayer;
+        return info;
+    }
     void clearDeviceExceptionInfo() override {}
     void NozzleSwitch(int = 0) override {}
     // Gates the video UI: false makes AnkerVideo report "no camera permission" and
@@ -245,16 +364,52 @@ private:
             ",\"cmdData\":\"" + gcode + "\"");
     }
 
+    // Our MQTT client publishes at QoS 0 (fire-and-forget: no ack, no retransmit), so
+    // any single command can be silently dropped -- observed live: a Stop click's M524
+    // needed 3 manual retries (over ~90s) before one actually reached the printer.
+    // Resend a few times over ~1s as cheap, pragmatic redundancy for the print-control
+    // commands (stop/pause/resume) where a dropped command is most disruptive, rather
+    // than rewriting the MQTT client for QoS 1. AnkerMqttClient::publish is already
+    // mutex-guarded, so firing from a background thread is safe.
+    void sendGcodeReliably(const std::string& gcode)
+    {
+        sendGcode(gcode);
+        std::thread([this, gcode]() {
+            for (int i = 0; i < 2; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+                sendGcode(gcode);
+            }
+        }).detach();
+    }
+    // Same redundancy, for a raw vendor commandType instead of a gcode wrapper.
+    void sendCommandReliably(int cmd, const std::string& fields)
+    {
+        sendCommand(cmd, fields);
+        std::thread([this, cmd, fields]() {
+            for (int i = 0; i < 2; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+                sendCommand(cmd, fields);
+            }
+        }).detach();
+    }
+
     CommandSender m_sendCommand;
 
     mutable std::mutex m_liveMutex;
     int m_nozzleCur = 0, m_nozzleTgt = 0;
     int m_bedCur = 0, m_bedTgt = 0;
     bool m_hasNozzle = false, m_hasBed = false;
-    int m_progress = 0;
+    int m_progress = 0; // basis points, 0-10000
     aknmt_print_event_e m_printEvent = AKNMT_PRINT_EVENT_IDLE;
     float m_zOffset = 0.0f;
     int m_extrusionValue = 0;
+    std::string m_printFile;
+    int m_filamentTotal = 0;
+    std::string m_filamentUnit = "mm";
+    int64_t m_timeLeftSec = 0;
+    int64_t m_elapsedSec = 0;
+    int m_realSpeed = 0;
+    int m_currentLayer = 0, m_totalLayer = 0;
 };
 
 } // namespace AnkerNet

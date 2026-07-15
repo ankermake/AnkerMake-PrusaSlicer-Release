@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <map>
 #include <sstream>
@@ -1009,6 +1010,72 @@ void AnkerNetNativeImpl::publishCommand(const std::string& sn, const std::string
     publishFramed(sn, json, "/command");
 }
 
+namespace {
+bool isActivePrintEvent(aknmt_print_event_e ev)
+{
+    return ev == AKNMT_PRINT_EVENT_PRINTING || ev == AKNMT_PRINT_EVENT_PRINT_HEATING ||
+        ev == AKNMT_PRINT_EVENT_PAUSED || ev == AKNMT_PRINT_EVENT_PREHEATING;
+}
+} // namespace
+
+// Local print-usage log: no cloud "message center" needed for this -- just append one
+// CSV row per print job (start->finish) so the user can tally printer usage over time.
+void AnkerNetNativeImpl::logPrintHistoryTransition(const std::string& sn, DeviceObjectNative* dev,
+    aknmt_print_event_e prevEv, aknmt_print_event_e newEv)
+{
+    if (!dev || prevEv == newEv)
+        return;
+
+    bool wasActive = isActivePrintEvent(prevEv);
+    bool isActive = isActivePrintEvent(newEv);
+
+    if (!wasActive && isActive) {
+        m_printHistoryStart[sn] = { std::time(nullptr), dev->GetPrintFile() };
+        return;
+    }
+
+    if (wasActive && !isActive) {
+        auto it = m_printHistoryStart.find(sn);
+        if (it == m_printHistoryStart.end())
+            return; // no matching start (e.g. we connected mid-print); nothing to log
+        time_t startTime = it->second.startTime;
+        std::string fileName = dev->GetPrintFile();
+        if (fileName.empty())
+            fileName = it->second.fileName;
+        m_printHistoryStart.erase(it);
+
+        if (m_dataDir.empty())
+            return;
+        time_t endTime = std::time(nullptr);
+        int64_t durationSec = static_cast<int64_t>(endTime - startTime);
+        double filamentUsed = dev->GetFilamentUsed() * dev->GetProcess() / 10000.0;
+        const char* result = (newEv == AKNMT_PRINT_EVENT_COMPLETED) ? "finished" : "stopped";
+
+        auto fmtTime = [](time_t t) {
+            char buf[32];
+            struct tm tmv;
+            localtime_r(&t, &tmv);
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tmv);
+            return std::string(buf);
+        };
+
+        try {
+            boost::filesystem::create_directories(boost::filesystem::path(m_dataDir));
+            std::string path = (boost::filesystem::path(m_dataDir) / "print_history.csv").string();
+            bool isNew = !boost::filesystem::exists(path);
+            std::ofstream ofs(path, std::ios::app);
+            if (isNew)
+                ofs << "sn,file_name,start_time,end_time,duration_sec,filament_used,filament_unit,total_layers,layers_completed,result\n";
+            ofs << sn << ",\"" << fileName << "\"," << fmtTime(startTime) << "," << fmtTime(endTime) << ","
+                << durationSec << "," << std::fixed << std::setprecision(2) << filamentUsed << ","
+                << dev->GetFilamentUnit() << "," << dev->GetTotalLayer() << "," << dev->GetCurrentLayer()
+                << "," << result << "\n";
+        } catch (const std::exception&) {
+            // Non-fatal: best-effort logging.
+        }
+    }
+}
+
 void AnkerNetNativeImpl::onMqttMessage(const std::string& topic, const std::string& payload)
 {
     // Topic: /phone/maker/<sn>/<kind>. Extract <sn> (4th path component).
@@ -1097,13 +1164,42 @@ void AnkerNetNativeImpl::onMqttMessage(const std::string& topic, const std::stri
             touched.push_back(cmd);
             break;
         }
-        case 1081: { // print status/progress. value<0 => idle; else a print event.
-            int value = obj.get<int>("value", -1);
-            int progress = obj.get<int>("progress", 0);
-            aknmt_print_event_e ev = (value < 0)
-                ? AKNMT_PRINT_EVENT_IDLE
-                : static_cast<aknmt_print_event_e>(value);
-            dev->setPrintStatus(ev, progress);
+        case 1000: { // device event; subType 1 is the print-event state machine, whose
+            // "value" maps directly onto aknmt_print_event_e (confirmed against a real
+            // print: 8=PRINT_HEATING, 1=PRINTING, 4=COMPLETED). Commandtype 1081, which
+            // an earlier phase guessed was this field, never changes off -1 -- dead.
+            if (obj.get<int>("subType", -1) == 1) {
+                int value = obj.get<int>("value", 0);
+                aknmt_print_event_e ev = (value >= 0 && value < AKNMT_PRINT_EVENT_MAX)
+                    ? static_cast<aknmt_print_event_e>(value) : AKNMT_PRINT_EVENT_IDLE;
+                aknmt_print_event_e prevEv = dev->GetDeviceStatus();
+                dev->setPrintEvent(ev);
+                logPrintHistoryTransition(sn, dev.get(), prevEv, ev);
+                touched.push_back(cmd);
+            }
+            break;
+        }
+        case 1001: { // print job info. Schema varies: while a job is active it carries
+            // progress/name/filamentUsed/time (remaining seconds, counts down); once
+            // finished it shrinks to a saveTime/totalTime/name/task_id summary with no
+            // "progress" -- treat that as "leave progress as last known", not 0.
+            int progress = obj.get<int>("progress", -1);
+            if (progress >= 0)
+                dev->setPrintProgress(progress);
+            std::string fileName = obj.get<std::string>("name", "");
+            int filamentTotal = obj.get<int>("filamentUsed", 0);
+            std::string filamentUnit = obj.get<std::string>("filamentUnit", "mm");
+            int64_t timeLeft = obj.get<int64_t>("time", 0);
+            int64_t elapsed = obj.get<int64_t>("totalTime", 0);
+            int realSpeed = obj.get<int>("realSpeed", 0);
+            dev->setPrintJobInfo(fileName, filamentTotal, filamentUnit, timeLeft, elapsed, realSpeed);
+            touched.push_back(cmd);
+            break;
+        }
+        case 1052: { // layer progress
+            int total = obj.get<int>("total_layer", 0);
+            int real = obj.get<int>("real_print_layer", 0);
+            dev->setLayerInfo(total, real);
             touched.push_back(cmd);
             break;
         }

@@ -8,20 +8,6 @@
 
 wxDECLARE_EVENT(wxCUSTOMEVT_LOGIN_CLCIKED, wxCommandEvent);
 
-class AnkerOtherWidget :public wxControl
-{
-public:
-	AnkerOtherWidget(wxWindow* parent,
-		wxWindowID winid = wxID_ANY,
-		const wxPoint& pos = wxDefaultPosition,
-		const wxSize& size = wxDefaultSize);
-	~AnkerOtherWidget();
-protected:
-	void initUi();
-private:
-	wxStaticText* m_title;
-};
-
 class AnkerEmptyDevice :public wxControl
 {
 public:

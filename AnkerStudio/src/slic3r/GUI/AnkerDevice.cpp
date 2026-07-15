@@ -2885,29 +2885,30 @@ void AnkerDeviceControl::setNozzleMaxTemp(int temp)
 void AnkerDeviceControl::initUi()
 {
 	SetBackgroundColour(wxColour("#1F2022"));
-	wxBoxSizer* pMainHSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxBoxSizer* pBodyVSizer = new wxBoxSizer(wxVERTICAL);
+	wxBoxSizer* pMainVSizer = new wxBoxSizer(wxVERTICAL);
 	{
 		m_pVideoWidget = new AnkerVideo(this, m_currentDeviceId);
 		m_pVideoWidget->SetMinSize(AnkerSize(760, 495));
 		m_pVideoWidget->SetSize(AnkerSize(760, 495));
-		m_pVideoWidget->SetBackgroundColour(wxColour("#292A2D"));		
-		pBodyVSizer->AddSpacer(12);
-		pBodyVSizer->Add(m_pVideoWidget, 23, wxEXPAND, 0);
-		pBodyVSizer->AddSpacer(12);
+		m_pVideoWidget->SetBackgroundColour(wxColour("#292A2D"));
+		pMainVSizer->AddSpacer(12);
+		pMainVSizer->Add(m_pVideoWidget, 23, wxEXPAND, 0);
+		pMainVSizer->AddSpacer(12);
 	}
 
+	// Progress and control panes sit side by side in one row below the video, so that
+	// row costs only its own height once (not stacked height for each), leaving more
+	// vertical space for the video above.
+	wxBoxSizer* pBottomHSizer = new wxBoxSizer(wxHORIZONTAL);
 	{
-		wxBoxSizer* pStatusHSizer = new wxBoxSizer(wxHORIZONTAL);
 		m_pStatusWidget = new AnkerTaskPanel(m_currentDeviceId, this);
 		//m_pStatusWidget->setOfflineStatus();
-		m_pStatusWidget->SetMinSize(AnkerSize(760, 241));		
-		m_pStatusWidget->SetMaxSize(AnkerSize(-1, 241));		
+		m_pStatusWidget->SetMinSize(AnkerSize(450, 241));
+		m_pStatusWidget->SetMaxSize(AnkerSize(-1, 241));
 
-		m_pStatusWidget->SetSize(AnkerSize(760, 241));
-		m_pStatusWidget->SetBackgroundColour(wxColour(41, 42, 45));		
-		pBodyVSizer->Add(m_pStatusWidget, 0, wxEXPAND, 0);
-		pBodyVSizer->AddSpacer(12);
+		m_pStatusWidget->SetBackgroundColour(wxColour(41, 42, 45));
+		pBottomHSizer->Add(m_pStatusWidget, 1, wxEXPAND, 0);
+		pBottomHSizer->AddSpacer(12);
 
 		//hide adjust by alves
 		//m_pStatusWidget->Bind(wxANKEREVT_LEVELING_STOPPED, [this](wxCommandEvent& event) {
@@ -2918,12 +2919,7 @@ void AnkerDeviceControl::initUi()
 		//	});
 	}
 
-	pMainHSizer->Add(pBodyVSizer, 1 , wxEXPAND, 0);
-	pMainHSizer->AddSpacer(12);
-
 	{
-		wxBoxSizer* pControlVSizer = new wxBoxSizer(wxVERTICAL);
-
 		m_pControlWidget = new AnkerControlWidget(m_currentDeviceId, this);
 		m_pControlWidget->Bind(wxCUSTOMEVT_EXTRUDEX, &AnkerDeviceControl::OnExtrude, this);
 		m_pControlWidget->Bind(wxCUSTOMEVT_RETRACT, &AnkerDeviceControl::OnRetract, this);
@@ -2988,9 +2984,8 @@ void AnkerDeviceControl::initUi()
 			currentDev->setZAxisCompensation(dvalue);
 		});		
 		m_pControlWidget->SetBackgroundColour(wxColour("#292A2D"));
-		m_pControlWidget->SetMinSize(AnkerSize(450, 375));		
+		m_pControlWidget->SetMinSize(AnkerSize(450, 375));
 		m_pControlWidget->SetMaxSize(AnkerSize(450, 375));
-		//m_pControlWidget->SetSize(AnkerSize(450, 375));
 		
 		//hide adjust by alves
 //		m_pAdjustWidget = new AnkerAdjustWidget(m_currentDeviceId, this);
@@ -3021,27 +3016,15 @@ void AnkerDeviceControl::initUi()
 			}
 		});
 
-		m_pOtherWidget = new AnkerOtherWidget(this);		
-		m_pOtherWidget->SetMinSize(AnkerSize(450, 330));
-		//m_pOtherWidget->SetMinSize(AnkerSize(450, 330));
-		//m_pOtherWidget->SetSize(AnkerSize(450, 330));
-		
-		
-		pControlVSizer->AddSpacer(12);
-		pControlVSizer->Add(m_pControlWidget,53, wxEXPAND, 0);
-		pControlVSizer->AddSpacer(12);
+		pBottomHSizer->Add(m_pControlWidget, 0, wxEXPAND, 0);
 		//hide adjust by alves
-		//pControlVSizer->Add(m_pAdjustWidget, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL, 0);
-		//pControlVSizer->AddSpacer(12);
-		pControlVSizer->Add(m_pOtherWidget, wxEXPAND | wxALL, wxEXPAND|wxALL, 0);
-		pControlVSizer->AddSpacer(12);
-
-		pMainHSizer->Add(pControlVSizer, 0, wxEXPAND, 0);
-		pMainHSizer->AddSpacer(12);
+		//pBottomHSizer->Add(m_pAdjustWidget, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER_HORIZONTAL, 0);
 	}
 
+	pMainVSizer->Add(pBottomHSizer, 0, wxEXPAND, 0);
+	pMainVSizer->AddSpacer(12);
 
-	SetSizer(pMainHSizer);
+	SetSizer(pMainVSizer);
 }
 
 void AnkerDeviceControl::OnShow(wxShowEvent& event)
@@ -3209,72 +3192,6 @@ void AnkerControlWidget::setNozzleMaxTemp(int temp)
 {
 	m_pNozWidegt->setMaxRage(temp);
 }
-
-AnkerOtherWidget::AnkerOtherWidget(wxWindow* parent,
-	wxWindowID winid /*= wxID_ANY*/,
-	const wxPoint& pos /*= wxDefaultPosition*/,
-	const wxSize& size /*= wxDefaultSize*/)
-	: wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
-{
-	initUi();
-}
-
-AnkerOtherWidget::~AnkerOtherWidget()
-{
-
-}
-
-void AnkerOtherWidget::initUi()
-{
-	SetBackgroundColour(wxColour("#292A2D"));
-
-	wxBoxSizer* pMainVSizer = new wxBoxSizer(wxVERTICAL);
-	wxBoxSizer* pTitleVSizer = new wxBoxSizer(wxVERTICAL);
-
-	wxBoxSizer* pTitleHSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxPanel* pTitleWidget = new wxPanel(this);
-	pTitleWidget->SetBackgroundColour(wxColour("#292A2D"));
-	pTitleWidget->SetMinSize(AnkerSize(450, 30));
-	pTitleWidget->SetMaxSize(AnkerSize(2000, 30));
-
-	m_title = new wxStaticText(this, wxID_ANY, _L("common_print_others_title"));
-	m_title->SetFont(ANKER_BOLD_FONT_NO_1);
-	m_title->SetSize(AnkerSize(100,30));
-	m_title->SetMinSize(AnkerSize(100,30));
-	m_title->SetForegroundColour(wxColour("#FFFFFF"));
-	pTitleHSizer->AddSpacer(5);
-	pTitleHSizer->Add(m_title, wxEXPAND, wxEXPAND | wxALL, 7);
-	pTitleHSizer->AddStretchSpacer(1);
-	pTitleWidget->SetSizer(pTitleHSizer);
-
-	wxPanel* pLine = new wxPanel(this);
-	pLine->SetBackgroundColour(wxColour("#3E3F42"));
-	pLine->SetMinSize(wxSize(2000, 1));
-	pLine->SetMaxSize(wxSize(2000, 1));
-
-	pTitleVSizer->Add(pTitleWidget, wxEXPAND, wxEXPAND, 0);
-	pTitleVSizer->Add(pLine, wxEXPAND, wxEXPAND, 0);
-	pMainVSizer->Add(pTitleVSizer);
-
-	wxPanel* pBodyPanel = new wxPanel(this);
-	pBodyPanel->SetBackgroundColour(wxColour("#292A2D"));
-
-	pBodyPanel->SetMinSize(AnkerSize(450, 450));
-	wxBoxSizer* pBodyVSizer = new wxBoxSizer(wxVERTICAL);
-	wxStaticText* pTips = new wxStaticText(pBodyPanel, wxID_ANY, _L("common_print_others_comingsoon"));
-
-	pTips->SetForegroundColour(wxColour("#999999"));
-	pTips->SetFont(ANKER_FONT_NO_1);
-	pBodyVSizer->AddStretchSpacer(1);
-	pBodyVSizer->Add(pTips, 0, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
-	pBodyVSizer->AddStretchSpacer(1);
-	pBodyPanel->SetSizer(pBodyVSizer);
-
-	pMainVSizer->Add(pBodyPanel, 1, wxALIGN_CENTER_HORIZONTAL | wxALIGN_CENTER_VERTICAL, 0);
-
-	SetSizer(pMainVSizer);
-}
-
 
 BEGIN_EVENT_TABLE(AnkerAdjustWidget, wxControl)
 END_EVENT_TABLE()
