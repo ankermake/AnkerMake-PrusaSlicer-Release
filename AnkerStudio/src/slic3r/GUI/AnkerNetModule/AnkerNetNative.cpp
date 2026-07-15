@@ -845,6 +845,7 @@ std::list<DeviceObjectBasePtr> AnkerNetNativeImpl::fetchDeviceList(
         d->setCommandSender([this](const std::string& sn, const std::string& json) {
             publishCommand(sn, json);
         });
+        d->setUserInfo(m_login.user_id, m_login.nick_name);
         if (!d->sn.empty())
             devs.push_back(d);
     }
@@ -1193,6 +1194,12 @@ void AnkerNetNativeImpl::onMqttMessage(const std::string& topic, const std::stri
             int64_t elapsed = obj.get<int64_t>("totalTime", 0);
             int realSpeed = obj.get<int>("realSpeed", 0);
             dev->setPrintJobInfo(fileName, filamentTotal, filamentUnit, timeLeft, elapsed, realSpeed);
+            // task_id identifies the current print job; needed to build the cancel
+            // command (commandType 1057). Only store non-empty so a summary frame that
+            // omits it doesn't wipe the active job's id.
+            std::string taskId = obj.get<std::string>("task_id", "");
+            if (!taskId.empty())
+                dev->setTaskId(taskId);
             touched.push_back(cmd);
             break;
         }
@@ -1201,6 +1208,19 @@ void AnkerNetNativeImpl::onMqttMessage(const std::string& topic, const std::stri
             int real = obj.get<int>("real_print_layer", 0);
             dev->setLayerInfo(total, real);
             touched.push_back(cmd);
+            break;
+        }
+        case 1068: { // job-ended summary. This is how a CANCEL is signalled: on stop the
+            // print-event (1000) just returns to idle, never "stopped", so the failed
+            // dialog needs this instead. setJobEnded() decides failed-vs-success by whether
+            // the print reached COMPLETED (the 1068 "trigger" field is unreliable -- 3 and 4
+            // both seen for user cancels). Carries the final name/time/filament for the dialog.
+            std::string name = obj.get<std::string>("name", "");
+            int64_t totalTime = obj.get<int64_t>("totalTime", 0);
+            int filamentUsed = obj.get<int>("filamentUsed", 0);
+            std::string filamentUnit = obj.get<std::string>("filamentUnit", "mm");
+            dev->setJobEnded(name, totalTime, filamentUsed, filamentUnit);
+            touched.push_back(1000); // nudge the UI to re-read device status (fires dialog)
             break;
         }
         default:

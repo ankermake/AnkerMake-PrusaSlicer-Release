@@ -49,6 +49,10 @@ public:
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
         m_printEvent = ev;
+        // A new print starting clears any pending "cancelled" state from a prior job.
+        if (ev == AKNMT_PRINT_EVENT_PRINTING || ev == AKNMT_PRINT_EVENT_PRINT_HEATING ||
+            ev == AKNMT_PRINT_EVENT_PREHEATING)
+            m_jobEndedFailed = false;
     }
     // Progress in basis points (0-10000 = 0-100.00%), from 1001's "progress" field --
     // matches AnkerTaskPanel's setProgressRange(10000) directly, no rescaling needed.
@@ -80,6 +84,30 @@ public:
         m_totalLayer = totalLayer;
         m_currentLayer = realPrintLayer;
     }
+    // Current print job's task_id (from 1001 telemetry); used to build the cancel command.
+    void setTaskId(const std::string& taskId)
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        m_taskId = taskId;
+    }
+    // Job-ended summary from 1068. A job that ended WITHOUT reaching COMPLETED was
+    // cancelled or failed -> report PRINT_FAILED so AnkerTaskPanel shows the cancelled
+    // dialog (on a cancel the print-event never reports "stopped", it just returns to
+    // idle, so 1068 is the only signal). We deliberately do NOT key off 1068's "trigger"
+    // field -- it varies (3 and 4 both seen for user cancels); "did it reach COMPLETED"
+    // is the reliable discriminator. Natural completion is handled by the 1000 COMPLETED
+    // event, so this leaves m_jobEndedFailed false. Sticky until a new print starts or the
+    // dialog is dismissed.
+    void setJobEnded(const std::string& name, int64_t totalTime,
+        int filamentUsed, const std::string& filamentUnit)
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        m_printFile = name;
+        m_elapsedSec = totalTime;
+        m_filamentTotal = filamentUsed;
+        m_filamentUnit = filamentUnit.empty() ? "mm" : filamentUnit;
+        m_jobEndedFailed = (m_printEvent != AKNMT_PRINT_EVENT_COMPLETED);
+    }
     // z-offset (mm) reported by 1021 telemetry; UI reads via getZAxisCompensationValue.
     void setZOffsetValue(float mm)
     {
@@ -89,6 +117,12 @@ public:
     // Sends a JSON command to /device/maker/<sn>/command via the plugin's MQTT client.
     using CommandSender = std::function<void(const std::string& sn, const std::string& json)>;
     void setCommandSender(CommandSender fn) { m_sendCommand = std::move(fn); }
+    // Account identity, required in the 1008 print-control command payload.
+    void setUserInfo(const std::string& userId, const std::string& userName)
+    {
+        m_userId = userId;
+        m_userName = userName;
+    }
 
     // --- identity / display ---
     std::string GetStationName() override { return name; }
@@ -108,6 +142,12 @@ public:
     GUI_DEVICE_STATUS_TYPE getGuiDeviceStatus() override
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
+        // A cancelled job (1068 trigger:4) reports PRINT_FAILED. Sticky so the trailing
+        // idle print-event doesn't wipe it before AnkerTaskPanel fires the dialog; cleared
+        // when a new print starts (setPrintEvent) or the dialog is dismissed
+        // (clearExceptionFinished/resetDeviceIdel/clearDeviceCtrlResult).
+        if (m_jobEndedFailed)
+            return GUI_DEVICE_STATUS_TYPE_PRINT_FAILED;
         // GUI_DEVICE_STATUS_TYPE_PRINT_FINISHED/_FAILED are NOT numerically equal to
         // aknmt_print_event_e's COMPLETED/STOPPED (they're separate auto-incremented
         // constants) -- the direct cast below only covers the states that do share
@@ -182,7 +222,7 @@ public:
     }
     void resetStatus() override {}
     std::list<FileInfo> getDeviceFileList() override { return {}; }
-    void clearExceptionFinished() override {}
+    void clearExceptionFinished() override { clearJobEnded(); }
     PrintFailedInfo GetPrintFailedInfo() const override
     {
         std::lock_guard<std::mutex> l(m_liveMutex);
@@ -214,32 +254,22 @@ public:
     void SetLocalPrintData(const VrCardInfoMap&, const std::string& = "") override {}
     void SetRemotePrintData(const VrCardInfoMap&, const std::string& = "") override {}
     void SendErrWinResToMachine(const std::string&, const std::string&) override {}
-    // Print control: real, working Marlin SD-print gcode over the proven 1043
-    // GCODE_COMMAND channel (same mechanism that reliably drives temperature). Pause
-    // (M25)/Resume (M24) are standard and untested-but-plausible; this firmware is
-    // Marlin-derived ("V3.3.20_3.1.25").
-    void setDevicePrintPause() override { sendGcodeReliably("M25"); }
-    // STOP DOES NOT WORK YET -- every candidate tried against a real, actively
-    // printing job has failed to actually stop it:
-    //   - M524 (standard Marlin cancel-SD-print gcode): firmware REPLIES "Unknown
-    //     command" -- not implemented here.
-    //   - vendor commandType 1057: confirmed unrelated housekeeping chatter (appears
-    //     identically on a completely idle second printer with no action taken).
-    //   - vendor commandType 1026: appeared twice in the device's own notice broadcast
-    //     at the moment an iOS-app stop took effect, but sending it ourselves during a
-    //     live print left it printing -- a correlated side-effect, not the trigger.
-    // The real trigger is whatever the iOS/official app publishes to the device-bound
-    // "/device/maker/<sn>/command" topic; our MQTT client can't observe that (broker
-    // doesn't fan other clients' publishes to us there even though the subscribe
-    // itself succeeds). Left as a harmless no-op-equivalent guess (1026) rather than
-    // the confirmed-rejected M524. Use the iOS app or the printer's own screen to
-    // actually stop a print until this is solved.
-    void setDevicePrintStop() override { sendCommandReliably(1026, ""); }
-    void setDevicePrintResume() override { sendGcodeReliably("M24"); }
+    // Print control -- commandType 1008 (PRINT_CONTROL) over MQTT. Value selects the
+    // action: 2 = pause, 3 = resume, 4 = stop/cancel. Discovered 2026-07-15 by decrypting
+    // the production app's own MQTT (TLS-intercept capture): the command REQUIRES the extra
+    // fields userId/printMode/userName/filePath -- sending 1008 with only "value" is why
+    // every earlier attempt was silently ignored by the printer. Sent reliably (QoS-0
+    // resend). Payload mirrors the official app exactly:
+    //   {"commandType":1008,"value":N,"printMode":1,"userName":..,"filePath":"","userId":..}
+    void setDevicePrintPause()  override { sendPrintControl(2); }
+    void setDevicePrintResume() override { sendPrintControl(3); }
+    void setDevicePrintStop()   override { sendPrintControl(4); }
     void setDevicePrintAgain() override {}
     bool GetMultiColorDeviceUnInited() override { return false; }
-    void clearDeviceCtrlResult() override {}
-    void resetDeviceIdel() override {}
+    // These are called by AnkerTaskPanel after the finish/cancel dialog is dismissed;
+    // clear the sticky "cancelled" state so the panel returns to its idle view.
+    void clearDeviceCtrlResult() override { clearJobEnded(); }
+    void resetDeviceIdel() override { clearJobEnded(); }
     void getDeviceLocalFileLists() override {}
     void getDeviceUsbFileLists() override {}
     // bedTemp/nozzleTemp are whole degrees C; -1 means "leave this one unchanged".
@@ -393,7 +423,38 @@ private:
         }).detach();
     }
 
+    // Minimal JSON string escape (for userName/userId going into the command payload).
+    static std::string jsonEscape(const std::string& s)
+    {
+        std::string o;
+        for (char c : s) {
+            if (c == '"' || c == '\\') o += '\\';
+            o += c;
+        }
+        return o;
+    }
+
+    void clearJobEnded()
+    {
+        std::lock_guard<std::mutex> l(m_liveMutex);
+        m_jobEndedFailed = false;
+    }
+
+    // Build + send the 1008 PRINT_CONTROL command (value: 2=pause, 3=resume, 4=stop) with
+    // the exact field set the production app uses. userId is required by the firmware.
+    void sendPrintControl(int value)
+    {
+        const std::string fields =
+            "\"value\":" + std::to_string(value) +
+            ",\"printMode\":1" +
+            ",\"userName\":\"" + jsonEscape(m_userName) + "\"" +
+            ",\"filePath\":\"\"" +
+            ",\"userId\":\"" + jsonEscape(m_userId) + "\"";
+        sendCommandReliably(1008, fields);
+    }
+
     CommandSender m_sendCommand;
+    std::string m_userId, m_userName;
 
     mutable std::mutex m_liveMutex;
     int m_nozzleCur = 0, m_nozzleTgt = 0;
@@ -410,6 +471,8 @@ private:
     int64_t m_elapsedSec = 0;
     int m_realSpeed = 0;
     int m_currentLayer = 0, m_totalLayer = 0;
+    std::string m_taskId;
+    bool m_jobEndedFailed = false; // sticky: set by 1068 trigger:4 (cancel), drives PRINT_FAILED
 };
 
 } // namespace AnkerNet

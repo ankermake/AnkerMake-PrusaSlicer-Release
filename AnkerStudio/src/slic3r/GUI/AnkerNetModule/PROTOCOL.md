@@ -169,7 +169,15 @@ commands are sent 3 times over ~800ms from a background thread (`sendGcodeReliab
 
 The interface header's own `aknmt_command_type_e` enum only lists a handful of values
 (1003, 1004, 1009, 1010, 1021, 1044, 1135) — it's an incomplete stub. The real, working
-set discovered so far:
+set discovered so far is below.
+
+**Cross-reference:** the community `ankermake-m5-protocol` project (`libflagship`, its
+`specification/mqtt.stf`) publishes a full `ZZ_MQTT_CMD_*` enum for these. Its base is
+`0x3e8 = 1000`, so the enum ordinals *are* the `commandType` values, which pins down several
+that we had only guessed at. Confirmed matches with our live captures: 1003=NOZZLE_TEMP,
+1004=HOTBED_TEMP, 1021=Z_AXIS_RECOUP, 1043=GCODE_COMMAND, 1052=MODEL_LAYER. Newly identified
+from that source: **1008 = PRINT_CONTROL** (the real pause/resume/stop lever) and
+**1026 = MOVE_ZERO** (home the axes — *not* a stop, which explains our failed 1026 test).
 
 | commandType | Direction | Meaning | Fields |
 |---|---|---|---|
@@ -177,8 +185,9 @@ set discovered so far:
 | **1001** | inbound | Print job info. Schema changes once a job ends (see below). | `progress` (0–10000 basis points; **-1/absent once a job ends — treat as "unchanged", not 0**), `name` (filename), `filamentUsed`, `filamentUnit`, `time` (remaining seconds, counts down), `totalTime` (elapsed seconds, counts up), `realSpeed`, `task_id` |
 | **1003** | both | Nozzle temperature. Telemetry values are **×100** (divide to get °C). | `currentTemp`, `targetTemp` |
 | **1004** | both | Bed temperature. Same ×100 scaling. | `currentTemp`, `targetTemp` |
-| **1021** | both | Z-offset. **Best guess**: value is mm × 100. | `value` |
-| **1026** | inbound only (never confirmed as sendable) | Unknown — appeared twice correlating with a print being stopped via the iOS app, but sending it ourselves during a live print did **not** stop it. Likely a side-effect broadcast, not a command. | `value` (paired with a `1037` entry) |
+| **1008** | both (PRINT_CONTROL) | Print control. **Stop is NOT yet solved** — `value:0` was tried against a real running print (same printer we targeted) and did **not** stop it (reply just echoed `value:0`). `value:5` appears to *start*/re-run the loaded job (reply → `1`); `2`/`3`/`4`/`6` were inert. The reply's `value` is not a reliable stop oracle. Real stop command still unknown — see Known Gaps. | `value` (5 ≈ start; stop code unknown) |
+| **1021** | both | Z-offset. **Best guess**: value is mm × 100. Cross-ref confirms this is `Z_AXIS_RECOUP`. | `value` |
+| **1026** | inbound only | **`MOVE_ZERO` (home the axes)** per cross-reference — *not* a print command. We had tried sending it as a stop because it appeared in the notice broadcast when an iOS stop took effect; that was the machine homing during its stop sequence, not the stop trigger itself. Sending it during a live print (correctly) did nothing print-related. | `value` |
 | **1027** | outbound only | Request a full status snapshot. No reply schema of its own — triggers a `/query/reply` array covering everything below. | *(no body)* |
 | **1043** | outbound (GCODE_COMMAND) | Run a raw Marlin gcode line on the printer directly. The one truly general-purpose lever — used for temperature (see gotcha below), extrude/retract, and Pause/Resume. | `cmdLen`, `cmdData` |
 | **1052** | inbound | Layer progress. | `total_layer`, `real_print_layer` |
@@ -192,7 +201,7 @@ Commands we build and send (`DeviceObjectNative.hpp`):
 - **1003 / 1004** (set target temp) — sent alongside the matching gcode (`M104 Sxx` / `M140 Sxx`) via 1043. **The bare commandType alone is acked but does not actually engage the heater** — the printer only responds to the Marlin gcode.
 - **1021** (set z-offset) — value scaled ×100.
 - **1043** (gcode) — used for temperature (above), extrude/retract (`M83` then `G1 E<len>`/`G1 E-<len>`), and print Pause/Resume: `M25` (pause) / `M24` (resume). Both are standard Marlin SD-print gcodes and this firmware is Marlin-derived (reports version strings like `V3.3.20_3.1.25`), but neither has been independently confirmed against a real print yet.
-- **1026** (stop, unconfirmed) — see the Known Gaps section below. **This does not work.**
+- **1008** (PRINT_CONTROL) — tried for Stop with `value:0`; **confirmed NOT working** against a live print. Real stop command still unknown (see Known Gaps). `value:5` appears to start a job.
 
 `aknmt_print_event_e` (the enum `1000`'s `value` field maps onto, confirmed live for the
 values marked):
@@ -393,17 +402,29 @@ never LAN-limited.
 
 ## Known gaps / unsolved
 
-- **Stop print**: unsolved. `M524` (the standard Marlin cancel-SD-print gcode) is
-  **explicitly rejected** by this firmware — it replies `"ok\n\n+ringbuf:...\nUnknown
-  command"` (the leading "ok" is just Marlin's generic per-line acknowledgment and can
-  mislead you into thinking the command succeeded if you don't check the full reply text).
-  Vendor commandTypes `1057` and `1026` were both tried against a live, actively-printing
-  job and neither stopped it (see the commandType table above). The real trigger is
-  whatever the iOS/official app publishes to the device-bound `/device/maker/<sn>/command`
-  topic, which this client cannot observe (see §2's topic note). Until solved, use the iOS
-  app or the printer's own screen to cancel a print. Pause (`M25`)/Resume (`M24`) use the
-  standard Marlin gcodes and are plausible but not yet independently confirmed against a
-  real print.
+- **Stop / Pause / Resume print**: **SOLVED** (2026-07-15). It is MQTT `1008` PRINT_CONTROL
+  after all — but the command **requires extra fields** we never had, and the `value` codes
+  were unknown. Discovered by intercepting the production macOS app's own MQTT with a local
+  TLS MITM (its broker cert is pinned to a `*.ankermake.com` cert bundled in the app as
+  `make-us.crt`; replacing that file with our own CA let the app validate our proxy) and
+  decrypting the `MA` frames with the printer `secret_key`. The exact command:
+  ```
+  {"commandType":1008, "value":N, "printMode":1, "userName":<nick>, "filePath":"", "userId":<userId>}
+  ```
+  `value`: **2 = pause, 3 = resume, 4 = stop/cancel**. `userId` is mandatory — sending `1008`
+  with only `value` is why every earlier attempt was silently ignored. Sent over MQTT (reliable
+  QoS-0 resend). Dead ends now explained: our earlier `value:0`/`value:5` probes were both the
+  wrong value AND missing the required fields; the `1035`/`1057` we saw the app emit are
+  ancillary (`1057` needs `userId` too), not the cancel itself.
+- **Cancel/finish dialog**: a cancel is signalled by a **`1068` job-ended summary** on
+  `/notice` (`{"commandType":1068,"name","totalTime","filamentUsed","filamentUnit","trigger"}`) —
+  the print-event (`1000`) never reports "stopped", it just returns to idle. We show
+  PRINT_FAILED when a `1068` arrives and the print did **not** reach `COMPLETED` (the `trigger`
+  field is unreliable — both `3` and `4` seen for user cancels; "reached COMPLETED?" is the
+  reliable discriminator). Natural completion still uses the `1000` COMPLETED event.
+- Note: `/notice` pushes **are** received (an earlier "zero notices" observation was a logging
+  artifact — the debug log only printed `/reply` topics). Pause/Resume also use the `1008`
+  command above (the earlier `M25`/`M24` gcode guesses are superseded).
 - **Message Center** (the notification-bell feature in the official apps): entirely
   unimplemented — a separate authenticated HTTP API, comparable in scope to the login/
   device-list work, that hasn't been reverse-engineered. A local alternative (a
