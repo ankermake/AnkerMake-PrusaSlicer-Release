@@ -136,14 +136,14 @@ private:
     // Authenticated API base (https://<domain>, falling back to region host).
     // Caller must hold m_mutex (reads m_login).
     std::string apiBaseUrl() const;
-    // Blocking POST to <baseUrl><path> with X-Auth-Token + client-id headers.
-    // Returns true only on transport success + HTTP 200.
+    // Blocking POST to <baseUrl><path> with X-Auth-Token + Gtoken(md5(userId)) +
+    // client-id headers. Returns true only on transport success + HTTP 200.
     bool httpPostV1(const std::string& baseUrl, const std::string& path,
-        const std::string& authToken, const std::string& jsonBody,
+        const std::string& authToken, const std::string& userId, const std::string& jsonBody,
         std::string& outResponse) const;
     // Fetches query_fdm_list + get_dsk_keys and builds DeviceObjectNative list.
     std::list<DeviceObjectBasePtr> fetchDeviceList(
-        const std::string& authToken, const std::string& baseUrl) const;
+        const std::string& authToken, const std::string& userId, const std::string& baseUrl) const;
 
     // MQTT monitoring (Phase 4): connect to the broker and subscribe to each
     // device's status topics. onMqttMessage decrypts + dispatches telemetry.
@@ -196,6 +196,11 @@ private:
     std::atomic<bool> m_mqttStarting{ false };
     sendSigToUpdateDeviceStatus_T m_updateStatusCb;
     std::string m_clientGuid; // sender guid stamped into outgoing MA frames
+
+    // Message Center (notification bell): the UI registers these; GetMsgCenterStatus/
+    // GetMsgCenterRecords fetch /v1/slicer/news/* and invoke them from a worker thread.
+    CallBack_MsgCenterStatus m_msgStatusCb;
+    CallBack_MsgCenterRecords m_msgRecordsCb;
 
     // Phase 3: PPPP file-transfer progress callback + a guard against concurrent sends.
     sendSigToTransferFileProgressValue_T m_transferProgressCb;

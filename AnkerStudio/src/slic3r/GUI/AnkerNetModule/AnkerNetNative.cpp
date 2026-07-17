@@ -24,11 +24,35 @@
 
 #include <curl/curl.h>
 
+#include <openssl/evp.h>
+
 namespace pt = boost::property_tree;
 
 namespace AnkerNet {
 
 namespace {
+// Lowercase-hex MD5 of a string. The Anker API gateway requires a "Gtoken" header on
+// every request equal to md5(user_id) -- /v1/slicer/* endpoints reject requests without
+// it ("banned"); /v1/app/* tolerate its absence. Empty input yields md5("").
+std::string md5Hex(const std::string& in)
+{
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(ctx, in.data(), in.size());
+    EVP_DigestFinal_ex(ctx, digest, &len);
+    EVP_MD_CTX_free(ctx);
+
+    static const char* hexd = "0123456789abcdef";
+    std::string out;
+    out.reserve(len * 2);
+    for (unsigned int i = 0; i < len; ++i) {
+        out.push_back(hexd[digest[i] >> 4]);
+        out.push_back(hexd[digest[i] & 0x0f]);
+    }
+    return out;
+}
 size_t curl_write_to_file(void* ptr, size_t size, size_t nmemb, void* userdata)
 {
     auto* ofs = static_cast<std::ofstream*>(userdata);
@@ -165,14 +189,114 @@ void AnkerNetNativeImpl::SetCallback_RecoverCurl(NormalCallBack /*callback*/) {}
 void AnkerNetNativeImpl::SetCallback_OtaInfoRecv(CallBack_OtaInfoRecv /*callback*/) {}
 void AnkerNetNativeImpl::SetCallback_FilamentRecv(NormalCallBack /*callback*/) {}
 void AnkerNetNativeImpl::SetCallback_GetMsgCenterConfig(CallBack_MsgCenterCfg /*callback*/) {}
-void AnkerNetNativeImpl::SetCallback_GetMsgCenterRecords(CallBack_MsgCenterRecords /*callback*/) {}
+void AnkerNetNativeImpl::SetCallback_GetMsgCenterRecords(CallBack_MsgCenterRecords callback)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_msgRecordsCb = callback;
+}
 void AnkerNetNativeImpl::SetCallback_GetMsgCenterErrorCodeInfo(CallBack_MsgCenterErrCodeInfo /*callback*/) {}
-void AnkerNetNativeImpl::SetCallback_GetMsgCenterStatus(CallBack_MsgCenterStatus /*callback*/) {}
+void AnkerNetNativeImpl::SetCallback_GetMsgCenterStatus(CallBack_MsgCenterStatus callback)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_msgStatusCb = callback;
+}
 void AnkerNetNativeImpl::SetCallback_CommentFlagsRecv(CommentFlagsCallBack /*callback*/) {}
 void AnkerNetNativeImpl::SetsendSigHttpError(sendSigHttpError_T /*function*/) {}
 
-void AnkerNetNativeImpl::GetMsgCenterRecords(const int& /*newType*/, const int& /*num*/, const int& /*page*/, bool /*isSyn*/) {}
-void AnkerNetNativeImpl::GetMsgCenterStatus() {}
+// Message Center badge counts: POST /v1/slicer/news/get_news_num ->
+// data:{news_num_official, news_num_printer, ...}. Runs on a worker thread; the callback
+// (registered by the UI) posts a wx event, so calling it off-thread is safe.
+void AnkerNetNativeImpl::GetMsgCenterStatus()
+{
+    std::string authToken, userId, baseUrl;
+    CallBack_MsgCenterStatus cb;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_login.logined)
+            return;
+        authToken = m_login.auth_token;
+        userId = m_login.user_id;
+        baseUrl = apiBaseUrl();
+        cb = m_msgStatusCb;
+    }
+    if (!cb)
+        return;
+
+    std::thread([this, authToken, userId, baseUrl, cb]() {
+        std::string resp;
+        if (!httpPostV1(baseUrl, "/v1/slicer/news/get_news_num", authToken, userId, "", resp))
+            return;
+        try {
+            pt::ptree root;
+            std::istringstream iss(resp);
+            pt::read_json(iss, root);
+            if (root.get<int>("code", -1) != 0)
+                return;
+            int official = root.get<int>("data.news_num_official", 0);
+            int printer = root.get<int>("data.news_num_printer", 0);
+            cb(official, printer);
+        } catch (const pt::json_parser_error&) {
+            std::fprintf(stderr, "[AnkerNetNative] get_news_num: bad JSON\n");
+        }
+    }).detach();
+}
+
+// Message Center list: POST /v1/slicer/news/get_news {news_type,num,page} ->
+// data:[{news_id,title,content,url,error_code,create_time,is_news,...}].
+void AnkerNetNativeImpl::GetMsgCenterRecords(const int& newType, const int& num, const int& page, bool /*isSyn*/)
+{
+    std::string authToken, userId, baseUrl;
+    CallBack_MsgCenterRecords cb;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_login.logined)
+            return;
+        authToken = m_login.auth_token;
+        userId = m_login.user_id;
+        baseUrl = apiBaseUrl();
+        cb = m_msgRecordsCb;
+    }
+    if (!cb)
+        return;
+
+    std::thread([this, authToken, userId, baseUrl, newType, num, page, cb]() {
+        std::ostringstream body;
+        body << "{\"news_type\":" << newType << ",\"num\":" << num << ",\"page\":" << page << "}";
+        std::string resp;
+        if (!httpPostV1(baseUrl, "/v1/slicer/news/get_news", authToken, userId, body.str(), resp))
+            return;
+
+        std::vector<MsgCenterItem> items;
+        try {
+            pt::ptree root;
+            std::istringstream iss(resp);
+            pt::read_json(iss, root);
+            if (root.get<int>("code", -1) != 0) {
+                cb(items);
+                return;
+            }
+            if (auto data = root.get_child_optional("data")) {
+                for (const auto& kv : *data) {
+                    const pt::ptree& n = kv.second;
+                    MsgCenterItem it;
+                    it.msgID = n.get<int>("news_id", 0);
+                    it.msgTitle = n.get<std::string>("title", "");
+                    it.msgContent = n.get<std::string>("content", "");
+                    it.msgUrl = n.get<std::string>("url", "");
+                    it.msgCreateTime = std::to_string(n.get<long long>("create_time", 0));
+                    it.msgErrorCode = n.get<std::string>("error_code", "");
+                    it.alarm_type = n.get<int>("news_type", 0);
+                    // is_news: 1 = unread announcement/alert, 0 = already surfaced.
+                    it.msgIsNew = n.get<int>("is_news", 0) != 0;
+                    items.push_back(it);
+                }
+            }
+        } catch (const pt::json_parser_error&) {
+            std::fprintf(stderr, "[AnkerNetNative] get_news: bad JSON\n");
+        }
+        cb(items);
+    }).detach();
+}
 
 std::string AnkerNetNativeImpl::GetNickName()
 {
@@ -243,12 +367,14 @@ void AnkerNetNativeImpl::logoutToServer()
 void AnkerNetNativeImpl::AsyRefreshDeviceList()
 {
     std::string authToken;
+    std::string userId;
     std::string baseUrl;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!m_login.logined)
             return;
         authToken = m_login.auth_token;
+        userId = m_login.user_id;
         baseUrl = apiBaseUrl();
     }
 
@@ -257,8 +383,8 @@ void AnkerNetNativeImpl::AsyRefreshDeviceList()
     if (!m_refreshing.compare_exchange_strong(expected, true))
         return;
 
-    std::thread([this, authToken, baseUrl]() {
-        std::list<DeviceObjectBasePtr> devices = fetchDeviceList(authToken, baseUrl);
+    std::thread([this, authToken, userId, baseUrl]() {
+        std::list<DeviceObjectBasePtr> devices = fetchDeviceList(authToken, userId, baseUrl);
 
         sendSigToUpdateDevice_T cb;
         {
@@ -756,7 +882,7 @@ std::string AnkerNetNativeImpl::apiBaseUrl() const
 }
 
 bool AnkerNetNativeImpl::httpPostV1(const std::string& baseUrl, const std::string& path,
-    const std::string& authToken, const std::string& jsonBody,
+    const std::string& authToken, const std::string& userId, const std::string& jsonBody,
     std::string& outResponse) const
 {
     CURL* curl = curl_easy_init();
@@ -765,10 +891,13 @@ bool AnkerNetNativeImpl::httpPostV1(const std::string& baseUrl, const std::strin
 
     const std::string url = baseUrl + path;
     const std::string authHeader = "X-Auth-Token: " + authToken;
+    // Gateway signature the production app stamps on every request: md5(user_id).
+    const std::string gtokenHeader = "Gtoken: " + md5Hex(userId);
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
     headers = curl_slist_append(headers, authHeader.c_str());
+    headers = curl_slist_append(headers, gtokenHeader.c_str());
     // Client-identification headers, matching the values the login web page uses
     // (see getHeaderList in ProcessWebScriptMessage). Harmless if unneeded.
     headers = curl_slist_append(headers, "App_name: anker_make");
@@ -802,12 +931,12 @@ bool AnkerNetNativeImpl::httpPostV1(const std::string& baseUrl, const std::strin
 }
 
 std::list<DeviceObjectBasePtr> AnkerNetNativeImpl::fetchDeviceList(
-    const std::string& authToken, const std::string& baseUrl) const
+    const std::string& authToken, const std::string& userId, const std::string& baseUrl) const
 {
     std::list<DeviceObjectBasePtr> result;
 
     std::string listResp;
-    if (!httpPostV1(baseUrl, "/v1/app/query_fdm_list", authToken, "{}", listResp))
+    if (!httpPostV1(baseUrl, "/v1/app/query_fdm_list", authToken, userId, "{}", listResp))
         return result;
 
     pt::ptree root;
@@ -864,7 +993,7 @@ std::list<DeviceObjectBasePtr> AnkerNetNativeImpl::fetchDeviceList(
     body += "],\"invalid_dsks\":{}}";
 
     std::string dskResp;
-    if (httpPostV1(baseUrl, "/v1/app/equipment/get_dsk_keys", authToken, body, dskResp)) {
+    if (httpPostV1(baseUrl, "/v1/app/equipment/get_dsk_keys", authToken, userId, body, dskResp)) {
         try {
             pt::ptree droot;
             std::istringstream iss(dskResp);
