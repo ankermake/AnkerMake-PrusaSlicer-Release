@@ -476,7 +476,41 @@ void AnkerNetNativeImpl::AsyRefreshDeviceList()
     }).detach();
 }
 
-void AnkerNetNativeImpl::AsyOneKeyPrint() {}
+// Called by Plater::a_key_print_clicked() immediately before it opens the device
+// chooser modally. The chooser comes up behind a loading mask that is cleared only by
+// the show-device-list callback, so as a no-op this left the slicer window's Print
+// button sitting on a spinner until the mask timed out. Refresh the list, then fire
+// the callback -- the refresh takes a network round-trip, by which time the modal
+// chooser is up and able to receive the event.
+void AnkerNetNativeImpl::AsyOneKeyPrint()
+{
+    std::thread([this]() {
+        std::string authToken, userId, baseUrl;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_login.logined)
+                return;
+            authToken = m_login.auth_token;
+            userId = m_login.user_id;
+            baseUrl = apiBaseUrl();
+        }
+
+        std::list<DeviceObjectBasePtr> devices = fetchDeviceList(authToken, userId, baseUrl);
+
+        sendShowDeviceListDialog_T showCb;
+        {
+            std::lock_guard<std::mutex> lock(m_deviceMutex);
+            if (!devices.empty())
+                m_devices = std::move(devices);
+            showCb = m_showDeviceListCb;
+        }
+
+        startMonitoring();
+
+        if (showCb)
+            showCb();
+    }).detach();
+}
 
 std::list<DeviceObjectBasePtr> AnkerNetNativeImpl::GetDeviceList() const
 {
@@ -515,7 +549,11 @@ void AnkerNetNativeImpl::SetsendSigToTransferFileProgressValue(sendSigToTransfer
     std::lock_guard<std::mutex> lock(m_deviceMutex);
     m_transferProgressCb = function;
 }
-void AnkerNetNativeImpl::SetsendShowDeviceListDialog(sendShowDeviceListDialog_T /*function*/) {}
+void AnkerNetNativeImpl::SetsendShowDeviceListDialog(sendShowDeviceListDialog_T function)
+{
+    std::lock_guard<std::mutex> lock(m_deviceMutex);
+    m_showDeviceListCb = function;
+}
 void AnkerNetNativeImpl::SetGeneralExceptionMsgBox(GeneralExceptionMsgBox_T /*function*/) {}
 void AnkerNetNativeImpl::SetSendSigAccountLogout(SendSigAccountLogout_T /*function*/) {}
 
@@ -617,9 +655,26 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
         return;
     }
 
-    // Only local gcode file transfer (send-to-printer) is implemented here.
-    if (type != P2P_TRANSFER_LOCAL_FILE)
+    // Send-to-printer. Two callers reach this with the same intent:
+    //   P2P_TRANSFER_LOCAL_FILE   -- Device tab, passes the gcode path directly.
+    //   P2P_TRANSFER_PREVIEW_FILE -- slicer/preview window's Print button, which
+    //                                passes an EMPTY path and instead stashes the
+    //                                exported gcode via SetGcodePath() beforehand
+    //                                (Plater::ExportGacode).
+    // Handling only the former meant printing from the slicer window returned here
+    // silently and nothing was ever sent.
+    if (type != P2P_TRANSFER_LOCAL_FILE && type != P2P_TRANSFER_PREVIEW_FILE)
         return;
+
+    std::string srcPath = filePath;
+    if (srcPath.empty()) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        srcPath = m_gcodePath;
+    }
+    if (srcPath.empty()) {
+        std::fprintf(stderr, "[AnkerNetNative] no gcode path for transfer\n");
+        return;
+    }
 
     // Resolve the device's LAN address + DUID + relay creds.
     std::string ip, duid, name, dsk, p2pConn;
@@ -651,7 +706,7 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
         return;
     }
 
-    std::thread([this, sn, ip, duid, name, userId, machineId, filePath, dsk, p2pConn]() {
+    std::thread([this, sn, ip, duid, name, userId, machineId, srcPath, dsk, p2pConn]() {
         auto fireProgress = [this, sn](int progress, FileTransferResult result) {
             sendSigToTransferFileProgressValue_T cb;
             {
@@ -665,9 +720,9 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
         // Read the gcode file the app already exported.
         std::string data;
         {
-            std::ifstream ifs(filePath, std::ios::binary);
+            std::ifstream ifs(srcPath, std::ios::binary);
             if (!ifs) {
-                std::fprintf(stderr, "[AnkerNetNative] cannot open %s\n", filePath.c_str());
+                std::fprintf(stderr, "[AnkerNetNative] cannot open %s\n", srcPath.c_str());
                 fireProgress(0, FileTransferResult::OpenFileFailed);
                 m_transferring = false;
                 return;
@@ -677,7 +732,7 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
             data = ss.str();
         }
 
-        std::string fileName = boost::filesystem::path(filePath).filename().string();
+        std::string fileName = boost::filesystem::path(srcPath).filename().string();
         std::string userName = name.empty() ? "eufyStudio" : name;
 
         // LAN broadcast discovery first, then relay fallback (works remotely).

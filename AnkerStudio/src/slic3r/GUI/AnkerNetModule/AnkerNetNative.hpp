@@ -206,6 +206,10 @@ private:
     sendSigToTransferFileProgressValue_T m_transferProgressCb;
     std::atomic<bool> m_transferring{ false };
 
+    // Fired once the device list is ready so the slicer window's chooser can drop its
+    // loading mask; without it the chooser spins until its own timeout expires.
+    sendShowDeviceListDialog_T m_showDeviceListCb;
+
     // Camera video (Stage 2): callbacks the UI registers + live-session state.
     SnImgCallBackFunc m_videoFrameCb;
     SnCallBackFunc m_videoInitedCb;
