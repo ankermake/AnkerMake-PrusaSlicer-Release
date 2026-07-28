@@ -203,7 +203,10 @@ protected:
     void handleErrMsgDialogRes(wxVariant* pData);
     void ShowLoginedMenu();
     void ShowUnLoginDevice();
-    void ShowUnLoginMenu();
+    // dropSession == false only populates the logged-out menu; it does NOT drop a
+    // cached session. Used when building the menubar at startup, where a logout
+    // would wipe the persisted login before it ever gets a chance to be restored.
+    void ShowUnLoginMenu(bool dropSession = true);
     void ClearLoingiMenu();
     void onLogOut();
     void OnMove(wxMoveEvent& event);

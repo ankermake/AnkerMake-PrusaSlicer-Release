@@ -363,19 +363,19 @@ void MainFrame::ShowUnLoginDevice()
     }
 }
 
-void MainFrame::ShowUnLoginMenu()
+void MainFrame::ShowUnLoginMenu(bool dropSession)
 {
     ShowUnLoginDevice();
-    
+
 	if (!m_pLoginMenu)
 		return;
 
     ClearLoingiMenu();
 
     auto ankerNet = AnkerNetInst();
-    if (ankerNet) {
+    if (ankerNet && dropSession) {
         ankerNet->logout();
-    }    
+    }
    
     updateCurrentEnvironment();
 
@@ -4087,7 +4087,21 @@ void MainFrame::init_menubar_as_editor()
     m_menubar->Append(helpMenu, _L("common_menu_title_help"));
     
     m_pLoginMenu = new wxMenu();
-    ShowUnLoginMenu();
+    {
+        // The plugin restores any persisted session in its Init(), which has already
+        // run by this point. Populate the account menu to match, and never log out
+        // here -- that would delete the cached login on every launch.
+        auto ankerNet = AnkerNetInst();
+        if (ankerNet && ankerNet->IsLogined()) {
+            // ShowUnLoginMenu() does these two on the logged-out path.
+            updateCurrentEnvironment();
+            updateBuryInfo();
+            ShowLoginedMenu();
+        }
+        else {
+            ShowUnLoginMenu(false);
+        }
+    }
     m_menubar->Append(m_pLoginMenu, _L("common_menu_account"));
 
 #ifdef _MSW_DARK_MODE
