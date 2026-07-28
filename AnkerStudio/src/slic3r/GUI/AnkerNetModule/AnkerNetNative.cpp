@@ -108,6 +108,26 @@ std::string makeGuid()
     }
     return s;
 }
+
+// Unix epoch seconds -> local "YYYY/M/D HH:MM:SS", matching the format the Message
+// Center's time label is laid out for. The API hands back a bare epoch; handing that
+// straight to the label just prints a 10-digit number.
+std::string formatEpochLocal(long long epochSeconds)
+{
+    if (epochSeconds <= 0)
+        return std::string();
+
+    const std::time_t t = static_cast<std::time_t>(epochSeconds);
+    std::tm tmVal{};
+    if (!::localtime_r(&t, &tmVal))
+        return std::string();
+
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%d/%d/%d %02d:%02d:%02d",
+        tmVal.tm_year + 1900, tmVal.tm_mon + 1, tmVal.tm_mday,
+        tmVal.tm_hour, tmVal.tm_min, tmVal.tm_sec);
+    return std::string(buf);
+}
 } // namespace
 
 bool AnkerNetNativeImpl::Init(AnkerNetInitPara para)
@@ -283,7 +303,7 @@ void AnkerNetNativeImpl::GetMsgCenterRecords(const int& newType, const int& num,
                     it.msgTitle = n.get<std::string>("title", "");
                     it.msgContent = n.get<std::string>("content", "");
                     it.msgUrl = n.get<std::string>("url", "");
-                    it.msgCreateTime = std::to_string(n.get<long long>("create_time", 0));
+                    it.msgCreateTime = formatEpochLocal(n.get<long long>("create_time", 0));
                     it.msgErrorCode = n.get<std::string>("error_code", "");
                     it.alarm_type = n.get<int>("news_type", 0);
                     // is_news: 1 = unread announcement/alert, 0 = already surfaced.
@@ -344,7 +364,60 @@ bool AnkerNetNativeImpl::IsLogined()
     return m_login.logined;
 }
 
-void AnkerNetNativeImpl::removeMsgByIds(const std::vector<int>& /*msgList*/, bool /*isSyn*/) {}
+// Delete Message Center entries server-side: POST /v1/slicer/news/delete_user_news
+// {news_ids:[...]}. Endpoint and field name recovered from the stock plugin's symbol
+// table. Without this the UI only hid rows locally and they returned on the next fetch.
+//
+// isSyn is honoured rather than ignored: the dialog passes true when it has deleted
+// every visible row and immediately re-fetches the list, so returning before the
+// server has applied the delete would repopulate it with the rows just removed.
+void AnkerNetNativeImpl::removeMsgByIds(const std::vector<int>& msgList, bool isSyn)
+{
+    if (msgList.empty())
+        return;
+
+    std::string authToken, userId, baseUrl;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (!m_login.logined)
+            return;
+        authToken = m_login.auth_token;
+        userId = m_login.user_id;
+        baseUrl = apiBaseUrl();
+    }
+
+    std::ostringstream body;
+    body << "{\"news_ids\":[";
+    for (size_t i = 0; i < msgList.size(); ++i) {
+        if (i)
+            body << ',';
+        body << msgList[i];
+    }
+    body << "]}";
+
+    auto doDelete = [this, authToken, userId, baseUrl, payload = body.str()]() {
+        std::string resp;
+        if (!httpPostV1(baseUrl, "/v1/slicer/news/delete_user_news", authToken, userId, payload, resp)) {
+            std::fprintf(stderr, "[AnkerNetNative] delete_user_news: request failed\n");
+            return;
+        }
+        try {
+            pt::ptree root;
+            std::istringstream iss(resp);
+            pt::read_json(iss, root);
+            const int code = root.get<int>("code", -1);
+            if (code != 0)
+                std::fprintf(stderr, "[AnkerNetNative] delete_user_news: code %d\n", code);
+        } catch (const pt::json_parser_error&) {
+            std::fprintf(stderr, "[AnkerNetNative] delete_user_news: bad JSON\n");
+        }
+    };
+
+    if (isSyn)
+        doDelete();
+    else
+        std::thread(doDelete).detach();
+}
 
 void AnkerNetNativeImpl::logout()
 {
