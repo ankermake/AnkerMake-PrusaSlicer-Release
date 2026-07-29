@@ -533,7 +533,11 @@ DeviceObjectBasePtr AnkerNetNativeImpl::getDeviceObjectFromSn(const std::string&
     return nullptr;
 }
 
-void AnkerNetNativeImpl::SetsendSigToSwitchPrintPage(sendSigToSwitchPrintPage_T /*function*/) {}
+void AnkerNetNativeImpl::SetsendSigToSwitchPrintPage(sendSigToSwitchPrintPage_T function)
+{
+    std::lock_guard<std::mutex> lock(m_deviceMutex);
+    m_switchPrintPageCb = function;
+}
 void AnkerNetNativeImpl::SetsendSigToUpdateDevice(sendSigToUpdateDevice_T function)
 {
     std::lock_guard<std::mutex> lock(m_deviceMutex);
@@ -699,6 +703,21 @@ void AnkerNetNativeImpl::StartP2pOperator(P2POperationType type, const std::stri
         userId = m_login.user_id;
     }
     std::string machineId = m_clientGuid;
+
+    // Leave the slicer tab for the Device tab as soon as the send is committed, so the
+    // user watches the transfer and print rather than the plate they just sliced. Posted
+    // before the worker starts: the UI handler only posts a wx event, and the chooser's
+    // EndModal() runs right after this returns, so the switch lands once the modal is
+    // gone. Without this the app sat on the slicer tab for the whole upload.
+    {
+        sendSigToSwitchPrintPage_T switchCb;
+        {
+            std::lock_guard<std::mutex> lock(m_deviceMutex);
+            switchCb = m_switchPrintPageCb;
+        }
+        if (switchCb)
+            switchCb(sn);
+    }
 
     bool expected = false;
     if (!m_transferring.compare_exchange_strong(expected, true)) {

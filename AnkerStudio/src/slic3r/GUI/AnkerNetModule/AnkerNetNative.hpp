@@ -210,6 +210,10 @@ private:
     // loading mask; without it the chooser spins until its own timeout expires.
     sendShowDeviceListDialog_T m_showDeviceListCb;
 
+    // Fired when a send starts, so the UI leaves the slicer tab and shows the printer
+    // the job is going to.
+    sendSigToSwitchPrintPage_T m_switchPrintPageCb;
+
     // Camera video (Stage 2): callbacks the UI registers + live-session state.
     SnImgCallBackFunc m_videoFrameCb;
     SnCallBackFunc m_videoInitedCb;
