@@ -161,7 +161,7 @@ private:
 
     bool m_init = false;
     std::string m_dataDir;
-    // App resources directory; holds certs/make-us.crt, the broker's pinned cert.
+    // App resources directory; holds crt/make-us.crt, the broker's pinned cert.
     std::string m_resourcesDir;
 
     // Populated from the LOGIN_DATA JSON the real web login page posts back.

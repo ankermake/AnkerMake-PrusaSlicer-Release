@@ -1259,7 +1259,7 @@ void AnkerNetNativeImpl::startMonitoring()
             resourcesDir = m_resourcesDir;
         }
         if (!resourcesDir.empty()) {
-            const auto ca = boost::filesystem::path(resourcesDir) / "certs" / "make-us.crt";
+            const auto ca = boost::filesystem::path(resourcesDir) / "crt" / "make-us.crt";
             if (boost::filesystem::exists(ca))
                 client->setCaFile(ca.string());
             else
