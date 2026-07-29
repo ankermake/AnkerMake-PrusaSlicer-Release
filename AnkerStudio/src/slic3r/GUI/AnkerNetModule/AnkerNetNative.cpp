@@ -134,6 +134,7 @@ bool AnkerNetNativeImpl::Init(AnkerNetInitPara para)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_dataDir = para.dataDir;
+    m_resourcesDir = para.resourcesDir;
     m_init = true;
     if (m_clientGuid.empty())
         m_clientGuid = makeGuid();
@@ -1250,6 +1251,22 @@ void AnkerNetNativeImpl::startMonitoring()
     const std::string host = eu ? "make-mqtt-eu.ankermake.com" : "make-mqtt.ankermake.com";
 
     auto client = std::make_unique<AnkerMqttClient>();
+    {
+        // Pin the broker's own self-signed certificate, shipped in the app resources.
+        std::string resourcesDir;
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            resourcesDir = m_resourcesDir;
+        }
+        if (!resourcesDir.empty()) {
+            const auto ca = boost::filesystem::path(resourcesDir) / "certs" / "make-us.crt";
+            if (boost::filesystem::exists(ca))
+                client->setCaFile(ca.string());
+            else
+                std::fprintf(stderr, "[AnkerNetNative] broker cert missing at %s\n",
+                    ca.string().c_str());
+        }
+    }
     client->setMessageCallback(
         [this](const std::string& topic, const std::string& payload) {
             onMqttMessage(topic, payload);

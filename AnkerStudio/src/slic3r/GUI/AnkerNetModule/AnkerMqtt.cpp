@@ -216,9 +216,23 @@ bool AnkerMqttClient::tlsConnect(const std::string& host, int port)
         ::close(fd);
         return false;
     }
-    // Anker's broker; we don't ship their CA, so don't verify the chain (matches
-    // the community client's `insecure` option). Traffic is still TLS-encrypted.
-    SSL_CTX_set_verify(m_ctx, SSL_VERIFY_NONE, nullptr);
+    // The broker presents a self-signed *.ankermake.com certificate and is its own CA,
+    // so we pin that certificate as the sole trust anchor rather than trusting a public
+    // root. When the PEM is unavailable we fall back to an unverified handshake, which
+    // is what this did unconditionally before -- encrypted, but open to interception.
+    bool verifying = false;
+    if (!m_caFile.empty()) {
+        if (SSL_CTX_load_verify_locations(m_ctx, m_caFile.c_str(), nullptr) == 1) {
+            SSL_CTX_set_verify(m_ctx, SSL_VERIFY_PEER, nullptr);
+            verifying = true;
+        }
+        else {
+            std::fprintf(stderr, "[AnkerMqtt] could not load CA %s; continuing unverified\n",
+                m_caFile.c_str());
+        }
+    }
+    if (!verifying)
+        SSL_CTX_set_verify(m_ctx, SSL_VERIFY_NONE, nullptr);
 
     m_ssl = SSL_new(m_ctx);
     if (!m_ssl) {
@@ -229,8 +243,18 @@ bool AnkerMqttClient::tlsConnect(const std::string& host, int port)
     }
     SSL_set_fd(m_ssl, fd);
     SSL_set_tlsext_host_name(m_ssl, host.c_str()); // SNI
+    // Check the name too, so the pinned certificate cannot be replayed for some other
+    // host. The pinned cert is a *.ankermake.com wildcard, which covers the brokers.
+    if (verifying)
+        SSL_set1_host(m_ssl, host.c_str());
     if (SSL_connect(m_ssl) != 1) {
-        std::fprintf(stderr, "[AnkerMqtt] TLS handshake failed\n");
+        if (verifying) {
+            const long vr = SSL_get_verify_result(m_ssl);
+            std::fprintf(stderr, "[AnkerMqtt] TLS handshake failed (verify result %ld: %s)\n",
+                vr, X509_verify_cert_error_string(vr));
+        }
+        else
+            std::fprintf(stderr, "[AnkerMqtt] TLS handshake failed\n");
         SSL_free(m_ssl);
         m_ssl = nullptr;
         ::close(fd);

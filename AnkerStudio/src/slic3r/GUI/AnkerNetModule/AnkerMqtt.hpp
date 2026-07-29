@@ -33,6 +33,11 @@ public:
 
     void setMessageCallback(MessageCb cb) { m_onMessage = std::move(cb); }
 
+    // PEM file holding the broker's self-signed certificate, used as the sole trust
+    // anchor (the broker IS its own CA). Set before connect(). When empty or missing,
+    // the handshake falls back to no chain verification.
+    void setCaFile(std::string path) { m_caFile = std::move(path); }
+
     // Blocking TLS connect + MQTT CONNECT handshake. Returns true on CONNACK ok.
     bool connect(const std::string& host, int port,
         const std::string& username, const std::string& password,
@@ -61,6 +66,7 @@ private:
 
     SSL_CTX* m_ctx = nullptr;
     SSL* m_ssl = nullptr;
+    std::string m_caFile;
     int m_fd = -1;
 
     std::atomic<bool> m_connected{ false };
