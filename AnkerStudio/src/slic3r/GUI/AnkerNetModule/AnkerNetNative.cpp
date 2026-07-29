@@ -221,7 +221,11 @@ void AnkerNetNativeImpl::SetCallback_GetMsgCenterStatus(CallBack_MsgCenterStatus
     m_msgStatusCb = callback;
 }
 void AnkerNetNativeImpl::SetCallback_CommentFlagsRecv(CommentFlagsCallBack /*callback*/) {}
-void AnkerNetNativeImpl::SetsendSigHttpError(sendSigHttpError_T /*function*/) {}
+void AnkerNetNativeImpl::SetsendSigHttpError(sendSigHttpError_T function)
+{
+    std::lock_guard<std::mutex> lock(m_deviceMutex);
+    m_httpErrorCb = function;
+}
 
 // Message Center badge counts: POST /v1/slicer/news/get_news_num ->
 // data:{news_num_official, news_num_printer, ...}. Runs on a worker thread; the callback
@@ -1072,6 +1076,31 @@ bool AnkerNetNativeImpl::httpPostV1(const std::string& baseUrl, const std::strin
     if (res != CURLE_OK || httpCode != 200) {
         std::fprintf(stderr, "[AnkerNetNative] POST %s failed: curl=%d http=%ld\n",
             path.c_str(), static_cast<int>(res), httpCode);
+
+        // Tell the UI why. Without this every transport failure was silent: a dead
+        // network or a rejected token just left the device list empty with no
+        // explanation and no prompt to sign in again.
+        //
+        // Only transport-level facts are classified here. 401/403 is an unambiguous
+        // rejection of our token and maps to UserNotIdentified, which drives the UI's
+        // re-login path. Application-level failures (HTTP 200 with a non-zero JSON
+        // "code") are deliberately NOT reported as auth errors -- the codes Anker uses
+        // for an expired session have not been observed, and guessing risks logging
+        // the user out on an unrelated error.
+        HttpError err = UnknownError;
+        if (res == CURLE_COULDNT_RESOLVE_HOST || res == CURLE_COULDNT_RESOLVE_PROXY)
+            err = ResolveHostError;
+        else if (httpCode == 401 || httpCode == 403)
+            err = UserNotIdentified;
+
+        sendSigHttpError_T cb;
+        {
+            std::lock_guard<std::mutex> lock(m_deviceMutex);
+            cb = m_httpErrorCb;
+        }
+        if (cb)
+            cb(err);
+
         return false;
     }
     return true;

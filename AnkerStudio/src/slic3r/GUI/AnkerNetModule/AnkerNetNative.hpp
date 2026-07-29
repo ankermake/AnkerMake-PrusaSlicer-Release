@@ -214,6 +214,10 @@ private:
     // the job is going to.
     sendSigToSwitchPrintPage_T m_switchPrintPageCb;
 
+    // Fired when an API request fails at the transport level, so a dead network or a
+    // rejected token surfaces instead of the app silently doing nothing.
+    sendSigHttpError_T m_httpErrorCb;
+
     // Camera video (Stage 2): callbacks the UI registers + live-session state.
     SnImgCallBackFunc m_videoFrameCb;
     SnCallBackFunc m_videoInitedCb;
