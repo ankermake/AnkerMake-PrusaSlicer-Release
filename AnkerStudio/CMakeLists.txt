@@ -8,7 +8,7 @@ include(CMakeDependentOption)
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
 # include(ConfigureAllModules)
 
-set(OPEN_SOURCE OFF)
+set(OPEN_SOURCE ON)
 
 set(SLIC3R_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 file(TO_NATIVE_PATH "${SLIC3R_RESOURCES_DIR}" SLIC3R_RESOURCES_DIR_WIN)
@@ -346,6 +346,16 @@ endif ()
 if (APPLE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror=partial-availability -Werror=unguarded-availability -Werror=unguarded-availability-new")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=partial-availability -Werror=unguarded-availability -Werror=unguarded-availability-new")
+    # Newer libc++ (macOS 15+ SDKs) fully removes std::unary_function/binary_function
+    # unless explicitly re-enabled; Boost 1.78 still relies on them.
+    add_definitions(-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION)
+    # Boost's exported CMake config links "-lzstd" as a bare linker flag (not resolved via
+    # find_library), so the Homebrew lib directory needs to be on the linker search path.
+    if (EXISTS /opt/homebrew/lib)
+        link_directories(/opt/homebrew/lib)
+    elseif (EXISTS /usr/local/lib)
+        link_directories(/usr/local/lib)
+    endif ()
 endif ()
 
 # Where all the bundled libraries reside?
@@ -454,6 +464,10 @@ find_package(CURL REQUIRED)
 
 add_library(libcurl INTERFACE)
 target_link_libraries(libcurl INTERFACE CURL::libcurl)
+
+find_package(OpenSSL REQUIRED)
+add_library(libopenssl INTERFACE)
+target_link_libraries(libopenssl INTERFACE OpenSSL::SSL OpenSSL::Crypto)
 
 # Fixing curl's cmake config script bugs
 if (NOT WIN32)

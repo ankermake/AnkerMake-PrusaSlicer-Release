@@ -24,3 +24,15 @@ Common subdirectories: ../libpng-1.6.35-orig/powerpc and ./powerpc
 Common subdirectories: ../libpng-1.6.35-orig/projects and ./projects
 Common subdirectories: ../libpng-1.6.35-orig/scripts and ./scripts
 Common subdirectories: ../libpng-1.6.35-orig/tests and ./tests
+diff -u ../libpng-1.6.35-orig/pngpriv.h ./pngpriv.h
+--- ../libpng-1.6.35-orig/pngpriv.h	2018-07-15 20:58:00.000000000 +0200
++++ ./pngpriv.h	2026-07-11 15:00:00.000000000 +0100
+@@ -515,7 +515,7 @@
+ #  include <float.h>
+ 
+ #  if (defined(__MWERKS__) && defined(macintosh)) || defined(applec) || \
+-    defined(THINK_C) || defined(__SC__) || defined(TARGET_OS_MAC)
++    defined(THINK_C) || defined(__SC__)
+    /* We need to check that <math.h> hasn't already been included earlier
+     * as it seems it doesn't agree with <fp.h>, yet we should really use
+     * <fp.h> if possible.

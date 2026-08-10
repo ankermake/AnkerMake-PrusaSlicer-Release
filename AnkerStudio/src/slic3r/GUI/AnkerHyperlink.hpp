@@ -11,15 +11,6 @@ enum TextAlignType {
 	ALIGN_RIGHT
 };
 
-
-#define CustomActionFun std::function<void()>
-
-enum TextAlignType {
-	ALIGN_LEFT,
-	ALIGN_CENTER,
-	ALIGN_RIGHT
-};
-
 class AnkerHyperlink : public wxControl
 {
 	DECLARE_DYNAMIC_CLASS(AnkerHyperlink)

@@ -8985,7 +8985,8 @@ namespace Slic3r {
                 buryMap.insert(std::make_pair(c_hm_error_code, errorCode));
                 buryMap.insert(std::make_pair(c_hm_error_msg, errorMsg));
                 ANKER_LOG_INFO << "Report bury event is " << e_hanlde_model;
-                return; 
+                return;
+            }
             wxString path = p->get_export_file(FT_OBJECT);
             const std::string path_u8 = into_u8(path);
             if (path.empty()) { 
@@ -9424,6 +9425,7 @@ namespace Slic3r {
                 p->report_slicing_buryevt("start", "-1", "milliseconds timeout!");
 
                 return;
+            }
             unsigned int state = this->p->update_background_process(true);
             if (state & priv::UPDATE_BACKGROUND_PROCESS_REFRESH_SCENE)
                 this->p->view3D->reload_scene(false);

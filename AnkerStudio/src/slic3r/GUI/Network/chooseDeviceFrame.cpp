@@ -736,34 +736,11 @@ void AnkerChooseDevicePanel::OnOkBtnClicked(wxCommandEvent& event)
 	if (deviceObject != nullptr) {
 		deviceObject->AsyQueryAllInfo();
 		if (!deviceObject->GetTransfering()) {
-			// non V6 printer should not do CheckHint here
-			if (deviceObject->GetDevicePartsType() == DEVICE_PARTS_NO)
-			{
-				PrintCheckHint printCheckHint;
-				if (printCheckHint.CheckNeedRemind(deviceObject, ankerNet->GetGcodePath())) {
-					wxDialog* parent = dynamic_cast<wxDialog*>(GetParent());
-
-					wxSize childSize = AnkerSize(400, 200);
-					wxPoint childPos = wxDefaultPosition;
-					// popup in the center of parent
-					if (parent) {
-						wxPoint parentCenterPoint(parent->GetPosition().x + parent->GetSize().GetWidth() / 2,
-							parent->GetPosition().y + parent->GetSize().GetHeight() / 2);
-						childPos = wxPoint(parentCenterPoint.x - childSize.x / 2,
-							parentCenterPoint.y - childSize.y / 2);
-						parent->EndModal(wxID_OK);
-					}
-
-					printCheckHint.SetFuncs([&printCheckHint, sn](const std::string& sn2) {
-						if (printCheckHint.Type() == PrintCheckHint::HintType::NEED_LEVEL) {
-							DatamangerUi::GetInstance().sendSigToSwitchPrintPage(sn);
-						}
-						});
-					if (!printCheckHint.Hint(deviceObject, nullptr, childSize, childPos)) {
-						return;
-					}
-				}
-			}
+			// The pre-print reminder (bed level / calibration) used to fire here for
+			// non-V6 printers. The Print button is the single commit point in this
+			// fork, so the job goes straight to the printer instead of stopping for a
+			// second confirmation -- that popup could also silently abort the send when
+			// dismissed, after the chooser had already closed with wxID_OK.
 
 			//V6 printer should show material mapping dialog 
 			if (deviceObject->GetDevicePartsType() == DEVICE_PARTS_MULTI_COLOR)

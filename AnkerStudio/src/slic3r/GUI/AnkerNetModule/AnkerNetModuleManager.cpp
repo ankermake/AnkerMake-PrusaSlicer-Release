@@ -485,7 +485,18 @@ bool AnkerNetModuleManager::LoadLibrary(wxWindow* pWindow, bool silence)
 	if (loadRet == LoadRet::Success) {
 		return true;
 	}
-	// 2.unzip copy and load
+
+	// 2.this fork always ships its own native arm64 plugin inside the bundle, so
+	//   install that before considering anything downloaded. Upstream only reaches
+	//   MostInNeed() as a last resort after the download, which meant a first launch
+	//   always prompted to install a plugin we already have -- and UnzipCopyLoad()
+	//   below would first delete our good plugin to make room for an x86_64 one that
+	//   cannot load into this process at all.
+	if (MostInNeed()) {
+		return true;
+	}
+
+	// 3.unzip copy and load
 	if (UnzipCopyLoad() == DownloadResult::Success) {
 		return true;
 	}

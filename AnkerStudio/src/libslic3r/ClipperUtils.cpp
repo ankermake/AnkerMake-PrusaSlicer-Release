@@ -775,14 +775,11 @@ Slic3r::ExPolygons union_ex(const Slic3r::ExPolygons& poly1, const Slic3r::ExPol
     return union_ex(expolys);
 }
 
-<<<<<<< HEAD
 Slic3r::ExPolygons union_ex(const Slic3r::ExPolygons& subject, const Slic3r::Polygons& subject2)
 {
     return PolyTreeToExPolygons(clipper_do_polytree(ClipperLib::ctUnion, ClipperUtils::ExPolygonsProvider(subject), ClipperUtils::PolygonsProvider(subject2), ClipperLib::pftNonZero));
 }
 
-=======
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 Slic3r::ExPolygons xor_ex(const Slic3r::ExPolygons& subject, const Slic3r::ExPolygon& clip, ApplySafetyOffset do_safety_offset) {
     return _clipper_ex(ClipperLib::ctXor, ClipperUtils::ExPolygonsProvider(subject), ClipperUtils::ExPolygonProvider(clip), do_safety_offset);
 }

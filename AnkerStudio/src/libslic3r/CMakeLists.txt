@@ -34,8 +34,8 @@ set(SLIC3R_SOURCES
     BuildVolume.cpp
     BuildVolume.hpp
     BoostAdapter.hpp
-    Calib.hpp
-    Calib.cpp
+    calib.hpp
+    calib.cpp
     clipper.cpp
     clipper.hpp
     ClipperUtils.cpp
@@ -519,6 +519,7 @@ target_link_libraries(libslic3r
     ZLIB::ZLIB
 	JPEG::JPEG
     qoi
+    libopenssl
     )
 
 if (APPLE)

@@ -85,13 +85,9 @@ namespace Slic3r {
     struct GCodeProcessorResultExt {
         std::string base64_str;
         std::string speed;
-<<<<<<< HEAD
         std::string filament_used_weight_g;
         std::string filament_used_length_mm;
         std::string filament_used_cost;
-=======
-        std::string filament_cost;
->>>>>>> 84b4984 (feat: 1.5.21 open source)
         std::array<float, 3> boxSize;
         float print_time;
 
@@ -888,11 +884,8 @@ namespace Slic3r {
         bool detect_thumbnail_end(std::string_view line_str, const std::string& format_str, bool has_searched_tag);
         bool search_for_speed_target(std::string_view line_str, std::string& speed);
         bool search_for_obj_size(std::string_view line_str, std::array<float, 3>& boxSize);
-<<<<<<< HEAD
         bool search_for_filament_weight_target(std::string_view line_str, std::string& filament_weight);
         bool search_for_filament_length_target(std::string_view line_str, std::string& filament_length);
-=======
->>>>>>> 84b4984 (feat: 1.5.21 open source)
         bool search_for_filament_cost_target(std::string_view line_str, std::string& filament_cost);
         bool search_for_print_time_target(std::string_view line_str, float& print_time);
    };

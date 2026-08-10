@@ -21,3 +21,80 @@ diff -u ../boost_1_75_0-orig/boost/rational.hpp ./boost/rational.hpp
      BOOST_CXX14_CONSTEXPR typename boost::enable_if_c<rational_detail::is_compatible_integer<T, IntType>::value, rational&>::type operator/= (const T& i)
      {
         // Avoid repeated construction
+diff -u ../boost_1_78_0-orig/boost/date_time/posix_time/posix_time_duration.hpp ./boost/date_time/posix_time/posix_time_duration.hpp
+--- ../boost_1_78_0-orig/boost/date_time/posix_time/posix_time_duration.hpp	2018-07-15 20:58:00.000000000 +0200
++++ ./boost/date_time/posix_time/posix_time_duration.hpp	2026-07-11 15:00:00.000000000 +0100
+@@ -28,7 +28,7 @@
+       template <typename T>
+       BOOST_CXX14_CONSTEXPR explicit hours(T const& h,
+           typename boost::enable_if<boost::is_integral<T>, void>::type* = BOOST_DATE_TIME_NULLPTR) :
+-      time_duration(numeric_cast<hour_type>(h), 0, 0)
++      time_duration(static_cast<hour_type>(h), 0, 0)
+     {}
+   };
+ 
+@@ -42,7 +42,7 @@
+       template <typename T>
+       BOOST_CXX14_CONSTEXPR explicit minutes(T const& m,
+           typename boost::enable_if<boost::is_integral<T>, void>::type* = BOOST_DATE_TIME_NULLPTR) :
+-      time_duration(0, numeric_cast<min_type>(m),0)
++      time_duration(0, static_cast<min_type>(m),0)
+     {}
+   };
+ 
+@@ -56,7 +56,7 @@
+       template <typename T>
+       BOOST_CXX14_CONSTEXPR explicit seconds(T const& s,
+           typename boost::enable_if<boost::is_integral<T>, void>::type* = BOOST_DATE_TIME_NULLPTR) :
+-      time_duration(0,0, numeric_cast<sec_type>(s))
++      time_duration(0,0, static_cast<sec_type>(s))
+     {}
+   };
+diff -u ../boost_1_78_0-orig/boost/numeric/conversion/int_float_mixture_enum.hpp ./boost/numeric/conversion/int_float_mixture_enum.hpp
+--- ../boost_1_78_0-orig/boost/numeric/conversion/int_float_mixture_enum.hpp	2018-07-15 20:58:00.000000000 +0200
++++ ./boost/numeric/conversion/int_float_mixture_enum.hpp	2026-07-11 15:00:00.000000000 +0100
+@@ -12,7 +12,7 @@
+ 
+ namespace boost { namespace numeric
+ {
+-  enum int_float_mixture_enum
++  enum int_float_mixture_enum : int
+   {
+      integral_to_integral
+     ,integral_to_float
+diff -u ../boost_1_78_0-orig/boost/log/utility/strictest_lock.hpp ./boost/log/utility/strictest_lock.hpp
+--- ../boost_1_78_0-orig/boost/log/utility/strictest_lock.hpp	2018-07-15 20:58:00.000000000 +0200
++++ ./boost/log/utility/strictest_lock.hpp	2026-07-11 15:00:00.000000000 +0100
+@@ -56,7 +56,7 @@
+ BOOST_LOG_OPEN_NAMESPACE
+ 
+ //! Access modes for different types of locks
+-enum lock_access_mode
++enum lock_access_mode : int
+ {
+     unlocked_access,    //!< A thread that owns this kind of lock doesn't restrict other threads in any way
+     shared_access,      //!< A thread that owns this kind of lock requires that no other thread modify the locked data
+diff -u ../boost_1_78_0-orig/boost/numeric/conversion/sign_mixture_enum.hpp ./boost/numeric/conversion/sign_mixture_enum.hpp
+--- ../boost_1_78_0-orig/boost/numeric/conversion/sign_mixture_enum.hpp	2018-07-15 20:58:00.000000000 +0200
++++ ./boost/numeric/conversion/sign_mixture_enum.hpp	2026-07-11 15:00:00.000000000 +0100
+@@ -12,7 +12,7 @@
+ 
+ namespace boost { namespace numeric
+ {
+-  enum sign_mixture_enum
++  enum sign_mixture_enum : int
+   {
+      unsigned_to_unsigned
+     ,signed_to_signed
+diff -u ../boost_1_78_0-orig/boost/numeric/conversion/udt_builtin_mixture_enum.hpp ./boost/numeric/conversion/udt_builtin_mixture_enum.hpp
+--- ../boost_1_78_0-orig/boost/numeric/conversion/udt_builtin_mixture_enum.hpp	2018-07-15 20:58:00.000000000 +0200
++++ ./boost/numeric/conversion/udt_builtin_mixture_enum.hpp	2026-07-11 15:00:00.000000000 +0100
+@@ -12,7 +12,7 @@
+ 
+ namespace boost { namespace numeric
+ {
+-  enum udt_builtin_mixture_enum
++  enum udt_builtin_mixture_enum : int
+   {
+      builtin_to_builtin
+     ,builtin_to_udt

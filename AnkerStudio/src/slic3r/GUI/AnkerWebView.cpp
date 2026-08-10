@@ -70,7 +70,7 @@ AnkerWebView::~AnkerWebView()
 	m_loadTimer = nullptr;
 
 	ANKER_LOG_INFO << "end webview destroy";
-{
+
 	if (m_forceClose) return;
 	if (!m_webBegin)
 		return;
@@ -85,6 +85,24 @@ AnkerWebView::~AnkerWebView()
 #endif
 		});
 	}		
+}
+
+void AnkerWebView::onLogOut()
+{
+	if (m_forceClose) return;
+	if (!m_webBegin)
+		return;
+
+	if (m_webView)
+	{
+		CallAfter([=] {
+#ifdef _WIN32
+			m_webView->RunScript("localStorage.clear();");
+#else
+			m_webView->RunScriptAsync("localStorage.clear();");
+#endif
+		});
+	}
 }
 
 void AnkerWebView::SendMsgToWeb(const wxString& msg)
@@ -350,7 +368,7 @@ void AnkerWebView::initUi()
 
 	if (m_webView)
 	{
-		//m_webView->EnableContextMenu(true);
+		m_webView->EnableContextMenu(true);
 		//m_webView->EnableAccessToDevTools();
 		m_webView->SetBackgroundColour(wxColour("#111111"));
 		m_webView->AlwaysShowScrollbars(false, false);

@@ -1056,11 +1056,7 @@ static void output_config_diff(const boost::filesystem::path& output_path, const
 {
     try
     {
-<<<<<<< HEAD
         if (!boost::filesystem::exists(TEST_FLAG_PATH) || diff_keys.size() < 1) {
-=======
-        if (diff_keys.size() < 1) {
->>>>>>> 84b4984 (feat: 1.5.21 open source)
             return;
         }
 
@@ -1119,14 +1115,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         full_config_diff.clear();
 
     //Add Preset diff output to file by Galen Xiao,2023/09/06
-<<<<<<< HEAD
     output_config_diff(TEST_FLAG_PATH, new_full_config, full_config_diff);
-=======
-    boost::filesystem::path test_flag_path = boost::filesystem::temp_directory_path() / "anker_studio_test.config";
-    if (boost::filesystem::exists(test_flag_path)){
-        output_config_diff(test_flag_path, new_full_config, full_config_diff);
-    }
->>>>>>> 84b4984 (feat: 1.5.21 open source)
 
     // Collect changes to object and region configs.
     t_config_option_keys object_diff      = m_default_object_config.diff(new_full_config);

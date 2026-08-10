@@ -21,7 +21,7 @@
 #
 
 project(AnkerStudio-deps)
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.5)
 
 include(ExternalProject)
 include(ProcessorCount)
@@ -91,6 +91,7 @@ function(prusaslicer_add_cmake_project projectname)
             -DCMAKE_MODULE_PATH:STRING=${PROJECT_SOURCE_DIR}/../cmake/modules
             -DCMAKE_PREFIX_PATH:STRING=${DESTDIR}/usr/local
             -DCMAKE_DEBUG_POSTFIX:STRING=d
+            -DCMAKE_POLICY_VERSION_MINIMUM:STRING=3.5
             -DCMAKE_C_COMPILER:STRING=${CMAKE_C_COMPILER}
             -DCMAKE_CXX_COMPILER:STRING=${CMAKE_CXX_COMPILER}
             -DCMAKE_TOOLCHAIN_FILE:STRING=${CMAKE_TOOLCHAIN_FILE}

@@ -363,19 +363,19 @@ void MainFrame::ShowUnLoginDevice()
     }
 }
 
-void MainFrame::ShowUnLoginMenu()
+void MainFrame::ShowUnLoginMenu(bool dropSession)
 {
     ShowUnLoginDevice();
-    
+
 	if (!m_pLoginMenu)
 		return;
 
     ClearLoingiMenu();
 
     auto ankerNet = AnkerNetInst();
-    if (ankerNet) {
+    if (ankerNet && dropSession) {
         ankerNet->logout();
-    }    
+    }
    
     updateCurrentEnvironment();
 
@@ -2612,13 +2612,30 @@ void MainFrame::InitAnkerDevice()
             wxCommandEvent evt = wxCommandEvent(wxCUSTOMEVT_ON_TAB_CHANGE);
             evt.SetId(type_devcie);
             wxPostEvent(m_pFunctionPanel, evt);
-            //change  Tab  to device 
+            //change  Tab  to device
             if (wxGetApp().mainframe != nullptr)
             {
                 wxGetApp().mainframe->setTabMode(TAB_DEVICE);
             }
         }
         });
+
+    // Default the startup view to the Device tab (rather than Slice/Plater).
+    // Deferred so it runs once the tab panel and its page-changed handler are
+    // fully wired; the Device page is the last page in m_printTabPanel.
+    CallAfter([this]() {
+        if (!m_printTabPanel)
+            return;
+        int pageCount = m_printTabPanel->GetPageCount();
+        if (pageCount <= 0)
+            return;
+        m_printTabPanel->SetSelection(pageCount - 1);
+        setTabMode(TAB_DEVICE);
+        wxCommandEvent evt(wxCUSTOMEVT_ON_TAB_CHANGE);
+        evt.SetId(type_devcie);
+        if (m_pFunctionPanel)
+            wxPostEvent(m_pFunctionPanel, evt);
+    });
 }
 
 void MainFrame::create_preset_tabs()
@@ -4070,7 +4087,21 @@ void MainFrame::init_menubar_as_editor()
     m_menubar->Append(helpMenu, _L("common_menu_title_help"));
     
     m_pLoginMenu = new wxMenu();
-    ShowUnLoginMenu();
+    {
+        // The plugin restores any persisted session in its Init(), which has already
+        // run by this point. Populate the account menu to match, and never log out
+        // here -- that would delete the cached login on every launch.
+        auto ankerNet = AnkerNetInst();
+        if (ankerNet && ankerNet->IsLogined()) {
+            // ShowUnLoginMenu() does these two on the logged-out path.
+            updateCurrentEnvironment();
+            updateBuryInfo();
+            ShowLoginedMenu();
+        }
+        else {
+            ShowUnLoginMenu(false);
+        }
+    }
     m_menubar->Append(m_pLoginMenu, _L("common_menu_account"));
 
 #ifdef _MSW_DARK_MODE
